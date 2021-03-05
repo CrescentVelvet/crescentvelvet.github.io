@@ -11,7 +11,7 @@ encrypted_text: true
 permalink: /
 ---
 
-# Enjoy A Cup of Afternoon Tea!
+# 个人主页
 
 <!-- ##  Features
 * Highly customizable, content-oriented with The Matrix style
