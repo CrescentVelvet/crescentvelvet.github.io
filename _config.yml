@@ -1,7 +1,7 @@
 ## Settings
-title: cjamessmith
-owner: "afternoon-tea"
-url: "https://cjamessmith.github.io"
+title: CrescentVelvet
+owner: "CrescentVelvet"
+url: "https://crescentvelvet.github.io"
 baseurl: ""
 permalink: /:title/
 description: ""
@@ -10,8 +10,8 @@ webrick:
   headers:
     Access-Control-Allow-Origin: "*"
 ## Global Variables
-email: "severuschen2000@gmail.com"
-github: "cJamesSmith"
+email: "crescentvelvet3@gmail.com"
+github: "CrescentVelvet"
 # path to: css/, fonts/, img/ and js/
 assets_path: "/assets" # i.e. "/assets" 
 statement: "Designed by afternoon-tea, All Rights Reserved"
