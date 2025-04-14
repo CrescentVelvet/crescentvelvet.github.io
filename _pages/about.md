@@ -1,12 +1,17 @@
 ---
 permalink: /
-title: "三维人脸风格化可控编辑"
-# excerpt: "关于"
+title: "网页"
+excerpt: "关于"
 author_profile: false
 redirect_from: 
   - /about/
   - /about.html
 ---
+# 欢迎来到我的网站
+
+这里是地图页面，点击下面的链接可以体验大模型对话功能。
+
+[开始对话](pages/chat)
 
 # 三维人脸风格化可控编辑
 
