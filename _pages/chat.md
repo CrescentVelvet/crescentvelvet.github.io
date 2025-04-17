@@ -204,6 +204,20 @@ title: "聊天页面"
     flex-direction: column;
   }
 
+  #chat-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+
+  #chat-messages {
+    border: 1px solid #ccc;
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px;
+    margin-bottom: 10px;
+  }
+
   /* 移动端样式优化 */
   @media (max-width: 768px) {
     #main-container {
@@ -221,37 +235,19 @@ title: "聊天页面"
       padding: 10px;
     }
 
+    #chat-container {
+      flex: 1;
+    }
+
     #chat-messages {
       height: 60vh;
     }
-  }
 
-  #chat-container {
-    flex: 1;
-    max-width: none;
-  }
-
-  #chat-messages {
-    border: 1px solid #ccc;
-    height: 80vh;
-    overflow-y: auto;
-    padding: 10px;
-    margin-bottom: 10px;
-  }
-
-  .message {
-    margin-bottom: 5px;
-    padding: 5px;
-    border-radius: 5px;
-  }
-
-  .user {
-    background-color: #e3f2fd;
-    text-align: right;
-  }
-
-  .bot {
-    background-color: #f1f8e9;
+    #user-input,
+    #send-button,
+    #clear-history {
+      margin-top: 5px;
+    }
   }
 
   /* 为下拉菜单添加样式 */
@@ -260,10 +256,35 @@ title: "聊天页面"
     padding: 5px;
   }
 
+  /* 统一按钮样式 */
+  #send-button,
   #clear-history,
   #clear-all-history {
     margin-top: 10px;
-    padding: 5px 10px;
+    padding: 10px 20px; /* 统一内边距 */
+    border: none; /* 去除边框 */
+    border-radius: 20px; /* 圆角矩形 */
+    cursor: pointer; /* 鼠标悬停显示手型 */
+    font-size: 14px; /* 统一字体大小 */
+    transition: opacity 0.3s; /* 添加透明度过渡效果 */
+  }
+
+  #send-button {
+    background-color: #4CAF50; /* 绿色背景 */
+    color: white; /* 白色文字 */
+  }
+
+  #clear-history,
+  #clear-all-history {
+    background-color:rgb(244, 139, 54); /* 红色背景 */
+    color: white; /* 白色文字 */
+  }
+
+  /* 按钮悬停效果 */
+  #send-button:hover,
+  #clear-history:hover,
+  #clear-all-history:hover {
+    opacity: 0.8; /* 悬停时透明度降低 */
   }
 
   .history-item {
