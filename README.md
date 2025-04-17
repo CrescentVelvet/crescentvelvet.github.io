@@ -28,3 +28,4 @@
 6. 运行 `gem install tzinfo-data`来安装宝石解决时区信息缺失
 7. 运行 `bundle exec jekyll serve`来生成HTML
 8. 打开浏览器，访问 [http://localhost:4000](http://localhost:4000) 查看网页
+9. 修改代码可以实时预览网页

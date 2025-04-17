@@ -5,6 +5,13 @@ title: "聊天页面"
 ---
 
 <div id="chat-container">
+  <!-- 大模型选择下拉菜单 -->
+  <select id="model-select">
+    <option value="Qwen/Qwen2.5-72B-Instruct" selected>Qwen2.5-72B-Instruct</option>
+    <option value="Pro/deepseek-ai/DeepSeek-V3" selected>Pro/deepseek-ai/DeepSeek-V3</option>
+    <!-- 可添加更多模型选项 -->
+    <option value="another-model">另一个模型</option>
+  </select>
   <!-- 对话消息显示区域 -->
   <div id="chat-messages"></div>
   <!-- 输入框 -->
@@ -18,6 +25,7 @@ title: "聊天页面"
   const chatMessages = document.getElementById('chat-messages');
   const userInput = document.getElementById('user-input');
   const sendButton = document.getElementById('send-button');
+  const modelSelect = document.getElementById('model-select'); // 获取模型选择下拉菜单
 
   // 发送消息函数
   function sendMessage() {
@@ -27,28 +35,29 @@ title: "聊天页面"
     // 显示用户消息
     appendMessage('user', message);
 
-    // 调用 API
+    const selectedModel = modelSelect.value; // 获取选中的模型
+
     fetch('https://api.siliconflow.cn/v1/chat/completions', {
-    method: 'POST',
-    headers: {
+      method: 'POST',
+      headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer sk-uaqwrwlwdbconrtgnybuseuzrejvjjymexblmbeedimdrncl'
-    },
-    body: JSON.stringify({
-        model: 'Qwen/Qwen2.5-72B-Instruct',
+      },
+      body: JSON.stringify({
+        // 使用选中的模型
+        model: selectedModel,
         messages: [
-        {
+          {
             role: 'user',
             content: message
-        }
+          }
         ]
-    })
+      })
     })
     .then(response => response.json())
     .then(data => {
-    appendMessage('bot', data.choices[0].message.content);
+      appendMessage('bot', data.choices[0].message.content);
     })
-
     .catch(error => {
       console.error('Error:', error);
       appendMessage('bot', '抱歉，发生错误，请稍后再试。');
@@ -102,5 +111,11 @@ title: "聊天页面"
 
   .bot {
     background-color: #f1f8e9;
+  }
+
+  /* 为下拉菜单添加样式 */
+  #model-select {
+    margin-bottom: 10px;
+    padding: 5px;
   }
 </style>
