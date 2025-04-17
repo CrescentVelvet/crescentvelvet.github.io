@@ -2,12 +2,9 @@
 
 ## 云端运行
 
-1. 建立GitHub账户
-2. Fork [本仓库](https://github.com/academicpages/academicpages.github.io) 
-3. 在设置中将本仓库重命名为 "crescentvelvet.github.io", 这将成为你的个人主页的URL.
-4. 修改网站设置_config.yaml，页面设置_data\navigation.yml
-5. 在_pages\about.md中撰写Markdown页面内容
-6. 在浏览器中打开[crescentvelvet.github.io](crescentvelvet.github.io)即可查看网页
+1. 修改网站设置_config.yaml，页面设置_data\navigation.yml
+2. 在_pages\about.md中撰写Markdown格式的网页内容
+3. 在浏览器中打开[crescentvelvet.github.io](crescentvelvet.github.io)即可查看网页
 
 ## Ubuntu本地运行
 
