@@ -93,10 +93,14 @@ title: "聊天页面"
     const message = userInput.value;
     if (message.trim() === '') return;
 
+    console.log('准备发送消息:', message); // 添加日志
+
     // 显示用户消息
     appendMessage('user', message);
 
     const selectedModel = modelSelect.value; // 获取选中的模型
+
+    console.log('选中的模型:', selectedModel); // 添加日志
 
     fetch('https://api.siliconflow.cn/v1/chat/completions', {
       method: 'POST',
@@ -116,16 +120,19 @@ title: "聊天页面"
       })
     })
     .then(response => {
+      console.log('响应状态:', response.status); // 添加日志
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       return response.json();
     })
     .then(data => {
+      console.log('响应数据:', data); // 添加日志
       appendMessage('bot', data.choices[0].message.content);
     })
     .catch(error => {
       console.error('Fetch error:', error);
+      console.log('完整错误信息:', error.stack);
       appendMessage('bot', '抱歉，发生错误，请稍后再试。');
     });
 
@@ -270,7 +277,7 @@ title: "聊天页面"
   }
 
   #send-button {
-    background-color: #4CAF50; /* 绿色背景 */
+    background-color:rgb(81, 238, 152); /* 绿色背景 */
     color: white; /* 白色文字 */
   }
 
