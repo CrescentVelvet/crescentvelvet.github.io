@@ -7,14 +7,13 @@ redirect_from:
   - /about/
   - /about.html
 ---
-<!-- <!DOCTYPE html> -->
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>欢迎来到我的网站</title>
     <style>
-        /* 水波纹容器样式 */
         #ripple-container {
             position: fixed;
             top: 0;
@@ -25,21 +24,46 @@ redirect_from:
             z-index: 9999;
         }
 
-        /* 水波纹样式 */
         .ripple {
             position: absolute;
             border-radius: 50%;
             background-color: rgba(0, 0, 0, 0.1);
             width: 0;
             height: 0;
-            transform: translate(-50%, -50%); /* 使水波纹中心位于点击位置 */
+            transform: translate(-50%, -50%);
+            -webkit-animation: rippleEffect 1s ease-out;
+            -moz-animation: rippleEffect 1s ease-out;
+            -o-animation: rippleEffect 1s ease-out;
             animation: rippleEffect 1s ease-out;
         }
 
-        /* 水波纹动画 */
+        @-webkit-keyframes rippleEffect {
+            to {
+                width: 200px;
+                height: 200px;
+                opacity: 0;
+            }
+        }
+
+        @-moz-keyframes rippleEffect {
+            to {
+                width: 200px;
+                height: 200px;
+                opacity: 0;
+            }
+        }
+
+        @-o-keyframes rippleEffect {
+            to {
+                width: 200px;
+                height: 200px;
+                opacity: 0;
+            }
+        }
+
         @keyframes rippleEffect {
             to {
-                width: 200px; /* 最终扩散大小，可按需调整 */
+                width: 200px;
                 height: 200px;
                 opacity: 0;
             }
@@ -58,36 +82,32 @@ redirect_from:
     <p>分割线</p>
     <hr>
     <script>
-        const rippleContainer = document.getElementById('ripple-container');
+        document.addEventListener('DOMContentLoaded', function() {
+            const rippleContainer = document.getElementById('ripple-container');
 
-        // 鼠标点击事件处理函数
-        function createRipple(event) {
-            const ripple = document.createElement('div');
-            ripple.classList.add('ripple');
+            function createRipple(event) {
+                const ripple = document.createElement('div');
+                ripple.classList.add('ripple');
 
-            // 设置水波纹位置
-            const x = event.clientX;
-            const y = event.clientY;
-            ripple.style.left = `${x}px`;
-            ripple.style.top = `${y}px`;
+                const x = event.clientX;
+                const y = event.clientY;
+                ripple.style.left = `${x}px`;
+                ripple.style.top = `${y}px`;
 
-            // 添加水波纹元素到容器
-            rippleContainer.appendChild(ripple);
+                rippleContainer.appendChild(ripple);
 
-            // 动画结束后移除水波纹元素
-            ripple.addEventListener('animationend', () => {
-                ripple.remove();
-            });
-        }
+                ripple.addEventListener('animationend', () => {
+                    ripple.remove();
+                });
+            }
 
-        // 监听鼠标点击事件
-        document.addEventListener('click', createRipple);
+            document.addEventListener('click', createRipple);
 
-        // 监听触摸屏点击事件
-        document.addEventListener('touchstart', (event) => {
-            const touch = event.touches[0];
-            createRipple(touch);
-        }, { passive: true });
+            document.addEventListener('touchstart', (event) => {
+                const touch = event.touches[0];
+                createRipple(touch);
+            }, { passive: true });
+        });
     </script>
 </body>
 </html>
