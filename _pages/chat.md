@@ -32,163 +32,176 @@ title: "聊天页面"
 </div>
 
 <script>
-  // 获取 DOM 元素
-  const chatMessages = document.getElementById('chat-messages');
-  const userInput = document.getElementById('user-input');
-  const sendButton = document.getElementById('send-button');
-  const modelSelect = document.getElementById('model-select');
-  const clearHistoryButton = document.getElementById('clear-history');
-  const historyList = document.getElementById('history-list');
-  const clearAllHistoryButton = document.getElementById('clear-all-history');
+// 确保 DOM 加载完成后执行代码
+document.addEventListener('DOMContentLoaded', function() {
+  try {
+    // 获取 DOM 元素
+    const chatMessages = document.getElementById('chat-messages');
+    const userInput = document.getElementById('user-input');
+    const sendButton = document.getElementById('send-button');
+    const modelSelect = document.getElementById('model-select');
+    const clearHistoryButton = document.getElementById('clear-history');
+    const historyList = document.getElementById('history-list');
+    const clearAllHistoryButton = document.getElementById('clear-all-history');
 
-  let currentChatId = Date.now();
-  let chatSessions = JSON.parse(localStorage.getItem('chatSessions')) || {};
-
-  // 加载历史记录
-  function loadHistory() {
-    historyList.innerHTML = '';
-    Object.entries(chatSessions).forEach(([chatId, session]) => {
-      const historyItem = document.createElement('div');
-      historyItem.classList.add('history-item');
-      historyItem.dataset.chatId = chatId;
-      historyItem.innerHTML = `
-        <h4>${session.title}</h4>
-        <p>${new Date(chatId).toLocaleString()}</p>
-      `;
-      historyItem.addEventListener('click', () => loadSession(chatId));
-      historyList.appendChild(historyItem);
-    });
-  }
-
-  // 加载会话
-  function loadSession(chatId) {
-    currentChatId = chatId;
-    chatMessages.innerHTML = chatSessions[chatId].messages;
-    chatMessages.scrollTop = chatMessages.scrollHeight;
-  }
-
-  // 保存当前会话
-  function saveSession() {
-    const title = chatSessions[currentChatId]?.title || generateTitle();
-    chatSessions[currentChatId] = {
-      title,
-      messages: chatMessages.innerHTML
-    };
-    localStorage.setItem('chatSessions', JSON.stringify(chatSessions));
-    loadHistory();
-  }
-
-  // 生成会话标题
-  function generateTitle() {
-    const userMessages = Array.from(chatMessages.querySelectorAll('.user'));
-    if (userMessages.length > 0) {
-      const firstMessage = userMessages[0].textContent;
-      return firstMessage.substring(0, 20) + (firstMessage.length > 20 ? '...' : '');
+    // 检查元素是否成功获取
+    if (!chatMessages || !userInput || !sendButton || !modelSelect || !clearHistoryButton || !historyList || !clearAllHistoryButton) {
+      console.error('部分 DOM 元素获取失败，请检查 HTML 结构');
+      return;
     }
-    return '新会话';
-  }
 
-  // 发送消息函数
-  function sendMessage() {
-    const message = userInput.value;
-    if (message.trim() === '') return;
+    let currentChatId = Date.now();
+    let chatSessions = JSON.parse(localStorage.getItem('chatSessions')) || {};
 
-    console.log('准备发送消息:', message); // 添加日志
+    // 加载历史记录
+    function loadHistory() {
+      historyList.innerHTML = '';
+      Object.entries(chatSessions).forEach(([chatId, session]) => {
+        const historyItem = document.createElement('div');
+        historyItem.classList.add('history-item');
+        historyItem.dataset.chatId = chatId;
+        historyItem.innerHTML = `
+          <h4>${session.title}</h4>
+          <p>${new Date(chatId).toLocaleString()}</p>
+        `;
+        historyItem.addEventListener('click', () => loadSession(chatId));
+        historyList.appendChild(historyItem);
+      });
+    }
 
-    // 显示用户消息
-    appendMessage('user', message);
+    // 加载会话
+    function loadSession(chatId) {
+      currentChatId = chatId;
+      chatMessages.innerHTML = chatSessions[chatId].messages;
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
 
-    const selectedModel = modelSelect.value; // 获取选中的模型
+    // 保存当前会话
+    function saveSession() {
+      const title = chatSessions[currentChatId]?.title || generateTitle();
+      chatSessions[currentChatId] = {
+        title,
+        messages: chatMessages.innerHTML
+      };
+      localStorage.setItem('chatSessions', JSON.stringify(chatSessions));
+      loadHistory();
+    }
 
-    console.log('选中的模型:', selectedModel); // 添加日志
-
-    fetch('https://api.siliconflow.cn/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer sk-uaqwrwlwdbconrtgnybuseuzrejvjjymexblmbeedimdrncl'
-      },
-      body: JSON.stringify({
-        // 使用选中的模型
-        model: selectedModel,
-        messages: [
-          {
-            role: 'user',
-            content: message
-          }
-        ]
-      })
-    })
-    .then(response => {
-      console.log('响应状态:', response.status); // 添加日志
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+    // 生成会话标题
+    function generateTitle() {
+      const userMessages = Array.from(chatMessages.querySelectorAll('.user'));
+      if (userMessages.length > 0) {
+        const firstMessage = userMessages[0].textContent;
+        return firstMessage.substring(0, 20) + (firstMessage.length > 20 ? '...' : '');
       }
-      return response.json();
-    })
-    .then(data => {
-      console.log('响应数据:', data); // 添加日志
-      appendMessage('bot', data.choices[0].message.content);
-    })
-    .catch(error => {
-      console.error('Fetch error:', error);
-      console.log('完整错误信息:', error.stack);
-      appendMessage('bot', '抱歉，发生错误，请稍后再试。');
-    });
-
-    userInput.value = '';
-  }
-
-  // 追加消息到聊天区域
-  function appendMessage(sender, text) {
-    const messageElement = document.createElement('div');
-    messageElement.classList.add('message', sender);
-    messageElement.textContent = text;
-    chatMessages.appendChild(messageElement);
-    chatMessages.scrollTop = chatMessages.scrollHeight;
-    saveSession();
-  }
-
-  // 清除当前会话历史记录
-  function clearHistory() {
-    chatMessages.innerHTML = '';
-    currentChatId = Date.now();
-    saveSession();
-  }
-
-  // 清除全部历史记录
-  function clearAllHistory() {
-    chatSessions = {};
-    localStorage.removeItem('chatSessions');
-    chatMessages.innerHTML = '';
-    currentChatId = Date.now();
-    loadHistory();
-  }
-
-  // 页面加载时加载历史记录
-  loadHistory();
-
-  // 绑定事件
-  sendButton.addEventListener('click', sendMessage);
-  sendButton.addEventListener('touchstart', (e) => {
-    e.preventDefault(); // 阻止默认触摸行为
-    sendMessage();
-  });
-  userInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') {
-      sendMessage();
+      return '新会话';
     }
-  });
-  clearHistoryButton.addEventListener('click', clearHistory);
-  clearHistoryButton.addEventListener('touchstart', (e) => {
-    e.preventDefault();
-    clearHistory();
-  });
-  clearAllHistoryButton.addEventListener('click', clearAllHistory);
-  clearAllHistoryButton.addEventListener('touchstart', (e) => {
-    e.preventDefault();
-    clearAllHistory();
-  });
+
+    // 发送消息函数
+    function sendMessage() {
+      const message = userInput.value;
+      if (message.trim() === '') return;
+
+      console.log('准备发送消息:', message); // 添加日志
+
+      // 显示用户消息
+      appendMessage('user', message);
+
+      const selectedModel = modelSelect.value; // 获取选中的模型
+
+      console.log('选中的模型:', selectedModel); // 添加日志
+
+      fetch('https://api.siliconflow.cn/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer sk-uaqwrwlwdbconrtgnybuseuzrejvjjymexblmbeedimdrncl'
+        },
+        body: JSON.stringify({
+          // 使用选中的模型
+          model: selectedModel,
+          messages: [
+            {
+              role: 'user',
+              content: message
+            }
+          ]
+        })
+      })
+      .then(response => {
+        console.log('响应状态:', response.status); // 添加日志
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+      })
+      .then(data => {
+        console.log('响应数据:', data); // 添加日志
+        appendMessage('bot', data.choices[0].message.content);
+      })
+      .catch(error => {
+        console.error('Fetch error:', error);
+        console.log('完整错误信息:', error.stack);
+        appendMessage('bot', '抱歉，发生错误，请稍后再试。');
+      });
+
+      userInput.value = '';
+    }
+
+    // 追加消息到聊天区域
+    function appendMessage(sender, text) {
+      const messageElement = document.createElement('div');
+      messageElement.classList.add('message', sender);
+      messageElement.textContent = text;
+      chatMessages.appendChild(messageElement);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+      saveSession();
+    }
+
+    // 清除当前会话历史记录
+    function clearHistory() {
+      chatMessages.innerHTML = '';
+      currentChatId = Date.now();
+      saveSession();
+    }
+
+    // 清除全部历史记录
+    function clearAllHistory() {
+      chatSessions = {};
+      localStorage.removeItem('chatSessions');
+      chatMessages.innerHTML = '';
+      currentChatId = Date.now();
+      loadHistory();
+    }
+
+    // 页面加载时加载历史记录
+    loadHistory();
+
+    // 绑定事件
+    sendButton.addEventListener('click', sendMessage);
+    sendButton.addEventListener('touchstart', (e) => {
+      e.preventDefault(); // 阻止默认触摸行为
+      sendMessage();
+    });
+    userInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        sendMessage();
+      }
+    });
+    clearHistoryButton.addEventListener('click', clearHistory);
+    clearHistoryButton.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      clearHistory();
+    });
+    clearAllHistoryButton.addEventListener('click', clearAllHistory);
+    clearAllHistoryButton.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      clearAllHistory();
+    });
+  } catch (error) {
+    console.error('初始化脚本时出错:', error);
+  }
+});
 </script>
 
 <style>
