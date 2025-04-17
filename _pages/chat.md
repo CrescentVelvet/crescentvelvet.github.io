@@ -115,12 +115,17 @@ title: "聊天页面"
         ]
       })
     })
-    .then(response => response.json())
+    .then(response => {
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return response.json();
+    })
     .then(data => {
       appendMessage('bot', data.choices[0].message.content);
     })
     .catch(error => {
-      console.error('Error:', error);
+      console.error('Fetch error:', error);
       appendMessage('bot', '抱歉，发生错误，请稍后再试。');
     });
 
@@ -158,13 +163,25 @@ title: "聊天页面"
 
   // 绑定事件
   sendButton.addEventListener('click', sendMessage);
+  sendButton.addEventListener('touchstart', (e) => {
+    e.preventDefault(); // 阻止默认触摸行为
+    sendMessage();
+  });
   userInput.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') {
       sendMessage();
     }
   });
   clearHistoryButton.addEventListener('click', clearHistory);
+  clearHistoryButton.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    clearHistory();
+  });
   clearAllHistoryButton.addEventListener('click', clearAllHistory);
+  clearAllHistoryButton.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    clearAllHistory();
+  });
 </script>
 
 <style>
@@ -185,6 +202,28 @@ title: "聊天页面"
     padding: 20px;
     display: flex;
     flex-direction: column;
+  }
+
+  /* 移动端样式优化 */
+  @media (max-width: 768px) {
+    #main-container {
+      flex-direction: column;
+    }
+
+    #history-sidebar {
+      width: 100%;
+      border-right: none;
+      border-bottom: 1px solid #ccc;
+      max-height: 200px;
+    }
+
+    #chat-main {
+      padding: 10px;
+    }
+
+    #chat-messages {
+      height: 60vh;
+    }
   }
 
   #chat-container {
