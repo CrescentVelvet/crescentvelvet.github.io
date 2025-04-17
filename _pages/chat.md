@@ -1,6 +1,7 @@
 ---
 layout: default
-title: 大模型对话
+permalink: /chat.html
+title: "聊天页面"
 ---
 
 <div id="chat-container">
