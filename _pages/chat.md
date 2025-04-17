@@ -277,7 +277,7 @@ title: "聊天页面"
   }
 
   #send-button {
-    background-color:rgb(81, 238, 152); /* 绿色背景 */
+    background-color:rgb(100, 189, 48); /* 绿色背景 */
     color: white; /* 白色文字 */
   }
 
