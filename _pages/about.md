@@ -7,7 +7,7 @@ redirect_from:
   - /about/
   - /about.html
 ---
-<!DOCTYPE html>
+<!-- <!DOCTYPE html> -->
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
@@ -48,46 +48,15 @@ redirect_from:
 </head>
 <body>
     <div id="ripple-container"></div>
-
-    # 欢迎来到我的网站
-
-    <!-- Jekyll 默认会依据 _pages 目录里的 Markdown 文件生成对应的 HTML 文件，若 chat.md 在 _pages 目录下，通常生成的页面路径是 /chat.html -->
-
-    点击下面的链接可以体验大模型对话功能。
-
-    [大模型对话](/chat.html)
-
-    ***
-
-    点击下面的链接可以体验
-    <!-- # 三维人脸风格化可控编辑 -->
-
-    <!-- 这是一张金克斯的风格图像<br>
-    ![00033](/img/00033.jpg){:height="100px" width="100px"}
-
-    使用jojoGAN-2d生成许多张不同风格的图像<br>
-    ![00034](/img/00034.jpg){:height="100px" width="100px"}
-    ![00035](/img/00035.jpg){:height="100px" width="100px"}
-    ![10001](/img/10001.jpg){:height="100px" width="100px"}
-    ![10002](/img/10002.jpg){:height="100px" width="100px"}
-
-    这是一张迪士尼公主的风格图像<br>
-    ![01000](/img/01000.jpg){:height="100px" width="100px"}
-
-    使用jojoGAN-2d生成许多张不同风格的图像<br>
-    ![01001](/img/01001.jpg){:height="100px" width="100px"}
-    ![01002](/img/01002.jpg){:height="100px" width="100px"}
-    ![01003](/img/01003.jpg){:height="100px" width="100px"}
-    ![01004](/img/01004.jpg){:height="100px" width="100px"} -->
-
-    强调一下**几个单词**
-
-    >引用内容
-
-    分割线
-
-    ***
-
+    <h1>欢迎来到我的网站</h1>
+    <p>点击下面的链接可以体验大模型对话功能。</p>
+    <p><a href="/chat.html">大模型对话</a></p>
+    <hr>
+    <p>点击下面的链接可以体验</p>
+    <p>强调一下<strong>几个单词</strong></p>
+    <blockquote>引用内容</blockquote>
+    <p>分割线</p>
+    <hr>
     <script>
         const rippleContainer = document.getElementById('ripple-container');
 

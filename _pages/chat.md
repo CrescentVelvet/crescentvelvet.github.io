@@ -1,6 +1,6 @@
 ---
-layout: default
 permalink: /chat.html
+layout: default
 title: "聊天页面"
 ---
 
