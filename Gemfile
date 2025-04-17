@@ -11,6 +11,9 @@ source "https://rubygems.org"
 
 gem "github-pages", group: :jekyll_plugins
 
+# 添加 tzinfo-data 宝石
+gem 'tzinfo-data', platforms: [:mingw, :mswin, :x64_mingw, :jruby]
+
 # If you want to use Jekyll native, uncomment the line below.
 # To upgrade, run `bundle update`.
 
