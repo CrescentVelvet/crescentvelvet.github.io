@@ -160,6 +160,11 @@ lsi: false
 excerpt_separator: "\n\n"
 incremental: false
 
+markdown: kramdown
+kramdown:
+  input: GFM
+  syntax_highlighter_opts:
+    disable: true
 
 # Markdown Processing
 kramdown:
