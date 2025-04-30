@@ -26,3 +26,13 @@
 7. 运行 `bundle exec jekyll serve`来生成HTML
 8. 打开浏览器，访问 [http://localhost:4000](http://localhost:4000) 查看网页
 9. 修改代码保存后，可以实时预览网页，无需重复运行上述命令
+
+## MacOS本地运行
+
+1. MacOS本地下载本仓库
+2. 安装包管理器Homebrew `/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"`，如果网络连接失败改为国内镜像源 `/bin/zsh -c "$(curl -fsSL https://gitee.com/cunkai/HomebrewCN/raw/master/Homebrew.sh)"`
+3. 安装Ruby和Jekyll依赖 `brew install ruby`， `echo 'export PATH="$(brew --prefix ruby)/bin:$PATH"' >> ~/.zshrc`， `source ~/.zshrc`
+4. 安装Bundler `gem install bundler`， `bundle install`
+5. 运行 `bundle exec jekyll serve`来生成HTML
+6. 打开浏览器，访问 [http://localhost:4000](http://localhost:4000) 查看网页
+7. 修改代码保存后，可以实时预览网页，无需重复运行上述命令
