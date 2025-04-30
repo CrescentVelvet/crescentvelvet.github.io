@@ -98,6 +98,7 @@ redirect_from:
     <hr>
     <p><a href="/chat.html" class="link-button">大模型对话</a></p>
     <p><a href="/map.html" class="link-button">旅行足迹</a></p>
+    <p><a href="/translate.html" class="link-button">多语言翻译</a></p>
     <hr>
     <p>强调一下<strong>几个单词</strong></p>
     <blockquote>引用内容</blockquote>

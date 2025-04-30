@@ -1,0 +1,135 @@
+---
+permalink: /translate.html
+layout: default
+---
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>多语言翻译</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .translation-box {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        select, textarea, button {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <h1>多语言翻译</h1>
+    <div class="translation-box">
+        <select id="apiProvider">
+            <option value="baidu">百度翻译</option>
+            <option value="tencent">腾讯翻译</option>
+            <option value="aliyun">阿里翻译</option>
+        </select>
+        <select id="targetLang">
+            <option value="en">翻译成英语</option>
+            <option value="ja">翻译成日语</option>
+        </select>
+        <textarea id="sourceText" placeholder="请输入中文内容..." rows="5"></textarea>
+        <button onclick="translateText()">翻译</button>
+    </div>
+    
+    <div class="translation-box">
+        <h3>翻译结果</h3>
+        <div id="translationResult"></div>
+    </div>
+    
+    <div class="translation-box">
+        <h3>回译结果</h3>
+        <div id="backTranslationResult"></div>
+    </div>
+
+    <script>
+        // 百度翻译API配置
+        const BAIDU_APP_ID = "20250430002346669";
+        const BAIDU_SECRET_KEY = "9ZUcTwyqrzq0ln0iwUP6";
+        
+        async function translateText() {
+            const sourceText = document.getElementById('sourceText').value;
+            const targetLang = document.getElementById('targetLang').value;
+            const apiProvider = document.getElementById('apiProvider').value;
+            
+            if(!sourceText) {
+                alert('请输入要翻译的内容');
+                return;
+            }
+
+            try {
+                // 第一步：中文→目标语言
+                const translatedText = await translateAPI(sourceText, 'zh', targetLang, apiProvider);
+                document.getElementById('translationResult').innerText = translatedText;
+                
+                // 第二步：目标语言→中文（回译）
+                const backTranslatedText = await translateAPI(translatedText, targetLang, 'zh', apiProvider);
+                document.getElementById('backTranslationResult').innerText = backTranslatedText;
+            } catch (error) {
+                console.error('翻译出错:', error);
+                alert('翻译服务出错，请稍后再试');
+            }
+        }
+
+        async function translateAPI(text, sourceLang, targetLang, provider) {
+            if(provider === 'baidu') {
+                return await baiduTranslate(text, sourceLang, targetLang);
+            }
+            // 其他翻译服务保持模拟状态
+            return new Promise((resolve) => {
+                setTimeout(() => {
+                    if(provider === 'tencent') {
+                        resolve("[腾讯] 模拟翻译结果");
+                    } else if(provider === 'aliyun') {
+                        resolve("[阿里] 模拟翻译结果");
+                    }
+                }, 500);
+            });
+        }
+
+        async function baiduTranslate(text, from, to) {
+            const salt = Date.now();
+            const sign = md5(BAIDU_APP_ID + text + salt + BAIDU_SECRET_KEY);
+            
+            const response = await fetch(`https://fanyi-api.baidu.com/api/trans/vip/translate?q=${encodeURIComponent(text)}&from=${from}&to=${to}&appid=${BAIDU_APP_ID}&salt=${salt}&sign=${sign}`, {
+                method: 'GET'
+            });
+            
+            const data = await response.json();
+            if(data.error_code) {
+                throw new Error(`百度翻译错误: ${data.error_msg}`);
+            }
+            return data.trans_result[0].dst;
+        }
+
+        function md5(string) {
+            // 简单的MD5实现，实际使用时建议使用crypto-js等库
+            return CryptoJS.MD5(string).toString();
+        }
+    </script>
+    <!-- 添加CryptoJS库用于签名生成 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+</body>
+</html>
