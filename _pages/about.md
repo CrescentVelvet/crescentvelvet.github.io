@@ -14,8 +14,8 @@ redirect_from:
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>欢迎来到我的网站</title>
     <style>
-        /* 更新超链接样式为扁平化按钮 */
-        a {
+        /* 只针对特定链接的按钮样式 */
+        a.link-button {
             display: inline-block;
             color: white;
             background-color: #4CAF50;
@@ -29,7 +29,7 @@ redirect_from:
             font-weight: normal;
         }
         
-        a:hover {
+        a.link-button:hover {
             background-color: #45a049;
             box-shadow: 0 4px 8px rgba(0,0,0,0.2);
             transform: translateY(-1px);
@@ -96,8 +96,8 @@ redirect_from:
     <div id="ripple-container"></div>
     <h1>欢迎来到我的网站</h1>
     <hr>
-    <p><a href="/chat.html">大模型对话</a></p>
-    <p><a href="/map.html">旅行足迹</a></p>
+    <p><a href="/chat.html" class="link-button">大模型对话</a></p>
+    <p><a href="/map.html" class="link-button">旅行足迹</a></p>
     <hr>
     <p>强调一下<strong>几个单词</strong></p>
     <blockquote>引用内容</blockquote>

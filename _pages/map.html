@@ -102,6 +102,12 @@ layout: default
             attribution: '© OpenStreetMap contributors'
         }).addTo(map);
 
+        // 添加调试信息
+        console.log('地图初始化完成');
+        if(!map) {
+            console.error('地图初始化失败');
+        }
+
         // 存储轨迹点和地点信息
         var locations = JSON.parse(localStorage.getItem('travelLocations')) || [];
         var locationInfo = JSON.parse(localStorage.getItem('locationInfo')) || [];
