@@ -1,0 +1,196 @@
+---
+permalink: /map.html
+layout: default
+---
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的旅行足迹</title>
+    <!-- 引入 Leaflet 样式 -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <!-- 引入 Leaflet 脚本 -->
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        .header {
+            background-color: #4CAF50;
+            color: white;
+            padding: 15px;
+            text-align: center;
+        }
+
+        .content {
+            display: flex;
+            flex: 1;
+        }
+
+        .sidebar {
+            width: 300px;
+            background-color: #f4f4f4;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        #map {
+            flex: 1;
+        }
+
+        .form-container {
+            margin-bottom: 20px;
+        }
+
+        input, button {
+            margin: 5px;
+            padding: 8px;
+            width: calc(100% - 10px);
+        }
+
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        .location-item {
+            background-color: white;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>我的旅行足迹</h1>
+    </div>
+    <div class="content">
+        <div class="sidebar">
+            <div class="form-container">
+                <input type="text" id="location" placeholder="输入地点">
+                <input type="datetime-local" id="time">
+                <button onclick="addLocation()">保存地点</button>
+                <button onclick="clearLocations()">清除轨迹</button>
+            </div>
+            <div id="location-list"></div>
+        </div>
+        <div id="map"></div>
+    </div>
+
+    <script>
+        // 初始化地图
+        var map = L.map('map').setView([0, 0], 2);
+
+        // 添加地图图层
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        // 存储轨迹点和地点信息
+        var locations = JSON.parse(localStorage.getItem('travelLocations')) || [];
+        var locationInfo = JSON.parse(localStorage.getItem('locationInfo')) || [];
+        var polyline = L.polyline(locations, {color: 'red'}).addTo(map);
+
+        // 重新绘制轨迹
+        function redrawPolyline() {
+            polyline.setLatLngs(locations);
+            if (locations.length > 0) {
+                map.fitBounds(polyline.getBounds());
+            }
+        }
+
+        // 更新地点列表
+        function updateLocationList() {
+            var locationList = document.getElementById('location-list');
+            locationList.innerHTML = '';
+            locationInfo.forEach((info, index) => {
+                var item = document.createElement('div');
+                item.className = 'location-item';
+                item.innerHTML = `
+                    <h4>${info.location}</h4>
+                    <p>${info.time}</p>
+                    <button onclick="removeLocation(${index})">删除</button>
+                `;
+                locationList.appendChild(item);
+            });
+        }
+
+        // 添加地点
+        function addLocation() {
+            var locationInput = document.getElementById('location');
+            var timeInput = document.getElementById('time');
+
+            var location = locationInput.value;
+            var time = timeInput.value;
+
+            if (location && time) {
+                // 使用 Nominatim 进行地理编码
+                fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(location)}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.length > 0) {
+                            var lat = parseFloat(data[0].lat);
+                            var lng = parseFloat(data[0].lon);
+                            locations.push([lat, lng]);
+                            locationInfo.push({ location, time });
+                            localStorage.setItem('travelLocations', JSON.stringify(locations));
+                            localStorage.setItem('locationInfo', JSON.stringify(locationInfo));
+                            redrawPolyline();
+                            updateLocationList();
+                            locationInput.value = '';
+                            timeInput.value = '';
+                        } else {
+                            alert('未找到该地点，请尝试其他名称。');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('地理编码出错:', error);
+                        alert('地理编码出错，请稍后重试。');
+                    });
+            } else {
+                alert('请输入地点和时间。');
+            }
+        }
+
+        // 删除地点
+        function removeLocation(index) {
+            locations.splice(index, 1);
+            locationInfo.splice(index, 1);
+            localStorage.setItem('travelLocations', JSON.stringify(locations));
+            localStorage.setItem('locationInfo', JSON.stringify(locationInfo));
+            redrawPolyline();
+            updateLocationList();
+        }
+
+        // 清除轨迹
+        function clearLocations() {
+            locations = [];
+            locationInfo = [];
+            localStorage.removeItem('travelLocations');
+            localStorage.removeItem('locationInfo');
+            redrawPolyline();
+            updateLocationList();
+        }
+
+        // 页面加载时重新绘制轨迹和更新列表
+        redrawPolyline();
+        updateLocationList();
+    </script>
+</body>
+</html>

@@ -14,6 +14,28 @@ redirect_from:
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>欢迎来到我的网站</title>
     <style>
+        /* 更新超链接样式为扁平化按钮 */
+        a {
+            display: inline-block;
+            color: white;
+            background-color: #4CAF50;
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            margin: 5px 0;
+            border: none;
+            font-weight: normal;
+        }
+        
+        a:hover {
+            background-color: #45a049;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            transform: translateY(-1px);
+        }
+        
+        /* 保留原有水波纹样式 */
         #ripple-container {
             position: fixed;
             top: 0;
@@ -73,10 +95,10 @@ redirect_from:
 <body>
     <div id="ripple-container"></div>
     <h1>欢迎来到我的网站</h1>
-    <p>点击下面的链接可以体验大模型对话功能。</p>
-    <p><a href="/chat.html">大模型对话</a></p>
     <hr>
-    <p>点击下面的链接可以体验</p>
+    <p><a href="/chat.html">大模型对话</a></p>
+    <p><a href="/map.html">旅行足迹</a></p>
+    <hr>
     <p>强调一下<strong>几个单词</strong></p>
     <blockquote>引用内容</blockquote>
     <p>分割线</p>
