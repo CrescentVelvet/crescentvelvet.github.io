@@ -90,6 +90,27 @@ redirect_from:
                 opacity: 0;
             }
         }
+        
+        /* 返回按钮样式 */
+        .back-button {
+            display: inline-block;
+            color: white;
+            background-color: #6c757d;
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            margin: 20px 0;
+            border: none;
+            font-weight: normal;
+        }
+        
+        .back-button:hover {
+            background-color: #5a6268;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            transform: translateY(-1px);
+        }
     </style>
 </head>
 <body>
@@ -99,6 +120,7 @@ redirect_from:
     <p><a href="/chat.html" class="link-button">大模型对话</a></p>
     <p><a href="/map.html" class="link-button">旅行足迹</a></p>
     <p><a href="/translate.html" class="link-button">多语言翻译</a></p>
+    <p><a href="/courses.html" class="link-button">网课进度</a></p>
     <hr>
     <p>强调一下<strong>几个单词</strong></p>
     <blockquote>引用内容</blockquote>

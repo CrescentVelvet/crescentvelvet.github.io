@@ -27,6 +27,7 @@ title: "聊天页面"
       <button id="send-button">发送</button>
       <!-- 清除当前会话历史记录按钮 -->
       <button id="clear-history">清除当前会话</button>
+      <a href="/" class="back-button">返回首页</a>
     </div>
   </div>
 </div>
@@ -317,5 +318,26 @@ document.addEventListener('DOMContentLoaded', function() {
 
   .history-item:hover {
     background-color: #f5f5f5;
+  }
+
+  /* 返回按钮样式 */
+  .back-button {
+      display: inline-block;
+      color: white;
+      background-color: #6c757d;
+      text-decoration: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      transition: all 0.3s ease;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      margin: 20px 0;
+      border: none;
+      font-weight: normal;
+  }
+  
+  .back-button:hover {
+      background-color: #5a6268;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+      transform: translateY(-1px);
   }
 </style>

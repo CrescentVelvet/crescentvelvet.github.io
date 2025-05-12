@@ -1,0 +1,120 @@
+---
+permalink: /courses.html
+layout: default
+---
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>网课学习进度</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .input-box {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        input, button {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .chart-container {
+            margin-top: 30px;
+        }
+    </style>
+</head>
+<body>
+    <h1>网课学习进度跟踪</h1>
+    
+    <div class="input-box">
+        <input type="date" id="courseDate">
+        <input type="number" id="courseCount" placeholder="今天听了多少节课？">
+        <button onclick="saveCourse()">保存记录</button>
+    </div>
+    
+    <div class="chart-container">
+        <canvas id="progressChart"></canvas>
+    </div>
+
+    <script>
+        // 初始化图表
+        const ctx = document.getElementById('progressChart').getContext('2d');
+        const progressChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: '每日听课节数',
+                    data: [],
+                    backgroundColor: '#4CAF50'
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+
+        // 从本地存储加载数据
+        let courseRecords = JSON.parse(localStorage.getItem('courseRecords')) || [];
+        updateChart();
+
+        // 保存记录
+        function saveCourse() {
+            const date = document.getElementById('courseDate').value;
+            const count = document.getElementById('courseCount').value;
+            
+            if(!date || !count) {
+                alert('请填写日期和课程数量');
+                return;
+            }
+
+            courseRecords.push({
+                date: date,
+                count: parseInt(count)
+            });
+            
+            localStorage.setItem('courseRecords', JSON.stringify(courseRecords));
+            updateChart();
+            
+            // 清空输入
+            document.getElementById('courseCount').value = '';
+        }
+
+        // 更新图表
+        function updateChart() {
+            // 按日期排序
+            courseRecords.sort((a, b) => new Date(a.date) - new Date(b.date));
+            
+            // 更新图表数据
+            progressChart.data.labels = courseRecords.map(r => r.date);
+            progressChart.data.datasets[0].data = courseRecords.map(r => r.count);
+            progressChart.update();
+        }
+    </script>
+    <a href="/" class="back-button">返回首页</a>
+</body>
+</html>
