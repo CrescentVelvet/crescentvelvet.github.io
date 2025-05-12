@@ -83,9 +83,12 @@ layout: default
         updateChart();
 
         // 保存记录
+        // 在saveCourse函数开头添加调试信息
         function saveCourse() {
+            console.log('保存按钮被点击'); // 调试日志
             const date = document.getElementById('courseDate').value;
             const count = document.getElementById('courseCount').value;
+            console.log('输入值:', date, count); // 调试日志
             
             if(!date || !count) {
                 alert('请填写日期和课程数量');
