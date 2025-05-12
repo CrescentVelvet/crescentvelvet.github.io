@@ -84,6 +84,7 @@ layout: default
 
         // 保存记录
         // 在saveCourse函数开头添加调试信息
+        // 在saveCourse函数中添加环境检测
         function saveCourse() {
             console.log('保存按钮被点击'); // 调试日志
             const date = document.getElementById('courseDate').value;
@@ -100,7 +101,14 @@ layout: default
                 count: parseInt(count)
             });
             
-            localStorage.setItem('courseRecords', JSON.stringify(courseRecords));
+            try {
+                localStorage.setItem('courseRecords', JSON.stringify(courseRecords));
+                console.log('数据保存成功:', courseRecords);
+            } catch (error) {
+                console.error('保存失败:', error);
+                alert('数据保存失败，请检查浏览器设置或尝试刷新页面');
+            }
+            
             updateChart();
             
             // 清空输入
