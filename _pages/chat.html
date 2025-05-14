@@ -62,6 +62,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let chatSessions = JSON.parse(localStorage.getItem('chatSessions')) || {};
 
     // 加载历史记录
+    console.log('加载历史记录');
     function loadHistory() {
       historyList.innerHTML = '';
       Object.entries(chatSessions).forEach(([chatId, session]) => {
@@ -345,23 +346,21 @@ document.addEventListener('DOMContentLoaded', function() {
 
   /* 返回按钮样式 */
   .back-button {
-      display: inline-block;
-      color: white;
-      background-color: #6c757d;
-      text-decoration: none;
-      padding: 8px 16px;
-      border-radius: 4px;
-      transition: all 0.3s ease;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-      margin: 20px 0;
-      border: none;
-      font-weight: normal;
+    display: inline-block;
+    color: white;
+    background-color: rgb(100, 189, 48);  /* 修改为与发送按钮相同的绿色 */
+    text-decoration: none;
+    padding: 10px 20px;  /* 统一内边距 */
+    border-radius: 20px;  /* 统一圆角 */
+    transition: opacity 0.3s;  /* 统一过渡效果 */
+    margin-top: 10px;  /* 统一上边距 */
+    border: none;
+    font-size: 14px;  /* 统一字体大小 */
+    cursor: pointer;
   }
   
   .back-button:hover {
-      background-color: #5a6268;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-      transform: translateY(-1px);
+    opacity: 0.8;  /* 统一悬停效果 */
   }
 
   /* 消息样式 */
