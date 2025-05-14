@@ -100,17 +100,23 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 发送消息函数
     function sendMessage() {
-      const message = userInput.value;
-      if (message.trim() === '') return;
+      const message = userInput.value.trim();
+      if (!message) {
+        console.log('消息为空，不发送');
+        return;
+      }
 
-      console.log('准备发送消息:', message); // 添加日志
+      console.log('准备发送消息:', message);
+
+      // 禁用输入和发送按钮，防止重复发送
+      userInput.disabled = true;
+      sendButton.disabled = true;
 
       // 显示用户消息
       appendMessage('user', message);
 
-      const selectedModel = modelSelect.value; // 获取选中的模型
-
-      console.log('选中的模型:', selectedModel); // 添加日志
+      const selectedModel = modelSelect.value;
+      console.log('选中的模型:', selectedModel);
 
       fetch('https://api.siliconflow.cn/v1/chat/completions', {
         method: 'POST',
@@ -119,7 +125,6 @@ document.addEventListener('DOMContentLoaded', function() {
           'Authorization': 'Bearer sk-uaqwrwlwdbconrtgnybuseuzrejvjjymexblmbeedimdrncl'
         },
         body: JSON.stringify({
-          // 使用选中的模型
           model: selectedModel,
           messages: [
             {
@@ -130,23 +135,28 @@ document.addEventListener('DOMContentLoaded', function() {
         })
       })
       .then(response => {
-        console.log('响应状态:', response.status); // 添加日志
+        console.log('响应状态:', response.status);
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
         return response.json();
       })
       .then(data => {
-        console.log('响应数据:', data); // 添加日志
+        console.log('响应数据:', data);
         appendMessage('bot', data.choices[0].message.content);
       })
       .catch(error => {
         console.error('Fetch error:', error);
         console.log('完整错误信息:', error.stack);
         appendMessage('bot', '抱歉，发生错误，请稍后再试。');
+      })
+      .finally(() => {
+        // 恢复输入和发送按钮
+        userInput.disabled = false;
+        sendButton.disabled = false;
+        userInput.value = '';
+        userInput.focus();
       });
-
-      userInput.value = '';
     }
 
     // 追加消息到聊天区域
@@ -179,13 +189,19 @@ document.addEventListener('DOMContentLoaded', function() {
     loadHistory();
 
     // 绑定事件
-    sendButton.addEventListener('click', sendMessage);
-    sendButton.addEventListener('touchstart', (e) => {
-      e.preventDefault(); // 阻止默认触摸行为
+    sendButton.addEventListener('click', function(e) {
+      e.preventDefault();
       sendMessage();
     });
-    userInput.addEventListener('keypress', (e) => {
+    
+    sendButton.addEventListener('touchstart', function(e) {
+      e.preventDefault();
+      sendMessage();
+    });
+    
+    userInput.addEventListener('keypress', function(e) {
       if (e.key === 'Enter') {
+        e.preventDefault();
         sendMessage();
       }
     });
