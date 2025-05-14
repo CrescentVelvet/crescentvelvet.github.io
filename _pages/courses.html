@@ -56,6 +56,23 @@ layout: default
     </div>
 
     <script>
+        // 检查 localStorage 是否可用
+        function isLocalStorageAvailable() {
+            try {
+                localStorage.setItem('test', 'test');
+                localStorage.removeItem('test');
+                return true;
+            } catch(e) {
+                console.error('localStorage不可用:', e);
+                return false;
+            }
+        }
+
+        // 初始化时检查 localStorage
+        if (!isLocalStorageAvailable()) {
+            alert('您的浏览器不支持或禁用了本地存储，请启用后再试');
+        }
+
         // 初始化图表
         const ctx = document.getElementById('progressChart').getContext('2d');
         const progressChart = new Chart(ctx, {
@@ -79,51 +96,89 @@ layout: default
         });
 
         // 从本地存储加载数据
-        let courseRecords = JSON.parse(localStorage.getItem('courseRecords')) || [];
+        let courseRecords = [];
+        try {
+            const savedRecords = localStorage.getItem('courseRecords');
+            console.log('加载已保存的数据:', savedRecords);
+            courseRecords = savedRecords ? JSON.parse(savedRecords) : [];
+        } catch (error) {
+            console.error('加载数据失败:', error);
+            courseRecords = [];
+        }
         updateChart();
 
         // 保存记录
-        // 在saveCourse函数开头添加调试信息
-        // 在saveCourse函数中添加环境检测
         function saveCourse() {
-            console.log('保存按钮被点击'); // 调试日志
-            const date = document.getElementById('courseDate').value;
-            const count = document.getElementById('courseCount').value;
-            console.log('输入值:', date, count); // 调试日志
+            console.log('保存按钮被点击');
             
-            if(!date || !count) {
+            // 验证 localStorage 可用性
+            if (!isLocalStorageAvailable()) {
+                alert('本地存储不可用，无法保存数据');
+                return;
+            }
+
+            const dateInput = document.getElementById('courseDate');
+            const countInput = document.getElementById('courseCount');
+            
+            const date = dateInput.value;
+            const count = countInput.value;
+            
+            console.log('输入值:', {date, count});
+            
+            if (!date || !count) {
                 alert('请填写日期和课程数量');
                 return;
             }
 
-            courseRecords.push({
+            // 验证数据格式
+            if (isNaN(parseInt(count))) {
+                alert('课程数量必须是有效的数字');
+                return;
+            }
+
+            const newRecord = {
                 date: date,
                 count: parseInt(count)
-            });
+            };
+
+            // 添加新记录
+            courseRecords.push(newRecord);
             
             try {
-                localStorage.setItem('courseRecords', JSON.stringify(courseRecords));
-                console.log('数据保存成功:', courseRecords);
+                // 保存到 localStorage
+                const recordsString = JSON.stringify(courseRecords);
+                console.log('准备保存的数据:', recordsString);
+                localStorage.setItem('courseRecords', recordsString);
+                console.log('数据保存成功');
+                alert('保存成功！');
+                
+                // 更新图表
+                updateChart();
+                
+                // 清空输入
+                countInput.value = '';
+                
             } catch (error) {
                 console.error('保存失败:', error);
-                alert('数据保存失败，请检查浏览器设置或尝试刷新页面');
+                alert('保存失败：' + error.message);
             }
-            
-            updateChart();
-            
-            // 清空输入
-            document.getElementById('courseCount').value = '';
         }
 
         // 更新图表
         function updateChart() {
-            // 按日期排序
-            courseRecords.sort((a, b) => new Date(a.date) - new Date(b.date));
-            
-            // 更新图表数据
-            progressChart.data.labels = courseRecords.map(r => r.date);
-            progressChart.data.datasets[0].data = courseRecords.map(r => r.count);
-            progressChart.update();
+            try {
+                // 按日期排序
+                courseRecords.sort((a, b) => new Date(a.date) - new Date(b.date));
+                
+                // 更新图表数据
+                progressChart.data.labels = courseRecords.map(r => r.date);
+                progressChart.data.datasets[0].data = courseRecords.map(r => r.count);
+                progressChart.update();
+                
+                console.log('图表更新成功');
+            } catch (error) {
+                console.error('更新图表失败:', error);
+            }
         }
     </script>
     <a href="/" class="back-button">返回首页</a>

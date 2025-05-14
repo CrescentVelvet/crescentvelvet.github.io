@@ -36,3 +36,6 @@
 5. 运行 `bundle exec jekyll serve`来生成HTML
 6. 打开浏览器，访问 [http://localhost:4000](http://localhost:4000) 查看网页
 7. 修改代码保存后，可以实时预览网页，无需重复运行上述命令
+
+## 错误记录
+- 在GitHub Pages上部署的静态网页没有后端服务器，无法直接保存数据，
