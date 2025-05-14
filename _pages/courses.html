@@ -144,13 +144,19 @@ title: "网课进度页面"
                     return;
                 }
         
-                const newRecord = {
-                    date: date,
-                    count: parseInt(count)
-                };
-        
-                // 添加新记录
-                courseRecords.push(newRecord);
+                // 查找是否存在同一天的记录
+                const existingIndex = courseRecords.findIndex(record => record.date === date);
+                
+                if (existingIndex !== -1) {
+                    // 如果存在同一天的记录，更新该记录
+                    courseRecords[existingIndex].count = parseInt(count);
+                } else {
+                    // 如果不存在，添加新记录
+                    courseRecords.push({
+                        date: date,
+                        count: parseInt(count)
+                    });
+                }
                 
                 try {
                     // 保存到 localStorage

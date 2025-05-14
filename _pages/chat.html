@@ -363,6 +363,42 @@ document.addEventListener('DOMContentLoaded', function() {
       box-shadow: 0 4px 8px rgba(0,0,0,0.2);
       transform: translateY(-1px);
   }
+
+  /* 消息样式 */
+  .message {
+    margin: 10px 0;
+    padding: 10px;
+    border-radius: 10px;
+    max-width: 80%;
+    word-wrap: break-word;
+  }
+
+  .user {
+    background-color: #e3f2fd;
+    margin-left: auto;
+    text-align: right;
+  }
+
+  .bot {
+    background-color: #f5f5f5;
+    margin-right: auto;
+    text-align: left;
+  }
+
+  /* 输入区域样式 */
+  #user-input {
+    width: 100%;
+    padding: 10px;
+    margin: 10px 0;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 14px;
+  }
+
+  /* 确保消息容器有足够的高度 */
+  #chat-messages {
+    min-height: 300px;
+  }
 </style>
 </body>
 </html>
