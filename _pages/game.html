@@ -7,7 +7,7 @@ title: "飞机大战小游戏"
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>飞机大战小游戏</title>
     <style>
         body {
@@ -18,18 +18,46 @@ title: "飞机大战小游戏"
             align-items: center;
             min-height: 100vh;
             background-color: #000;
+            touch-action: none;
         }
         canvas {
             border: 2px solid #fff;
+            max-width: 100vw;
+            max-height: 100vh;
         }
         #gameInfo {
             position: fixed;
-            top: 20px;
-            left: 20px;
+            top: 10px;
+            left: 10px;
             color: #fff;
-            font-size: 24px;
+            font-size: 16px;
             font-family: Arial, sans-serif;
             line-height: 1.5;
+            z-index: 100;
+        }
+        #mobileControls {
+            position: fixed;
+            bottom: 20px;
+            left: 0;
+            right: 0;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            padding: 10px;
+        }
+        .control-btn {
+            background: rgba(255, 255, 255, 0.3);
+            border: none;
+            color: white;
+            padding: 20px;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+            touch-action: none;
         }
     </style>
 </head>
@@ -41,6 +69,11 @@ title: "飞机大战小游戏"
         <div>分数: <span id="score">0</span></div>
     </div>
     <canvas id="gameCanvas"></canvas>
+    <div id="mobileControls">
+        <button class="control-btn" id="leftBtn">←</button>
+        <button class="control-btn" id="fireBtn">🔥</button>
+        <button class="control-btn" id="rightBtn">→</button>
+    </div>
 
     <script>
         const canvas = document.getElementById('gameCanvas');
@@ -271,6 +304,82 @@ title: "飞机大战小游戏"
 
         // 开始游戏
         gameLoop();
+
+        // 检测是否为移动设备
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+        // 调整画布大小
+        function resizeCanvas() {
+            const maxWidth = window.innerWidth - 20;
+            const maxHeight = window.innerHeight - 150;
+            const ratio = 400 / 600;
+
+            let newWidth = maxWidth;
+            let newHeight = maxWidth / ratio;
+
+            if (newHeight > maxHeight) {
+                newHeight = maxHeight;
+                newWidth = maxHeight * ratio;
+            }
+
+            canvas.width = newWidth;
+            canvas.height = newHeight;
+
+            // 调整玩家位置
+            player.x = canvas.width / 2;
+            player.y = canvas.height - 50;
+        }
+
+        // 监听窗口大小变化
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // 移动设备控制
+        if (isMobile) {
+            const leftBtn = document.getElementById('leftBtn');
+            const rightBtn = document.getElementById('rightBtn');
+            const fireBtn = document.getElementById('fireBtn');
+
+            // 触摸控制
+            leftBtn.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                keys.ArrowLeft = true;
+            });
+            leftBtn.addEventListener('touchend', () => {
+                keys.ArrowLeft = false;
+            });
+
+            rightBtn.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                keys.ArrowRight = true;
+            });
+            rightBtn.addEventListener('touchend', () => {
+                keys.ArrowRight = false;
+            });
+
+            fireBtn.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                keys.Space = true;
+            });
+            fireBtn.addEventListener('touchend', () => {
+                keys.Space = false;
+            });
+
+            // 隐藏移动端双击缩放
+            document.documentElement.addEventListener('touchstart', (e) => {
+                if (e.touches.length > 1) {
+                    e.preventDefault();
+                }
+            }, { passive: false });
+
+            // 禁止页面滚动
+            document.body.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+            }, { passive: false });
+        } else {
+            // 在非移动设备上隐藏控制按钮
+            document.getElementById('mobileControls').style.display = 'none';
+        }
     </script>
 </body>
 </html>
