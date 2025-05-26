@@ -22,23 +22,32 @@ title: "飞机大战小游戏"
         canvas {
             border: 2px solid #fff;
         }
-        #score {
+        #gameInfo {
             position: fixed;
             top: 20px;
             left: 20px;
             color: #fff;
             font-size: 24px;
             font-family: Arial, sans-serif;
+            line-height: 1.5;
         }
     </style>
 </head>
 <body>
-    <div id="score">分数: 0</div>
+    <div id="gameInfo">
+        <div>生命值: <span id="lives">3</span></div>
+        <div>击杀数: <span id="kills">0</span></div>
+        <div>时间: <span id="time">0</span></div>
+        <div>分数: <span id="score">0</span></div>
+    </div>
     <canvas id="gameCanvas"></canvas>
 
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
+        const livesElement = document.getElementById('lives');
+        const killsElement = document.getElementById('kills');
+        const timeElement = document.getElementById('time');
         const scoreElement = document.getElementById('score');
 
         // 设置画布大小
@@ -47,7 +56,11 @@ title: "飞机大战小游戏"
 
         // 游戏状态
         let score = 0;
+        let lives = 3;
+        let kills = 0;
+        let gameTime = 0;
         let gameOver = false;
+        let startTime = Date.now();
 
         // 玩家飞机
         const player = {
@@ -55,7 +68,9 @@ title: "飞机大战小游戏"
             y: canvas.height - 50,
             width: 40,
             height: 40,
-            speed: 5
+            speed: 5,
+            invincible: false,
+            invincibleTime: 2000 // 无敌时间2秒
         };
 
         // 子弹数组
@@ -148,20 +163,34 @@ title: "飞机大战小游戏"
                         bullets.splice(bulletIndex, 1);
                         enemies.splice(enemyIndex, 1);
                         score += 100;
-                        scoreElement.textContent = `分数: ${score}`;
+                        kills++;
+                        scoreElement.textContent = score;
+                        killsElement.textContent = kills;
                     }
                 });
             });
 
             // 敌机撞击玩家
-            enemies.forEach(enemy => {
-                if (player.x < enemy.x + enemy.width &&
-                    player.x + player.width > enemy.x &&
-                    player.y < enemy.y + enemy.height &&
-                    player.y + player.height > enemy.y) {
-                    gameOver = true;
-                }
-            });
+            if (!player.invincible) {
+                enemies.forEach(enemy => {
+                    if (player.x < enemy.x + enemy.width &&
+                        player.x + player.width > enemy.x &&
+                        player.y < enemy.y + enemy.height &&
+                        player.y + player.height > enemy.y) {
+                        lives--;
+                        livesElement.textContent = lives;
+                        if (lives <= 0) {
+                            gameOver = true;
+                        } else {
+                            // 设置无敌状态
+                            player.invincible = true;
+                            setTimeout(() => {
+                                player.invincible = false;
+                            }, player.invincibleTime);
+                        }
+                    }
+                });
+            }
         }
 
         // 绘制游戏对象
@@ -170,9 +199,11 @@ title: "飞机大战小游戏"
             ctx.fillStyle = '#000';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // 绘制玩家
-            ctx.fillStyle = '#0f0';
-            ctx.fillRect(player.x, player.y, player.width, player.height);
+            // 绘制玩家（无敌状态闪烁）
+            if (!player.invincible || Math.floor(Date.now() / 100) % 2) {
+                ctx.fillStyle = '#0f0';
+                ctx.fillRect(player.x, player.y, player.width, player.height);
+            }
 
             // 绘制子弹
             ctx.fillStyle = '#fff';
@@ -193,7 +224,16 @@ title: "飞机大战小游戏"
                 ctx.textAlign = 'center';
                 ctx.fillText('游戏结束', canvas.width / 2, canvas.height / 2);
                 ctx.font = '24px Arial';
-                ctx.fillText('按空格键重新开始', canvas.width / 2, canvas.height / 2 + 40);
+                ctx.fillText(`最终得分: ${score} 击杀数: ${kills}`, canvas.width / 2, canvas.height / 2 + 40);
+                ctx.fillText('按空格键重新开始', canvas.width / 2, canvas.height / 2 + 80);
+            }
+        }
+
+        // 更新游戏时间
+        function updateTime() {
+            if (!gameOver) {
+                gameTime = Math.floor((Date.now() - startTime) / 1000);
+                timeElement.textContent = gameTime;
             }
         }
 
@@ -206,11 +246,20 @@ title: "飞机大战小游戏"
                 createEnemy();
                 updateEnemies();
                 checkCollisions();
+                updateTime();
             } else if (keys.Space) {
                 // 重置游戏
                 score = 0;
-                scoreElement.textContent = `分数: ${score}`;
+                lives = 3;
+                kills = 0;
+                gameTime = 0;
+                startTime = Date.now();
+                scoreElement.textContent = score;
+                livesElement.textContent = lives;
+                killsElement.textContent = kills;
+                timeElement.textContent = gameTime;
                 player.x = canvas.width / 2;
+                player.invincible = false;
                 bullets = [];
                 enemies = [];
                 gameOver = false;
