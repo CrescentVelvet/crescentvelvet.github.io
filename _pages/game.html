@@ -186,6 +186,21 @@ title: "飞机大战小游戏"
                 });
             });
 
+            // 玩家碰到金色方块
+            powerUps.forEach((powerUp, index) => {
+                if (player.x < powerUp.x + powerUp.width &&
+                    player.x + player.width > powerUp.x &&
+                    player.y < powerUp.y + powerUp.height &&
+                    player.y + player.height > powerUp.y) {
+                    // 移除金色方块
+                    powerUps.splice(index, 1);
+                    // 激活特殊能力
+                    powerUpActive = true;
+                    powerUpTimeLeft = 5000; // 5秒特殊能力时间
+                    player.speed = 8; // 提升移动速度
+                }
+            });
+
             // 敌机撞击玩家
             if (!player.invincible) {
                 enemies.forEach(enemy => {
@@ -211,7 +226,8 @@ title: "飞机大战小游戏"
 
         // 创建金色方块
         function createPowerUp() {
-            if (Math.random() < 0.5) { // 较低的生成概率
+            // 只在enemyCounter是10的倍数，且大于0时创建一个金色方块
+            if (enemyCounter % 10 === 0 && enemyCounter > 0 && powerUps.length === 0) {
                 powerUps.push({
                     x: Math.random() * (canvas.width - 20),
                     y: -20,
