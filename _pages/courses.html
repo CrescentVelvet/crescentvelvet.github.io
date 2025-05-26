@@ -47,22 +47,20 @@ title: "进度记录子网页"
     <h1>进度跟踪</h1>
     
     <div class="input-box">
-        <input type="date" id="courseDate">
+        <input type="date" id="recordDate">
         <input type="number" id="courseCount" placeholder="今天听了多少节课？">
+        <input type="number" id="exerciseCount" placeholder="今天跑了多少圈？">
         <button id="saveButton">保存记录</button>
     </div>
     
     <div class="chart-container">
-        <canvas id="progressChart"></canvas>
+        <canvas id="combinedChart"></canvas>
     </div>
 
     <script type="text/javascript">
         document.addEventListener('DOMContentLoaded', function() {
-            // 获取按钮元素
             const saveButton = document.getElementById('saveButton');
-            
-            // 为按钮添加点击事件监听器
-            saveButton.addEventListener('click', saveCourse);
+            saveButton.addEventListener('click', saveRecord);
             
             // 检查 localStorage 是否可用
             function isLocalStorageAvailable() {
@@ -81,83 +79,115 @@ title: "进度记录子网页"
                 alert('您的浏览器不支持或禁用了本地存储，请启用后再试');
             }
         
-            // 初始化图表
-            const ctx = document.getElementById('progressChart').getContext('2d');
-            const progressChart = new Chart(ctx, {
+            // 初始化合并图表
+            const ctx = document.getElementById('combinedChart').getContext('2d');
+            const combinedChart = new Chart(ctx, {
                 type: 'bar',
                 data: {
                     labels: [],
-                    datasets: [{
-                        label: '每日听课节数',
-                        data: [],
-                        backgroundColor: '#4CAF50'
-                    }]
+                    datasets: [
+                        {
+                            label: '每日听课节数',
+                            data: [],
+                            backgroundColor: '#4CAF50',
+                            yAxisID: 'y1'
+                        },
+                        {
+                            label: '每日跑圈数',
+                            data: [],
+                            backgroundColor: '#2196F3',
+                            yAxisID: 'y2'
+                        }
+                    ]
                 },
                 options: {
                     responsive: true,
                     scales: {
-                        y: {
-                            beginAtZero: true
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            title: {
+                                display: true,
+                                text: '听课节数'
+                            }
+                        },
+                        y2: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            title: {
+                                display: true,
+                                text: '跑圈数'
+                            },
+                            grid: {
+                                drawOnChartArea: false
+                            }
                         }
                     }
                 }
             });
         
             // 从本地存储加载数据
-            let courseRecords = [];
+            let records = [];
             try {
-                const savedRecords = localStorage.getItem('courseRecords');
+                const savedRecords = localStorage.getItem('dailyRecords');
                 console.log('加载已保存的数据:', savedRecords);
-                courseRecords = savedRecords ? JSON.parse(savedRecords) : [];
+                records = savedRecords ? JSON.parse(savedRecords) : [];
             } catch (error) {
                 console.error('加载数据失败:', error);
-                courseRecords = [];
+                records = [];
             }
             updateChart();
         
             // 保存记录
-            function saveCourse() {
+            function saveRecord() {
                 console.log('保存按钮被点击');
                 
-                // 验证 localStorage 可用性
                 if (!isLocalStorageAvailable()) {
                     alert('本地存储不可用，无法保存数据');
                     return;
                 }
         
-                const dateInput = document.getElementById('courseDate');
-                const countInput = document.getElementById('courseCount');
+                const dateInput = document.getElementById('recordDate');
+                const courseInput = document.getElementById('courseCount');
+                const exerciseInput = document.getElementById('exerciseCount');
                 
                 const date = dateInput.value;
-                const count = countInput.value;
+                const courseCount = courseInput.value;
+                const exerciseCount = exerciseInput.value;
                 
-                console.log('输入值:', {date, count});
+                console.log('输入值:', {date, courseCount, exerciseCount});
                 
-                if (!date || !count) {
-                    alert('请填写日期和课程数量');
+                if (!date || (!courseCount && !exerciseCount)) {
+                    alert('请填写日期和至少一项记录数量');
                     return;
                 }
         
                 // 验证数据格式
-                if (isNaN(parseInt(count))) {
+                if (courseCount && isNaN(parseInt(courseCount))) {
                     alert('课程数量必须是有效的数字');
+                    return;
+                }
+                if (exerciseCount && isNaN(parseInt(exerciseCount))) {
+                    alert('跑圈数必须是有效的数字');
                     return;
                 }
         
                 // 添加新记录
                 const newRecord = {
                     date: date,
-                    count: parseInt(count)
+                    courseCount: courseCount ? parseInt(courseCount) : null,
+                    exerciseCount: exerciseCount ? parseInt(exerciseCount) : null
                 };
 
                 // 对所有数据进行去重处理
                 const recordMap = new Map();
                 
                 // 先处理已有的数据
-                courseRecords.forEach(record => {
-                    // 如果Map中不存在该日期的记录，或者当前记录比Map中的记录更新，则更新Map
+                records.forEach(record => {
                     const existingRecord = recordMap.get(record.date);
-                    if (!existingRecord || courseRecords.indexOf(record) > courseRecords.indexOf(existingRecord)) {
+                    if (!existingRecord || records.indexOf(record) > records.indexOf(existingRecord)) {
                         recordMap.set(record.date, record);
                     }
                 });
@@ -166,43 +196,37 @@ title: "进度记录子网页"
                 recordMap.set(date, newRecord);
 
                 // 将Map转回数组
-                courseRecords = Array.from(recordMap.values());
+                records = Array.from(recordMap.values());
                 
                 try {
                     // 保存到 localStorage
-                    const recordsString = JSON.stringify(courseRecords);
-                    console.log('准备保存的数据:', recordsString);
-                    localStorage.setItem('courseRecords', recordsString);
+                    localStorage.setItem('dailyRecords', JSON.stringify(records));
                     console.log('数据保存成功');
-                    alert('保存成功！');
+                    
+                    // 清空输入框
+                    dateInput.value = '';
+                    courseInput.value = '';
+                    exerciseInput.value = '';
                     
                     // 更新图表
                     updateChart();
-                    
-                    // 清空输入
-                    countInput.value = '';
-                    
                 } catch (error) {
-                    console.error('保存失败:', error);
-                    alert('保存失败：' + error.message);
+                    console.error('保存数据失败:', error);
+                    alert('保存数据失败，请稍后重试');
                 }
             }
         
             // 更新图表
             function updateChart() {
-                try {
-                    // 按日期排序
-                    courseRecords.sort((a, b) => new Date(a.date) - new Date(b.date));
-                    
-                    // 更新图表数据
-                    progressChart.data.labels = courseRecords.map(r => r.date);
-                    progressChart.data.datasets[0].data = courseRecords.map(r => r.count);
-                    progressChart.update();
-                    
-                    console.log('图表更新成功');
-                } catch (error) {
-                    console.error('更新图表失败:', error);
-                }
+                // 按日期排序
+                records.sort((a, b) => new Date(a.date) - new Date(b.date));
+                
+                // 更新图表数据
+                combinedChart.data.labels = records.map(record => record.date);
+                combinedChart.data.datasets[0].data = records.map(record => record.courseCount || 0);
+                combinedChart.data.datasets[1].data = records.map(record => record.exerciseCount || 0);
+                
+                combinedChart.update();
             }
         });
     </script>
