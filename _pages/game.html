@@ -35,30 +35,35 @@ title: "飞机大战小游戏"
             line-height: 1.5;
             z-index: 100;
         }
-        #mobileControls {
-            position: fixed;
-            bottom: 20px;
-            left: 0;
-            right: 0;
-            display: flex;
-            justify-content: space-around;
-            align-items: center;
-            padding: 10px;
-        }
-        .control-btn {
-            background: rgba(255, 255, 255, 0.3);
-            border: none;
-            color: white;
-            padding: 20px;
-            border-radius: 50%;
-            width: 60px;
-            height: 60px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-size: 24px;
-            touch-action: none;
-        }
+        <style>
+            #mobileControls {
+                position: fixed;
+                bottom: 20px;
+                left: 0;
+                right: 0;
+                display: flex;
+                justify-content: space-around;
+                align-items: center;
+                padding: 10px;
+                z-index: 1000; /* 添加这一行确保按钮显示在最上层 */
+            }
+            .control-btn {
+                background: rgba(255, 255, 255, 0.3);
+                border: none;
+                color: white;
+                padding: 20px;
+                border-radius: 50%;
+                width: 60px;
+                height: 60px;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                font-size: 24px;
+                touch-action: none;
+                user-select: none; /* 添加这一行防止文字被选中 */
+                -webkit-tap-highlight-color: transparent; /* 添加这一行去除点击高亮 */
+            }
+        </style>
     </style>
 </head>
 <body>
@@ -339,32 +344,34 @@ title: "飞机大战小游戏"
             const leftBtn = document.getElementById('leftBtn');
             const rightBtn = document.getElementById('rightBtn');
             const fireBtn = document.getElementById('fireBtn');
-
+        
             // 触摸控制
-            leftBtn.addEventListener('touchstart', (e) => {
+            const handleTouchStart = (e, key) => {
                 e.preventDefault();
-                keys.ArrowLeft = true;
-            });
-            leftBtn.addEventListener('touchend', () => {
-                keys.ArrowLeft = false;
-            });
-
-            rightBtn.addEventListener('touchstart', (e) => {
+                e.stopPropagation(); // 添加这一行阻止事件冒泡
+                keys[key] = true;
+            };
+        
+            const handleTouchEnd = (e, key) => {
                 e.preventDefault();
-                keys.ArrowRight = true;
-            });
-            rightBtn.addEventListener('touchend', () => {
-                keys.ArrowRight = false;
-            });
-
-            fireBtn.addEventListener('touchstart', (e) => {
-                e.preventDefault();
-                keys.Space = true;
-            });
-            fireBtn.addEventListener('touchend', () => {
-                keys.Space = false;
-            });
-
+                e.stopPropagation(); // 添加这一行阻止事件冒泡
+                keys[key] = false;
+            };
+        
+            leftBtn.addEventListener('touchstart', (e) => handleTouchStart(e, 'ArrowLeft'));
+            leftBtn.addEventListener('touchend', (e) => handleTouchEnd(e, 'ArrowLeft'));
+        
+            rightBtn.addEventListener('touchstart', (e) => handleTouchStart(e, 'ArrowRight'));
+            rightBtn.addEventListener('touchend', (e) => handleTouchEnd(e, 'ArrowRight'));
+        
+            fireBtn.addEventListener('touchstart', (e) => handleTouchStart(e, 'Space'));
+            fireBtn.addEventListener('touchend', (e) => handleTouchEnd(e, 'Space'));
+        
+            // 添加触摸取消事件处理
+            leftBtn.addEventListener('touchcancel', (e) => handleTouchEnd(e, 'ArrowLeft'));
+            rightBtn.addEventListener('touchcancel', (e) => handleTouchEnd(e, 'ArrowRight'));
+            fireBtn.addEventListener('touchcancel', (e) => handleTouchEnd(e, 'Space'));
+        
             // 隐藏移动端双击缩放
             document.documentElement.addEventListener('touchstart', (e) => {
                 if (e.touches.length > 1) {
