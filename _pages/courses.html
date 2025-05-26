@@ -1,14 +1,14 @@
 ---
 permalink: /courses.html
 layout: null
-title: "网课进度页面"
+title: "进度记录子网页"
 ---
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>网课学习进度</title>
+    <title>进度记录子网页</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body {
@@ -44,7 +44,7 @@ title: "网课进度页面"
     </style>
 </head>
 <body>
-    <h1>网课学习进度跟踪</h1>
+    <h1>进度跟踪</h1>
     
     <div class="input-box">
         <input type="date" id="courseDate">
@@ -144,19 +144,29 @@ title: "网课进度页面"
                     return;
                 }
         
-                // 查找是否存在同一天的记录
-                const existingIndex = courseRecords.findIndex(record => record.date === date);
+                // 添加新记录
+                const newRecord = {
+                    date: date,
+                    count: parseInt(count)
+                };
+
+                // 对所有数据进行去重处理
+                const recordMap = new Map();
                 
-                if (existingIndex !== -1) {
-                    // 如果存在同一天的记录，更新该记录
-                    courseRecords[existingIndex].count = parseInt(count);
-                } else {
-                    // 如果不存在，添加新记录
-                    courseRecords.push({
-                        date: date,
-                        count: parseInt(count)
-                    });
-                }
+                // 先处理已有的数据
+                courseRecords.forEach(record => {
+                    // 如果Map中不存在该日期的记录，或者当前记录比Map中的记录更新，则更新Map
+                    const existingRecord = recordMap.get(record.date);
+                    if (!existingRecord || courseRecords.indexOf(record) > courseRecords.indexOf(existingRecord)) {
+                        recordMap.set(record.date, record);
+                    }
+                });
+
+                // 添加新记录（新记录一定是最新的，所以直接覆盖）
+                recordMap.set(date, newRecord);
+
+                // 将Map转回数组
+                courseRecords = Array.from(recordMap.values());
                 
                 try {
                     // 保存到 localStorage
