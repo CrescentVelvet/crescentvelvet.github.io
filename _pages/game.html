@@ -36,32 +36,42 @@ title: "飞机大战小游戏"
             z-index: 100;
         }
         <style>
-            #mobileControls {
+            .game-controls {
                 position: fixed;
                 bottom: 20px;
                 left: 0;
                 right: 0;
-                display: flex;
-                justify-content: space-around;
-                align-items: center;
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 10px;
                 padding: 10px;
-                z-index: 1000; /* 添加这一行确保按钮显示在最上层 */
+                z-index: 1000;
             }
             .control-btn {
                 background: rgba(255, 255, 255, 0.3);
-                border: none;
+                border: 2px solid rgba(255, 255, 255, 0.5);
                 color: white;
-                padding: 20px;
-                border-radius: 50%;
-                width: 60px;
-                height: 60px;
+                padding: 15px;
+                border-radius: 10px;
+                min-width: 50px;
+                height: 50px;
                 display: flex;
                 justify-content: center;
                 align-items: center;
-                font-size: 24px;
+                font-size: 20px;
                 touch-action: none;
-                user-select: none; /* 添加这一行防止文字被选中 */
-                -webkit-tap-highlight-color: transparent; /* 添加这一行去除点击高亮 */
+                user-select: none;
+                -webkit-tap-highlight-color: transparent;
+                cursor: pointer;
+            }
+            .control-btn:active {
+                background: rgba(255, 255, 255, 0.5);
+            }
+            .control-text {
+                font-size: 12px;
+                color: rgba(255, 255, 255, 0.7);
+                text-align: center;
+                margin-top: 5px;
             }
         </style>
     </style>
@@ -123,7 +133,13 @@ title: "飞机大战小游戏"
         const keys = {
             ArrowLeft: false,
             ArrowRight: false,
-            Space: false
+            ArrowUp: false,
+            ArrowDown: false,
+            Space: false,
+            KeyA: false,
+            KeyD: false,
+            KeyW: false,
+            KeyS: false
         };
 
         // 监听键盘事件
@@ -146,6 +162,12 @@ title: "飞机大战小游戏"
             }
             if (keys.ArrowRight && player.x < canvas.width - player.width) {
                 player.x += player.speed;
+            }
+            if (keys.ArrowUp && player.y > 0) {
+                player.y -= player.speed;
+            }
+            if (keys.ArrowDown && player.y < canvas.height - player.height) {
+                player.y += player.speed;
             }
         }
 
