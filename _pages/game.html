@@ -412,3 +412,43 @@ title: "飞机大战小游戏"
     </script>
 </body>
 </html>
+
+<style>
+    #lastModified {
+        position: fixed;
+        top: 10px;
+        right: 10px;
+        color: #fff;
+        font-size: 14px;
+        font-family: Arial, sans-serif;
+        background: rgba(0, 0, 0, 0.5);
+        padding: 5px 10px;
+        border-radius: 5px;
+        z-index: 100;
+    }
+</style>
+
+<!-- 在 gameInfo div 后添加 -->
+<div id="lastModified"></div>
+
+<script>
+// 在 script 开始处添加
+const lastModifiedElement = document.getElementById('lastModified');
+
+// 获取并显示最后修改时间
+fetch(window.location.href)
+    .then(response => {
+        const lastModified = response.headers.get('last-modified');
+        if (lastModified) {
+            const date = new Date(lastModified);
+            const formattedDate = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+            const formattedTime = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+            lastModifiedElement.textContent = `最后更新: ${formattedDate} ${formattedTime}`;
+        } else {
+            lastModifiedElement.textContent = '最后更新时间未知';
+        }
+    })
+    .catch(() => {
+        lastModifiedElement.textContent = '最后更新时间未知';
+    });
+</script>
