@@ -172,19 +172,36 @@ title: "飞机大战小游戏"
                 return ((seed * 9301 + 49297) * index) % 233280 / 233280;
             };
             
-            for (let i = 0; i < starCount; i++) {
-                const x = pseudoRandom(starSeed, i * 3) * canvas.width;
-                const y = pseudoRandom(starSeed, i * 3 + 1) * canvas.height;
-                const size = 1 + pseudoRandom(starSeed, i * 3 + 2) * 2;
-                
-                // 让星星闪烁
-                const brightness = 0.5 + Math.sin(gameTime + i) * 0.5;
-                const alpha = 0.5 + brightness * 0.5;
-                
-                ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
-                ctx.beginPath();
-                ctx.arc(x, y, size, 0, Math.PI * 2);
-                ctx.fill();
+            // 将画布分成10x10的网格
+            const gridX = 10;
+            const gridY = 10;
+            const cellWidth = canvas.width / gridX;
+            const cellHeight = canvas.height / gridY;
+            const starsPerCell = Math.ceil(starCount / (gridX * gridY));
+            
+            for (let gx = 0; gx < gridX; gx++) {
+                for (let gy = 0; gy < gridY; gy++) {
+                    // 在每个网格中生成随机数量的星星
+                    const cellStars = Math.floor(pseudoRandom(starSeed, gx * gridY + gy) * starsPerCell + 1);
+                    
+                    for (let i = 0; i < cellStars; i++) {
+                        // 在当前网格内随机生成星星位置
+                        const rx = pseudoRandom(starSeed, (gx * gridY + gy) * 3 + i * 3);
+                        const ry = pseudoRandom(starSeed, (gx * gridY + gy) * 3 + i * 3 + 1);
+                        const x = gx * cellWidth + rx * cellWidth;
+                        const y = gy * cellHeight + ry * cellHeight;
+                        const size = 1 + pseudoRandom(starSeed, (gx * gridY + gy) * 3 + i * 3 + 2) * 2;
+                        
+                        // 让星星闪烁
+                        const brightness = 0.5 + Math.sin(gameTime + gx * gridY + gy + i) * 0.5;
+                        const alpha = 0.5 + brightness * 0.5;
+                        
+                        ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+                        ctx.beginPath();
+                        ctx.arc(x, y, size, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
             }
         }
 
