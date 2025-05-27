@@ -886,8 +886,8 @@ title: "飞机大战小游戏"
 
                 // 绘制描边 (应用于圆形)
                 const strokeLightness = Math.max(0, lightness - 20); 
-                ctx.strokeStyle = `hsl(${hue}, ${saturation}%, ${strokeLightness}%)`;
-                ctx.lineWidth = 2; 
+                ctx.strokeStyle = `hsl(${hue}, ${saturation}%, ${strokeLightness}%)`; // 敌机描边，亮度降低20
+                ctx.lineWidth = 2;
                 ctx.stroke(); // Apply stroke to the current path (the ellipse)
 
                 // 绘制敌机等级数字
@@ -898,6 +898,13 @@ title: "飞机大战小游戏"
                 ctx.font = `${fontSize}px Arial`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
+
+                // 添加文字描边
+                ctx.strokeStyle = `hsl(${hue}, ${saturation}%, ${strokeLightness}%)`; // 敌机颜色描边，亮度与敌机描边相同
+                ctx.lineWidth = 2;
+                ctx.strokeText(enemy.level, enemy.x + enemy.width / 2, enemy.y + enemy.height / 2);
+                
+                // 绘制文字本身
                 ctx.fillText(enemy.level, enemy.x + enemy.width / 2, enemy.y + enemy.height / 2);
             });
 
