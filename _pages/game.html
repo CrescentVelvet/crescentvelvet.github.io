@@ -154,6 +154,9 @@ title: "飞机大战小游戏"
         let shootingPowerUpsTimeInterval = 13; // 每13个敌人生成一个金色方块
         let invinciblePowerUpsTimeInterval = 17; // 每17个敌人生成一个蓝色方块
 
+        let lastEnemyTime = 0; // 上次生成敌机的时间
+        let enemyInterval = 1000; // 初始敌机生成间隔（毫秒）
+
         // 子弹数组
         let bullets = [];
         const bulletSpeed = 7;
@@ -289,19 +292,17 @@ title: "飞机大战小游戏"
 
         // 创建敌机
         function createEnemy() {
-            if (Math.random() < 0.02) {
-                let level = 1;
-                // 游戏时间越长，出现高等级敌机的概率越高
-                if (gameTime > 30) {
-                    level = Math.floor(Math.random() * 3) + 1; // 1-3级
-                } else if (gameTime > 15) {
-                    level = Math.floor(Math.random() * 2) + 1; // 1-2级
-                }
+            // 每隔一段时间或达到一定条件生成敌机
+            if (Date.now() - lastEnemyTime > enemyInterval) {
+                lastEnemyTime = Date.now();
                 
+                // 根据游戏时间动态调整敌机等级，等级可以无限增长，每10秒增加1级，基础等级为1
+                const level = 1 + Math.floor(gameTime / 10); 
+
                 // 根据等级设置敌机属性
-                const enemyWidth = 30 + (level - 1) * 10; // 等级越高，敌机越大，增加体积差异
+                const enemyWidth = 30 + (level - 1) * 10; // 等级越高，体积越大
                 const enemyHeight = 30 + (level - 1) * 10;
-                const enemySpeed = 4 - (level - 1); // 等级越高，速度越慢
+                const enemySpeed = Math.max(1, 4 - (level - 1) * 0.2); // 等级越高，速度越慢，基础速度4，每升一级速度减少0.2，最小速度限制1
                 
                 enemies.push({
                     x: Math.random() * (canvas.width - enemyWidth),
