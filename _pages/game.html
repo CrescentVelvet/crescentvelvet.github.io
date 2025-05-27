@@ -339,6 +339,52 @@ title: "飞机大战小游戏"
 
         // 碰撞检测
         function checkCollisions() {
+
+            // 辅助函数：处理敌机被击中时的逻辑
+            function handleEnemyDamage(enemy) {
+                // 降低敌机等级
+                enemy.level--;
+                
+                // 更新敌机体积和速度
+                enemy.width = 30 + (enemy.level - 1) * 10;
+                enemy.height = 30 + (enemy.level - 1) * 10;
+                enemy.speed = 4 - (enemy.level - 1);
+
+                // 根据敌机等级计算颜色，与drawEnemy函数中的逻辑保持一致
+                const hue = (enemy.level * 20) % 360; 
+                const saturation = 80; 
+                const lightness = 50;  
+                const enemyColor = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+                
+                // 创建小爆炸效果
+                createExplosion(
+                    enemy.x + enemy.width / 2,
+                    enemy.y + enemy.height / 2,
+                    enemy.width,
+                    enemyColor // 使用敌机颜色
+                );
+                
+                // 如果敌机等级降为0，则移除敌机并增加分数
+                if (enemy.level <= 0) {
+                    // 创建大爆炸效果
+                    createExplosion(
+                        enemy.x + enemy.width / 2,
+                        enemy.y + enemy.height / 2,
+                        enemy.width * 2,
+                        enemyColor // 使用敌机颜色
+                    );
+                    
+                    // 移除被击中的敌机
+                    enemies.splice(enemies.indexOf(enemy), 1); // 使用indexOf找到并移除，因为循环是倒序的
+
+                    // 不管是不是子弹击中，都增加分数和击杀数
+                    score += 100;
+                    kills++;
+                    scoreElement.textContent = score;
+                    killsElement.textContent = kills;
+                }
+            }
+
             // 子弹击中敌机
             for (let i = bullets.length - 1; i >= 0; i--) {
                 const bullet = bullets[i];
@@ -351,49 +397,9 @@ title: "飞机大战小游戏"
                         bullet.y < enemy.y + enemy.height &&
                         bullet.y + bullet.height > enemy.y) {
                         
-                        // 降低敌机等级
-                        enemy.level--;
+                        handleEnemyDamage(enemy); // 调用辅助函数处理敌机伤害，并标记为子弹击中
                         
-                        // 更新敌机体积和速度
-                        enemy.width = 30 + (enemy.level - 1) * 10;
-                        enemy.height = 30 + (enemy.level - 1) * 10;
-                        enemy.speed = 4 - (enemy.level - 1);
-                        
-                        // 创建小爆炸效果
-                        createExplosion(
-                            bullet.x + bullet.width / 2,
-                            bullet.y + bullet.height / 2,
-                            enemy.width,
-                            bullet.color || '#fff' // 使用子弹颜色，如果子弹没有颜色则默认为白色
-                        );
-                        
-                        // 如果敌机等级降为0，则移除敌机并增加分数
-                        if (enemy.level <= 0) {
-                            // 根据敌机等级计算颜色，与drawEnemy函数中的逻辑保持一致
-                            const hue = (enemy.level * 20) % 360; 
-                            const saturation = 80; 
-                            const lightness = 50;  
-                            const enemyColor = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
-
-                            // 创建大爆炸效果
-                            createExplosion(
-                                enemy.x + enemy.width / 2,
-                                enemy.y + enemy.height / 2,
-                                enemy.width * 2,
-                                enemyColor // 使用敌机颜色
-                            );
-                            
-                            // 移除被击中的敌机
-                            enemies.splice(j, 1);
-                            // 增加分数和击杀数
-                            score += 100;
-                            kills++;
-                            scoreElement.textContent = score;
-                            killsElement.textContent = kills;
-                        }
-                        
-                        // 标记子弹已击中敌机
-                        bulletHit = true;
+                        bulletHit = true; // 标记子弹已击中敌机
                         break; // 一旦击中敌机就跳出内层循环
                     }
                 }
@@ -458,33 +464,7 @@ title: "飞机大战小游戏"
                     player.y < enemy.y + enemy.height &&
                     player.y + player.height > enemy.y) {
                     
-                    // 降低敌机等级
-                    enemy.level--;
-                    
-                    // 更新敌机体积和速度
-                    enemy.width = 30 + (enemy.level - 1) * 10;
-                    enemy.height = 30 + (enemy.level - 1) * 10;
-                    enemy.speed = 4 - (enemy.level - 1);
-                    
-                    // 创建小爆炸效果，与子弹击中敌机时保持一致
-                    createExplosion(
-                        enemy.x + enemy.width / 2,
-                        enemy.y + enemy.height / 2,
-                        10,
-                        '#fff' // 敌机被撞击时的爆炸颜色，可以根据需要调整
-                    );
-
-                    // 如果敌机等级降为0，则移除敌机
-                    if (enemy.level <= 0) {
-                        // 创建大爆炸效果
-                        createExplosion(
-                            enemy.x + enemy.width / 2,
-                            enemy.y + enemy.height / 2,
-                            enemy.width,
-                            '#ff0000'
-                        );
-                        enemies.splice(i, 1);
-                    }
+                    handleEnemyDamage(enemy); // 调用辅助函数处理敌机伤害，不用传入子弹颜色
                     
                     // 只有在非无敌状态下才受到伤害
                     if (!player.invincible) {
