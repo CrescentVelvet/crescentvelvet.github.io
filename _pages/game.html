@@ -672,7 +672,34 @@ title: "飞机大战小游戏"
             
             // 绘制一些随机的星星
             drawStars();
-            
+
+            // 绘制生命值爱心
+            ctx.fillStyle = '#FF69B4'; // 粉色
+            for (let i = 0; i < lives; i++) {
+                // 绘制爱心形状
+                ctx.beginPath();
+                const x = 20 + i * 30; // 每个爱心间隔30像素
+                const y = 30;
+                const size = 20;
+
+                // 调整贝塞尔曲线控制点以绘制更圆润饱满的爱心
+                ctx.moveTo(x, y + size * 0.3); // 起点，爱心顶部凹陷的中心点
+                // 左半部分
+                ctx.bezierCurveTo(
+                    x - size * 0.5, y - size * 0.5, // 控制点1
+                    x - size * 1.2, y + size * 0.3, // 控制点2
+                    x, y + size * 1.2 // 终点，爱心底部尖端
+                );
+                // 右半部分
+                ctx.bezierCurveTo(
+                    x + size * 1.2, y + size * 0.3, // 控制点1
+                    x + size * 0.5, y - size * 0.5, // 控制点2
+                    x, y + size * 0.3 // 终点，回到爱心顶部凹陷的中心点
+                );
+                ctx.closePath();
+                ctx.fill();
+            }
+
             // 绘制玩家（无敌状态闪烁）
             if (!player.invincible || Math.floor(Date.now() / 100) % 2) {
                 // 创建玩家飞机的渐变色
