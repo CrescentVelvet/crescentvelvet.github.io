@@ -113,9 +113,7 @@ title: "飞机大战小游戏"
     </div>
     <canvas id="gameCanvas"></canvas>
     <div id="mobileControls">
-        <button class="control-btn" id="leftBtn">←</button>
-        <button class="control-btn" id="fireBtn">🔥</button>
-        <button class="control-btn" id="rightBtn">→</button>
+        <!-- Mobile controls will be created dynamically -->
     </div>
 
     <script>
@@ -972,17 +970,49 @@ title: "飞机大战小游戏"
 
         // 移动设备控制
         if (isMobile) {
-            const leftBtn = document.getElementById('leftBtn');
-            const rightBtn = document.getElementById('rightBtn');
-            const fireBtn = document.getElementById('fireBtn');
+            // 创建更美观的移动控制界面
+            const mobileControls = document.getElementById('mobileControls');
+            mobileControls.innerHTML = '';
+            mobileControls.className = 'game-controls';
             
-            // 修改发射按钮为暂停按钮
-            fireBtn.innerHTML = '⏸️';
-        
+            // 创建左右移动按钮
+            const leftBtn = document.createElement('button');
+            leftBtn.className = 'control-btn';
+            leftBtn.id = 'leftBtn';
+            leftBtn.innerHTML = '←';
+            mobileControls.appendChild(leftBtn);
+            
+            // 创建上下移动按钮
+            const upBtn = document.createElement('button');
+            upBtn.className = 'control-btn';
+            upBtn.id = 'upBtn';
+            upBtn.innerHTML = '↑';
+            mobileControls.appendChild(upBtn);
+            
+            const downBtn = document.createElement('button');
+            downBtn.className = 'control-btn';
+            downBtn.id = 'downBtn';
+            downBtn.innerHTML = '↓';
+            mobileControls.appendChild(downBtn);
+            
+            // 创建暂停按钮
+            const pauseBtn = document.createElement('button');
+            pauseBtn.className = 'control-btn';
+            pauseBtn.id = 'pauseBtn';
+            pauseBtn.innerHTML = '⏸️';
+            mobileControls.appendChild(pauseBtn);
+            
+            // 创建右移动按钮
+            const rightBtn = document.createElement('button');
+            rightBtn.className = 'control-btn';
+            rightBtn.id = 'rightBtn';
+            rightBtn.innerHTML = '→';
+            mobileControls.appendChild(rightBtn);
+            
             // 触摸控制
             const handleTouchStart = (e, key) => {
                 e.preventDefault();
-                e.stopPropagation(); // 添加这一行阻止事件冒泡
+                e.stopPropagation();
                 
                 if (key === 'Space') {
                     // 空格键用于暂停/继续游戏
@@ -1002,27 +1032,35 @@ title: "飞机大战小游戏"
                     keys[key] = true;
                 }
             };
-        
+            
             const handleTouchEnd = (e, key) => {
                 e.preventDefault();
-                e.stopPropagation(); // 添加这一行阻止事件冒泡
+                e.stopPropagation();
                 keys[key] = false;
             };
-        
+            
             leftBtn.addEventListener('touchstart', (e) => handleTouchStart(e, 'ArrowLeft'));
             leftBtn.addEventListener('touchend', (e) => handleTouchEnd(e, 'ArrowLeft'));
-        
+            
             rightBtn.addEventListener('touchstart', (e) => handleTouchStart(e, 'ArrowRight'));
             rightBtn.addEventListener('touchend', (e) => handleTouchEnd(e, 'ArrowRight'));
-        
-            fireBtn.addEventListener('touchstart', (e) => handleTouchStart(e, 'Space'));
-            fireBtn.addEventListener('touchend', (e) => handleTouchEnd(e, 'Space'));
-        
+            
+            upBtn.addEventListener('touchstart', (e) => handleTouchStart(e, 'ArrowUp'));
+            upBtn.addEventListener('touchend', (e) => handleTouchEnd(e, 'ArrowUp'));
+            
+            downBtn.addEventListener('touchstart', (e) => handleTouchStart(e, 'ArrowDown'));
+            downBtn.addEventListener('touchend', (e) => handleTouchEnd(e, 'ArrowDown'));
+            
+            pauseBtn.addEventListener('touchstart', (e) => handleTouchStart(e, 'Space'));
+            pauseBtn.addEventListener('touchend', (e) => handleTouchEnd(e, 'Space'));
+            
             // 添加触摸取消事件处理
             leftBtn.addEventListener('touchcancel', (e) => handleTouchEnd(e, 'ArrowLeft'));
             rightBtn.addEventListener('touchcancel', (e) => handleTouchEnd(e, 'ArrowRight'));
-            fireBtn.addEventListener('touchcancel', (e) => handleTouchEnd(e, 'Space'));
-        
+            upBtn.addEventListener('touchcancel', (e) => handleTouchEnd(e, 'ArrowUp'));
+            downBtn.addEventListener('touchcancel', (e) => handleTouchEnd(e, 'ArrowDown'));
+            pauseBtn.addEventListener('touchcancel', (e) => handleTouchEnd(e, 'Space'));
+            
             // 隐藏移动端双击缩放
             document.documentElement.addEventListener('touchstart', (e) => {
                 if (e.touches.length > 1) {
