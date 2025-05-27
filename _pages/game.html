@@ -153,7 +153,7 @@ title: "飞机大战小游戏"
         let healthPowerUpsTimeInterval = 23; // 每23个敌人生成一个绿色方块
         let shootingPowerUpsTimeInterval = 13; // 每13个敌人生成一个金色方块
         let invinciblePowerUpsTimeInterval = 17; // 每17个敌人生成一个蓝色方块
-
+        let enemyMaxLevel = 10; // 最大敌机等级
         let lastEnemyTime = 0; // 上次生成敌机的时间
         let enemyInterval = 1000; // 初始敌机生成间隔（毫秒）
 
@@ -296,8 +296,8 @@ title: "飞机大战小游戏"
             if (Date.now() - lastEnemyTime > enemyInterval) {
                 lastEnemyTime = Date.now();
                 
-                // 根据游戏时间动态调整敌机等级，等级可以无限增长，每10秒增加1级，基础等级为1
-                const level = 1 + Math.floor(gameTime / 10); 
+                // 根据游戏时间动态调整敌机等级，最大等级enemyMaxLevel是100级，每10秒增加1级，基础等级为1
+                const level = Math.min(enemyMaxLevel, 1 + Math.floor(gameTime / 10)); 
 
                 // 根据等级设置敌机属性
                 const enemyWidth = 30 + (level - 1) * 10; // 等级越高，体积越大
@@ -877,45 +877,39 @@ title: "飞机大战小游戏"
         
             // 绘制敌机
             enemies.forEach(enemy => {
-            // 根据敌机等级设置不同的颜色
-            let enemyColor;
-            switch(enemy.level) {
-            case 1:
-            ctx.fillStyle = '#f00'; // 1级敌机为红色
-            break;
-            case 2:
-            ctx.fillStyle = '#f80'; // 2级敌机为橙色
-            break;
-            case 3:
-            ctx.fillStyle = '#f0f'; // 3级敌机为紫色
-            break;
-            case 4:
-            ctx.fillStyle = '#f0f'; // 4级敌机为紫色
-            break;
-            case 5:
-            ctx.fillStyle = '#f0f'; // 5级敌机为紫色
-            break;
-            default:
-            ctx.fillStyle = '#f00';
-            }
-            
-            // 绘制敌机主体（圆形）
-            ctx.beginPath();
-            ctx.ellipse(
-                enemy.x + enemy.width / 2,
-                enemy.y + enemy.height / 2,
-                enemy.width / 2,
-                enemy.height / 2,
-                0, 0, Math.PI * 2
-            );
-            ctx.fill();
-            
-            // 绘制敌机等级数字
-            ctx.fillStyle = '#fff';
-            ctx.font = 'bold ' + (16 + enemy.level * 2) + 'px Arial';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(enemy.level, enemy.x + enemy.width / 2, enemy.y + enemy.height / 2);
+                // 根据敌机等级设置不同的颜色，计算颜色值，等级越高，颜色越偏向紫色
+                const startColor = [255, 99, 71]; // 浅红色(255, 99, 71)
+                const endColor = [148, 0, 211]; // 深紫色(148, 0, 211)
+                const maxLevel = enemyMaxLevel; // 最高等级为100级
+                
+                // 将等级限制在1到maxLevel之间进行颜色计算
+                const clampedLevel = Math.min(Math.max(enemy.level, 1), maxLevel);
+                const ratio = (clampedLevel - 1) / (maxLevel - 1);
+
+                const r = Math.round(startColor[0] + (endColor[0] - startColor[0]) * ratio);
+                const g = Math.round(startColor[1] + (endColor[1] - startColor[1]) * ratio);
+                const b = Math.round(startColor[2] + (endColor[2] - startColor[2]) * ratio);
+
+                ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+
+                // 绘制敌机主体（圆形）
+                // ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
+                ctx.beginPath();
+                ctx.ellipse(
+                    enemy.x + enemy.width / 2,
+                    enemy.y + enemy.height / 2,
+                    enemy.width / 2,
+                    enemy.height / 2,
+                    0, 0, Math.PI * 2
+                );
+                ctx.fill();
+
+                // 绘制敌机等级数字
+                ctx.fillStyle = '#fff'; // 白色文字
+                ctx.font = '12px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(enemy.level, enemy.x + enemy.width / 2, enemy.y + enemy.height / 2);
             });
 
             // 绘制绿色方块（生命奖励）
