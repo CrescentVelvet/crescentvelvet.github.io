@@ -170,21 +170,34 @@ title: "飞机大战小游戏"
         // 碰撞检测
         function checkCollisions() {
             // 子弹击中敌机
-            bullets.forEach((bullet, bulletIndex) => {
-                enemies.forEach((enemy, enemyIndex) => {
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                const bullet = bullets[i];
+                let bulletHit = false;
+                
+                for (let j = enemies.length - 1; j >= 0; j--) {
+                    const enemy = enemies[j];
                     if (bullet.x < enemy.x + enemy.width &&
                         bullet.x + bullet.width > enemy.x &&
                         bullet.y < enemy.y + enemy.height &&
                         bullet.y + bullet.height > enemy.y) {
-                        bullets.splice(bulletIndex, 1);
-                        enemies.splice(enemyIndex, 1);
+                        // 移除被击中的敌机
+                        enemies.splice(j, 1);
+                        // 增加分数和击杀数
                         score += 100;
                         kills++;
                         scoreElement.textContent = score;
                         killsElement.textContent = kills;
+                        // 标记子弹已击中敌机
+                        bulletHit = true;
+                        break; // 一旦击中敌机就跳出内层循环
                     }
-                });
-            });
+                }
+                
+                // 如果子弹击中了敌机，则移除该子弹
+                if (bulletHit) {
+                    bullets.splice(i, 1);
+                }
+            }
 
             // 玩家碰到金色方块
             powerUps.forEach((powerUp, index) => {
