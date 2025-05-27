@@ -584,6 +584,8 @@ title: "飞机大战小游戏"
             width: 40,
             height: 40,
             speed: 5,
+            vx: 0, // Added for touch movement
+            vy: 0, // Added for touch movement
             invincible: false,
             invincibleTime: 2000 // 无敌时间2秒
         };
@@ -629,18 +631,27 @@ title: "飞机大战小游戏"
 
         // 更新玩家位置
         function updatePlayer() {
-            if (keys.ArrowLeft && player.x > 0) {
+            // Keyboard controls
+            if (keys.ArrowLeft) {
                 player.x -= player.speed;
             }
-            if (keys.ArrowRight && player.x < canvas.width - player.width) {
+            if (keys.ArrowRight) {
                 player.x += player.speed;
             }
-            if (keys.ArrowUp && player.y > 0) {
+            if (keys.ArrowUp) {
                 player.y -= player.speed;
             }
-            if (keys.ArrowDown && player.y < canvas.height - player.height) {
+            if (keys.ArrowDown) {
                 player.y += player.speed;
             }
+
+            // Touch controls (apply velocity)
+            player.x += player.vx;
+            player.y += player.vy;
+
+            // Clamp player position within canvas bounds
+            player.x = Math.max(0, Math.min(canvas.width - player.width, player.x));
+            player.y = Math.max(0, Math.min(canvas.height - player.height, player.y));
         }
 
         // 创建子弹
@@ -1220,13 +1231,17 @@ title: "飞机大战小游戏"
                 const touchX = e.touches[0].clientX;
                 const touchY = e.touches[0].clientY;
                 
-                // 直接设置玩家位置，而不是按键状态
-                player.x = touchX - canvas.offsetLeft - player.width/2;
-                player.y = touchY - canvas.offsetTop - player.height/2;
+                // 计算触摸点移动的距离
+                const deltaX = touchX - touchStartX;
+                const deltaY = touchY - touchStartY;
                 
-                // 确保玩家不会移出画布
-                player.x = Math.max(0, Math.min(canvas.width - player.width, player.x));
-                player.y = Math.max(0, Math.min(canvas.height - player.height, player.y));
+                // 根据移动距离设置玩家飞机的速度 (可以调整缩放因子 0.1)
+                player.vx = deltaX * 0.1;
+                player.vy = deltaY * 0.1;
+                
+                // 更新触摸起始位置，以便下一次计算相对移动
+                touchStartX = touchX;
+                touchStartY = touchY;
             };
             
             const handleTouchEnd = () => {
