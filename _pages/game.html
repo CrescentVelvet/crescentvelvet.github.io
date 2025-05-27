@@ -892,10 +892,9 @@ title: "飞机大战小游戏"
 
                 // 绘制敌机等级数字
                 ctx.fillStyle = '#000'; // 黑色文字
-                // 字体大小随等级增大，设置一个最小字体和最大字体，并根据等级进行插值
-                const minFontSize = 12;
-                const maxFontSize = 24;
-                const fontSize = Math.min(maxFontSize, minFontSize + enemy.level * 0.5); 
+                // 字体大小随等级增大
+                const minFontSize = 15;
+                const fontSize = minFontSize + enemy.level * 2; 
                 ctx.font = `${fontSize}px Arial`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
