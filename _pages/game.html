@@ -136,9 +136,10 @@ title: "飞机大战小游戏"
         let gameOver = false;
         let gamePaused = false; // 添加暂停状态变量
         let startTime = Date.now();
-        let powerUpActive = false;
-        let powerUpTimeLeft = 0;
-        let powerUpDuration = 5000; // 特殊能力持续5秒
+        let pauseStartTime = 0; // 暂停开始时间
+        let shootingPowerUpActive = false; // 射击特殊能力状态
+        let shootingPowerUpTimeLeft = 0; // 射击特殊能力剩余时间
+        let shootingPowerUpDuration = 5000; // 射击特殊能力持续5秒
         let invinciblePowerUpActive = false; // 无敌特殊能力状态
         let invinciblePowerUpTimeLeft = 0; // 无敌特殊能力剩余时间
         let invinciblePowerUpDuration = 3000; // 无敌特殊能力持续3秒
@@ -147,7 +148,7 @@ title: "飞机大战小游戏"
         const bulletCooldown = 300; // 子弹发射冷却时间（毫秒）
         let explosions = []; // 爆炸效果数组
 
-        // 金色方块数组
+        // 金色方块数组（射击奖励）
         let powerUps = [];
 
         // 蓝色方块数组（无敌奖励）
@@ -369,8 +370,8 @@ title: "飞机大战小游戏"
                             // 移除金色方块
                             powerUps.splice(index, 1);
                             // 激活特殊能力
-                            powerUpActive = true;
-                            powerUpTimeLeft = 5000; // 5秒特殊能力时间
+                            shootingPowerUpActive = true;
+                            shootingPowerUpTimeLeft = shootingPowerUpDuration; // 5秒特殊能力时间
                             player.speed = 8; // 提升移动速度
                         }
                     });
@@ -391,28 +392,28 @@ title: "飞机大战小游戏"
                     });
 
                     // 敌机撞击玩家
-                    if (!player.invincible) {
-                        for (let i = enemies.length - 1; i >= 0; i--) {
-                            const enemy = enemies[i];
-                            if (player.x < enemy.x + enemy.width &&
-                                player.x + player.width > enemy.x &&
-                                player.y < enemy.y + enemy.height &&
-                                player.y + player.height > enemy.y) {
-                                
-                                // 降低敌机等级
-                                enemy.level--;
-                                
-                                // 更新敌机体积和速度
-                                enemy.width = 30 + (enemy.level - 1) * 10;
-                                enemy.height = 30 + (enemy.level - 1) * 10;
-                                enemy.speed = 4 - (enemy.level - 1);
-                                
-                                // 如果敌机等级降为0，则移除敌机
-                                if (enemy.level <= 0) {
-                                    enemies.splice(i, 1);
-                                }
-                                
-                                // 玩家受到伤害
+                    for (let i = enemies.length - 1; i >= 0; i--) {
+                        const enemy = enemies[i];
+                        if (player.x < enemy.x + enemy.width &&
+                            player.x + player.width > enemy.x &&
+                            player.y < enemy.y + enemy.height &&
+                            player.y + player.height > enemy.y) {
+                            
+                            // 降低敌机等级
+                            enemy.level--;
+                            
+                            // 更新敌机体积和速度
+                            enemy.width = 30 + (enemy.level - 1) * 10;
+                            enemy.height = 30 + (enemy.level - 1) * 10;
+                            enemy.speed = 4 - (enemy.level - 1);
+                            
+                            // 如果敌机等级降为0，则移除敌机
+                            if (enemy.level <= 0) {
+                                enemies.splice(i, 1);
+                            }
+                            
+                            // 只有在非无敌状态下才受到伤害
+                            if (!player.invincible) {
                                 lives--;
                                 livesElement.textContent = lives;
                                 if (lives <= 0) {
@@ -429,7 +430,7 @@ title: "飞机大战小游戏"
                     }
                 }
 
-        // 创建金色方块
+        // 创建金色方块（射击奖励）
         function createPowerUp() {
             // 只在enemyCounter是10的倍数，且大于0时创建一个金色方块
             if (enemyCounter % 10 === 0 && enemyCounter > 0 && powerUps.length === 0) {
@@ -465,10 +466,10 @@ title: "飞机大战小游戏"
             });
 
             // 更新特殊能力时间
-            if (powerUpActive) {
-                powerUpTimeLeft = Math.max(0, powerUpTimeLeft - 16); // 假设60fps，约16ms每帧
-                if (powerUpTimeLeft <= 0) {
-                    powerUpActive = false;
+            if (shootingPowerUpActive) {
+                shootingPowerUpTimeLeft = Math.max(0, shootingPowerUpTimeLeft - 16); // 假设60fps，约16ms每帧
+                if (shootingPowerUpTimeLeft <= 0) {
+                    shootingPowerUpActive = false;
                     player.speed = 5; // 恢复正常速度
                 }
             }
@@ -529,7 +530,6 @@ title: "飞机大战小游戏"
                         const pauseDuration = Date.now() - pauseStartTime;
                         startTime += pauseDuration;
                     } else {
-                        let pauseStartTime = 0; // 记录暂停开始的时间
                         pauseStartTime = Date.now();
                     }
                 }
@@ -567,7 +567,7 @@ title: "飞机大战小游戏"
                 lastBulletTime = currentTime;
                 
                 // 根据特殊能力状态决定子弹颜色
-                const bulletColor = powerUpActive ? '#FFD700' : '#fff';
+                const bulletColor = shootingPowerUpActive ? '#FFD700' : '#fff';
                 
                 // 创建中间的子弹
                 bullets.push({
@@ -580,7 +580,7 @@ title: "飞机大战小游戏"
                 });
         
                 // 如果特殊能力激活，创建斜向子弹
-                if (powerUpActive) {
+                if (shootingPowerUpActive) {
                     // 左斜向子弹
                     bullets.push({
                         x: player.x + player.width / 2 - 2,
@@ -920,8 +920,8 @@ title: "飞机大战小游戏"
                 timeElement.textContent = gameTime;
                 player.x = canvas.width / 2;
                 player.invincible = false;
-                powerUpActive = false;
-                powerUpTimeLeft = 0;
+                shootingPowerUpActive = false;
+                shootingPowerUpTimeLeft = 0;
                 bullets = [];
                 enemies = [];
                 powerUps = [];
@@ -970,30 +970,9 @@ title: "飞机大战小游戏"
 
         // 移动设备控制
         if (isMobile) {
-            // 创建更美观的移动控制界面
             const mobileControls = document.getElementById('mobileControls');
             mobileControls.innerHTML = '';
             mobileControls.className = 'game-controls';
-            
-            // 创建左右移动按钮
-            const leftBtn = document.createElement('button');
-            leftBtn.className = 'control-btn';
-            leftBtn.id = 'leftBtn';
-            leftBtn.innerHTML = '←';
-            mobileControls.appendChild(leftBtn);
-            
-            // 创建上下移动按钮
-            const upBtn = document.createElement('button');
-            upBtn.className = 'control-btn';
-            upBtn.id = 'upBtn';
-            upBtn.innerHTML = '↑';
-            mobileControls.appendChild(upBtn);
-            
-            const downBtn = document.createElement('button');
-            downBtn.className = 'control-btn';
-            downBtn.id = 'downBtn';
-            downBtn.innerHTML = '↓';
-            mobileControls.appendChild(downBtn);
             
             // 创建暂停按钮
             const pauseBtn = document.createElement('button');
@@ -1002,64 +981,73 @@ title: "飞机大战小游戏"
             pauseBtn.innerHTML = '⏸️';
             mobileControls.appendChild(pauseBtn);
             
-            // 创建右移动按钮
-            const rightBtn = document.createElement('button');
-            rightBtn.className = 'control-btn';
-            rightBtn.id = 'rightBtn';
-            rightBtn.innerHTML = '→';
-            mobileControls.appendChild(rightBtn);
+            let touchStartX = 0;
+            let touchStartY = 0;
             
             // 触摸控制
-            const handleTouchStart = (e, key) => {
+            const handleTouchStart = (e) => {
                 e.preventDefault();
                 e.stopPropagation();
                 
-                if (key === 'Space') {
-                    // 空格键用于暂停/继续游戏
+                // 如果点击暂停按钮
+                if (e.target === pauseBtn) {
                     if (!gameOver) {
                         gamePaused = !gamePaused;
-                        
-                        // 如果继续游戏，更新开始时间以避免时间跳跃
                         if (!gamePaused) {
                             const pauseDuration = Date.now() - pauseStartTime;
                             startTime += pauseDuration;
                         } else {
-                            // 记录暂停开始时间
                             pauseStartTime = Date.now();
                         }
                     }
-                } else {
-                    keys[key] = true;
+                    return;
                 }
+                
+                // 记录触摸起始位置
+                touchStartX = e.touches[0].clientX;
+                touchStartY = e.touches[0].clientY;
+                
+                // 清除所有按键状态
+                keys['ArrowLeft'] = false;
+                keys['ArrowRight'] = false;
+                keys['ArrowUp'] = false;
+                keys['ArrowDown'] = false;
             };
             
-            const handleTouchEnd = (e, key) => {
+            const handleTouchMove = (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                keys[key] = false;
+                
+                if (e.target === pauseBtn) return;
+                
+                const touchX = e.touches[0].clientX;
+                const touchY = e.touches[0].clientY;
+                
+                const deltaX = touchX - touchStartX;
+                const deltaY = touchY - touchStartY;
+                
+                // 根据滑动方向设置按键状态
+                keys['ArrowLeft'] = deltaX < -10;
+                keys['ArrowRight'] = deltaX > 10;
+                keys['ArrowUp'] = deltaY < -10;
+                keys['ArrowDown'] = deltaY > 10;
             };
             
-            leftBtn.addEventListener('touchstart', (e) => handleTouchStart(e, 'ArrowLeft'));
-            leftBtn.addEventListener('touchend', (e) => handleTouchEnd(e, 'ArrowLeft'));
+            const handleTouchEnd = () => {
+                // 清除所有按键状态
+                keys['ArrowLeft'] = false;
+                keys['ArrowRight'] = false;
+                keys['ArrowUp'] = false;
+                keys['ArrowDown'] = false;
+            };
             
-            rightBtn.addEventListener('touchstart', (e) => handleTouchStart(e, 'ArrowRight'));
-            rightBtn.addEventListener('touchend', (e) => handleTouchEnd(e, 'ArrowRight'));
+            // 添加触摸事件监听
+            canvas.addEventListener('touchstart', handleTouchStart);
+            canvas.addEventListener('touchmove', handleTouchMove);
+            canvas.addEventListener('touchend', handleTouchEnd);
+            canvas.addEventListener('touchcancel', handleTouchEnd);
             
-            upBtn.addEventListener('touchstart', (e) => handleTouchStart(e, 'ArrowUp'));
-            upBtn.addEventListener('touchend', (e) => handleTouchEnd(e, 'ArrowUp'));
-            
-            downBtn.addEventListener('touchstart', (e) => handleTouchStart(e, 'ArrowDown'));
-            downBtn.addEventListener('touchend', (e) => handleTouchEnd(e, 'ArrowDown'));
-            
-            pauseBtn.addEventListener('touchstart', (e) => handleTouchStart(e, 'Space'));
-            pauseBtn.addEventListener('touchend', (e) => handleTouchEnd(e, 'Space'));
-            
-            // 添加触摸取消事件处理
-            leftBtn.addEventListener('touchcancel', (e) => handleTouchEnd(e, 'ArrowLeft'));
-            rightBtn.addEventListener('touchcancel', (e) => handleTouchEnd(e, 'ArrowRight'));
-            upBtn.addEventListener('touchcancel', (e) => handleTouchEnd(e, 'ArrowUp'));
-            downBtn.addEventListener('touchcancel', (e) => handleTouchEnd(e, 'ArrowDown'));
-            pauseBtn.addEventListener('touchcancel', (e) => handleTouchEnd(e, 'Space'));
+            pauseBtn.addEventListener('touchstart', handleTouchStart);
             
             // 隐藏移动端双击缩放
             document.documentElement.addEventListener('touchstart', (e) => {
