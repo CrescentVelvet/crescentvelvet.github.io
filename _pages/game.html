@@ -17,13 +17,17 @@ title: "飞机大战小游戏"
             justify-content: center;
             align-items: center;
             min-height: 100vh;
-            background-color: #000;
+            background-color: #0a0a2a; /* 深蓝色背景 */
             touch-action: none;
+            font-family: 'Arial', sans-serif;
+            background-image: linear-gradient(to bottom, #0a0a2a, #000000); /* 渐变背景 */
         }
         canvas {
-            border: 2px solid #fff;
+            border: 3px solid #4a90e2;
+            border-radius: 10px;
             max-width: 100vw;
             max-height: 100vh;
+            box-shadow: 0 0 20px rgba(74, 144, 226, 0.5); /* 发光效果 */
         }
         #gameInfo {
             position: fixed;
@@ -31,9 +35,21 @@ title: "飞机大战小游戏"
             left: 10px;
             color: #fff;
             font-size: 16px;
-            font-family: Arial, sans-serif;
+            font-family: 'Arial', sans-serif;
             line-height: 1.5;
             z-index: 100;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 10px 15px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(5px);
+        }
+        #gameInfo div {
+            margin-bottom: 5px;
+        }
+        #gameInfo span {
+            font-weight: bold;
+            color: #4a90e2;
         }
         #lastModified {
             position: fixed;
@@ -41,8 +57,8 @@ title: "飞机大战小游戏"
             right: 10px;
             color: #fff;
             font-size: 14px;
-            font-family: Arial, sans-serif;
-            background: rgba(0, 0, 0, 0.5);
+            font-family: 'Arial', sans-serif;
+            background: rgba(0, 0, 0, 0.6);
             padding: 5px 10px;
             border-radius: 5px;
             z-index: 100;
@@ -59,11 +75,11 @@ title: "飞机大战小游戏"
             z-index: 1000;
         }
         .control-btn {
-            background: rgba(255, 255, 255, 0.3);
-            border: 2px solid rgba(255, 255, 255, 0.5);
+            background: rgba(74, 144, 226, 0.3);
+            border: 2px solid rgba(74, 144, 226, 0.7);
             color: white;
             padding: 15px;
-            border-radius: 10px;
+            border-radius: 50%; /* 圆形按钮 */
             min-width: 50px;
             height: 50px;
             display: flex;
@@ -74,9 +90,11 @@ title: "飞机大战小游戏"
             user-select: none;
             -webkit-tap-highlight-color: transparent;
             cursor: pointer;
+            transition: all 0.2s ease; /* 平滑过渡效果 */
         }
         .control-btn:active {
-            background: rgba(255, 255, 255, 0.5);
+            background: rgba(74, 144, 226, 0.7);
+            transform: scale(0.95); /* 按下时缩小效果 */
         }
         .control-text {
             font-size: 12px;
@@ -129,6 +147,7 @@ title: "飞机大战小游戏"
         let enemyCounter = 0; // 敌人计数器
         let lastBulletTime = 0; // 上次发射子弹的时间
         const bulletCooldown = 300; // 子弹发射冷却时间（毫秒）
+        let explosions = []; // 爆炸效果数组
 
         // 金色方块数组
         let powerUps = [];
@@ -142,6 +161,97 @@ title: "飞机大战小游戏"
         // 敌机数组
         let enemies = [];
         const enemySpeed = 3;
+
+        // 绘制星星背景
+        function drawStars() {
+            // 使用固定的随机种子，这样星星位置不会每帧都变
+            const starCount = 100;
+            const starSeed = Math.floor(gameTime / 10); // 每10秒变化一次星空
+            
+            // 简单的伪随机函数
+            const pseudoRandom = (seed, index) => {
+                return ((seed * 9301 + 49297) * index) % 233280 / 233280;
+            };
+            
+            for (let i = 0; i < starCount; i++) {
+                const x = pseudoRandom(starSeed, i * 3) * canvas.width;
+                const y = pseudoRandom(starSeed, i * 3 + 1) * canvas.height;
+                const size = 1 + pseudoRandom(starSeed, i * 3 + 2) * 2;
+                
+                // 让星星闪烁
+                const brightness = 0.5 + Math.sin(gameTime + i) * 0.5;
+                const alpha = 0.5 + brightness * 0.5;
+                
+                ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+                ctx.beginPath();
+                ctx.arc(x, y, size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        // 绘制星形（用于金色方块）
+        function drawStar(cx, cy, radius, spikes) {
+            let rot = Math.PI / 2 * 3;
+            let step = Math.PI / spikes;
+            
+            ctx.beginPath();
+            ctx.moveTo(cx, cy - radius);
+            
+            for (let i = 0; i < spikes; i++) {
+                ctx.lineTo(
+                    cx + Math.cos(rot) * radius,
+                    cy + Math.sin(rot) * radius
+                );
+                rot += step;
+                
+                ctx.lineTo(
+                    cx + Math.cos(rot) * radius * 0.4,
+                    cy + Math.sin(rot) * radius * 0.4
+                );
+                rot += step;
+            }
+            
+            ctx.lineTo(cx, cy - radius);
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        // 绘制盾牌形状（用于无敌奖励）
+        function drawShield(cx, cy, radius) {
+            ctx.beginPath();
+            ctx.moveTo(cx, cy - radius);
+            ctx.quadraticCurveTo(
+                cx + radius, cy - radius * 0.8,
+                cx + radius, cy
+            );
+            ctx.quadraticCurveTo(
+                cx + radius, cy + radius,
+                cx, cy + radius
+            );
+            ctx.quadraticCurveTo(
+                cx - radius, cy + radius,
+                cx - radius, cy
+            );
+            ctx.quadraticCurveTo(
+                cx - radius, cy - radius * 0.8,
+                cx, cy - radius
+            );
+            ctx.closePath();
+            ctx.fill();
+            
+            // 添加盾牌内部细节
+            ctx.beginPath();
+            ctx.moveTo(cx, cy - radius * 0.4);
+            ctx.lineTo(cx, cy + radius * 0.4);
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            ctx.beginPath();
+            ctx.moveTo(cx - radius * 0.4, cy);
+            ctx.lineTo(cx + radius * 0.4, cy);
+            ctx.stroke();
+        }
 
         // 创建敌机
         function createEnemy() {
@@ -213,8 +323,24 @@ title: "飞机大战小游戏"
                         enemy.height = 30 + (enemy.level - 1) * 10;
                         enemy.speed = 4 - (enemy.level - 1);
                         
+                        // 创建小爆炸效果
+                        createExplosion(
+                            bullet.x + bullet.width / 2,
+                            bullet.y + bullet.height / 2,
+                            10,
+                            bullet.color || '#fff'
+                        );
+                        
                         // 如果敌机等级降为0，则移除敌机并增加分数
                         if (enemy.level <= 0) {
+                            // 创建大爆炸效果
+                            createExplosion(
+                                enemy.x + enemy.width / 2,
+                                enemy.y + enemy.height / 2,
+                                enemy.width,
+                                '#ff0000'
+                            );
+                            
                             // 移除被击中的敌机
                             enemies.splice(j, 1);
                             // 增加分数和击杀数
@@ -236,74 +362,74 @@ title: "飞机大战小游戏"
                 }
             }
 
-            // 玩家碰到金色方块
-            powerUps.forEach((powerUp, index) => {
-                if (player.x < powerUp.x + powerUp.width &&
-                    player.x + player.width > powerUp.x &&
-                    player.y < powerUp.y + powerUp.height &&
-                    player.y + player.height > powerUp.y) {
-                    // 移除金色方块
-                    powerUps.splice(index, 1);
-                    // 激活特殊能力
-                    powerUpActive = true;
-                    powerUpTimeLeft = 5000; // 5秒特殊能力时间
-                    player.speed = 8; // 提升移动速度
-                }
-            });
-
-            // 玩家碰到蓝色方块（无敌奖励）
-            invinciblePowerUps.forEach((powerUp, index) => {
-                if (player.x < powerUp.x + powerUp.width &&
-                    player.x + player.width > powerUp.x &&
-                    player.y < powerUp.y + powerUp.height &&
-                    player.y + player.height > powerUp.y) {
-                    // 移除蓝色方块
-                    invinciblePowerUps.splice(index, 1);
-                    // 激活无敌特殊能力
-                    invinciblePowerUpActive = true;
-                    invinciblePowerUpTimeLeft = invinciblePowerUpDuration; // 3秒无敌时间
-                    player.invincible = true; // 设置玩家为无敌状态
-                }
-            });
-
-            // 敌机撞击玩家
-            if (!player.invincible) {
-                for (let i = enemies.length - 1; i >= 0; i--) {
-                    const enemy = enemies[i];
-                    if (player.x < enemy.x + enemy.width &&
-                        player.x + player.width > enemy.x &&
-                        player.y < enemy.y + enemy.height &&
-                        player.y + player.height > enemy.y) {
-                        
-                        // 降低敌机等级
-                        enemy.level--;
-                        
-                        // 更新敌机体积和速度
-                        enemy.width = 30 + (enemy.level - 1) * 10;
-                        enemy.height = 30 + (enemy.level - 1) * 10;
-                        enemy.speed = 4 - (enemy.level - 1);
-                        
-                        // 如果敌机等级降为0，则移除敌机
-                        if (enemy.level <= 0) {
-                            enemies.splice(i, 1);
+                    // 玩家碰到金色方块
+                    powerUps.forEach((powerUp, index) => {
+                        if (player.x < powerUp.x + powerUp.width &&
+                            player.x + player.width > powerUp.x &&
+                            player.y < powerUp.y + powerUp.height &&
+                            player.y + player.height > powerUp.y) {
+                            // 移除金色方块
+                            powerUps.splice(index, 1);
+                            // 激活特殊能力
+                            powerUpActive = true;
+                            powerUpTimeLeft = 5000; // 5秒特殊能力时间
+                            player.speed = 8; // 提升移动速度
                         }
-                        
-                        // 玩家受到伤害
-                        lives--;
-                        livesElement.textContent = lives;
-                        if (lives <= 0) {
-                            gameOver = true;
-                        } else {
-                            // 设置无敌状态
-                            player.invincible = true;
-                            setTimeout(() => {
-                                player.invincible = false;
-                            }, player.invincibleTime);
+                    });
+
+                    // 玩家碰到蓝色方块（无敌奖励）
+                    invinciblePowerUps.forEach((powerUp, index) => {
+                        if (player.x < powerUp.x + powerUp.width &&
+                            player.x + player.width > powerUp.x &&
+                            player.y < powerUp.y + powerUp.height &&
+                            player.y + player.height > powerUp.y) {
+                            // 移除蓝色方块
+                            invinciblePowerUps.splice(index, 1);
+                            // 激活无敌特殊能力
+                            invinciblePowerUpActive = true;
+                            invinciblePowerUpTimeLeft = invinciblePowerUpDuration; // 3秒无敌时间
+                            player.invincible = true; // 设置玩家为无敌状态
+                        }
+                    });
+
+                    // 敌机撞击玩家
+                    if (!player.invincible) {
+                        for (let i = enemies.length - 1; i >= 0; i--) {
+                            const enemy = enemies[i];
+                            if (player.x < enemy.x + enemy.width &&
+                                player.x + player.width > enemy.x &&
+                                player.y < enemy.y + enemy.height &&
+                                player.y + player.height > enemy.y) {
+                                
+                                // 降低敌机等级
+                                enemy.level--;
+                                
+                                // 更新敌机体积和速度
+                                enemy.width = 30 + (enemy.level - 1) * 10;
+                                enemy.height = 30 + (enemy.level - 1) * 10;
+                                enemy.speed = 4 - (enemy.level - 1);
+                                
+                                // 如果敌机等级降为0，则移除敌机
+                                if (enemy.level <= 0) {
+                                    enemies.splice(i, 1);
+                                }
+                                
+                                // 玩家受到伤害
+                                lives--;
+                                livesElement.textContent = lives;
+                                if (lives <= 0) {
+                                    gameOver = true;
+                                } else {
+                                    // 设置无敌状态
+                                    player.invincible = true;
+                                    setTimeout(() => {
+                                        player.invincible = false;
+                                    }, player.invincibleTime);
+                                }
+                            }
                         }
                     }
                 }
-            }
-        }
 
         // 创建金色方块
         function createPowerUp() {
@@ -492,26 +618,93 @@ title: "飞机大战小游戏"
 
         // 在draw函数中更新子弹绘制
         function draw() {
-            // 清空画布
-            ctx.fillStyle = '#000';
+            // 绘制星空背景
+            ctx.fillStyle = '#0a0a2a';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
-
+            
+            // 绘制一些随机的星星
+            drawStars();
+            
             // 绘制玩家（无敌状态闪烁）
             if (!player.invincible || Math.floor(Date.now() / 100) % 2) {
-                ctx.fillStyle = '#0f0';
-                ctx.fillRect(player.x, player.y, player.width, player.height);
+                // 创建玩家飞机的渐变色
+                const playerGradient = ctx.createLinearGradient(
+                    player.x, player.y, 
+                    player.x, player.y + player.height
+                );
+                playerGradient.addColorStop(0, '#00ff00');
+                playerGradient.addColorStop(1, '#006600');
+                
+                ctx.fillStyle = playerGradient;
+                
+                // 绘制飞机主体
+                ctx.beginPath();
+                ctx.moveTo(player.x + player.width / 2, player.y);
+                ctx.lineTo(player.x, player.y + player.height);
+                ctx.lineTo(player.x + player.width, player.y + player.height);
+                ctx.closePath();
+                ctx.fill();
+                
+                // 绘制飞机引擎火焰
+                const flameHeight = 10 + Math.random() * 5; // 随机火焰高度
+                const flameGradient = ctx.createLinearGradient(
+                    player.x + player.width / 2, player.y + player.height,
+                    player.x + player.width / 2, player.y + player.height + flameHeight
+                );
+                flameGradient.addColorStop(0, '#ff9900');
+                flameGradient.addColorStop(1, '#ff0000');
+                
+                ctx.fillStyle = flameGradient;
+                ctx.beginPath();
+                ctx.moveTo(player.x + player.width / 3, player.y + player.height);
+                ctx.lineTo(player.x + player.width / 2, player.y + player.height + flameHeight);
+                ctx.lineTo(player.x + player.width * 2/3, player.y + player.height);
+                ctx.closePath();
+                ctx.fill();
             }
-
+        
             // 绘制子弹
             bullets.forEach(bullet => {
-            ctx.fillStyle = bullet.color || '#fff'; // 使用子弹自己的颜色，如果没有则默认为白色
-            ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+                // 创建子弹的渐变色
+                const bulletGradient = ctx.createLinearGradient(
+                    bullet.x, bullet.y,
+                    bullet.x, bullet.y + bullet.height
+                );
+                
+                if (bullet.color === '#FFD700') {
+                    // 金色子弹渐变
+                    bulletGradient.addColorStop(0, '#FFD700');
+                    bulletGradient.addColorStop(1, '#FFA500');
+                } else {
+                    // 普通子弹渐变
+                    bulletGradient.addColorStop(0, '#ffffff');
+                    bulletGradient.addColorStop(1, '#aaaaaa');
+                }
+                
+                ctx.fillStyle = bulletGradient;
+                
+                // 绘制圆形子弹
+                ctx.beginPath();
+                ctx.ellipse(
+                    bullet.x + bullet.width / 2,
+                    bullet.y + bullet.height / 2,
+                    bullet.width / 2,
+                    bullet.height / 2,
+                    0, 0, Math.PI * 2
+                );
+                ctx.fill();
+                
+                // 添加发光效果
+                ctx.shadowBlur = 5;
+                ctx.shadowColor = bullet.color || '#fff';
+                ctx.fill();
+                ctx.shadowBlur = 0; // 重置阴影
             });
-
-            // 绘制敌机
+        
             // 绘制敌机
             enemies.forEach(enemy => {
             // 根据敌机等级设置不同的颜色
+            let enemyColor;
             switch(enemy.level) {
             case 1:
             ctx.fillStyle = '#f00'; // 1级敌机为红色
@@ -526,50 +719,136 @@ title: "飞机大战小游戏"
             ctx.fillStyle = '#f00';
             }
             
-            // 绘制敌机主体
-            ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
+            // 绘制敌机主体（圆形）
+            ctx.beginPath();
+            ctx.ellipse(
+                enemy.x + enemy.width / 2,
+                enemy.y + enemy.height / 2,
+                enemy.width / 2,
+                enemy.height / 2,
+                0, 0, Math.PI * 2
+            );
+            ctx.fill();
             
             // 绘制敌机等级数字
             ctx.fillStyle = '#fff';
-            ctx.font = '20px Arial';
+            ctx.font = 'bold ' + (16 + enemy.level * 2) + 'px Arial';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText(enemy.level, enemy.x + enemy.width / 2, enemy.y + enemy.height / 2);
             });
-
+        
             // 绘制金色方块
-            ctx.fillStyle = '#FFD700';
             powerUps.forEach(powerUp => {
-                ctx.fillRect(powerUp.x, powerUp.y, powerUp.width, powerUp.height);
+            // 创建金色方块的渐变
+            const powerUpGradient = ctx.createLinearGradient(
+                powerUp.x, powerUp.y,
+                powerUp.x + powerUp.width, powerUp.y + powerUp.height
+            );
+            powerUpGradient.addColorStop(0, '#FFD700');
+            powerUpGradient.addColorStop(0.5, '#FFC000');
+            powerUpGradient.addColorStop(1, '#FFD700');
+            
+                ctx.fillStyle = powerUpGradient;
+                
+                // 绘制闪烁的星形
+                const time = Date.now() / 200;
+                const scale = 0.9 + Math.sin(time) * 0.1; // 脉动效果
+                
+                ctx.save();
+                ctx.translate(powerUp.x + powerUp.width / 2, powerUp.y + powerUp.height / 2);
+                ctx.scale(scale, scale);
+                
+                drawStar(0, 0, powerUp.width / 2, 5);
+                
+                ctx.restore();
             });
-
+        
             // 绘制蓝色方块（无敌奖励）
-            ctx.fillStyle = '#00BFFF'; // 深蓝色
             invinciblePowerUps.forEach(powerUp => {
-                ctx.fillRect(powerUp.x, powerUp.y, powerUp.width, powerUp.height);
+            // 创建蓝色方块的渐变
+            const invincibleGradient = ctx.createLinearGradient(
+                powerUp.x, powerUp.y,
+                powerUp.x + powerUp.width, powerUp.y + powerUp.height
+            );
+            invincibleGradient.addColorStop(0, '#00BFFF');
+            invincibleGradient.addColorStop(0.5, '#0080FF');
+            invincibleGradient.addColorStop(1, '#00BFFF');
+            
+                ctx.fillStyle = invincibleGradient;
+                
+                // 绘制闪烁的盾牌形状
+                const time = Date.now() / 200;
+                const scale = 0.9 + Math.sin(time) * 0.1; // 脉动效果
+                
+                ctx.save();
+                ctx.translate(powerUp.x + powerUp.width / 2, powerUp.y + powerUp.height / 2);
+                ctx.scale(scale, scale);
+                
+                drawShield(0, 0, powerUp.width / 2);
+                
+                ctx.restore();
             });
-
+            
+            // 绘制爆炸效果
+            explosions.forEach(particle => {
+                const alpha = particle.life / particle.maxLife;
+                ctx.globalAlpha = alpha;
+                ctx.fillStyle = particle.color;
+                ctx.beginPath();
+                ctx.arc(particle.x, particle.y, particle.radius, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            ctx.globalAlpha = 1;
+        
             // 显示暂停状态
             if (gamePaused && !gameOver) {
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                // 绘制暂停文字
                 ctx.fillStyle = '#fff';
-                ctx.font = '48px Arial';
+                ctx.font = 'bold 48px Arial';
                 ctx.textAlign = 'center';
                 ctx.fillText('游戏暂停', canvas.width / 2, canvas.height / 2);
+                
+                // 绘制继续提示
                 ctx.font = '24px Arial';
                 ctx.fillText('按空格键继续', canvas.width / 2, canvas.height / 2 + 40);
+                
+                // 绘制暂停图标
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 5;
+                ctx.beginPath();
+                ctx.arc(canvas.width / 2, canvas.height / 2 - 80, 40, 0, Math.PI * 2);
+                ctx.stroke();
+                
+                ctx.fillStyle = '#fff';
+                ctx.fillRect(canvas.width / 2 - 15, canvas.height / 2 - 100, 10, 40);
+                ctx.fillRect(canvas.width / 2 + 5, canvas.height / 2 - 100, 10, 40);
             }
-
+        
             // 游戏结束
             if (gameOver) {
-                ctx.fillStyle = '#fff';
-                ctx.font = '48px Arial';
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                // 绘制游戏结束文字
+                ctx.fillStyle = '#ff0000';
+                ctx.font = 'bold 48px Arial';
                 ctx.textAlign = 'center';
-                ctx.fillText('游戏结束', canvas.width / 2, canvas.height / 2);
+                ctx.fillText('游戏结束', canvas.width / 2, canvas.height / 2 - 50);
+                
+                // 绘制得分信息
+                ctx.fillStyle = '#fff';
                 ctx.font = '24px Arial';
-                ctx.fillText(`最终得分: ${score} 击杀数: ${kills}`, canvas.width / 2, canvas.height / 2 + 40);
-                ctx.fillText('按空格键重新开始', canvas.width / 2, canvas.height / 2 + 80);
+                ctx.fillText(`最终得分: ${score}`, canvas.width / 2, canvas.height / 2);
+                ctx.fillText(`击杀数: ${kills}`, canvas.width / 2, canvas.height / 2 + 30);
+                ctx.fillText(`游戏时间: ${gameTime}秒`, canvas.width / 2, canvas.height / 2 + 60);
+                
+                // 绘制重新开始提示
+                ctx.fillStyle = '#4a90e2';
+                ctx.fillText('按空格键重新开始', canvas.width / 2, canvas.height / 2 + 100);
             }
         }
 
@@ -581,6 +860,39 @@ title: "飞机大战小游戏"
             }
         }
 
+        // 创建爆炸效果
+        function createExplosion(x, y, size, color) {
+            const particleCount = 20 + Math.floor(size / 5);
+            
+            for (let i = 0; i < particleCount; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = 1 + Math.random() * 3;
+                const radius = 1 + Math.random() * 3;
+                const life = 30 + Math.random() * 20;
+                
+                explosions.push({
+                    x: x,
+                    y: y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    radius: radius,
+                    color: color,
+                    life: life,
+                    maxLife: life
+                });
+            }
+        }
+        
+        // 更新爆炸效果
+        function updateExplosions() {
+            explosions = explosions.filter(particle => {
+                particle.x += particle.vx;
+                particle.y += particle.vy;
+                particle.life--;
+                return particle.life > 0;
+            });
+        }
+        
         // 游戏循环
         function gameLoop() {
             if (!gameOver && !gamePaused) {
@@ -593,6 +905,7 @@ title: "飞机大战小游戏"
                 createInvinciblePowerUp();
                 updatePowerUps();
                 updateInvinciblePowerUps(); 
+                updateExplosions(); // 更新爆炸效果
                 checkCollisions();
                 updateTime();
             } else if (gameOver && keys.Space) {
