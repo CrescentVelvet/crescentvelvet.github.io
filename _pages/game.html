@@ -141,11 +141,28 @@ title: "飞机大战小游戏"
         // 创建敌机
         function createEnemy() {
             if (Math.random() < 0.02) {
+                // 根据游戏时间和随机因素决定敌机等级
+                let level = 1;
+                // 游戏时间越长，出现高等级敌机的概率越高
+                if (gameTime > 30) {
+                    level = Math.floor(Math.random() * 3) + 1; // 1-3级
+                } else if (gameTime > 15) {
+                    level = Math.floor(Math.random() * 2) + 1; // 1-2级
+                }
+                
+                // 根据等级设置敌机属性
+                const enemyWidth = 30 + (level - 1) * 5; // 等级越高，敌机越大
+                const enemyHeight = 30 + (level - 1) * 5;
+                const enemySpeed = 2 + level; // 等级越高，速度越快
+                
                 enemies.push({
-                    x: Math.random() * (canvas.width - 30),
-                    y: -30,
-                    width: 30,
-                    height: 30
+                    x: Math.random() * (canvas.width - enemyWidth),
+                    y: -enemyHeight,
+                    width: enemyWidth,
+                    height: enemyHeight,
+                    level: level, // 敌机等级
+                    health: level, // 生命值等于等级
+                    speed: enemySpeed // 敌机速度
                 });
                 enemyCounter++; // 每创建一个敌人就计数
                 
@@ -165,7 +182,7 @@ title: "飞机大战小游戏"
         // 更新敌机位置
         function updateEnemies() {
             enemies = enemies.filter(enemy => {
-                enemy.y += enemySpeed;
+                enemy.y += enemy.speed; // 使用敌机自身的速度
                 return enemy.y < canvas.height;
             });
         }
@@ -183,13 +200,21 @@ title: "飞机大战小游戏"
                         bullet.x + bullet.width > enemy.x &&
                         bullet.y < enemy.y + enemy.height &&
                         bullet.y + bullet.height > enemy.y) {
-                        // 移除被击中的敌机
-                        enemies.splice(j, 1);
-                        // 增加分数和击杀数
-                        score += 100;
-                        kills++;
-                        scoreElement.textContent = score;
-                        killsElement.textContent = kills;
+                        
+                        // 减少敌机生命值
+                        enemy.health--;
+                        
+                        // 如果敌机生命值为0，则移除敌机并增加分数
+                        if (enemy.health <= 0) {
+                            // 移除被击中的敌机
+                            enemies.splice(j, 1);
+                            // 增加分数和击杀数，分数根据等级增加
+                            score += 100 * enemy.level;
+                            kills++;
+                            scoreElement.textContent = score;
+                            killsElement.textContent = kills;
+                        }
+                        
                         // 标记子弹已击中敌机
                         bulletHit = true;
                         break; // 一旦击中敌机就跳出内层循环
@@ -406,16 +431,38 @@ title: "飞机大战小游戏"
             }
 
             // 绘制子弹
-            // 绘制子弹
             bullets.forEach(bullet => {
             ctx.fillStyle = bullet.color || '#fff'; // 使用子弹自己的颜色，如果没有则默认为白色
             ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
             });
 
             // 绘制敌机
-            ctx.fillStyle = '#f00';
+            // 绘制敌机
             enemies.forEach(enemy => {
-                ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
+            // 根据敌机等级设置不同的颜色
+            switch(enemy.level) {
+            case 1:
+            ctx.fillStyle = '#f00'; // 1级敌机为红色
+            break;
+            case 2:
+            ctx.fillStyle = '#f80'; // 2级敌机为橙色
+            break;
+            case 3:
+            ctx.fillStyle = '#f0f'; // 3级敌机为紫色
+            break;
+            default:
+            ctx.fillStyle = '#f00';
+            }
+            
+            // 绘制敌机主体
+            ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
+            
+            // 绘制敌机等级数字
+            ctx.fillStyle = '#fff';
+            ctx.font = '20px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(enemy.level, enemy.x + enemy.width / 2, enemy.y + enemy.height / 2);
             });
 
             // 绘制金色方块
