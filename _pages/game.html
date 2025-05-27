@@ -161,45 +161,62 @@ title: "飞机大战小游戏"
         let enemies = [];
         const enemySpeed = 3;
 
+        let stars = [];
+
+        // 星星对象的构造函数
+        function Star(x, y, size) {
+            this.x = x;
+            this.y = y;
+            this.size = size;
+            this.life = Math.random() * 5 + 3; // 3-8秒的生命周期
+            this.age = 0;
+            this.twinkleSpeed = Math.random() * 5 + 3; // 随机闪烁速度
+            this.twinklePhase = Math.random() * Math.PI * 2; // 随机初始相位
+        }
+
         // 绘制星星背景
         function drawStars() {
-            // 使用固定的随机种子，这样星星位置不会每帧都变
             const starCount = 100;
-            const starSeed = Math.floor(gameTime / 10); // 每10秒变化一次星空
-            
-            // 简单的伪随机函数
-            const pseudoRandom = (seed, index) => {
-                return ((seed * 9301 + 49297) * index) % 233280 / 233280;
-            };
-            
-            // 将画布分成10x10的网格
             const gridX = 10;
             const gridY = 10;
             const cellWidth = canvas.width / gridX;
             const cellHeight = canvas.height / gridY;
             const starsPerCell = Math.ceil(starCount / (gridX * gridY));
             
+            // 更新现有星星
+            stars = stars.filter(star => {
+                star.age += 1/60; // 假设60fps
+                if (star.age >= star.life) return false;
+                
+                // 计算星星的亮度
+                let lifePhase = star.age / star.life;
+                let twinkle = Math.sin(gameTime * star.twinkleSpeed + star.twinklePhase);
+                let fadeIn = Math.min(1, star.age * 2); // 0.5秒淡入
+                let fadeOut = Math.min(1, (star.life - star.age) * 2); // 0.5秒淡出
+                let alpha = (0.3 + twinkle * 0.3) * fadeIn * fadeOut;
+                
+                ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+                ctx.beginPath();
+                ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+                ctx.fill();
+                
+                return true;
+            });
+            
+            // 在每个网格中生成新星星
             for (let gx = 0; gx < gridX; gx++) {
                 for (let gy = 0; gy < gridY; gy++) {
-                    // 在每个网格中生成随机数量的星星
-                    const cellStars = Math.floor(pseudoRandom(starSeed, gx * gridY + gy) * starsPerCell + 1);
+                    const currentStarsInCell = stars.filter(star => 
+                        star.x >= gx * cellWidth && star.x < (gx + 1) * cellWidth &&
+                        star.y >= gy * cellHeight && star.y < (gy + 1) * cellHeight
+                    ).length;
                     
-                    for (let i = 0; i < cellStars; i++) {
-                        // 在当前网格内随机生成星星位置
-                        const rx = pseudoRandom(starSeed, (gx * gridY + gy) * 3 + i * 3);
-                        const ry = pseudoRandom(starSeed, (gx * gridY + gy) * 3 + i * 3 + 1);
-                        const x = gx * cellWidth + rx * cellWidth;
-                        const y = gy * cellHeight + ry * cellHeight;
-                        const size = 1 + pseudoRandom(starSeed, (gx * gridY + gy) * 3 + i * 3 + 2) * 2;
-                        
-                        // 让星星闪烁
-                        const brightness = 0.5 + Math.sin(gameTime + gx * gridY + gy + i) * 0.5;
-                        const alpha = 0.5 + brightness * 0.5;
-                        
-                        ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
-                        ctx.beginPath();
-                        ctx.arc(x, y, size, 0, Math.PI * 2);
-                        ctx.fill();
+                    // 如果当前网格中的星星数量少于目标数量，添加新星星
+                    if (currentStarsInCell < starsPerCell && Math.random() < 0.1) { // 10%概率生成新星星
+                        const x = gx * cellWidth + Math.random() * cellWidth;
+                        const y = gy * cellHeight + Math.random() * cellHeight;
+                        const size = 1 + Math.random() * 2;
+                        stars.push(new Star(x, y, size));
                     }
                 }
             }
