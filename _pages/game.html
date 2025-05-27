@@ -886,9 +886,8 @@ title: "飞机大战小游戏"
                 const lightness = 50;  // 亮度，可以调整
 
                 ctx.fillStyle = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
-
+                
                 // 绘制敌机主体（圆形）
-                // ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
                 ctx.beginPath();
                 ctx.ellipse(
                     enemy.x + enemy.width / 2,
@@ -899,9 +898,19 @@ title: "飞机大战小游戏"
                 );
                 ctx.fill();
 
+                // 绘制描边 (应用于圆形)
+                const strokeLightness = Math.max(0, lightness - 20); 
+                ctx.strokeStyle = `hsl(${hue}, ${saturation}%, ${strokeLightness}%)`;
+                ctx.lineWidth = 2; 
+                ctx.stroke(); // Apply stroke to the current path (the ellipse)
+
                 // 绘制敌机等级数字
-                ctx.fillStyle = '#fff'; // 白色文字
-                ctx.font = '12px Arial';
+                ctx.fillStyle = '#000'; // 黑色文字
+                // 字体大小随等级增大，设置一个最小字体和最大字体，并根据等级进行插值
+                const minFontSize = 12;
+                const maxFontSize = 24;
+                const fontSize = Math.min(maxFontSize, minFontSize + enemy.level * 0.5); 
+                ctx.font = `${fontSize}px Arial`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.fillText(enemy.level, enemy.x + enemy.width / 2, enemy.y + enemy.height / 2);
