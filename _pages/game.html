@@ -442,8 +442,23 @@ title: "飞机大战小游戏"
                             enemy.height = 30 + (enemy.level - 1) * 10;
                             enemy.speed = 4 - (enemy.level - 1);
                             
+                            // 创建小爆炸效果，与子弹击中敌机时保持一致
+                            createExplosion(
+                                enemy.x + enemy.width / 2,
+                                enemy.y + enemy.height / 2,
+                                10,
+                                '#fff' // 敌机被撞击时的爆炸颜色，可以根据需要调整
+                            );
+
                             // 如果敌机等级降为0，则移除敌机
                             if (enemy.level <= 0) {
+                                // 创建大爆炸效果
+                                createExplosion(
+                                    enemy.x + enemy.width / 2,
+                                    enemy.y + enemy.height / 2,
+                                    enemy.width,
+                                    '#ff0000'
+                                );
                                 enemies.splice(i, 1);
                             }
                             
