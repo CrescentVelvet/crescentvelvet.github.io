@@ -203,6 +203,11 @@ title: "飞机大战小游戏"
                         // 降低敌机等级
                         enemy.level--;
                         
+                        // 更新敌机体积和速度
+                        enemy.width = 30 + (enemy.level - 1) * 10;
+                        enemy.height = 30 + (enemy.level - 1) * 10;
+                        enemy.speed = 4 - (enemy.level - 1);
+                        
                         // 如果敌机等级降为0，则移除敌机并增加分数
                         if (enemy.level <= 0) {
                             // 移除被击中的敌机
@@ -252,6 +257,11 @@ title: "飞机大战小游戏"
                         
                         // 降低敌机等级
                         enemy.level--;
+                        
+                        // 更新敌机体积和速度
+                        enemy.width = 30 + (enemy.level - 1) * 10;
+                        enemy.height = 30 + (enemy.level - 1) * 10;
+                        enemy.speed = 4 - (enemy.level - 1);
                         
                         // 如果敌机等级降为0，则移除敌机
                         if (enemy.level <= 0) {
