@@ -345,15 +345,19 @@ title: "飞机大战小游戏"
                 // 更新上次发射时间
                 lastBulletTime = currentTime;
                 
+                // 根据特殊能力状态决定子弹颜色
+                const bulletColor = powerUpActive ? '#FFD700' : '#fff';
+                
                 // 创建中间的子弹
                 bullets.push({
                     x: player.x + player.width / 2 - 2,
                     y: player.y,
                     width: 4,
                     height: 10,
-                    dx: 0 // 水平速度分量
+                    dx: 0, // 水平速度分量
+                    color: bulletColor // 添加颜色属性
                 });
-
+        
                 // 如果特殊能力激活，创建斜向子弹
                 if (powerUpActive) {
                     // 左斜向子弹
@@ -362,16 +366,18 @@ title: "飞机大战小游戏"
                         y: player.y,
                         width: 4,
                         height: 10,
-                        dx: -2 // 向左的速度分量
+                        dx: -2, // 向左的速度分量
+                        color: bulletColor // 添加颜色属性
                     });
-
+        
                     // 右斜向子弹
                     bullets.push({
                         x: player.x + player.width / 2 - 2,
                         y: player.y,
                         width: 4,
                         height: 10,
-                        dx: 2 // 向右的速度分量
+                        dx: 2, // 向右的速度分量
+                        color: bulletColor // 添加颜色属性
                     });
                 }
             }
@@ -400,9 +406,10 @@ title: "飞机大战小游戏"
             }
 
             // 绘制子弹
-            ctx.fillStyle = powerUpActive ? '#FFD700' : '#fff'; // 特殊能力激活时子弹为金色
+            // 绘制子弹
             bullets.forEach(bullet => {
-                ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+            ctx.fillStyle = bullet.color || '#fff'; // 使用子弹自己的颜色，如果没有则默认为白色
+            ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
             });
 
             // 绘制敌机
