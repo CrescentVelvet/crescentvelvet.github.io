@@ -123,6 +123,9 @@ title: "飞机大战小游戏"
         let powerUpActive = false;
         let powerUpTimeLeft = 0;
         let powerUpDuration = 5000; // 特殊能力持续5秒
+        let invinciblePowerUpActive = false; // 无敌特殊能力状态
+        let invinciblePowerUpTimeLeft = 0; // 无敌特殊能力剩余时间
+        let invinciblePowerUpDuration = 3000; // 无敌特殊能力持续3秒
         let enemyCounter = 0; // 敌人计数器
         let lastBulletTime = 0; // 上次发射子弹的时间
         const bulletCooldown = 300; // 子弹发射冷却时间（毫秒）
@@ -130,6 +133,8 @@ title: "飞机大战小游戏"
         // 金色方块数组
         let powerUps = [];
 
+        // 蓝色方块数组（无敌奖励）
+        let invinciblePowerUps = [];
         // 子弹数组
         let bullets = [];
         const bulletSpeed = 7;
@@ -246,6 +251,21 @@ title: "飞机大战小游戏"
                 }
             });
 
+            // 玩家碰到蓝色方块（无敌奖励）
+            invinciblePowerUps.forEach((powerUp, index) => {
+                if (player.x < powerUp.x + powerUp.width &&
+                    player.x + player.width > powerUp.x &&
+                    player.y < powerUp.y + powerUp.height &&
+                    player.y + player.height > powerUp.y) {
+                    // 移除蓝色方块
+                    invinciblePowerUps.splice(index, 1);
+                    // 激活无敌特殊能力
+                    invinciblePowerUpActive = true;
+                    invinciblePowerUpTimeLeft = invinciblePowerUpDuration; // 3秒无敌时间
+                    player.invincible = true; // 设置玩家为无敌状态
+                }
+            });
+
             // 敌机撞击玩家
             if (!player.invincible) {
                 for (let i = enemies.length - 1; i >= 0; i--) {
@@ -299,6 +319,20 @@ title: "飞机大战小游戏"
             }
         }
 
+        // 创建蓝色方块（无敌奖励）
+        function createInvinciblePowerUp() {
+            // 每当敌人数量达到15的倍数时，创建一个蓝色方块
+            if (enemyCounter % 15 === 0 && enemyCounter > 0 && invinciblePowerUps.length === 0) {
+                invinciblePowerUps.push({
+                    x: Math.random() * (canvas.width - 20),
+                    y: -20,
+                    width: 20,
+                    height: 20,
+                    speed: 2
+                });
+            }
+        }
+
         // 更新金色方块位置
         function updatePowerUps() {
             powerUps = powerUps.filter(powerUp => {
@@ -315,6 +349,24 @@ title: "飞机大战小游戏"
                 }
             }
         }
+
+        // 更新蓝色方块位置
+        function updateInvinciblePowerUps() {
+            invinciblePowerUps = invinciblePowerUps.filter(powerUp => {
+                powerUp.y += powerUp.speed;
+                return powerUp.y < canvas.height;
+            });
+        
+            // 更新无敌特殊能力时间
+            if (invinciblePowerUpActive) {
+                invinciblePowerUpTimeLeft = Math.max(0, invinciblePowerUpTimeLeft - 16); // 假设60fps，约16ms每帧
+                if (invinciblePowerUpTimeLeft <= 0) {
+                    invinciblePowerUpActive = false;
+                    player.invincible = false; // 无敌状态结束
+                }
+            }
+        }
+
         // 玩家飞机
         const player = {
             x: canvas.width / 2,
@@ -491,6 +543,12 @@ title: "飞机大战小游戏"
                 ctx.fillRect(powerUp.x, powerUp.y, powerUp.width, powerUp.height);
             });
 
+            // 绘制蓝色方块（无敌奖励）
+            ctx.fillStyle = '#00BFFF'; // 深蓝色
+            invinciblePowerUps.forEach(powerUp => {
+                ctx.fillRect(powerUp.x, powerUp.y, powerUp.width, powerUp.height);
+            });
+
             // 显示暂停状态
             if (gamePaused && !gameOver) {
                 ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
@@ -532,7 +590,9 @@ title: "飞机大战小游戏"
                 createEnemy();
                 updateEnemies();
                 createPowerUp();
+                createInvinciblePowerUp();
                 updatePowerUps();
+                updateInvinciblePowerUps(); 
                 checkCollisions();
                 updateTime();
             } else if (gameOver && keys.Space) {
@@ -558,7 +618,10 @@ title: "飞机大战小游戏"
                 gamePaused = false;
             }
 
+            // 绘制游戏画面
             draw();
+
+            // 继续游戏循环
             requestAnimationFrame(gameLoop);
         }
 
