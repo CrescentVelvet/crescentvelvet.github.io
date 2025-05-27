@@ -1231,8 +1231,8 @@ title: "飞机大战小游戏"
                 const deltaY = touchY - touchStartY;
                 
                 // 根据移动距离设置玩家飞机的速度 (可以调整缩放因子 0.1)
-                player.vx = deltaX * 0.1;
-                player.vy = deltaY * 0.1;
+                player.vx = deltaX * 0.5;
+                player.vy = deltaY * 0.5;
                 
                 // 更新触摸起始位置，以便下一次计算相对移动
                 touchStartX = touchX;
