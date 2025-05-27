@@ -147,9 +147,12 @@ title: "飞机大战小游戏"
         let lastBulletTime = 0; // 上次发射子弹的时间
         const bulletCooldown = 300; // 子弹发射冷却时间（毫秒）
         let explosions = []; // 爆炸效果数组
-        let healthPowerUps = []; // 绿色方块数组（生命奖励）       
-        let shootingPowerUps = []; // 金色方块数组（射击奖励）       
+        let healthPowerUps = []; // 绿色方块数组（生命奖励）
+        let shootingPowerUps = []; // 金色方块数组（射击奖励）
         let invinciblePowerUps = []; // 蓝色方块数组（无敌奖励）
+        let healthPowerUpsTimeInterval = 23; // 每23个敌人生成一个绿色方块
+        let shootingPowerUpsTimeInterval = 13; // 每13个敌人生成一个金色方块
+        let invinciblePowerUpsTimeInterval = 17; // 每17个敌人生成一个蓝色方块
 
         // 子弹数组
         let bullets = [];
@@ -307,28 +310,30 @@ title: "飞机大战小游戏"
                     width: enemyWidth,
                     height: enemyHeight,
                     level: level, // 敌机等级
-                    speed: enemySpeed // 敌机速度
+                    speed: enemySpeed, // 敌机速度
+                    vx: (Math.random() - 0.5) * 2 // 随机左右速度，范围在 -1 到 1 之间
                 });
                 enemyCounter++; // 每创建一个敌人就计数
-                
-                // 每当敌人数量达到10的倍数时，创建一个金色方块
-                if (enemyCounter % 10 === 0) {
-                    shootingPowerUps.push({
-                        x: Math.random() * (canvas.width - 20),
-                        y: -20,
-                        width: 20,
-                        height: 20,
-                        speed: 2
-                    });
-                }
             }
         }
 
         // 更新敌机位置
         function updateEnemies() {
             enemies = enemies.filter(enemy => {
-                enemy.y += enemy.speed; // 使用敌机自身的速度
-                return enemy.y < canvas.height;
+                enemy.y += enemy.speed; // 垂直移动
+                enemy.x += enemy.vx; // 水平移动
+
+                // 左右墙壁反弹
+                if (enemy.x <= 0 || enemy.x + enemy.width >= canvas.width) {
+                    enemy.vx *= -1; // 反转水平方向
+                }
+
+                // // 顶部墙壁反弹 (如果需要，通常敌机不会向上反弹)
+                // if (enemy.y <= -100) { // 这里设置为 -10 以确保敌机不会留在空中下不来
+                //     enemy.speed *= -1; // 反转垂直方向
+                // }
+
+                return enemy.y < canvas.height; // 移除超出屏幕底部的敌机
             });
         }
 
@@ -495,8 +500,8 @@ title: "飞机大战小游戏"
 
         // 创建绿色方块（生命奖励）
         function createHealthPowerUp() {
-            // 只在enemyCounter是20的倍数，且大于0时创建一个绿色方块
-            if (enemyCounter % 20 === 0 && enemyCounter > 0 && healthPowerUps.length === 0) {
+            // 只在enemyCounter是23的倍数，且大于0时创建一个绿色方块
+            if (enemyCounter % healthPowerUpsTimeInterval === 0 && enemyCounter > 0 && healthPowerUps.length === 0) {
                 healthPowerUps.push({
                     x: Math.random() * (canvas.width - 20),
                     y: -20,
@@ -509,8 +514,8 @@ title: "飞机大战小游戏"
 
         // 创建金色方块（射击奖励）
         function createShootingPowerUp() {
-            // 只在enemyCounter是10的倍数，且大于0时创建一个金色方块
-            if (enemyCounter % 10 === 0 && enemyCounter > 0 && shootingPowerUps.length === 0) {
+            // 只在enemyCounter是11的倍数，且大于0时创建一个金色方块
+            if (enemyCounter % shootingPowerUpsTimeInterval === 0 && enemyCounter > 0 && shootingPowerUps.length === 0) {
                 shootingPowerUps.push({
                     x: Math.random() * (canvas.width - 20),
                     y: -20,
@@ -523,8 +528,8 @@ title: "飞机大战小游戏"
 
         // 创建蓝色方块（无敌奖励）
         function createInvinciblePowerUp() {
-            // 只在enemyCounter是15的倍数，且大于0时创建一个蓝色方块
-            if (enemyCounter % 15 === 0 && enemyCounter > 0 && invinciblePowerUps.length === 0) {
+            // 只在enemyCounter是17的倍数，且大于0时创建一个蓝色方块
+            if (enemyCounter % invinciblePowerUpsTimeInterval === 0 && enemyCounter > 0 && invinciblePowerUps.length === 0) {
                 invinciblePowerUps.push({
                     x: Math.random() * (canvas.width - 20),
                     y: -20,
