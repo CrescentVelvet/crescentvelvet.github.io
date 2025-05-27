@@ -665,6 +665,13 @@ title: "飞机大战小游戏"
         }
 
         // 在draw函数中更新子弹绘制
+        let heartImage = new Image();
+        let heartImageLoaded = false;
+        heartImage.src = 'images/heart.png'; // 请确保图像路径正确
+        heartImage.onload = () => {
+            heartImageLoaded = true;
+        };
+
         function draw() {
             // 绘制星空背景
             ctx.fillStyle = '#0a0a2a';
@@ -674,30 +681,13 @@ title: "飞机大战小游戏"
             drawStars();
 
             // 绘制生命值爱心
-            ctx.fillStyle = '#FF69B4'; // 粉色
-            for (let i = 0; i < lives; i++) {
-                // 绘制爱心形状
-                ctx.beginPath();
-                const x = 20 + i * 30; // 每个爱心间隔30像素
-                const y = 30;
-                const size = 20;
+            if (heartImageLoaded) {
+                const heartSize = 25; // 爱心图像的大小
+                const heartSpacing = 30; // 爱心图像之间的间隔
 
-                // 调整贝塞尔曲线控制点以绘制更圆润饱满的爱心
-                ctx.moveTo(x, y + size * 0.3); // 起点，爱心顶部凹陷的中心点
-                // 左半部分
-                ctx.bezierCurveTo(
-                    x - size * 0.5, y - size * 0.5, // 控制点1
-                    x - size * 1.2, y + size * 0.3, // 控制点2
-                    x, y + size * 1.2 // 终点，爱心底部尖端
-                );
-                // 右半部分
-                ctx.bezierCurveTo(
-                    x + size * 1.2, y + size * 0.3, // 控制点1
-                    x + size * 0.5, y - size * 0.5, // 控制点2
-                    x, y + size * 0.3 // 终点，回到爱心顶部凹陷的中心点
-                );
-                ctx.closePath();
-                ctx.fill();
+                for (let i = 0; i < lives; i++) {
+                    ctx.drawImage(heartImage, 20 + i * heartSpacing, 20, heartSize, heartSize);
+                }
             }
 
             // 绘制玩家（无敌状态闪烁）
