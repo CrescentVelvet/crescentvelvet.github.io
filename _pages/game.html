@@ -161,7 +161,6 @@ title: "飞机大战小游戏"
                     width: enemyWidth,
                     height: enemyHeight,
                     level: level, // 敌机等级
-                    health: level, // 生命值等于等级
                     speed: enemySpeed // 敌机速度
                 });
                 enemyCounter++; // 每创建一个敌人就计数
@@ -201,15 +200,15 @@ title: "飞机大战小游戏"
                         bullet.y < enemy.y + enemy.height &&
                         bullet.y + bullet.height > enemy.y) {
                         
-                        // 减少敌机生命值
-                        enemy.health--;
+                        // 降低敌机等级
+                        enemy.level--;
                         
-                        // 如果敌机生命值为0，则移除敌机并增加分数
-                        if (enemy.health <= 0) {
+                        // 如果敌机等级降为0，则移除敌机并增加分数
+                        if (enemy.level <= 0) {
                             // 移除被击中的敌机
                             enemies.splice(j, 1);
-                            // 增加分数和击杀数，分数根据等级增加
-                            score += 100 * enemy.level;
+                            // 增加分数和击杀数
+                            score += 100;
                             kills++;
                             scoreElement.textContent = score;
                             killsElement.textContent = kills;
@@ -244,11 +243,22 @@ title: "飞机大战小游戏"
 
             // 敌机撞击玩家
             if (!player.invincible) {
-                enemies.forEach(enemy => {
+                for (let i = enemies.length - 1; i >= 0; i--) {
+                    const enemy = enemies[i];
                     if (player.x < enemy.x + enemy.width &&
                         player.x + player.width > enemy.x &&
                         player.y < enemy.y + enemy.height &&
                         player.y + player.height > enemy.y) {
+                        
+                        // 降低敌机等级
+                        enemy.level--;
+                        
+                        // 如果敌机等级降为0，则移除敌机
+                        if (enemy.level <= 0) {
+                            enemies.splice(i, 1);
+                        }
+                        
+                        // 玩家受到伤害
                         lives--;
                         livesElement.textContent = lives;
                         if (lives <= 0) {
@@ -261,7 +271,7 @@ title: "飞机大战小游戏"
                             }, player.invincibleTime);
                         }
                     }
-                });
+                }
             }
         }
 
