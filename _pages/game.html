@@ -821,6 +821,12 @@ title: "飞机大战小游戏"
             case 3:
             ctx.fillStyle = '#f0f'; // 3级敌机为紫色
             break;
+            case 4:
+            ctx.fillStyle = '#f0f'; // 4级敌机为紫色
+            break;
+            case 5:
+            ctx.fillStyle = '#f0f'; // 5级敌机为紫色
+            break;
             default:
             ctx.fillStyle = '#f00';
             }
@@ -1132,22 +1138,17 @@ title: "飞机大战小游戏"
                 const touchX = e.touches[0].clientX;
                 const touchY = e.touches[0].clientY;
                 
-                const deltaX = touchX - touchStartX;
-                const deltaY = touchY - touchStartY;
+                // 直接设置玩家位置，而不是按键状态
+                player.x = touchX - canvas.offsetLeft - player.width/2;
+                player.y = touchY - canvas.offsetTop - player.height/2;
                 
-                // 根据滑动方向设置按键状态
-                keys['ArrowLeft'] = deltaX < -10;
-                keys['ArrowRight'] = deltaX > 10;
-                keys['ArrowUp'] = deltaY < -10;
-                keys['ArrowDown'] = deltaY > 10;
+                // 确保玩家不会移出画布
+                player.x = Math.max(0, Math.min(canvas.width - player.width, player.x));
+                player.y = Math.max(0, Math.min(canvas.height - player.height, player.y));
             };
             
             const handleTouchEnd = () => {
-                // 清除所有按键状态
-                keys['ArrowLeft'] = false;
-                keys['ArrowRight'] = false;
-                keys['ArrowUp'] = false;
-                keys['ArrowDown'] = false;
+                // 不需要清除任何状态，因为玩家位置已经直接设置
             };
             
             // 添加触摸事件监听
