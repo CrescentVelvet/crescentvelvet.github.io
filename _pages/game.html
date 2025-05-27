@@ -147,12 +147,9 @@ title: "飞机大战小游戏"
         let lastBulletTime = 0; // 上次发射子弹的时间
         const bulletCooldown = 300; // 子弹发射冷却时间（毫秒）
         let explosions = []; // 爆炸效果数组
-
-        // 金色方块数组（射击奖励）
-        let shootingPowerUps = [];
-
-        // 蓝色方块数组（无敌奖励）
-        let invinciblePowerUps = [];
+        let healthPowerUps = []; // 绿色方块数组（生命奖励）       
+        let shootingPowerUps = []; // 金色方块数组（射击奖励）       
+        let invinciblePowerUps = []; // 蓝色方块数组（无敌奖励）
 
         // 子弹数组
         let bullets = [];
@@ -396,92 +393,122 @@ title: "飞机大战小游戏"
                 }
             }
 
-                    // 玩家碰到金色方块（射击奖励）
-                    shootingPowerUps.forEach((powerUp, index) => {
-                        if (player.x < powerUp.x + powerUp.width &&
-                            player.x + player.width > powerUp.x &&
-                            player.y < powerUp.y + powerUp.height &&
-                            player.y + player.height > powerUp.y) {
-                            // 移除金色方块
-                            shootingPowerUps.splice(index, 1);
-                            // 激活特殊能力
-                            shootingPowerUpActive = true;
-                            shootingPowerUpTimeLeft = shootingPowerUpDuration; // 5秒特殊能力时间
-                            player.speed = 8; // 提升移动速度
-                        }
-                    });
+            // 玩家碰到绿色方块（生命奖励）
+            healthPowerUps.forEach((powerUp, index) => {
+                if (
+                    player.x < powerUp.x + powerUp.width &&
+                    player.x + player.width > powerUp.x &&
+                    player.y < powerUp.y + powerUp.height &&
+                    player.y + player.height > powerUp.y
+                ) {
+                    healthPowerUps.splice(index, 1); // 移除道具
+                    if (lives < 5) { // 生命值上限为5
+                        lives++;
+                        livesElement.textContent = lives;
+                    }
+                }
+            });
 
-                    // 玩家碰到蓝色方块（无敌奖励）
-                    invinciblePowerUps.forEach((powerUp, index) => {
-                        if (player.x < powerUp.x + powerUp.width &&
-                            player.x + player.width > powerUp.x &&
-                            player.y < powerUp.y + powerUp.height &&
-                            player.y + player.height > powerUp.y) {
-                            // 移除蓝色方块
-                            invinciblePowerUps.splice(index, 1);
-                            // 激活无敌特殊能力
-                            invinciblePowerUpActive = true;
-                            invinciblePowerUpTimeLeft = invinciblePowerUpDuration; // 3秒无敌时间
-                            player.invincible = true; // 设置玩家为无敌状态
-                        }
-                    });
+            // 玩家碰到金色方块（射击奖励）
+            shootingPowerUps.forEach((powerUp, index) => {
+                if (player.x < powerUp.x + powerUp.width &&
+                    player.x + player.width > powerUp.x &&
+                    player.y < powerUp.y + powerUp.height &&
+                    player.y + player.height > powerUp.y) {
+                    // 移除金色方块
+                    shootingPowerUps.splice(index, 1);
+                    // 激活特殊能力
+                    shootingPowerUpActive = true;
+                    shootingPowerUpTimeLeft = shootingPowerUpDuration; // 5秒特殊能力时间
+                    player.speed = 8; // 提升移动速度
+                }
+            });
 
-                    // 敌机撞击玩家
-                    for (let i = enemies.length - 1; i >= 0; i--) {
-                        const enemy = enemies[i];
-                        if (player.x < enemy.x + enemy.width &&
-                            player.x + player.width > enemy.x &&
-                            player.y < enemy.y + enemy.height &&
-                            player.y + player.height > enemy.y) {
-                            
-                            // 降低敌机等级
-                            enemy.level--;
-                            
-                            // 更新敌机体积和速度
-                            enemy.width = 30 + (enemy.level - 1) * 10;
-                            enemy.height = 30 + (enemy.level - 1) * 10;
-                            enemy.speed = 4 - (enemy.level - 1);
-                            
-                            // 创建小爆炸效果，与子弹击中敌机时保持一致
-                            createExplosion(
-                                enemy.x + enemy.width / 2,
-                                enemy.y + enemy.height / 2,
-                                10,
-                                '#fff' // 敌机被撞击时的爆炸颜色，可以根据需要调整
-                            );
+            // 玩家碰到蓝色方块（无敌奖励）
+            invinciblePowerUps.forEach((powerUp, index) => {
+                if (player.x < powerUp.x + powerUp.width &&
+                    player.x + player.width > powerUp.x &&
+                    player.y < powerUp.y + powerUp.height &&
+                    player.y + player.height > powerUp.y) {
+                    // 移除蓝色方块
+                    invinciblePowerUps.splice(index, 1);
+                    // 激活无敌特殊能力
+                    invinciblePowerUpActive = true;
+                    invinciblePowerUpTimeLeft = invinciblePowerUpDuration; // 3秒无敌时间
+                    player.invincible = true; // 设置玩家为无敌状态
+                }
+            });
 
-                            // 如果敌机等级降为0，则移除敌机
-                            if (enemy.level <= 0) {
-                                // 创建大爆炸效果
-                                createExplosion(
-                                    enemy.x + enemy.width / 2,
-                                    enemy.y + enemy.height / 2,
-                                    enemy.width,
-                                    '#ff0000'
-                                );
-                                enemies.splice(i, 1);
-                            }
-                            
-                            // 只有在非无敌状态下才受到伤害
-                            if (!player.invincible) {
-                                lives--;
-                                livesElement.textContent = lives;
-                                if (lives <= 0) {
-                                    gameOver = true;
-                                } else {
-                                    // 设置无敌状态
-                                    player.invincible = true;
-                                    setTimeout(() => {
-                                        player.invincible = false;
-                                    }, player.invincibleTime);
-                                }
-                            }
+            // 敌机撞击玩家
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                const enemy = enemies[i];
+                if (player.x < enemy.x + enemy.width &&
+                    player.x + player.width > enemy.x &&
+                    player.y < enemy.y + enemy.height &&
+                    player.y + player.height > enemy.y) {
+                    
+                    // 降低敌机等级
+                    enemy.level--;
+                    
+                    // 更新敌机体积和速度
+                    enemy.width = 30 + (enemy.level - 1) * 10;
+                    enemy.height = 30 + (enemy.level - 1) * 10;
+                    enemy.speed = 4 - (enemy.level - 1);
+                    
+                    // 创建小爆炸效果，与子弹击中敌机时保持一致
+                    createExplosion(
+                        enemy.x + enemy.width / 2,
+                        enemy.y + enemy.height / 2,
+                        10,
+                        '#fff' // 敌机被撞击时的爆炸颜色，可以根据需要调整
+                    );
+
+                    // 如果敌机等级降为0，则移除敌机
+                    if (enemy.level <= 0) {
+                        // 创建大爆炸效果
+                        createExplosion(
+                            enemy.x + enemy.width / 2,
+                            enemy.y + enemy.height / 2,
+                            enemy.width,
+                            '#ff0000'
+                        );
+                        enemies.splice(i, 1);
+                    }
+                    
+                    // 只有在非无敌状态下才受到伤害
+                    if (!player.invincible) {
+                        lives--;
+                        livesElement.textContent = lives;
+                        if (lives <= 0) {
+                            gameOver = true;
+                        } else {
+                            // 设置无敌状态
+                            player.invincible = true;
+                            setTimeout(() => {
+                                player.invincible = false;
+                            }, player.invincibleTime);
                         }
                     }
                 }
+            }
+        }
+
+        // 创建绿色方块（生命奖励）
+        function createHealthPowerUp() {
+            // 只在enemyCounter是20的倍数，且大于0时创建一个绿色方块
+            if (enemyCounter % 20 === 0 && enemyCounter > 0 && healthPowerUps.length === 0) {
+                healthPowerUps.push({
+                    x: Math.random() * (canvas.width - 20),
+                    y: -20,
+                    width: 20,
+                    height: 20,
+                    speed: 2
+                });
+            }
+        }
 
         // 创建金色方块（射击奖励）
-        function createPowerUp() {
+        function createShootingPowerUp() {
             // 只在enemyCounter是10的倍数，且大于0时创建一个金色方块
             if (enemyCounter % 10 === 0 && enemyCounter > 0 && shootingPowerUps.length === 0) {
                 shootingPowerUps.push({
@@ -496,7 +523,7 @@ title: "飞机大战小游戏"
 
         // 创建蓝色方块（无敌奖励）
         function createInvinciblePowerUp() {
-            // 每当敌人数量达到15的倍数时，创建一个蓝色方块
+            // 只在enemyCounter是15的倍数，且大于0时创建一个蓝色方块
             if (enemyCounter % 15 === 0 && enemyCounter > 0 && invinciblePowerUps.length === 0) {
                 invinciblePowerUps.push({
                     x: Math.random() * (canvas.width - 20),
@@ -508,8 +535,16 @@ title: "飞机大战小游戏"
             }
         }
 
+        // 更新绿色方块位置
+        function updateHealthPowerUps() {
+            healthPowerUps = healthPowerUps.filter(powerUp => {
+                powerUp.y += powerUp.speed;
+                return powerUp.y < canvas.height;
+            });
+        }
+
         // 更新金色方块位置
-        function updatePowerUps() {
+        function updateShootingPowerUp() {
             shootingPowerUps = shootingPowerUps.filter(powerUp => {
                 powerUp.y += powerUp.speed;
                 return powerUp.y < canvas.height;
@@ -866,17 +901,45 @@ title: "飞机大战小游戏"
             ctx.textBaseline = 'middle';
             ctx.fillText(enemy.level, enemy.x + enemy.width / 2, enemy.y + enemy.height / 2);
             });
-        
-            // 绘制金色方块
+
+            // 绘制绿色方块（生命奖励）
+            healthPowerUps.forEach(powerUp => {
+                // 创建绿色方块的渐变
+                const healthGradient = ctx.createLinearGradient(
+                    powerUp.x, powerUp.y,
+                    powerUp.x + powerUp.width, powerUp.y + powerUp.height
+                );
+                healthGradient.addColorStop(0, '#00FF00'); // 绿色
+                healthGradient.addColorStop(0.5, '#00CC00');
+                healthGradient.addColorStop(1, '#00FF00');
+
+                ctx.fillStyle = healthGradient;
+
+                // 绘制闪烁的十字形状
+                const time = Date.now() / 200;
+                const scale = 0.9 + Math.sin(time) * 0.1; // 脉动效果
+
+                ctx.save();
+                ctx.translate(powerUp.x + powerUp.width / 2, powerUp.y + powerUp.height / 2);
+                ctx.scale(scale, scale);
+
+                // 绘制十字
+                ctx.fillRect(-powerUp.width / 8, -powerUp.height / 2, powerUp.width / 4, powerUp.height);
+                ctx.fillRect(-powerUp.width / 2, -powerUp.height / 8, powerUp.width, powerUp.height / 4);
+
+                ctx.restore();
+            });
+
+            // 绘制金色方块（射击奖励）
             shootingPowerUps.forEach(powerUp => {
-            // 创建金色方块的渐变
-            const powerUpGradient = ctx.createLinearGradient(
-                powerUp.x, powerUp.y,
-                powerUp.x + powerUp.width, powerUp.y + powerUp.height
-            );
-            powerUpGradient.addColorStop(0, '#FFD700');
-            powerUpGradient.addColorStop(0.5, '#FFC000');
-            powerUpGradient.addColorStop(1, '#FFD700');
+                // 创建金色方块的渐变
+                const powerUpGradient = ctx.createLinearGradient(
+                    powerUp.x, powerUp.y,
+                    powerUp.x + powerUp.width, powerUp.y + powerUp.height
+                );
+                powerUpGradient.addColorStop(0, '#FFD700');
+                powerUpGradient.addColorStop(0.5, '#FFC000');
+                powerUpGradient.addColorStop(1, '#FFD700');
             
                 ctx.fillStyle = powerUpGradient;
                 
@@ -895,14 +958,14 @@ title: "飞机大战小游戏"
         
             // 绘制蓝色方块（无敌奖励）
             invinciblePowerUps.forEach(powerUp => {
-            // 创建蓝色方块的渐变
-            const invincibleGradient = ctx.createLinearGradient(
-                powerUp.x, powerUp.y,
-                powerUp.x + powerUp.width, powerUp.y + powerUp.height
-            );
-            invincibleGradient.addColorStop(0, '#00BFFF');
-            invincibleGradient.addColorStop(0.5, '#0080FF');
-            invincibleGradient.addColorStop(1, '#00BFFF');
+                // 创建蓝色方块的渐变
+                const invincibleGradient = ctx.createLinearGradient(
+                    powerUp.x, powerUp.y,
+                    powerUp.x + powerUp.width, powerUp.y + powerUp.height
+                );
+                invincibleGradient.addColorStop(0, '#00BFFF');
+                invincibleGradient.addColorStop(0.5, '#0080FF');
+                invincibleGradient.addColorStop(1, '#00BFFF');
             
                 ctx.fillStyle = invincibleGradient;
                 
@@ -1030,11 +1093,13 @@ title: "飞机大战小游戏"
                 updateBullets();
                 createEnemy();
                 updateEnemies();
-                createPowerUp();
+                createHealthPowerUp();
+                createShootingPowerUp();
                 createInvinciblePowerUp();
-                updatePowerUps();
+                updateHealthPowerUps();
+                updateShootingPowerUp();
                 updateInvinciblePowerUps(); 
-                updateExplosions(); // 更新爆炸效果
+                updateExplosions();
                 checkCollisions();
                 updateTime();
             } else if (gameOver && (keys.Space || isMobile)) {
