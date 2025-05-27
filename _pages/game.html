@@ -123,6 +123,8 @@ title: "飞机大战小游戏"
         let powerUpTimeLeft = 0;
         let powerUpDuration = 5000; // 特殊能力持续5秒
         let enemyCounter = 0; // 敌人计数器
+        let lastBulletTime = 0; // 上次发射子弹的时间
+        const bulletCooldown = 300; // 子弹发射冷却时间（毫秒）
 
         // 金色方块数组
         let powerUps = [];
@@ -322,7 +324,12 @@ title: "飞机大战小游戏"
 
         // 创建子弹
         function createBullet() {
-            if (keys.Space) {
+            const currentTime = Date.now();
+            // 检查是否按下空格键且冷却时间已过
+            if (keys.Space && currentTime - lastBulletTime > bulletCooldown) {
+                // 更新上次发射时间
+                lastBulletTime = currentTime;
+                
                 // 创建中间的子弹
                 bullets.push({
                     x: player.x + player.width / 2 - 2,
