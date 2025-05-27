@@ -153,7 +153,7 @@ title: "飞机大战小游戏"
         let healthPowerUpsTimeInterval = 23; // 每23个敌人生成一个绿色方块
         let shootingPowerUpsTimeInterval = 13; // 每13个敌人生成一个金色方块
         let invinciblePowerUpsTimeInterval = 17; // 每17个敌人生成一个蓝色方块
-        let enemyMaxLevel = 10; // 最大敌机等级
+        let enemyMaxLevel = 100; // 最大敌机等级
         let lastEnemyTime = 0; // 上次生成敌机的时间
         let enemyInterval = 1000; // 初始敌机生成间隔（毫秒）
 
@@ -877,20 +877,15 @@ title: "飞机大战小游戏"
         
             // 绘制敌机
             enemies.forEach(enemy => {
-                // 根据敌机等级设置不同的颜色，计算颜色值，等级越高，颜色越偏向紫色
-                const startColor = [255, 99, 71]; // 浅红色(255, 99, 71)
-                const endColor = [148, 0, 211]; // 深紫色(148, 0, 211)
-                const maxLevel = enemyMaxLevel; // 最高等级为100级
-                
-                // 将等级限制在1到maxLevel之间进行颜色计算
-                const clampedLevel = Math.min(Math.max(enemy.level, 1), maxLevel);
-                const ratio = (clampedLevel - 1) / (maxLevel - 1);
+                // 根据敌机等级设置不同的颜色
+                // 使用 HSL 颜色模型进行全色谱渐变
+                // 色相 (hue) 范围 0-360
+                // 20 是一个调整因子，可以改变颜色变化的“速度”
+                const hue = (enemy.level * 20) % 360; 
+                const saturation = 80; // 饱和度，可以调整
+                const lightness = 50;  // 亮度，可以调整
 
-                const r = Math.round(startColor[0] + (endColor[0] - startColor[0]) * ratio);
-                const g = Math.round(startColor[1] + (endColor[1] - startColor[1]) * ratio);
-                const b = Math.round(startColor[2] + (endColor[2] - startColor[2]) * ratio);
-
-                ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+                ctx.fillStyle = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
 
                 // 绘制敌机主体（圆形）
                 // ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
