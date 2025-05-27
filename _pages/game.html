@@ -348,7 +348,7 @@ title: "飞机大战小游戏"
                 // 更新敌机体积和速度
                 enemy.width = 30 + (enemy.level - 1) * 10;
                 enemy.height = 30 + (enemy.level - 1) * 10;
-                enemy.speed = 4 - (enemy.level - 1);
+                enemy.speed = Math.max(-0.5, 4 - (enemy.level - 1)); // 速度上限为4，下限为-0.5，避免被子弹撞得下不来
 
                 // 根据敌机等级计算颜色，与drawEnemy函数中的逻辑保持一致
                 const hue = (enemy.level * 20) % 360; 
