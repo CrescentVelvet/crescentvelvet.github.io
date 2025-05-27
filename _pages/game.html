@@ -363,18 +363,24 @@ title: "飞机大战小游戏"
                         createExplosion(
                             bullet.x + bullet.width / 2,
                             bullet.y + bullet.height / 2,
-                            10,
-                            bullet.color || '#fff'
+                            enemy.width,
+                            bullet.color || '#fff' // 使用子弹颜色，如果子弹没有颜色则默认为白色
                         );
                         
                         // 如果敌机等级降为0，则移除敌机并增加分数
                         if (enemy.level <= 0) {
+                            // 根据敌机等级计算颜色，与drawEnemy函数中的逻辑保持一致
+                            const hue = (enemy.level * 20) % 360; 
+                            const saturation = 80; 
+                            const lightness = 50;  
+                            const enemyColor = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+
                             // 创建大爆炸效果
                             createExplosion(
                                 enemy.x + enemy.width / 2,
                                 enemy.y + enemy.height / 2,
-                                enemy.width,
-                                '#ff0000'
+                                enemy.width * 2,
+                                enemyColor // 使用敌机颜色
                             );
                             
                             // 移除被击中的敌机
@@ -754,8 +760,8 @@ title: "飞机大战小游戏"
                 
                 ctx.fillStyle = playerGradient;
 
-                 // 绘制机身主体 (更锐利的歼20轮廓)
-                 ctx.beginPath();
+                // 绘制机身主体 (更锐利的歼20轮廓)
+                ctx.beginPath();
                 // 机头
                 ctx.moveTo(player.x + player.width / 2, player.y); // 顶部尖端
                 // 左侧轮廓
