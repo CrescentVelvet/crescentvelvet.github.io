@@ -1037,7 +1037,7 @@ title: "飞机大战小游戏"
                 updateExplosions(); // 更新爆炸效果
                 checkCollisions();
                 updateTime();
-            } else if (gameOver && keys.Space) {
+            } else if (gameOver && (keys.Space || isMobile)) {
                 // 重置游戏
                 score = 0;
                 lives = 3;
@@ -1165,7 +1165,9 @@ title: "飞机大战小游戏"
             };
             
             const handleTouchEnd = () => {
-                // 不需要清除任何状态，因为玩家位置已经直接设置
+                // 清除移动状态
+                player.vx = 0;
+                player.vy = 0;
             };
             
             // 添加触摸事件监听
