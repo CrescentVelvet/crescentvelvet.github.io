@@ -151,9 +151,9 @@ title: "飞机大战小游戏"
                 }
                 
                 // 根据等级设置敌机属性
-                const enemyWidth = 30 + (level - 1) * 5; // 等级越高，敌机越大
-                const enemyHeight = 30 + (level - 1) * 5;
-                const enemySpeed = 2 + level; // 等级越高，速度越快
+                const enemyWidth = 30 + (level - 1) * 10; // 等级越高，敌机越大，增加体积差异
+                const enemyHeight = 30 + (level - 1) * 10;
+                const enemySpeed = 4 - (level - 1); // 等级越高，速度越慢
                 
                 enemies.push({
                     x: Math.random() * (canvas.width - enemyWidth),
