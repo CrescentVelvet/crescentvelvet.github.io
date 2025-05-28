@@ -701,13 +701,109 @@ title: "飞机大战小游戏"
             });
         }
 
-        // 在draw函数中更新子弹绘制
+        // 在draw函数中更新子弹绘制，要提前加载小爱心图片
         let heartImage = new Image();
         let heartImageLoaded = false;
         heartImage.src = 'images/heart.png'; // 请确保图像路径正确
         heartImage.onload = () => {
             heartImageLoaded = true;
         };
+
+        // 绘制玩家飞机
+        function drawPlayer() {
+            // 创建玩家飞机的渐变色
+            const playerGradient = ctx.createLinearGradient(
+                player.x, player.y, 
+                player.x, player.y + player.height
+            );
+            playerGradient.addColorStop(0, '#C0C0C0'); // 浅灰色
+            playerGradient.addColorStop(0.5, '#A9A9A9'); // 中灰色
+            playerGradient.addColorStop(1, '#808080'); // 深灰色
+            
+            ctx.fillStyle = playerGradient;
+
+            // 绘制机身主体 (更锐利的歼20轮廓)
+            ctx.beginPath();
+            // 机头
+            ctx.moveTo(player.x + player.width / 2, player.y); // 顶部尖端
+            // 左侧轮廓
+            ctx.lineTo(player.x + player.width * 0.4, player.y + player.height * 0.1); // 机头左侧过渡
+            ctx.lineTo(player.x + player.width * 0.15, player.y + player.height * 0.25); // 左鸭翼前缘
+            ctx.lineTo(player.x + player.width * 0.05, player.y + player.height * 0.35); // 左鸭翼后缘
+            ctx.lineTo(player.x, player.y + player.height * 0.6); // 左主翼前缘
+            ctx.lineTo(player.x + player.width * 0.1, player.y + player.height * 0.75); // 左主翼后缘
+            ctx.lineTo(player.x + player.width * 0.25, player.y + player.height * 0.9); // 左机身尾部过渡
+            ctx.lineTo(player.x + player.width * 0.35, player.y + player.height); // 左垂尾底部
+            // 右侧轮廓
+            ctx.lineTo(player.x + player.width * 0.65, player.y + player.height); // 右垂尾底部
+            ctx.lineTo(player.x + player.width * 0.75, player.y + player.height * 0.9); // 右机身尾部过渡
+            ctx.lineTo(player.x + player.width * 0.9, player.y + player.height * 0.75); // 右主翼后缘
+            ctx.lineTo(player.x + player.width, player.y + player.height * 0.6); // 右主翼前缘
+            ctx.lineTo(player.x + player.width * 0.95, player.y + player.height * 0.35); // 右鸭翼后缘
+            ctx.lineTo(player.x + player.width * 0.85, player.y + player.height * 0.25); // 右鸭翼前缘
+            ctx.lineTo(player.x + player.width * 0.6, player.y + player.height * 0.1); // 机头右侧过渡
+            ctx.closePath();
+            ctx.fill();
+            
+            // 添加机身和机翼的装饰线条 (模拟迷彩和结构线)
+            ctx.strokeStyle = '#696969'; // 深灰色线条
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            // 机身中线
+            ctx.moveTo(player.x + player.width / 2, player.y);
+            ctx.lineTo(player.x + player.width / 2, player.y + player.height * 0.95);
+            // 左鸭翼线条
+            ctx.moveTo(player.x + player.width * 0.15, player.y + player.height * 0.25);
+            ctx.lineTo(player.x + player.width * 0.3, player.y + player.height * 0.3);
+            // 右鸭翼线条
+            ctx.moveTo(player.x + player.width * 0.85, player.y + player.height * 0.25);
+            ctx.lineTo(player.x + player.width * 0.7, player.y + player.height * 0.3);
+            // 左主翼线条
+            ctx.moveTo(player.x + player.width * 0.05, player.y + player.height * 0.45);
+            ctx.lineTo(player.x + player.width * 0.2, player.y + player.height * 0.6);
+            // 右主翼线条
+            ctx.moveTo(player.x + player.width * 0.95, player.y + player.height * 0.45);
+            ctx.lineTo(player.x + player.width * 0.8, player.y + player.height * 0.6);
+            // 左垂尾线条
+            ctx.moveTo(player.x + player.width * 0.35, player.y + player.height);
+            ctx.lineTo(player.x + player.width * 0.3, player.y + player.height * 0.85);
+            // 右垂尾线条
+            ctx.moveTo(player.x + player.width * 0.65, player.y + player.height);
+            ctx.lineTo(player.x + player.width * 0.7, player.y + player.height * 0.85);
+            ctx.stroke();
+
+            // 绘制驾驶舱
+            ctx.fillStyle = '#4682B4'; // 钢蓝色
+            ctx.beginPath();
+            ctx.ellipse(player.x + player.width / 2, player.y + player.height * 0.15, player.width * 0.1, player.height * 0.05, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 绘制引擎喷口 (两个圆形)
+            ctx.fillStyle = '#36454F'; // 木炭色
+            ctx.beginPath();
+            ctx.arc(player.x + player.width * 0.4, player.y + player.height * 0.98, player.width * 0.05, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(player.x + player.width * 0.6, player.y + player.height * 0.98, player.width * 0.05, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // 绘制飞机引擎火焰
+            const flameHeight = 10 + Math.random() * 5; // 随机火焰高度
+            const flameGradient = ctx.createLinearGradient(
+                player.x + player.width / 2, player.y + player.height,
+                player.x + player.width / 2, player.y + player.height + flameHeight
+            );
+            flameGradient.addColorStop(0, '#ff9900');
+            flameGradient.addColorStop(1, '#ff0000');
+            
+            ctx.fillStyle = flameGradient;
+            ctx.beginPath();
+            ctx.moveTo(player.x + player.width / 3, player.y + player.height);
+            ctx.lineTo(player.x + player.width / 2, player.y + player.height + flameHeight);
+            ctx.lineTo(player.x + player.width * 2/3, player.y + player.height);
+            ctx.closePath();
+            ctx.fill();
+        }
 
         function draw() {
             // 绘制星空背景
@@ -729,98 +825,7 @@ title: "飞机大战小游戏"
 
             // 绘制玩家（无敌状态闪烁）
             if (!player.invincible || Math.floor(Date.now() / 100) % 2) {
-                // 创建玩家飞机的渐变色
-                const playerGradient = ctx.createLinearGradient(
-                    player.x, player.y, 
-                    player.x, player.y + player.height
-                );
-                playerGradient.addColorStop(0, '#C0C0C0'); // 浅灰色
-                playerGradient.addColorStop(0.5, '#A9A9A9'); // 中灰色
-                playerGradient.addColorStop(1, '#808080'); // 深灰色
-                
-                ctx.fillStyle = playerGradient;
-
-                // 绘制机身主体 (更锐利的歼20轮廓)
-                ctx.beginPath();
-                // 机头
-                ctx.moveTo(player.x + player.width / 2, player.y); // 顶部尖端
-                // 左侧轮廓
-                ctx.lineTo(player.x + player.width * 0.4, player.y + player.height * 0.1); // 机头左侧过渡
-                ctx.lineTo(player.x + player.width * 0.15, player.y + player.height * 0.25); // 左鸭翼前缘
-                ctx.lineTo(player.x + player.width * 0.05, player.y + player.height * 0.35); // 左鸭翼后缘
-                ctx.lineTo(player.x, player.y + player.height * 0.6); // 左主翼前缘
-                ctx.lineTo(player.x + player.width * 0.1, player.y + player.height * 0.75); // 左主翼后缘
-                ctx.lineTo(player.x + player.width * 0.25, player.y + player.height * 0.9); // 左机身尾部过渡
-                ctx.lineTo(player.x + player.width * 0.35, player.y + player.height); // 左垂尾底部
-                // 右侧轮廓
-                ctx.lineTo(player.x + player.width * 0.65, player.y + player.height); // 右垂尾底部
-                ctx.lineTo(player.x + player.width * 0.75, player.y + player.height * 0.9); // 右机身尾部过渡
-                ctx.lineTo(player.x + player.width * 0.9, player.y + player.height * 0.75); // 右主翼后缘
-                ctx.lineTo(player.x + player.width, player.y + player.height * 0.6); // 右主翼前缘
-                ctx.lineTo(player.x + player.width * 0.95, player.y + player.height * 0.35); // 右鸭翼后缘
-                ctx.lineTo(player.x + player.width * 0.85, player.y + player.height * 0.25); // 右鸭翼前缘
-                ctx.lineTo(player.x + player.width * 0.6, player.y + player.height * 0.1); // 机头右侧过渡
-                ctx.closePath();
-                ctx.fill();
-                
-                // 添加机身和机翼的装饰线条 (模拟迷彩和结构线)
-                ctx.strokeStyle = '#696969'; // 深灰色线条
-                ctx.lineWidth = 1;
-                ctx.beginPath();
-                // 机身中线
-                ctx.moveTo(player.x + player.width / 2, player.y);
-                ctx.lineTo(player.x + player.width / 2, player.y + player.height * 0.95);
-                // 左鸭翼线条
-                ctx.moveTo(player.x + player.width * 0.15, player.y + player.height * 0.25);
-                ctx.lineTo(player.x + player.width * 0.3, player.y + player.height * 0.3);
-                // 右鸭翼线条
-                ctx.moveTo(player.x + player.width * 0.85, player.y + player.height * 0.25);
-                ctx.lineTo(player.x + player.width * 0.7, player.y + player.height * 0.3);
-                // 左主翼线条
-                ctx.moveTo(player.x + player.width * 0.05, player.y + player.height * 0.45);
-                ctx.lineTo(player.x + player.width * 0.2, player.y + player.height * 0.6);
-                // 右主翼线条
-                ctx.moveTo(player.x + player.width * 0.95, player.y + player.height * 0.45);
-                ctx.lineTo(player.x + player.width * 0.8, player.y + player.height * 0.6);
-                // 左垂尾线条
-                ctx.moveTo(player.x + player.width * 0.35, player.y + player.height);
-                ctx.lineTo(player.x + player.width * 0.3, player.y + player.height * 0.85);
-                // 右垂尾线条
-                ctx.moveTo(player.x + player.width * 0.65, player.y + player.height);
-                ctx.lineTo(player.x + player.width * 0.7, player.y + player.height * 0.85);
-                ctx.stroke();
-
-                // 绘制驾驶舱
-                ctx.fillStyle = '#4682B4'; // 钢蓝色
-                ctx.beginPath();
-                ctx.ellipse(player.x + player.width / 2, player.y + player.height * 0.15, player.width * 0.1, player.height * 0.05, 0, 0, Math.PI * 2);
-                ctx.fill();
-
-                // 绘制引擎喷口 (两个圆形)
-                ctx.fillStyle = '#36454F'; // 木炭色
-                ctx.beginPath();
-                ctx.arc(player.x + player.width * 0.4, player.y + player.height * 0.98, player.width * 0.05, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.beginPath();
-                ctx.arc(player.x + player.width * 0.6, player.y + player.height * 0.98, player.width * 0.05, 0, Math.PI * 2);
-                ctx.fill();
-                
-                // 绘制飞机引擎火焰
-                const flameHeight = 10 + Math.random() * 5; // 随机火焰高度
-                const flameGradient = ctx.createLinearGradient(
-                    player.x + player.width / 2, player.y + player.height,
-                    player.x + player.width / 2, player.y + player.height + flameHeight
-                );
-                flameGradient.addColorStop(0, '#ff9900');
-                flameGradient.addColorStop(1, '#ff0000');
-                
-                ctx.fillStyle = flameGradient;
-                ctx.beginPath();
-                ctx.moveTo(player.x + player.width / 3, player.y + player.height);
-                ctx.lineTo(player.x + player.width / 2, player.y + player.height + flameHeight);
-                ctx.lineTo(player.x + player.width * 2/3, player.y + player.height);
-                ctx.closePath();
-                ctx.fill();
+                drawPlayer();
             }
         
             // 绘制子弹
@@ -1249,8 +1254,7 @@ title: "飞机大战小游戏"
             canvas.addEventListener('touchstart', handleTouchStart);
             canvas.addEventListener('touchmove', handleTouchMove);
             canvas.addEventListener('touchend', handleTouchEnd);
-            canvas.addEventListener('touchcancel', handleTouchEnd);
-            
+            canvas.addEventListener('touchcancel', handleTouchEnd);            
             pauseBtn.addEventListener('touchstart', handleTouchStart);
             
             // 隐藏移动端双击缩放
