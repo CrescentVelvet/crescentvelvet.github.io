@@ -110,6 +110,7 @@ title: "飞机大战小游戏"
         <div>击杀数: <span id="kills">0</span></div>
         <div>时间: <span id="time">0</span></div>
         <div>分数: <span id="score">0</span></div>
+        <div>当前帧率: <span id="fps">0</span></div>
     </div>
     <canvas id="gameCanvas"></canvas>
     <div id="mobileControls">
@@ -123,6 +124,7 @@ title: "飞机大战小游戏"
         const killsElement = document.getElementById('kills');
         const timeElement = document.getElementById('time');
         const scoreElement = document.getElementById('score');
+        const fpsElement = document.getElementById('fps'); // 新增：获取FPS元素
 
         // 设置画布大小
         canvas.width = 400;
@@ -147,6 +149,9 @@ title: "飞机大战小游戏"
         let lastBulletTime = 0; // 上次发射子弹的时间
         const bulletCooldown = 300; // 子弹发射冷却时间（毫秒）
         let lastFrameTime = 0; // 用于计算 deltaTime
+        let fps = 0; // 新增：用于存储计算出的FPS
+        let framesThisSecond = 0; // 新增：用于计算每秒的帧数
+        let lastFpsUpdate = 0; // 新增：上次FPS更新的时间
         let explosions = []; // 爆炸效果数组
         let healthPowerUps = []; // 绿色方块数组（生命奖励）
         let shootingPowerUps = []; // 金色方块数组（射击奖励）
@@ -180,7 +185,7 @@ title: "飞机大战小游戏"
         }
 
         // 绘制星星背景
-        function drawStars() {
+        function drawStars(deltaTime) { // 确保接收 deltaTime 参数
             const starCount = 100;
             const gridX = 10;
             const gridY = 10;
@@ -190,7 +195,8 @@ title: "飞机大战小游戏"
             
             // 更新现有星星
             stars = stars.filter(star => {
-                star.age += 1/60; // 假设60fps
+                // star.age += 1/60; // 假设60fps
+                star.age += deltaTime; // <--- 修改为这行
                 if (star.age >= star.life) return false;
                 
                 // 计算星星的亮度
@@ -638,8 +644,8 @@ title: "飞机大战小游戏"
             }
 
             // Touch controls (apply velocity)
-            player.x += player.vx * deltaTime;
-            player.y += player.vy * deltaTime;
+            player.x += player.vx * deltaTime; // player.vx 是由 touchmove 设置的
+            player.y += player.vy * deltaTime; // player.vy 是由 touchmove 设置的
 
             // Clamp player position within canvas bounds
             player.x = Math.max(0, Math.min(canvas.width - player.width, player.x));
@@ -807,12 +813,7 @@ title: "飞机大战小游戏"
         }
 
         function draw() {
-            // 绘制星空背景
-            ctx.fillStyle = '#0a0a2a';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            // 绘制一些随机的星星
-            drawStars();
+            // Background and stars are now drawn directly in gameLoop before this call
 
             // 绘制生命值爱心
             if (heartImageLoaded) {
@@ -1056,13 +1057,7 @@ title: "飞机大战小游戏"
             }
         }
 
-        // 更新游戏时间
-        function updateTime() {
-            if (!gameOver) {
-                gameTime = Math.floor((Date.now() - startTime) / 1000);
-                timeElement.textContent = gameTime;
-            }
-        }
+
 
         // 创建爆炸效果
         function createExplosion(x, y, size, color) {
@@ -1098,27 +1093,57 @@ title: "飞机大战小游戏"
         }
         
         // 游戏循环
-        function gameLoop(currentTime) {
-            if (!lastFrameTime) lastFrameTime = currentTime;
-            const deltaTime = (currentTime - lastFrameTime) / 1000; // 将毫秒转换为秒
-            lastFrameTime = currentTime;
+        function gameLoop(timestamp) {
+            if (!lastFrameTime) { // 第一次调用 gameLoop
+                lastFrameTime = timestamp; // 初始化 lastFrameTime
+                requestAnimationFrame(gameLoop); // 请求下一帧，当前帧不进行计算和绘制
+                return; // 退出当前帧的处理
+            }
 
-            if (!gameOver && !gamePaused) {
-                updatePlayer(deltaTime);
-                createBullet();
-                updateBullets(deltaTime);
-                createEnemy();
-                updateEnemies(deltaTime);
-                createHealthPowerUp();
-                createShootingPowerUp();
-                createInvinciblePowerUp();
-                updateHealthPowerUps();
-                updateShootingPowerUp();
-                updateInvinciblePowerUps();
-                updateExplosions();
-                checkCollisions();
-                updateTime();
-            } else if (gameOver && (keys.Space || isMobile)) {
+            const deltaTime = (timestamp - lastFrameTime) / 1000; // deltaTime in seconds
+            lastFrameTime = timestamp; // 更新 lastFrameTime 供下一帧使用
+
+            // 安全校验：如果deltaTime异常，可以设置一个上限或者跳过该帧
+            if (deltaTime <= 0 || deltaTime > 0.5) { // 例如，如果deltaTime为0、负数或过大（可能因为页面失焦后恢复）
+                // console.warn("Abnormal deltaTime:", deltaTime, "Skipping frame or using default.");
+                // deltaTime = 1/60; // 可以选择使用一个默认值，或者直接跳过更新
+                requestAnimationFrame(gameLoop);
+                return; // 跳过这一帧的更新和绘制，避免潜在问题
+            }
+
+            // console.log("deltaTime:", deltaTime); // 调试时可以取消注释
+
+            if (!gamePaused) {
+                if (!gameOver) { // Game logic updates only if not game over
+                    gameTime += deltaTime;
+                    timeElement.textContent = Math.floor(gameTime);
+
+                    // Game logic updates
+                    updatePlayer(deltaTime);
+                    createBullet();
+                    updateBullets(deltaTime);
+                    createEnemy();
+                    updateEnemies(deltaTime);
+                    createHealthPowerUp();
+                    createShootingPowerUp();
+                    createInvinciblePowerUp();
+                    updateHealthPowerUps();
+                    updateShootingPowerUp();
+                    updateInvinciblePowerUps();
+                    updateExplosions();
+                    checkCollisions();
+                    // updateTime(); // Effectively removed as its logic is integrated above
+                }
+
+                // 计算FPS
+                framesThisSecond++;
+                if (timestamp > lastFpsUpdate + 1000) { // 每秒更新一次FPS
+                    fps = framesThisSecond;
+                    framesThisSecond = 0;
+                    lastFpsUpdate = timestamp;
+                    if (fpsElement) fpsElement.textContent = fps; // 更新FPS显示
+                }
+            } else if (gameOver && (keys.Space || isMobile)) { // Restart logic
                 // 重置游戏
                 score = 0;
                 lives = 3;
@@ -1141,6 +1166,16 @@ title: "飞机大战小游戏"
                 gameOver = false;
                 gamePaused = false;
             }
+
+            // 清除画布
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 绘制星空背景
+            ctx.fillStyle = '#0a0a2a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // 绘制一些随机的星星
+            drawStars(deltaTime); // Pass deltaTime
 
             // 绘制游戏画面
             draw();
@@ -1240,9 +1275,9 @@ title: "飞机大战小游戏"
                 const deltaX = touchX - touchStartX;
                 const deltaY = touchY - touchStartY;
                 
-                // 根据移动距离设置玩家飞机的速度 (可以调整缩放因子 0.1)
-                player.vx = deltaX * 1.0;
-                player.vy = deltaY * 1.0;
+                // 根据移动距离设置玩家飞机的速度 (可以调整缩放因子 1.0)
+                player.vx = deltaX * 1.0; // <--- 这里的 1.0 是一个灵敏度因子
+                player.vy = deltaY * 1.0; // <--- 这里的 1.0 是一个灵敏度因子
                 
                 // 更新触摸起始位置，以便下一次计算相对移动
                 touchStartX = touchX;
