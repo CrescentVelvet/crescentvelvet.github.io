@@ -319,10 +319,10 @@ title: "飞机大战小游戏"
         }
 
         // 更新敌机位置
-        function updateEnemies() {
+        function updateEnemies(deltaTime) { // 添加 deltaTime 参数
             enemies = enemies.filter(enemy => {
-                enemy.y += enemy.speed; // 垂直移动
-                enemy.x += enemy.vx; // 水平移动
+                enemy.y += enemy.speed * deltaTime; // 垂直移动乘以 deltaTime
+                enemy.x += enemy.vx * deltaTime; // 水平移动乘以 deltaTime
 
                 // 左右墙壁反弹
                 if (enemy.x <= 0 || enemy.x + enemy.width >= canvas.width) {
@@ -1108,7 +1108,7 @@ title: "飞机大战小游戏"
                 createBullet();
                 updateBullets(deltaTime);
                 createEnemy();
-                updateEnemies();
+                updateEnemies(deltaTime);
                 createHealthPowerUp();
                 createShootingPowerUp();
                 createInvinciblePowerUp();
