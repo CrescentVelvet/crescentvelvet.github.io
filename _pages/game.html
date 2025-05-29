@@ -327,8 +327,8 @@ title: "飞机大战小游戏"
         // 更新敌机位置
         function updateEnemies(deltaTime) { // 添加 deltaTime 参数
             enemies = enemies.filter(enemy => {
-                enemy.y += enemy.speed * deltaTime; // 垂直移动乘以 deltaTime
-                enemy.x += enemy.vx * deltaTime; // 水平移动乘以 deltaTime
+                enemy.y += enemy.speed * deltaTime * 60; // 垂直移动乘以 deltaTime
+                enemy.x += enemy.vx * deltaTime * 60; // 水平移动乘以 deltaTime
 
                 // 左右墙壁反弹
                 if (enemy.x <= 0 || enemy.x + enemy.width >= canvas.width) {
@@ -536,7 +536,7 @@ title: "飞机大战小游戏"
         // 更新绿色方块位置
         function updateHealthPowerUps() {
             healthPowerUps = healthPowerUps.filter(powerUp => {
-                powerUp.y += powerUp.speed;
+                powerUp.y += powerUp.speed * deltaTime * 60;
                 return powerUp.y < canvas.height;
             });
         }
@@ -544,7 +544,7 @@ title: "飞机大战小游戏"
         // 更新金色方块位置
         function updateShootingPowerUp() {
             shootingPowerUps = shootingPowerUps.filter(powerUp => {
-                powerUp.y += powerUp.speed;
+                powerUp.y += powerUp.speed  * deltaTime * 60;
                 return powerUp.y < canvas.height;
             });
 
@@ -561,7 +561,7 @@ title: "飞机大战小游戏"
         // 更新蓝色方块位置
         function updateInvinciblePowerUps() {
             invinciblePowerUps = invinciblePowerUps.filter(powerUp => {
-                powerUp.y += powerUp.speed;
+                powerUp.y += powerUp.speed * deltaTime * 60;
                 return powerUp.y < canvas.height;
             });
         
@@ -631,21 +631,21 @@ title: "飞机大战小游戏"
         function updatePlayer(deltaTime) {
             // Keyboard controls
             if (keys.ArrowLeft) {
-                player.x -= player.speed * deltaTime;
+                player.x -= player.speed * deltaTime * 60;
             }
             if (keys.ArrowRight) {
-                player.x += player.speed * deltaTime;
+                player.x += player.speed * deltaTime * 60;
             }
             if (keys.ArrowUp) {
-                player.y -= player.speed * deltaTime;
+                player.y -= player.speed * deltaTime * 60;
             }
             if (keys.ArrowDown) {
-                player.y += player.speed * deltaTime;
+                player.y += player.speed * deltaTime * 60;
             }
 
             // Touch controls (apply velocity)
-            player.x += player.vx * deltaTime; // player.vx 是由 touchmove 设置的
-            player.y += player.vy * deltaTime; // player.vy 是由 touchmove 设置的
+            player.x += player.vx * deltaTime * 60; // player.vx 是由 touchmove 设置的
+            player.y += player.vy * deltaTime * 60; // player.vy 是由 touchmove 设置的
 
             // Clamp player position within canvas bounds
             player.x = Math.max(0, Math.min(canvas.width - player.width, player.x));
@@ -701,8 +701,8 @@ title: "飞机大战小游戏"
         // 更新子弹位置
         function updateBullets(deltaTime) {
             bullets = bullets.filter(bullet => {
-                bullet.y -= bulletSpeed * deltaTime;
-                bullet.x += (bullet.dx || 0) * deltaTime; // 添加水平移动
+                bullet.y -= bulletSpeed * deltaTime * 60;
+                bullet.x += (bullet.dx || 0) * deltaTime * 60; // 添加水平移动
                 // 子弹在画布范围内才保留
                 return bullet.y > 0 && bullet.x > 0 && bullet.x < canvas.width;
             });
