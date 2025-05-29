@@ -534,7 +534,7 @@ title: "飞机大战小游戏"
         }
 
         // 更新绿色方块位置
-        function updateHealthPowerUps() {
+        function updateHealthPowerUps(deltaTime) {
             healthPowerUps = healthPowerUps.filter(powerUp => {
                 powerUp.y += powerUp.speed * deltaTime * 60;
                 return powerUp.y < canvas.height;
@@ -542,7 +542,7 @@ title: "飞机大战小游戏"
         }
 
         // 更新金色方块位置
-        function updateShootingPowerUp() {
+        function updateShootingPowerUp(deltaTime) {
             shootingPowerUps = shootingPowerUps.filter(powerUp => {
                 powerUp.y += powerUp.speed  * deltaTime * 60;
                 return powerUp.y < canvas.height;
@@ -550,7 +550,7 @@ title: "飞机大战小游戏"
 
             // 更新特殊能力时间
             if (shootingPowerUpActive) {
-                shootingPowerUpTimeLeft = Math.max(0, shootingPowerUpTimeLeft - 16); // 假设60fps，约16ms每帧
+                shootingPowerUpTimeLeft = Math.max(0, shootingPowerUpTimeLeft - deltaTime * 1000); // 假设60fps，约16ms每帧
                 if (shootingPowerUpTimeLeft <= 0) {
                     shootingPowerUpActive = false;
                     player.speed = 5; // 恢复正常速度
@@ -559,7 +559,7 @@ title: "飞机大战小游戏"
         }
 
         // 更新蓝色方块位置
-        function updateInvinciblePowerUps() {
+        function updateInvinciblePowerUps(deltaTime) {
             invinciblePowerUps = invinciblePowerUps.filter(powerUp => {
                 powerUp.y += powerUp.speed * deltaTime * 60;
                 return powerUp.y < canvas.height;
@@ -567,7 +567,7 @@ title: "飞机大战小游戏"
         
             // 更新无敌特殊能力时间
             if (invinciblePowerUpActive) {
-                invinciblePowerUpTimeLeft = Math.max(0, invinciblePowerUpTimeLeft - 16); // 假设60fps，约16ms每帧
+                invinciblePowerUpTimeLeft = Math.max(0, invinciblePowerUpTimeLeft - deltaTime * 1000); // 假设60fps，约16ms每帧
                 if (invinciblePowerUpTimeLeft <= 0) {
                     invinciblePowerUpActive = false;
                     player.invincible = false; // 无敌状态结束
@@ -1127,9 +1127,9 @@ title: "飞机大战小游戏"
                     createHealthPowerUp();
                     createShootingPowerUp();
                     createInvinciblePowerUp();
-                    updateHealthPowerUps();
-                    updateShootingPowerUp();
-                    updateInvinciblePowerUps();
+                    updateHealthPowerUps(deltaTime);
+                    updateShootingPowerUp(deltaTime);
+                    updateInvinciblePowerUps(deltaTime);
                     updateExplosions();
                     checkCollisions();
                     // updateTime(); // Effectively removed as its logic is integrated above
