@@ -146,6 +146,7 @@ title: "飞机大战小游戏"
         let enemyCounter = 0; // 敌人计数器
         let lastBulletTime = 0; // 上次发射子弹的时间
         const bulletCooldown = 300; // 子弹发射冷却时间（毫秒）
+        let lastFrameTime = 0; // 用于计算 deltaTime
         let explosions = []; // 爆炸效果数组
         let healthPowerUps = []; // 绿色方块数组（生命奖励）
         let shootingPowerUps = []; // 金色方块数组（射击奖励）
@@ -621,24 +622,24 @@ title: "飞机大战小游戏"
         });
 
         // 更新玩家位置
-        function updatePlayer() {
+        function updatePlayer(deltaTime) {
             // Keyboard controls
             if (keys.ArrowLeft) {
-                player.x -= player.speed;
+                player.x -= player.speed * deltaTime;
             }
             if (keys.ArrowRight) {
-                player.x += player.speed;
+                player.x += player.speed * deltaTime;
             }
             if (keys.ArrowUp) {
-                player.y -= player.speed;
+                player.y -= player.speed * deltaTime;
             }
             if (keys.ArrowDown) {
-                player.y += player.speed;
+                player.y += player.speed * deltaTime;
             }
 
             // Touch controls (apply velocity)
-            player.x += player.vx;
-            player.y += player.vy;
+            player.x += player.vx * deltaTime;
+            player.y += player.vy * deltaTime;
 
             // Clamp player position within canvas bounds
             player.x = Math.max(0, Math.min(canvas.width - player.width, player.x));
@@ -692,10 +693,10 @@ title: "飞机大战小游戏"
         }
 
         // 更新子弹位置
-        function updateBullets() {
+        function updateBullets(deltaTime) {
             bullets = bullets.filter(bullet => {
-                bullet.y -= bulletSpeed;
-                bullet.x += bullet.dx || 0; // 添加水平移动
+                bullet.y -= bulletSpeed * deltaTime;
+                bullet.x += (bullet.dx || 0) * deltaTime; // 添加水平移动
                 // 子弹在画布范围内才保留
                 return bullet.y > 0 && bullet.x > 0 && bullet.x < canvas.width;
             });
@@ -1097,11 +1098,15 @@ title: "飞机大战小游戏"
         }
         
         // 游戏循环
-        function gameLoop() {
+        function gameLoop(currentTime) {
+            if (!lastFrameTime) lastFrameTime = currentTime;
+            const deltaTime = (currentTime - lastFrameTime) / 1000; // 将毫秒转换为秒
+            lastFrameTime = currentTime;
+
             if (!gameOver && !gamePaused) {
-                updatePlayer();
+                updatePlayer(deltaTime);
                 createBullet();
-                updateBullets();
+                updateBullets(deltaTime);
                 createEnemy();
                 updateEnemies();
                 createHealthPowerUp();
@@ -1109,7 +1114,7 @@ title: "飞机大战小游戏"
                 createInvinciblePowerUp();
                 updateHealthPowerUps();
                 updateShootingPowerUp();
-                updateInvinciblePowerUps(); 
+                updateInvinciblePowerUps();
                 updateExplosions();
                 checkCollisions();
                 updateTime();
@@ -1236,8 +1241,8 @@ title: "飞机大战小游戏"
                 const deltaY = touchY - touchStartY;
                 
                 // 根据移动距离设置玩家飞机的速度 (可以调整缩放因子 0.1)
-                player.vx = deltaX * 0.5;
-                player.vy = deltaY * 0.5;
+                player.vx = deltaX * 1.0;
+                player.vy = deltaY * 1.0;
                 
                 // 更新触摸起始位置，以便下一次计算相对移动
                 touchStartX = touchX;
