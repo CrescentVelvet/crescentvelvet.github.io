@@ -348,19 +348,39 @@ title: "飞机大战小游戏"
         function checkCollisions() {
 
             // 辅助函数：处理敌机被击中时的逻辑
-            function handleEnemyDamage(enemy) {
+            function handleEnemyDamage(enemy, bullet) { // bullet is now an optional parameter
                 // 降低敌机等级
                 enemy.level--;
                 
                 // 更新敌机体积和速度
                 enemy.width = 30 + (enemy.level - 1) * 10;
                 enemy.height = 30 + (enemy.level - 1) * 10;
-                enemy.speed = Math.max(-0.5, 4 - (enemy.level - 1)); // 速度上限为4，下限为-0.5，避免被子弹撞得下不来
+                // enemy.speed = Math.max(-0.5, 4 - (enemy.level - 1)); // 速度上限为4，下限为-0.5，避免被子弹撞得下不来
+                // 确保速度始终为正，并设置最小下落速度，避免向上飞出屏幕
+                const baseSpeed = 4;
+                const speedReductionPerLevel = 0.2; // 每级降低的速度
+                const minFallSpeed = 0.5; // 最小下落速度
+                enemy.speed = Math.max(minFallSpeed, baseSpeed - (enemy.level -1) * speedReductionPerLevel);
+
+                // 如果敌机碰到顶部并且向上移动，则反弹
+                if (enemy.y < 0 && enemy.speed < 0) { // 检查是否在顶部且向上移动
+                    enemy.speed = Math.abs(enemy.speed) * 0.5; // 反弹并减速
+                }
+
+                // 子弹击中敌机时，给敌机一个向上的冲量
+                // 假设子弹的垂直速度是固定的，这里给一个向上的速度增量
+                // 冲量大小可以根据子弹的“威力”或游戏平衡性调整
+                const impulseStrength = 5; // 冲量强度，可以调整
+                enemy.speed -= impulseStrength; // 向上推动敌机
+                // 也可以稍微影响水平速度，例如根据子弹的dx
+                if (bullet && typeof bullet.dx !== 'undefined') {
+                    enemy.vx += bullet.dx * 0.1; // 如果子弹有水平速度，可以稍微影响敌机水平方向
+                }
 
                 // 根据敌机等级计算颜色，与drawEnemy函数中的逻辑保持一致
-                const hue = (enemy.level * 20) % 360; 
-                const saturation = 80; 
-                const lightness = 50;  
+                const hue = (enemy.level * 20) % 360;
+                const saturation = 80;
+                const lightness = 50;
                 const enemyColor = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
                 
                 // 创建小爆炸效果
@@ -404,7 +424,7 @@ title: "飞机大战小游戏"
                         bullet.y < enemy.y + enemy.height &&
                         bullet.y + bullet.height > enemy.y) {
                         
-                        handleEnemyDamage(enemy); // 调用辅助函数处理敌机伤害，并标记为子弹击中
+                        handleEnemyDamage(enemy, bullet); // 调用辅助函数处理敌机伤害，并标记为子弹击中
                         
                         bulletHit = true; // 标记子弹已击中敌机
                         break; // 一旦击中敌机就跳出内层循环
@@ -629,7 +649,7 @@ title: "飞机大战小游戏"
 
         // 更新玩家位置
         function updatePlayer(deltaTime) {
-            // Keyboard controls
+            // 键盘控制
             if (keys.ArrowLeft) {
                 player.x -= player.speed * deltaTime * 60;
             }
@@ -643,11 +663,11 @@ title: "飞机大战小游戏"
                 player.y += player.speed * deltaTime * 60;
             }
 
-            // Touch controls (apply velocity)
+            // 触摸控制
             player.x += player.vx * deltaTime * 60; // player.vx 是由 touchmove 设置的
             player.y += player.vy * deltaTime * 60; // player.vy 是由 touchmove 设置的
 
-            // Clamp player position within canvas bounds
+            // 防止玩家出界
             player.x = Math.max(0, Math.min(canvas.width - player.width, player.x));
             player.y = Math.max(0, Math.min(canvas.height - player.height, player.y));
         }
