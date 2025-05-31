@@ -25,6 +25,7 @@ title: "大模型对话页面"
       <select id="model-select">
         <option value="Qwen/Qwen2.5-72B-Instruct" selected>Qwen2.5-72B-Instruct</option>
         <option value="Pro/deepseek-ai/DeepSeek-V3">Pro/deepseek-ai/DeepSeek-V3</option>
+        <option value="claude-3-5-sonnet-20241022">claude-3-5-sonnet-20241022</option>
       </select>
       <!-- 对话消息显示区域 -->
       <div id="chat-messages"></div>
@@ -126,14 +127,27 @@ document.addEventListener('DOMContentLoaded', function() {
       const selectedModel = modelSelect.value;
       console.log('选中的模型:', selectedModel);
 
-      fetch('https://api.siliconflow.cn/v1/chat/completions', {
+      let apiUrl = '';
+      let apiKey = '';
+      let modelToSend = selectedModel;
+
+      if (selectedModel === 'Qwen/Qwen2.5-72B-Instruct' || selectedModel === 'Pro/deepseek-ai/DeepSeek-V3') {
+        apiUrl = 'https://api.siliconflow.cn/v1/chat/completions';
+        apiKey = 'sk-uaqwrwlwdbconrtgnybuseuzrejvjjymexblmbeedimdrncl';
+      } else if (selectedModel === 'claude-3-5-sonnet-20241022') {
+        apiUrl = 'https://jf9s4sip6s.apifox.cn/';
+        apiKey = 'sk-VA44L20YifJbiBpUJp3C5GFmlB9QRXGeWP9YVIdxD3uFiM2n';
+        modelToSend = 'claude-3-5-sonnet-20241022'; // 确保发送给API的模型名称正确
+      }
+
+      fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer sk-uaqwrwlwdbconrtgnybuseuzrejvjjymexblmbeedimdrncl'
+          'Authorization': `Bearer ${apiKey}`
         },
         body: JSON.stringify({
-          model: selectedModel,
+          model: modelToSend,
           messages: [
             {
               role: 'user',
