@@ -342,7 +342,8 @@ document.addEventListener('DOMContentLoaded', function() {
   /* 统一按钮样式 */
   #send-button,
   #clear-history,
-  #clear-all-history {
+  #clear-all-history,
+  .back-button { /* 将 .back-button 加入统一选择器 */
     margin-top: 10px;
     padding: 10px 20px; /* 统一内边距 */
     border: none; /* 去除边框 */
@@ -352,7 +353,8 @@ document.addEventListener('DOMContentLoaded', function() {
     transition: opacity 0.3s; /* 添加透明度过渡效果 */
   }
 
-  #send-button {
+  #send-button,
+  .back-button { /* 将 .back-button 的背景色与发送按钮统一 */
     background-color:rgb(100, 189, 48); /* 绿色背景 */
     color: white; /* 白色文字 */
   }
@@ -366,8 +368,17 @@ document.addEventListener('DOMContentLoaded', function() {
   /* 按钮悬停效果 */
   #send-button:hover,
   #clear-history:hover,
-  #clear-all-history:hover {
+  #clear-all-history:hover,
+  .back-button:hover { /* 将 .back-button 加入悬停效果选择器 */
     opacity: 0.8; /* 悬停时透明度降低 */
+  }
+
+  /* 针对 .back-button 的特殊布局 */
+  .back-button {
+    display: block; /* 确保是块级元素 */
+    margin: 10px auto; /* 居中 */
+    text-align: center; /* 确保文本居中 */
+    text-decoration: none; /* 移除下划线 */
   }
 
   .history-item {
@@ -384,14 +395,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
   /* 返回按钮样式 */
   .back-button {
-    display: inline-block;
+    display: block;
     color: white;
-    background-color: rgb(100, 189, 48);  /* 修改为与发送按钮相同的绿色 */
+    background-color: rgb(72, 175, 220);  /* 修改为与发送按钮相同的绿色 */
     text-decoration: none;
     padding: 10px 20px;  /* 统一内边距 */
     border-radius: 20px;  /* 统一圆角 */
     transition: opacity 0.3s;  /* 统一过渡效果 */
-    margin-top: 10px;  /* 统一上边距 */
+    margin: 10px auto;  /* 统一上边距并居中 */
     border: none;
     font-size: 14px;  /* 统一字体大小 */
     cursor: pointer;
