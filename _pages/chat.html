@@ -372,11 +372,14 @@ document.addEventListener('DOMContentLoaded', function() {
   .back-button:hover { /* 将 .back-button 加入悬停效果选择器 */
     opacity: 0.8; /* 悬停时透明度降低 */
   }
+  .history-item:hover {
+    background-color: #f5f5f5;
+  }
 
   /* 针对 .back-button 的特殊布局 */
   .back-button {
+    background-color:rgb(243, 22, 228); /* 红色背景 */
     display: block; /* 确保是块级元素 */
-    margin: 10px auto; /* 居中 */
     text-align: center; /* 确保文本居中 */
     text-decoration: none; /* 移除下划线 */
   }
@@ -387,29 +390,6 @@ document.addEventListener('DOMContentLoaded', function() {
     margin-bottom: 10px;
     border: 1px solid #eee;
     border-radius: 5px;
-  }
-
-  .history-item:hover {
-    background-color: #f5f5f5;
-  }
-
-  /* 返回按钮样式 */
-  .back-button {
-    display: block;
-    color: white;
-    background-color: rgb(72, 175, 220);  /* 修改为与发送按钮相同的绿色 */
-    text-decoration: none;
-    padding: 10px 20px;  /* 统一内边距 */
-    border-radius: 20px;  /* 统一圆角 */
-    transition: opacity 0.3s;  /* 统一过渡效果 */
-    margin: 10px auto;  /* 统一上边距并居中 */
-    border: none;
-    font-size: 14px;  /* 统一字体大小 */
-    cursor: pointer;
-  }
-  
-  .back-button:hover {
-    opacity: 0.8;  /* 统一悬停效果 */
   }
 
   /* 消息样式 */
