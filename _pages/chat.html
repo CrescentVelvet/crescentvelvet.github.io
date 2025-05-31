@@ -23,9 +23,16 @@ title: "大模型对话页面"
     <div id="chat-container">
       <!-- 大模型选择下拉菜单 -->
       <select id="model-select">
-        <option value="Qwen/Qwen2.5-72B-Instruct" selected>Qwen2.5-72B-Instruct</option>
-        <option value="Pro/deepseek-ai/DeepSeek-V3">Pro/deepseek-ai/DeepSeek-V3</option>
-        <option value="claude-3-5-sonnet-20241022">claude-3-5-sonnet-20241022</option>
+        <option value="Qwen/Qwen2.5-72B-Instruct-siliconflow" selected>Qwen2.5-72B-Instruct (SiliconFlow)</option>
+        <option value="Pro/deepseek-ai/DeepSeek-V3-siliconflow">Pro/deepseek-ai/DeepSeek-V3 (SiliconFlow)</option>
+        <option value="Qwen/Qwen2.5-72B-Instruct-chatanywhere">Qwen2.5-72B-Instruct (ChatAnywhere)</option>
+        <option value="Pro/deepseek-ai/DeepSeek-V3-chatanywhere">Pro/deepseek-ai/DeepSeek-V3 (ChatAnywhere)</option>
+        <option value="claude-3-5-sonnet-20241022-xiaoai">claude-3-5-sonnet-20241022 (XiaoAi)</option>
+        <option value="deepseek-v3-chatanywhere">deepseek-v3 (ChatAnywhere)</option>
+        <option value="gpt-4o-chatanywhere">gpt-4o (ChatAnywhere)</option>
+        <option value="grok-3-chatanywhere">grok-3 (ChatAnywhere)</option>
+        <option value="claude-3-7-sonnet-20250219-chatanywhere">claude-3-7-sonnet-20250219 (ChatAnywhere)</option>
+        <option value="gemini-2.5-pro-preview-05-06-chatanywhere">gemini-2.5-pro-preview-05-06 (ChatAnywhere)</option>
       </select>
       <!-- 对话消息显示区域 -->
       <div id="chat-messages"></div>
@@ -124,20 +131,37 @@ document.addEventListener('DOMContentLoaded', function() {
       // 显示用户消息
       appendMessage('user', message);
 
-      const selectedModel = modelSelect.value;
-      console.log('选中的模型:', selectedModel);
+      const selectedModelValue = modelSelect.value;
+      console.log('选中的模型:', selectedModelValue);
 
       let apiUrl = '';
       let apiKey = '';
-      let modelToSend = selectedModel;
+      let modelToSend = '';
 
-      if (selectedModel === 'Qwen/Qwen2.5-72B-Instruct' || selectedModel === 'Pro/deepseek-ai/DeepSeek-V3') {
+      if (selectedModelValue.endsWith('-siliconflow')) {
         apiUrl = 'https://api.siliconflow.cn/v1/chat/completions';
         apiKey = 'sk-uaqwrwlwdbconrtgnybuseuzrejvjjymexblmbeedimdrncl';
-      } else if (selectedModel === 'claude-3-5-sonnet-20241022') {
+        // 提取模型名称，移除 '-siliconflow' 后缀
+        modelToSend = selectedModelValue.replace('-siliconflow', '').split('/')[selectedModelValue.replace('-siliconflow', '').split('/').length - 1];
+      } else if (selectedModelValue.endsWith('-xiaoai')) {
         apiUrl = 'https://jf9s4sip6s.apifox.cn/';
         apiKey = 'sk-VA44L20YifJbiBpUJp3C5GFmlB9QRXGeWP9YVIdxD3uFiM2n';
-        modelToSend = 'claude-3-5-sonnet-20241022'; // 确保发送给API的模型名称正确
+        // 提取模型名称，移除 '-xiaoai' 后缀
+        modelToSend = selectedModelValue.replace('-xiaoai', '');
+      } else if (selectedModelValue.endsWith('-chatanywhere')) {
+        apiUrl = 'https://api.chatanywhere.tech/v1';
+        apiKey = 'sk-MA7hKS37UdRUmP3Xz4BzHt3Rqj6QFbRoEagxcmFwwBBHyZR6';
+        // 提取模型名称，移除 '-chatanywhere' 后缀
+        modelToSend = selectedModelValue.replace('-chatanywhere', '');
+      }
+
+      // Fallback or error handling if no API is matched (optional but recommended)
+      if (!apiUrl || !apiKey) {
+          console.error('未找到匹配的API配置:', selectedModelValue);
+          appendMessage('bot', '抱歉，当前模型选项配置有误，请联系管理员。');
+          userInput.disabled = false;
+          sendButton.disabled = false;
+          return;
       }
 
       fetch(apiUrl, {
