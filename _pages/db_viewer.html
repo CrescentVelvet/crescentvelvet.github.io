@@ -1,0 +1,179 @@
+---
+permalink: /db_viewer.html
+layout: null
+title: "NT_MSG.DB 文件查看器"
+---
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NT_MSG.DB 文件查看器</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #0056b3;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        input[type="file"] {
+            display: block;
+            margin: 10px 0;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            width: calc(100% - 20px);
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 10px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #output {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #e9ecef;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        .error {
+            color: red;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>NT_MSG.DB 文件查看器</h1>
+        <p>请上传您的 <code>nt_msg.db</code> 文件：</p>
+        <input type="file" id="dbFile" accept=".db">
+        <button id="loadFile">读取文件</button>
+        <div id="output"></div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/sql-wasm.js"></script>
+    <script>
+        const dbFile = document.getElementById('dbFile');
+        const loadFileButton = document.getElementById('loadFile');
+        const outputDiv = document.getElementById('output');
+
+        let SQL;
+
+        // 初始化 sql.js
+        async function initSqlJs() {
+            try {
+                SQL = await initSqlJs({
+                    locateFile: file => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/${file}`
+                });
+                console.log("sql.js loaded.");
+            } catch (err) {
+                outputDiv.innerHTML = `<p class="error">加载 sql.js 失败: ${err.message}</p>`;
+                console.error("Failed to load sql.js:", err);
+            }
+        }
+
+        initSqlJs();
+
+        loadFileButton.addEventListener('click', async () => {
+            const file = dbFile.files[0];
+            if (!file) {
+                outputDiv.innerHTML = '<p class="error">请选择一个 .db 文件。</p>';
+                return;
+            }
+
+            if (!SQL) {
+                outputDiv.innerHTML = '<p class="error">sql.js 尚未加载完成，请稍候再试。</p>';
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = async (event) => {
+                try {
+                    const Uints = new Uint8Array(event.target.result);
+                    const db = new SQL.Database(Uints);
+
+                    // 示例：查询所有表名
+                    let resultHtml = '<h2>数据库内容概览：</h2>';
+                    const tableNames = db.exec("SELECT name FROM sqlite_master WHERE type='table';");
+                    if (tableNames.length > 0 && tableNames[0].values.length > 0) {
+                        resultHtml += '<h3>表名:</h3><ul>';
+                        tableNames[0].values.forEach(row => {
+                            const tableName = row[0];
+                            resultHtml += `<li>${tableName}</li>`;
+                            // 示例：查询每个表的前5行数据
+                            try {
+                                const tableData = db.exec(`SELECT * FROM \"${tableName}\" LIMIT 5;`);
+                                if (tableData.length > 0) {
+                                    resultHtml += `<h4>表 \"${tableName}\" 的前5行数据:</h4>`;
+                                    resultHtml += '<table border="1" style="width:100%; border-collapse: collapse;">';
+                                    // 表头
+                                    resultHtml += '<thead><tr>';
+                                    tableData[0].columns.forEach(col => {
+                                        resultHtml += `<th>${col}</th>`;
+                                    });
+                                    resultHtml += '</tr></thead>';
+                                    // 表数据
+                                    resultHtml += '<tbody>';
+                                    tableData[0].values.forEach(dataRow => {
+                                        resultHtml += '<tr>';
+                                        dataRow.forEach(cell => {
+                                            resultHtml += `<td>${cell}</td>`;
+                                        });
+                                        resultHtml += '</tr>';
+                                    });
+                                    resultHtml += '</tbody></table>';
+                                } else {
+                                    resultHtml += `<p>表 \"${tableName}\" 没有数据或无法查询。</p>`;
+                                }
+                            } catch (queryErr) {
+                                resultHtml += `<p class="error">查询表 \"${tableName}\" 失败: ${queryErr.message}</p>`;
+                                console.error(`Error querying table ${tableName}:`, queryErr);
+                            }
+                        });
+                        resultHtml += '</ul>';
+                    } else {
+                        resultHtml += '<p>数据库中没有找到任何表。</p>';
+                    }
+
+                    outputDiv.innerHTML = resultHtml;
+
+                    db.close();
+                } catch (err) {
+                    outputDiv.innerHTML = `<p class="error">读取或解析数据库失败: ${err.message}</p>`;
+                    console.error("Error reading or parsing DB:", err);
+                }
+            };
+            reader.onerror = (error) => {
+                outputDiv.innerHTML = `<p class="error">文件读取错误: ${error.message}</p>`;
+                console.error("File reading error:", error);
+            };
+            reader.readAsArrayBuffer(file);
+        });
+    </script>
+</body>
+</html>
