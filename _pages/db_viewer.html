@@ -72,32 +72,89 @@ title: "NT_MSG.DB 文件查看器"
         <h1>NT_MSG.DB 文件查看器</h1>
         <p>请上传您的 <code>nt_msg.db</code> 文件：</p>
         <input type="file" id="dbFile" accept=".db">
-        <button id="loadFile">读取文件</button>
+        <button id="loadFile" disabled>读取文件</button>
         <div id="output"></div>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/sql-wasm.js"></script>
     <script>
+        let SQL;
+        let initializationStarted = false;
+        let db = null;
+
+        // 配置 sql.js
+        const sqlConfig = {
+            locateFile: function(filename) {
+                console.log('Locating file:', filename);
+                return `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/${filename}`;
+            }
+        };
+
+        // 动态加载 sql.js
+        async function loadSqlJs() {
+            if (window.SQL) {
+                console.log('sql.js is already loaded');
+                return window.SQL;
+            }
+
+            console.log('Loading sql.js...');
+            try {
+                const script = document.createElement('script');
+                script.src = 'https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/sql-wasm.js';
+                await new Promise((resolve, reject) => {
+                    script.onload = resolve;
+                    script.onerror = () => reject(new Error('Failed to load sql.js script'));
+                    document.head.appendChild(script);
+                });
+                
+                if (typeof initSqlJs === 'undefined') {
+                    throw new Error('sql.js initialization function not found');
+                }
+
+                SQL = await initSqlJs(sqlConfig);
+                window.SQL = SQL;
+                console.log('sql.js loaded successfully');
+                return SQL;
+            } catch (err) {
+                console.error('Failed to load sql.js:', err);
+                outputDiv.innerHTML = `<p class="error">加载 sql.js 失败: ${err.message}</p>`;
+                throw err;
+            }
+        }
         const dbFile = document.getElementById('dbFile');
         const loadFileButton = document.getElementById('loadFile');
         const outputDiv = document.getElementById('output');
 
-        let SQL;
-
         // 初始化 sql.js
-        async function initSqlJs() {
+        async function initializeSqlJs() {
+            if (initializationStarted) {
+                console.log("SQL.js initialization already in progress");
+                return;
+            }
+            initializationStarted = true;
+
             try {
-                SQL = await initSqlJs({
-                    locateFile: file => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/${file}`
-                });
-                console.log("sql.js loaded.");
+                // 加载 SQL.js
+                SQL = await loadSqlJs();
+                console.log('SQL.js initialization completed successfully');
+                loadFileButton.disabled = false;
+                return SQL;
             } catch (err) {
-                outputDiv.innerHTML = `<p class="error">加载 sql.js 失败: ${err.message}</p>`;
-                console.error("Failed to load sql.js:", err);
+                console.error('SQL.js initialization failed:', err);
+                initializationStarted = false; // 重置标志，允许重试
+                throw err;
             }
         }
 
-        initSqlJs();
+        // 页面加载完成后初始化
+        window.addEventListener('load', async () => {
+            try {
+                await initializeSqlJs();
+                console.log('SQL.js initialization completed');
+            } catch (err) {
+                console.error('Failed to initialize sql.js:', err);
+                outputDiv.innerHTML = `<p class="error">SQL.js 初始化失败: ${err.message}</p>`;
+            }
+        });
 
         loadFileButton.addEventListener('click', async () => {
             const file = dbFile.files[0];
