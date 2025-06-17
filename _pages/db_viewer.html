@@ -70,6 +70,18 @@ title: "NT_MSG.DB 文件查看器"
 <body>
     <div class="container">
         <h1>NT_MSG.DB 文件查看器</h1>
+        <div style="margin-bottom: 20px; padding: 15px; background-color: #fff3cd; border: 1px solid #ffeeba; border-radius: 4px;">
+            <h3 style="color: #856404; margin-top: 0;">重要提示：QQ数据库加密说明</h3>
+            <p>QQ聊天记录数据库是加密的，需要先获取解密密钥才能查看。获取密钥的步骤：</p>
+            <ol>
+                <li>确保已安装最新版本的QQ客户端</li>
+                <li>使用需要查看聊天记录的QQ账号登录客户端</li>
+                <li>等待客户端完成数据同步</li>
+                <li>在聊天记录目录中找到对应的数据库文件</li>
+                <li>使用专门的工具获取当前登录会话的密钥</li>
+            </ol>
+            <p style="margin-bottom: 0;">注意：密钥会在每次登录时更新，请确保获取密钥时QQ保持登录状态。</p>
+        </div>
         <p>请上传您的 <code>nt_msg.db</code> 文件：</p>
         <input type="file" id="dbFile" accept=".db">
         <button id="loadFile" disabled>读取文件</button>
