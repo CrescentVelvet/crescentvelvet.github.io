@@ -1,0 +1,450 @@
+---
+permalink: /text_processor.html
+layout: null
+title: "文本处理工具"
+---
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文本处理工具</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+        }
+        h1 {
+            color: #0056b3;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .content-area {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        .input-section, .output-section {
+            flex: 1;
+            min-width: 300px;
+        }
+        textarea {
+            width: 100%;
+            height: 400px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            resize: vertical;
+        }
+        .buttons-section {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 20px 0;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            flex-grow: 1;
+            min-width: 120px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .step-button {
+            background-color: #28a745;
+        }
+        .step-button:hover {
+            background-color: #218838;
+        }
+        .reset-button {
+            background-color: #dc3545;
+        }
+        .reset-button:hover {
+            background-color: #c82333;
+        }
+        .copy-button {
+            background-color: #6c757d;
+        }
+        .copy-button:hover {
+            background-color: #5a6268;
+        }
+        h2 {
+            color: #0056b3;
+            margin-top: 0;
+        }
+        .output-preview {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            min-height: 400px;
+            background-color: #fff;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-size: 14px;
+        }
+        .toc {
+            background-color: #f8f9fa;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            margin-bottom: 20px;
+        }
+        .toc-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .toc-item {
+            margin-left: 20px;
+        }
+        .status {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 4px;
+            background-color: #e9ecef;
+            text-align: center;
+        }
+        .success {
+            color: #28a745;
+        }
+        .error {
+            color: #dc3545;
+        }
+        /* 预览区域样式 */
+        .preview-content {
+            font-family: "幼圆", "圆体-简-细体", "Times New Roman", serif;
+            font-size: 10.5pt; /* 五号字体 */
+            text-indent: 2em; /* 首行缩进 */
+            line-height: 1.0; /* 单倍行距 */
+            margin-top: 0; /* 段前0行 */
+            margin-bottom: 0; /* 段后0行 */
+        }
+        .date-line {
+            color: #6c757d;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        .leisure-title {
+            color: #0056b3;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>文本处理工具</h1>
+        <div class="content-area">
+            <div class="input-section">
+                <h2>输入文本</h2>
+                <textarea id="inputText" placeholder="请粘贴需要处理的Word文本..."></textarea>
+            </div>
+            <div class="output-section">
+                <h2>处理结果</h2>
+                <div id="outputPreview" class="output-preview"></div>
+            </div>
+        </div>
+        <div class="buttons-section">
+            <button id="formatFont" class="step-button">1. 设置字体</button>
+            <button id="formatParagraph" class="step-button">2. 设置段落格式</button>
+            <button id="processDates" class="step-button">3. 处理日期</button>
+            <button id="removeExtraLineBreaks" class="step-button">4. 去除多余换行</button>
+            <button id="removeExtraDates" class="step-button">5. 去除多余日期</button>
+            <button id="generateTOC" class="step-button">6. 生成目录</button>
+            <button id="addLeisurePrefix" class="step-button">7. 添加"闲情逸致"</button>
+            <button id="processAll" class="step-button">一键处理全部</button>
+            <button id="copyResult" class="copy-button">复制结果</button>
+            <button id="resetText" class="reset-button">重置</button>
+        </div>
+        <div id="status" class="status"></div>
+    </div>
+
+    <script>
+        // 获取DOM元素
+        const inputText = document.getElementById('inputText');
+        const outputPreview = document.getElementById('outputPreview');
+        const statusDiv = document.getElementById('status');
+        
+        // 处理状态显示
+        function showStatus(message, isError = false) {
+            statusDiv.textContent = message;
+            statusDiv.className = isError ? 'status error' : 'status success';
+            setTimeout(() => {
+                statusDiv.textContent = '';
+                statusDiv.className = 'status';
+            }, 3000);
+        }
+        
+        // 更新预览
+        function updatePreview(text) {
+            outputPreview.innerHTML = text;
+        }
+        
+        // 1. 设置字体
+        document.getElementById('formatFont').addEventListener('click', () => {
+            if (!inputText.value.trim()) {
+                showStatus('请先输入文本', true);
+                return;
+            }
+            
+            // 将输出区域应用字体样式
+            outputPreview.className = 'output-preview preview-content';
+            updatePreview(inputText.value);
+            showStatus('字体设置完成');
+        });
+        
+        // 2. 设置段落格式
+        document.getElementById('formatParagraph').addEventListener('click', () => {
+            if (!inputText.value.trim()) {
+                showStatus('请先输入文本', true);
+                return;
+            }
+            
+            // 应用段落样式
+            let text = inputText.value;
+            const lines = text.split('\n');
+            const formattedLines = lines.map(line => {
+                if (line.trim()) {
+                    return `<p class="preview-content">${line}</p>`;
+                }
+                return '';
+            });
+            
+            updatePreview(formattedLines.join('\n'));
+            showStatus('段落格式设置完成');
+        });
+        
+        // 3. 处理日期
+        document.getElementById('processDates').addEventListener('click', () => {
+            if (!outputPreview.innerHTML.trim()) {
+                showStatus('请先设置字体和段落格式', true);
+                return;
+            }
+            
+            let content = outputPreview.innerHTML;
+            
+            // 匹配日期格式 YYYY-MM-DD
+            const dateRegex = /(\d{4})-(\d{1,2})-(\d{1,2})/g;
+            const dates = new Set();
+            let match;
+            
+            // 收集所有日期
+            while ((match = dateRegex.exec(content)) !== null) {
+                dates.add(match[0]);
+            }
+            
+            // 为每个唯一日期添加样式
+            dates.forEach(date => {
+                // 查找该日期第一次出现的位置
+                const firstIndex = content.indexOf(date);
+                if (firstIndex !== -1) {
+                    // 替换为带样式的日期
+                    const styledDate = `<div class="date-line">${date}</div>`;
+                    content = content.substring(0, firstIndex) + styledDate + content.substring(firstIndex + date.length);
+                }
+                
+                // 移除该日期的其他出现
+                const remainingContent = content.substring(firstIndex + styledDate.length);
+                content = content.substring(0, firstIndex + styledDate.length) + remainingContent.replace(new RegExp(date, 'g'), '');
+            });
+            
+            updatePreview(content);
+            showStatus('日期处理完成');
+        });
+        
+        // 4. 去除多余的换行
+        document.getElementById('removeExtraLineBreaks').addEventListener('click', () => {
+            if (!outputPreview.innerHTML.trim()) {
+                showStatus('请先处理文本', true);
+                return;
+            }
+            
+            let content = outputPreview.innerHTML;
+            
+            // 移除连续的空段落
+            content = content.replace(/<p class="preview-content">\s*<\/p>\s*<p class="preview-content">\s*<\/p>/g, '<p class="preview-content"></p>');
+            
+            // 移除空段落
+            content = content.replace(/<p class="preview-content">\s*<\/p>/g, '');
+            
+            updatePreview(content);
+            showStatus('多余换行已移除');
+        });
+        
+        // 5. 去除多余的日期时间行
+        document.getElementById('removeExtraDates').addEventListener('click', () => {
+            if (!outputPreview.innerHTML.trim()) {
+                showStatus('请先处理文本', true);
+                return;
+            }
+            
+            let content = outputPreview.innerHTML;
+            
+            // 移除不在日期行中的日期
+            const dateRegex = /(\d{4})-(\d{1,2})-(\d{1,2})/g;
+            content = content.replace(dateRegex, match => {
+                if (content.includes(`<div class="date-line">${match}</div>`)) {
+                    return '';
+                }
+                return match;
+            });
+            
+            updatePreview(content);
+            showStatus('多余日期已移除');
+        });
+        
+        // 6. 自动生成目录
+        document.getElementById('generateTOC').addEventListener('click', () => {
+            if (!outputPreview.innerHTML.trim()) {
+                showStatus('请先处理文本', true);
+                return;
+            }
+            
+            let content = outputPreview.innerHTML;
+            const dates = content.match(/<div class="date-line">(.*?)<\/div>/g) || [];
+            
+            if (dates.length === 0) {
+                showStatus('未找到日期，无法生成目录', true);
+                return;
+            }
+            
+            // 创建目录
+            let toc = '<div class="toc"><div class="toc-title">目录</div>';
+            dates.forEach(dateHtml => {
+                const date = dateHtml.replace(/<div class="date-line">(.*?)<\/div>/, '$1');
+                toc += `<div class="toc-item">${date}</div>`;
+            });
+            toc += '</div>';
+            
+            // 在内容前添加目录
+            content = toc + content;
+            
+            updatePreview(content);
+            showStatus('目录已生成');
+        });
+        
+        // 7. 添加"闲情逸致"
+        document.getElementById('addLeisurePrefix').addEventListener('click', () => {
+            if (!outputPreview.innerHTML.trim()) {
+                showStatus('请先处理文本', true);
+                return;
+            }
+            
+            let content = outputPreview.innerHTML;
+            
+            // 查找"今天都做了些什么"并添加前缀
+            content = content.replace(/今天都做了些什么/g, '<span class="leisure-title">闲情逸致：</span>今天都做了些什么');
+            
+            updatePreview(content);
+            showStatus('已添加"闲情逸致"前缀');
+        });
+        
+        // 一键处理全部
+        document.getElementById('processAll').addEventListener('click', () => {
+            if (!inputText.value.trim()) {
+                showStatus('请先输入文本', true);
+                return;
+            }
+            
+            // 按顺序执行所有处理步骤
+            document.getElementById('formatFont').click();
+            setTimeout(() => document.getElementById('formatParagraph').click(), 100);
+            setTimeout(() => document.getElementById('processDates').click(), 200);
+            setTimeout(() => document.getElementById('removeExtraLineBreaks').click(), 300);
+            setTimeout(() => document.getElementById('removeExtraDates').click(), 400);
+            setTimeout(() => document.getElementById('generateTOC').click(), 500);
+            setTimeout(() => document.getElementById('addLeisurePrefix').click(), 600);
+            
+            setTimeout(() => showStatus('全部处理完成'), 700);
+        });
+        
+        // 复制结果
+        document.getElementById('copyResult').addEventListener('click', () => {
+            if (!outputPreview.innerHTML.trim()) {
+                showStatus('没有可复制的内容', true);
+                return;
+            }
+            
+            // 创建临时元素用于复制
+            const tempElement = document.createElement('div');
+            tempElement.innerHTML = outputPreview.innerHTML;
+            document.body.appendChild(tempElement);
+            
+            // 选择内容
+            const range = document.createRange();
+            range.selectNodeContents(tempElement);
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+            
+            // 复制
+            try {
+                document.execCommand('copy');
+                showStatus('已复制到剪贴板');
+            } catch (err) {
+                showStatus('复制失败: ' + err, true);
+            }
+            
+            // 清理
+            selection.removeAllRanges();
+            document.body.removeChild(tempElement);
+        });
+        
+        // 重置
+        document.getElementById('resetText').addEventListener('click', () => {
+            inputText.value = '';
+            outputPreview.innerHTML = '';
+            outputPreview.className = 'output-preview';
+            showStatus('已重置');
+        });
+        
+        // 示例文本
+        const exampleText = `2021-05-04
+今天都做了些什么
+上午去了图书馆，借了几本书。
+下午写了一篇文章。
+
+2021-05-04
+晚上看了一部电影。
+
+2021-05-05
+今天都做了些什么
+早上跑步5公里。
+中午和朋友聚餐。
+
+2021-05-06
+今天都做了些什么
+参加了一个线上会议。
+学习了新技术。`;
+        
+        // 添加示例文本按钮
+        const buttonsSection = document.querySelector('.buttons-section');
+        const exampleButton = document.createElement('button');
+        exampleButton.textContent = '加载示例文本';
+        exampleButton.className = 'copy-button';
+        exampleButton.addEventListener('click', () => {
+            inputText.value = exampleText;
+            showStatus('示例文本已加载');
+        });
+        buttonsSection.appendChild(exampleButton);
+    </script>
+</body>
+</html>

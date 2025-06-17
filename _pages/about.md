@@ -123,6 +123,7 @@ redirect_from:
     <p><a href="/courses.html" class="link-button">进度记录</a></p>
     <p><a href="/game.html" class="link-button">飞机大战</a></p>
     <p><a href="/db_viewer.html" class="link-button">数据库解析</a></p>
+    <p><a href="/text_processor.html" class="link-button">文本处理</a></p>
     <hr>
     <p>强调一下<strong>几个单词</strong></p>
     <blockquote>引用内容</blockquote>

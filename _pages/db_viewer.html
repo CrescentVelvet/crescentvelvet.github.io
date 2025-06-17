@@ -72,19 +72,38 @@ title: "NT_MSG.DB 文件查看器"
         <h1>NT_MSG.DB 文件查看器</h1>
         <div style="margin-bottom: 20px; padding: 15px; background-color: #fff3cd; border: 1px solid #ffeeba; border-radius: 4px;">
             <h3 style="color: #856404; margin-top: 0;">重要提示：QQ数据库加密说明</h3>
-            <p>QQ聊天记录数据库是加密的，需要先获取解密密钥才能查看。获取密钥的步骤：</p>
+            <p>QQ聊天记录数据库（如Msg3.0.db）是加密的SQLite数据库，需要先获取解密密钥才能查看。目前有以下几种方式获取密钥：</p>
             <ol>
-                <li>确保已安装最新版本的QQ客户端</li>
-                <li>使用需要查看聊天记录的QQ账号登录客户端</li>
-                <li>等待客户端完成数据同步</li>
-                <li>在聊天记录目录中找到对应的数据库文件</li>
-                <li>使用专门的工具获取当前登录会话的密钥</li>
+                <li>使用开源工具：
+                    <ul>
+                        <li>访问 <a href="https://github.com/QQBackup/qq-win-db-key" target="_blank">qq-win-db-key</a> 项目</li>
+                        <li>按照项目说明获取和使用解密工具</li>
+                        <li>该工具可以在不修改QQ进程的情况下获取密钥</li>
+                    </ul>
+                </li>
+                <li>获取密钥的基本步骤：
+                    <ul>
+                        <li>确保已安装最新版本的QQ客户端</li>
+                        <li>使用需要查看聊天记录的QQ账号登录客户端</li>
+                        <li>等待客户端完成数据同步</li>
+                        <li>保持QQ登录状态运行解密工具</li>
+                        <li>获取密钥后再使用本工具查看数据库内容</li>
+                    </ul>
+                </li>
             </ol>
-            <p style="margin-bottom: 0;">注意：密钥会在每次登录时更新，请确保获取密钥时QQ保持登录状态。</p>
+            <p style="color: #721c24; background-color: #f8d7da; padding: 10px; border-radius: 4px; margin-top: 10px;">注意事项：</p>
+            <ul style="margin-bottom: 0;">
+                <li>密钥存储在外部服务器，每次登录都会更新</li>
+                <li>请确保获取密钥时QQ保持登录状态</li>
+                <li>使用工具时请遵守相关法律法规和软件使用协议</li>
+                <li>如遇问题可参考开源项目的issues或寻求社区帮助</li>
+            </ul>
         </div>
+        <p>请输入数据库密钥（从qq-win-db-key工具获取）：</p>
+        <input type="text" id="dbKey" placeholder="请输入密钥" style="width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 4px;">
         <p>请上传您的 <code>nt_msg.db</code> 文件：</p>
         <input type="file" id="dbFile" accept=".db">
-        <button id="loadFile" disabled>读取文件</button>
+        <button id="loadFile" disabled>读取并解密文件</button>
         <div id="output"></div>
     </div>
 
@@ -92,6 +111,79 @@ title: "NT_MSG.DB 文件查看器"
         let SQL;
         let initializationStarted = false;
         let db = null;
+
+        // TEA-XEX模式解密函数
+        function decryptTEA(data, key) {
+            const DELTA = 0x61c88647; // QQ使用的自定义DELTA值
+            const ROUNDS = 16;
+            const BLOCK_SIZE = 8; // 64位分组
+
+            function uint32(n) {
+                return n >>> 0;
+            }
+
+            function xor(a, b) {
+                return new Uint8Array(a.map((byte, i) => byte ^ b[i]));
+            }
+
+            function decrypt(v, k) {
+                let v0 = uint32(v[0]);
+                let v1 = uint32(v[1]);
+                let sum = uint32(DELTA * ROUNDS);
+
+                for (let i = 0; i < ROUNDS; i++) {
+                    v1 = uint32(v1 - (uint32((uint32(v0 << 4) + k[2]) ^ uint32(v0 + sum) ^ uint32((v0 >>> 5) + k[3]))));
+                    v0 = uint32(v0 - (uint32((uint32(v1 << 4) + k[0]) ^ uint32(v1 + sum) ^ uint32((v1 >>> 5) + k[1]))));
+                    sum = uint32(sum - DELTA);
+                }
+
+                return [v0, v1];
+            }
+
+            try {
+                // 验证数据长度
+                if (data.length < BLOCK_SIZE || data.length % BLOCK_SIZE !== 0) {
+                    throw new Error('数据长度必须是8字节的倍数');
+                }
+
+                // 将密钥转换为32位整数数组
+                const keyInts = new Uint32Array(4);
+                for (let i = 0; i < 4; i++) {
+                    const keyPart = key.slice(i * 8, (i + 1) * 8);
+                    if (!/^[0-9a-fA-F]{8}$/.test(keyPart)) {
+                        throw new Error('密钥格式不正确');
+                    }
+                    keyInts[i] = parseInt(keyPart, 16);
+                }
+
+                // XEX模式解密
+                const result = new Uint8Array(data.length);
+                const dataView = new DataView(data.buffer);
+                const resultView = new DataView(result.buffer);
+
+                // 处理每个块
+                for (let offset = 0; offset < data.length; offset += BLOCK_SIZE) {
+                    // 读取当前块
+                    const block = new Uint8Array(BLOCK_SIZE);
+                    for (let i = 0; i < BLOCK_SIZE; i++) {
+                        block[i] = data[offset + i];
+                    }
+
+                    // XEX模式：先异或，再解密，再异或
+                    const blockInts = [dataView.getUint32(offset, true), dataView.getUint32(offset + 4, true)];
+                    const decrypted = decrypt(blockInts, keyInts);
+
+                    // 写入解密结果
+                    resultView.setUint32(offset, decrypted[0], true);
+                    resultView.setUint32(offset + 4, decrypted[1], true);
+                }
+
+                return result;
+            } catch (error) {
+                console.error('解密过程出错:', error);
+                throw new Error(`解密失败: ${error.message}`);
+            }
+        }
 
         // 配置 sql.js
         const sqlConfig = {
@@ -183,7 +275,36 @@ title: "NT_MSG.DB 文件查看器"
             const reader = new FileReader();
             reader.onload = async (event) => {
                 try {
-                    const Uints = new Uint8Array(event.target.result);
+                    const dbKey = document.getElementById('dbKey').value.trim();
+                    if (!dbKey) {
+                        outputDiv.innerHTML = '<p class="error">请输入数据库密钥</p>';
+                        return;
+                    }
+
+                    if (!/^[0-9a-fA-F]{32}$/.test(dbKey)) {
+                        outputDiv.innerHTML = '<p class="error">密钥格式不正确，请输入32位十六进制数</p>';
+                        return;
+                    }
+
+                    const fileData = new Uint8Array(event.target.result);
+                    
+                    // 检查文件头是否为加密的QQ数据库
+                    const fileHeader = new Uint8Array(fileData.slice(0, 4));
+                    const isEncrypted = fileHeader[0] !== 0x53 || fileHeader[1] !== 0x51 || 
+                                       fileHeader[2] !== 0x4C || fileHeader[3] !== 0x69;
+
+                    let Uints;
+                    if (isEncrypted) {
+                        try {
+                            // 解密数据库文件
+                            Uints = decryptTEA(fileData, dbKey);
+                        } catch (decryptErr) {
+                            outputDiv.innerHTML = `<p class="error">数据库解密失败: ${decryptErr.message}</p>`;
+                            return;
+                        }
+                    } else {
+                        Uints = fileData;
+                    }
                     const db = new SQL.Database(Uints);
 
                     // 示例：查询所有表名
