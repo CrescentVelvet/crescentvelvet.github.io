@@ -331,7 +331,14 @@ title: "文本处理工具"
                 }
             }
             // 将处理后的纯文本重新包裹成 <p> 标签，日期行包裹成 div
-            updatePreview(resultLines.join('\n'));
+            const formattedContent = resultLines.map(line => {
+                if (line.trim()) {
+                    return `<p class="preview-content">${line}</p>`;
+                } else {
+                    return '';
+                }
+            }).filter(line => line !== '').join('\n');
+            updatePreview(formattedContent);
             showStatus('日期处理完成');
         });
         
@@ -376,12 +383,8 @@ title: "文本处理工具"
             }
             
             let content = outputPreview.innerHTML;
-            // 确保处理的是纯文本，而不是HTML内容
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = content;
-            content = tempDiv.innerText;
             const dateRegex = /\b\d{4}-\d{2}-\d{2}\b/g;
-            const dates = content.match(dateRegex) || [];
+            const dates = (content.match(dateRegex) || []).filter((value, index, self) => self.indexOf(value) === index);
             
             if (dates.length === 0) {
                 showStatus('未找到日期，无法生成目录', true);
@@ -395,16 +398,7 @@ title: "文本处理工具"
             });
             toc += '</div>';
             
-            // 将处理后的纯文本重新包裹成 <p> 标签
-            const formattedContent = content.split('\n').map(line => {
-                if (line.trim()) {
-                    return `<p class="preview-content">${line}</p>`;
-                } else {
-                    return '';
-                }
-            }).filter(line => line !== '').join('\n');
-
-            updatePreview(toc + formattedContent);
+            updatePreview(toc + content);
             showStatus('目录已生成');
         });
         
