@@ -26,6 +26,42 @@ title: "文本处理工具"
             display: flex;
             flex-direction: column;
         }
+        .info-box {
+            background-color: #e7f3ff;
+            border: 1px solid #b8daff;
+            border-radius: 4px;
+            padding: 15px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        .info-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #0056b3;
+        }
+        .info-feature {
+            margin-bottom: 5px;
+        }
+        .quick-nav {
+            position: fixed;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            background-color: rgba(255, 255, 255, 0.9);
+            border-radius: 4px;
+            padding: 10px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        .quick-nav button {
+            min-width: 40px;
+            padding: 5px;
+            font-size: 12px;
+        }
         h1 {
             color: #0056b3;
             text-align: center;
@@ -152,6 +188,20 @@ title: "文本处理工具"
 <body>
     <div class="container">
         <h1>文本处理工具</h1>
+        <div class="info-box">
+            <div class="info-title">文本处理工具功能说明</div>
+            <div class="info-feature">1. 设置字体：将文本设置为宋体，并调整字体大小。</div>
+            <div class="info-feature">2. 设置段落格式：将文本分段并添加段落样式。</div>
+            <div class="info-feature">2. 处理日期：对于形如“YYYY-MM-DD HH:MM:SS 用户名(用户ID)”的行，只保留日期部分（YYYY-MM-DD），并移除重复日期。</div>
+            <div class="info-feature">4. 去除多余换行：删除文本中不必要的空行。</div>
+
+            <div class="info-feature">6. 自动生成目录：根据日期自动创建目录。</div>
+            <div class="info-feature">7. 添加前缀：在包含特定短语的行前添加固定文本。</div>
+            <div class="info-feature">8. 一键处理全部：按顺序执行所有处理步骤。</div>
+            <div class="info-feature">9. 复制结果：将处理后的文本复制到剪贴板。</div>
+            <div class="info-feature">10. 重置：清空输入和输出区域。</div>
+            <div class="info-feature">11. 快速导航：使用页面右侧的快速导航按钮，可以快速跳转到各个处理步骤。</div>
+        </div>
         <div class="content-area">
             <div class="input-section">
                 <h2>输入文本</h2>
@@ -167,7 +217,7 @@ title: "文本处理工具"
             <button id="formatParagraph" class="step-button">2. 设置段落格式</button>
             <button id="processDates" class="step-button">3. 处理日期</button>
             <button id="removeExtraLineBreaks" class="step-button">4. 去除多余换行</button>
-            <button id="removeExtraDates" class="step-button">5. 去除多余日期</button>
+
             <button id="generateTOC" class="step-button">6. 生成目录</button>
             <button id="addLeisurePrefix" class="step-button">7. 添加"闲情逸致"</button>
             <button id="processAll" class="step-button">一键处理全部</button>
@@ -176,12 +226,24 @@ title: "文本处理工具"
         </div>
         <div id="status" class="status"></div>
     </div>
+    
+    <!-- 快速导航按钮 -->
+    <div class="quick-nav" id="quickNav">
+        <button data-target="formatFont">1</button>
+        <button data-target="formatParagraph">2</button>
+        <button data-target="processDates">3</button>
+        <button data-target="removeExtraLineBreaks">4</button>
+
+        <button data-target="generateTOC">6</button>
+        <button data-target="addLeisurePrefix">7</button>
+    </div>
 
     <script>
         // 获取DOM元素
         const inputText = document.getElementById('inputText');
         const outputPreview = document.getElementById('outputPreview');
         const statusDiv = document.getElementById('status');
+        const quickNav = document.getElementById('quickNav');
         
         // 处理状态显示
         function showStatus(message, isError = false) {
@@ -234,38 +296,35 @@ title: "文本处理工具"
         
         // 3. 处理日期
         document.getElementById('processDates').addEventListener('click', () => {
-            if (!outputPreview.innerHTML.trim()) {
-                showStatus('请先设置字体和段落格式', true);
-                return;
-            }
-            
+            // 处理日期（匹配并样式化日期，然后移除其他出现）
+            // 匹配形如 "YYYY-MM-DD HH:MM:SS 用户名(用户ID)" 的日期时间用户ID行
+            const dateTimeUserRegex = /(\d{4}-\d{2}-\d{2})\s+\d{2}:\d{2}:\d{2}\s+[^\n\(]+\([^\)]+\)/g;
+
             let content = outputPreview.innerHTML;
-            
-            // 匹配日期格式 YYYY-MM-DD
-            const dateRegex = /(\d{4})-(\d{1,2})-(\d{1,2})/g;
-            const dates = new Set();
-            let match;
-            
-            // 收集所有日期
-            while ((match = dateRegex.exec(content)) !== null) {
-                dates.add(match[0]);
-            }
-            
-            // 为每个唯一日期添加样式
-            dates.forEach(date => {
-                // 查找该日期第一次出现的位置
-                const firstIndex = content.indexOf(date);
-                if (firstIndex !== -1) {
-                    // 替换为带样式的日期
-                    const styledDate = `<div class="date-line">${date}</div>`;
-                    content = content.substring(0, firstIndex) + styledDate + content.substring(firstIndex + date.length);
-                }
-                
-                // 移除该日期的其他出现
-                const remainingContent = content.substring(firstIndex + styledDate.length);
-                content = content.substring(0, firstIndex + styledDate.length) + remainingContent.replace(new RegExp(date, 'g'), '');
+
+            // 替换日期时间用户ID行，只保留日期部分
+            content = content.replace(dateTimeUserRegex, (match, date) => {
+                return date;
             });
-            
+
+            // 匹配其他日期格式 YYYY-MM-DD
+            const dateRegex = /\b\d{4}-\d{2}-\d{2}\b/g;
+            // 移除重复日期
+            let lines = content.split('\n');
+            let processedLines = new Set();
+            let resultLines = [];
+
+            for (const line of lines) {
+                if (dateRegex.test(line)) {
+                    if (!processedLines.has(line)) {
+                        processedLines.add(line);
+                        resultLines.push(line);
+                    }
+                } else {
+                    resultLines.push(line);
+                }
+            }
+            content = resultLines.join('\n');
             updatePreview(content);
             showStatus('日期处理完成');
         });
@@ -289,27 +348,7 @@ title: "文本处理工具"
             showStatus('多余换行已移除');
         });
         
-        // 5. 去除多余的日期时间行
-        document.getElementById('removeExtraDates').addEventListener('click', () => {
-            if (!outputPreview.innerHTML.trim()) {
-                showStatus('请先处理文本', true);
-                return;
-            }
-            
-            let content = outputPreview.innerHTML;
-            
-            // 移除不在日期行中的日期
-            const dateRegex = /(\d{4})-(\d{1,2})-(\d{1,2})/g;
-            content = content.replace(dateRegex, match => {
-                if (content.includes(`<div class="date-line">${match}</div>`)) {
-                    return '';
-                }
-                return match;
-            });
-            
-            updatePreview(content);
-            showStatus('多余日期已移除');
-        });
+
         
         // 6. 自动生成目录
         document.getElementById('generateTOC').addEventListener('click', () => {
@@ -369,10 +408,8 @@ title: "文本处理工具"
             setTimeout(() => document.getElementById('formatParagraph').click(), 100);
             setTimeout(() => document.getElementById('processDates').click(), 200);
             setTimeout(() => document.getElementById('removeExtraLineBreaks').click(), 300);
-            setTimeout(() => document.getElementById('removeExtraDates').click(), 400);
             setTimeout(() => document.getElementById('generateTOC').click(), 500);
             setTimeout(() => document.getElementById('addLeisurePrefix').click(), 600);
-            
             setTimeout(() => showStatus('全部处理完成'), 700);
         });
         
@@ -416,35 +453,66 @@ title: "文本处理工具"
             showStatus('已重置');
         });
         
-        // 示例文本
-        const exampleText = `2021-05-04
-今天都做了些什么
-上午去了图书馆，借了几本书。
-下午写了一篇文章。
-
-2021-05-04
-晚上看了一部电影。
-
-2021-05-05
-今天都做了些什么
-早上跑步5公里。
-中午和朋友聚餐。
-
-2021-05-06
-今天都做了些什么
-参加了一个线上会议。
-学习了新技术。`;
-        
         // 添加示例文本按钮
         const buttonsSection = document.querySelector('.buttons-section');
         const exampleButton = document.createElement('button');
         exampleButton.textContent = '加载示例文本';
         exampleButton.className = 'copy-button';
-        exampleButton.addEventListener('click', () => {
-            inputText.value = exampleText;
+        exampleButton.id = 'loadExample';
+        buttonsSection.appendChild(exampleButton);
+        
+        // 加载示例文本
+        document.getElementById('loadExample').addEventListener('click', () => {
+            const exampleText = `这是一个示例文本，用于演示文本处理工具的功能。
+
+2023-01-01
+这是第一天的内容。
+
+2023-01-02 14:30:45 Crescent Velvet(315762814)
+这是第二天的内容。
+
+2023-01-04 09:15:22 Crescent Velvet(315762814)
+这是第四天的内容。
+
+2023-01-04 16:45:33 User Name(123456789)
+这里有一些多余的日期。
+
+2023-01-04 16:45:33 User Name(123456789)
+这里有一些多余的日期。
+
+2023-01-05 10:20:18 Another User(987654321)
+这里是一些需要添加前缀的内容：
+今天都做了些什么`;
+            
+            document.getElementById('inputText').value = exampleText;
             showStatus('示例文本已加载');
         });
-        buttonsSection.appendChild(exampleButton);
+        
+        // 快速导航按钮事件处理
+        quickNav.querySelectorAll('button').forEach(button => {
+            button.addEventListener('click', () => {
+                const targetId = button.getAttribute('data-target');
+                const targetButton = document.getElementById(targetId);
+                if (targetButton) {
+                    targetButton.click();
+                    targetButton.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            });
+        });
+        
+        // 更新示例文本，添加日期时间用户ID行示例
+        const dateTimeUserExample = `2024-11-01 14:45:34 Crescent Velvet(315762814)
+${exampleText}`;
+        
+        // 添加更复杂的示例文本按钮
+        const complexExampleButton = document.createElement('button');
+        complexExampleButton.textContent = '加载复杂示例';
+        complexExampleButton.className = 'copy-button';
+        complexExampleButton.addEventListener('click', () => {
+            inputText.value = dateTimeUserExample;
+            showStatus('复杂示例文本已加载');
+        });
+        buttonsSection.appendChild(complexExampleButton);
     </script>
 </body>
 </html>
