@@ -330,15 +330,8 @@ title: "文本处理工具"
                     resultLines.push(line);
                 }
             }
-            // 将处理后的纯文本重新包裹成 <p> 标签
-            const formattedContent = resultLines.map(line => {
-                if (line.trim()) {
-                    return `<p class="preview-content">${line}</p>`;
-                } else {
-                    return '';
-                }
-            }).filter(line => line !== '').join('\n');
-            updatePreview(formattedContent);
+            // 将处理后的纯文本重新包裹成 <p> 标签，日期行包裹成 div
+            updatePreview(resultLines.join('\n'));
             showStatus('日期处理完成');
         });
         
@@ -383,7 +376,12 @@ title: "文本处理工具"
             }
             
             let content = outputPreview.innerHTML;
-            const dates = content.match(/<div class="date-line">(.*?)<\/div>/g) || [];
+            // 确保处理的是纯文本，而不是HTML内容
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = content;
+            content = tempDiv.innerText;
+            const dateRegex = /\b\d{4}-\d{2}-\d{2}\b/g;
+            const dates = content.match(dateRegex) || [];
             
             if (dates.length === 0) {
                 showStatus('未找到日期，无法生成目录', true);
@@ -392,8 +390,7 @@ title: "文本处理工具"
             
             // 创建目录
             let toc = '<div class="toc"><div class="toc-title">目录</div>';
-            dates.forEach(dateHtml => {
-                const date = dateHtml.replace(/<div class="date-line">(.*?)<\/div>/, '$1');
+            dates.forEach(date => {
                 toc += `<div class="toc-item">${date}</div>`;
             });
             toc += '</div>';
@@ -509,7 +506,8 @@ title: "文本处理工具"
 这里有一些多余的日期。
 
 2023-01-04 16:45:33 User Name(123456789)
-这里有一些多余的日期。
+这里有一些多余的日期，以及一整个段落不换行的语句。
+斯缇科西亚，醉与梦的海滨之城，旧日的歌声仍在浮浪间回荡。大海的女儿海列屈拉，清洗「海洋」火种的黄金裔，你要驱散污浊的暗流，为天外的英雄奏响不醉不归的盛宴——散场之时未到，纵然希望如泡沫般易碎，浪花也将一往无前。
 
 2023-01-05 10:20:18 Another User(987654321)
 这里是一些需要添加前缀的内容：
