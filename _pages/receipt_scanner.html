@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>票据识别</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        .video-container {
+            width: 100%;
+            max-width: 100%;
+            margin-bottom: 20px;
+            border: 1px solid #ddd;
+            background-color: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 200px;
+        }
+        video {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        canvas {
+            width: 100%;
+            height: auto;
+            display: block;
+            border: 1px solid #ddd;
+            margin-top: 10px;
+        }
+        button {
+            display: block;
+            width: 100%;
+            padding: 10px 15px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-bottom: 10px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #receiptInfo {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #eee;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .status {
+            text-align: center;
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .status.error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .status.success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>票据识别</h1>
+        <div class="status" id="status"></div>
+        <div class="image-upload-container">
+            <input type="file" id="imageUpload" accept="image/*" style="display: none;">
+            <button id="selectImageButton">选择图片</button>
+            <img id="imagePreview" src="#" alt="图片预览" style="max-width: 100%; display: none;">
+        </div>
+        <canvas id="canvas" style="display:none;"></canvas>
+        <h2>识别结果</h2>
+        <div id="receiptInfo"></div>
+    </div>
+
+    <script>
+        const imageUpload = document.getElementById('imageUpload');
+        const selectImageButton = document.getElementById('selectImageButton');
+        const imagePreview = document.getElementById('imagePreview');
+        const canvas = document.getElementById('canvas');
+        const receiptInfo = document.getElementById('receiptInfo');
+        const statusDiv = document.getElementById('status');
+
+        function showStatus(message, isError = false) {
+            statusDiv.textContent = message;
+            statusDiv.className = isError ? 'status error' : 'status success';
+            setTimeout(() => {
+                statusDiv.textContent = '';
+                statusDiv.className = 'status';
+            }, 3000);
+        }
+
+        selectImageButton.addEventListener('click', () => {
+            imageUpload.click();
+        });
+
+        imageUpload.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (!file) {
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                imagePreview.src = e.target.result;
+                imagePreview.style.display = 'block';
+                showStatus('图片已加载，准备识别', false);
+
+                // 将图片绘制到 canvas 并获取 base64 数据
+                const img = new Image();
+                img.onload = () => {
+                    const context = canvas.getContext('2d');
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    context.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    const imageDataUrl = canvas.toDataURL('image/jpeg');
+                    
+                    // TODO: 将 imageDataUrl 发送到后端或直接调用 Gemini API
+                    // 目前仅显示图片数据URL的长度作为示例
+                    receiptInfo.textContent = '图片已捕获，数据长度：' + imageDataUrl.length + '。下一步将调用Gemini API进行识别。';
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+    </script>
+</body>
+</html>
