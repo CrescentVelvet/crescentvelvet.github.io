@@ -10,137 +10,482 @@ layout: default
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>论文搜索</title>
     <style>
-        .search-container {
-            max-width: 800px;
-            margin: 50px auto;
-            padding: 20px;
+        :root {
+            --primary-color: #4285f4;
+            --secondary-color: #34a853;
+            --accent-color: #ea4335;
+            --light-bg: #f8f9fa;
+            --border-color: #ddd;
+            --text-primary: #333;
+            --text-secondary: #666;
+            --text-tertiary: #888;
         }
-        .search-box {
-            width: 100%;
-            padding: 10px;
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: var(--text-primary);
+            background-color: #fff;
+        }
+        
+        .search-container {
+            max-width: 1000px;
+            margin: 30px auto;
+            padding: 25px;
+            background-color: #fff;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            border-radius: 8px;
+        }
+        
+        h1 {
+            color: var(--primary-color);
+            text-align: center;
+            margin-bottom: 30px;
+            font-weight: 600;
+        }
+        
+        h3 {
             font-size: 16px;
-            border: 1px solid #ddd;
+            margin-bottom: 10px;
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+        
+        .filter-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .conference-filter, .year-filter, .keyword-filter {
+            padding: 15px;
+            background-color: var(--light-bg);
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .conference-filter label {
+            display: inline-block;
+            margin-right: 10px;
+            margin-bottom: 8px;
+            cursor: pointer;
+        }
+        
+        .conference-filter input[type="checkbox"] {
+            margin-right: 5px;
+        }
+        
+        .conference-filter span {
+            padding: 5px 10px;
+            border-radius: 15px;
+            background: #e0e0e0;
+            transition: all 0.2s;
+            display: inline-block;
+        }
+        
+        .conference-filter input:checked + span {
+            background: var(--primary-color);
+            color: white;
+            font-weight: bold;
+        }
+        
+        .year-range {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .year-input {
+            width: 70px;
+            padding: 5px;
+            border: 1px solid var(--border-color);
             border-radius: 4px;
+            text-align: center;
+        }
+        
+        .keyword-input-container {
+            display: flex;
+            margin-top: 10px;
+        }
+        
+        .keyword-input {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px 0 0 4px;
+            font-size: 14px;
+        }
+        
+        .add-keyword-btn {
+            padding: 8px 15px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 0 4px 4px 0;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .add-keyword-btn:hover {
+            background-color: #3367d6;
+        }
+        
+        .saved-keywords {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+            min-height: 30px;
+        }
+        
+        .keyword-tag {
+            display: inline-flex;
+            align-items: center;
+            padding: 5px 10px;
+            background-color: #e1f5fe;
+            color: #0277bd;
+            border-radius: 15px;
+            font-size: 13px;
+        }
+        
+        .keyword-tag .remove {
+            margin-left: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 16px;
+        }
+        
+        .search-container-input {
             margin-bottom: 20px;
         }
+        
+        .search-box {
+            width: 100%;
+            padding: 12px 15px;
+            font-size: 16px;
+            border: 2px solid var(--border-color);
+            border-radius: 6px;
+            transition: border-color 0.3s;
+            margin-bottom: 10px;
+        }
+        
+        .search-box:focus {
+            border-color: var(--primary-color);
+            outline: none;
+        }
+        
+        .search-stats {
+            color: var(--text-secondary);
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+        
         .paper-list {
             list-style: none;
             padding: 0;
         }
+        
         .paper-item {
-            background: #f9f9f9;
-            padding: 15px;
-            margin-bottom: 10px;
-            border-radius: 4px;
-            border: 1px solid #eee;
+            background: #fff;
+            padding: 20px;
+            margin-bottom: 15px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            transition: transform 0.2s, box-shadow 0.2s;
         }
+        
+        .paper-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        
+        .paper-item.highlight {
+            border-left: 4px solid var(--accent-color);
+        }
+        
         .paper-title {
             font-size: 18px;
-            color: #333;
-            margin-bottom: 8px;
+            font-weight: 600;
+            margin-bottom: 10px;
         }
+        
+        .paper-title a {
+            color: var(--primary-color);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+        
+        .paper-title a:hover {
+            color: #3367d6;
+            text-decoration: underline;
+        }
+        
         .paper-authors {
-            color: #666;
-            margin-bottom: 5px;
-        }
-        .paper-conference {
-            color: #888;
-            font-size: 14px;
+            color: var(--text-secondary);
             margin-bottom: 8px;
+            font-size: 15px;
         }
+        
+        .paper-conference {
+            display: inline-block;
+            color: white;
+            font-size: 13px;
+            padding: 3px 8px;
+            border-radius: 4px;
+            background-color: var(--primary-color);
+            margin-bottom: 12px;
+        }
+        
         .paper-abstract {
-            color: #555;
-            font-size: 14px;
-            margin-top: 8px;
-            line-height: 1.4;
-            max-height: 80px;
+            color: var(--text-secondary);
+            font-size: 15px;
+            line-height: 1.5;
+            margin: 12px 0;
+            max-height: 100px;
             overflow: hidden;
             transition: max-height 0.3s ease;
+            position: relative;
         }
+        
         .paper-abstract.expanded {
-            max-height: 500px;
+            max-height: 1000px;
         }
+        
+        .paper-abstract::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 30px;
+            background: linear-gradient(transparent, white);
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+        
+        .paper-abstract.expanded::after {
+            opacity: 0;
+        }
+        
         .paper-keywords {
-            color: #666;
-            font-size: 13px;
-            margin-top: 5px;
-        }
-        .conference-filter {
-            margin-bottom: 20px;
             display: flex;
             flex-wrap: wrap;
-            align-items: center;
+            gap: 5px;
+            margin-top: 10px;
         }
-        .conference-filter label {
-            margin-right: 15px;
-            cursor: pointer;
-            padding: 5px 10px;
-            border-radius: 15px;
-            background: #f0f0f0;
-            transition: background 0.2s;
-        }
-        .conference-filter label:hover {
-            background: #e0e0e0;
-        }
-        .conference-filter input:checked + span {
-            font-weight: bold;
-        }
-        .year-filter {
-            margin-left: 20px;
-            display: flex;
-            align-items: center;
-        }
-        .year-filter select {
-            margin-left: 10px;
-            padding: 5px;
-            border-radius: 4px;
-            border: 1px solid #ddd;
-        }
-        .search-stats {
-            margin-bottom: 10px;
-            color: #666;
-            font-size: 14px;
-        }
-        .toggle-abstract {
-            color: #0066cc;
-            cursor: pointer;
+        
+        .paper-keyword {
+            background-color: #f1f3f4;
+            color: var(--text-secondary);
+            padding: 3px 8px;
+            border-radius: 12px;
             font-size: 12px;
-            margin-left: 10px;
+            cursor: pointer;
+            transition: background-color 0.2s, color 0.2s;
+        }
+        
+        .paper-keyword:hover {
+            background-color: #e1f5fe;
+            color: #0277bd;
+        }
+        
+        .keyword-toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 4px;
+            z-index: 1000;
+            transition: opacity 0.5s;
+        }
+        
+        .toggle-abstract {
+            color: var(--primary-color);
+            cursor: pointer;
+            font-size: 14px;
+            display: inline-block;
+            margin-top: 5px;
+            user-select: none;
+        }
+        
+        .toggle-abstract:hover {
+            text-decoration: underline;
+        }
+        
+        @media (max-width: 768px) {
+            .filter-container {
+                grid-template-columns: 1fr;
+            }
+            
+            .search-container {
+                padding: 15px;
+                margin: 15px;
+            }
+            
+            .paper-item {
+                padding: 15px;
+            }
         }
     </style>
 </head>
 <body>
     <div class="search-container">
-        <h1>计算机视觉会议论文搜索</h1>
+        <h1>论文搜索</h1>
         
-        <div class="conference-filter">
-            <label><input type="checkbox" value="CVPR" checked> CVPR</label>
-            <label><input type="checkbox" value="ICCV" checked> ICCV</label>
-            <label><input type="checkbox" value="ECCV" checked> ECCV</label>
+        <div class="filter-container">
+            <div class="conference-filter">
+                <h3>会议筛选</h3>
+                <label>
+                    <input type="checkbox" value="CVPR" checked> <span>CVPR</span>
+                </label>
+                <label>
+                    <input type="checkbox" value="ICCV" checked> <span>ICCV</span>
+                </label>
+                <label>
+                    <input type="checkbox" value="ECCV" checked> <span>ECCV</span>
+                </label>
+            </div>
+            
+            <div class="year-filter">
+                <h3>年份筛选</h3>
+                <div class="year-range">
+                    <input type="number" id="yearFrom" class="year-input" placeholder="从" min="2000" max="2030">
+                    <span>至</span>
+                    <input type="number" id="yearTo" class="year-input" placeholder="至" min="2000" max="2030">
+                </div>
+            </div>
+            
+            <div class="keyword-filter">
+                <h3>关键词收藏</h3>
+                <div class="saved-keywords" id="savedKeywords"></div>
+                <div class="keyword-input-container">
+                    <input type="text" id="keywordInput" class="keyword-input" placeholder="添加关键词...">
+                    <button id="addKeywordBtn" class="add-keyword-btn">添加</button>
+                </div>
+            </div>
         </div>
-
-        <input type="text" class="search-box" placeholder="输入关键词搜索论文..." id="searchInput">
         
-        <ul class="paper-list" id="paperList">
-            <!-- 论文列表将通过JavaScript动态生成 -->
-        </ul>
+        <div class="search-container-input">
+            <input type="text" class="search-box" placeholder="输入关键词搜索论文..." id="searchInput">
+            <div id="searchStats" class="search-stats"></div>
+        </div>
+        
+        <ul class="paper-list" id="paperList"></ul>
     </div>
 
     <script>
         let allPapers = []; // 存储所有论文数据
+        let savedKeywords = []; // 存储用户保存的关键词
+
+        // 从本地存储加载保存的关键词
+        function loadSavedKeywords() {
+            const savedKeywordsStr = localStorage.getItem('savedKeywords');
+            if (savedKeywordsStr) {
+                savedKeywords = JSON.parse(savedKeywordsStr);
+                renderSavedKeywords();
+            }
+        }
+
+        // 保存关键词到本地存储
+        function saveKeywords() {
+            localStorage.setItem('savedKeywords', JSON.stringify(savedKeywords));
+        }
+
+        // 渲染保存的关键词
+        function renderSavedKeywords() {
+            const savedKeywordsContainer = document.getElementById('savedKeywords');
+            savedKeywordsContainer.innerHTML = '';
+            
+            savedKeywords.forEach((keyword, index) => {
+                const keywordTag = document.createElement('div');
+                keywordTag.className = 'keyword-tag';
+                keywordTag.innerHTML = `
+                    <span class="keyword-text">${keyword}</span>
+                    <span class="remove">&times;</span>
+                `;
+                
+                // 点击关键词文本搜索该关键词
+                keywordTag.querySelector('.keyword-text').addEventListener('click', () => {
+                    document.getElementById('searchInput').value = keyword;
+                    filterPapers();
+                });
+                
+                // 点击删除按钮移除关键词
+                keywordTag.querySelector('.remove').addEventListener('click', () => {
+                    savedKeywords.splice(index, 1);
+                    saveKeywords();
+                    renderSavedKeywords();
+                });
+                
+                savedKeywordsContainer.appendChild(keywordTag);
+            });
+        }
+
+        // 添加新关键词
+        function addKeyword() {
+            const keywordInput = document.getElementById('keywordInput');
+            const keyword = keywordInput.value.trim();
+            
+            if (keyword && !savedKeywords.includes(keyword)) {
+                savedKeywords.push(keyword);
+                saveKeywords();
+                renderSavedKeywords();
+                keywordInput.value = '';
+            }
+        }
 
         // 从JSON文件加载论文数据
         async function loadPapers() {
             try {
-                const response = await fetch('/assets/data/paper_index.json'); // 假设JSON文件放在assets/data/目录下
+                const response = await fetch('/assets/data/paper_index.json');
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
                 allPapers = await response.json();
+                
+                // 设置年份范围的默认值
+                if (allPapers.length > 0) {
+                    const years = allPapers.map(paper => parseInt(paper.year)).filter(year => !isNaN(year));
+                    if (years.length > 0) {
+                        const minYear = Math.min(...years);
+                        const maxYear = Math.max(...years);
+                        
+                        const yearFromInput = document.getElementById('yearFrom');
+                        const yearToInput = document.getElementById('yearTo');
+                        
+                        if (!yearFromInput.value) yearFromInput.value = minYear;
+                        if (!yearToInput.value) yearToInput.value = maxYear;
+                        
+                        yearFromInput.min = minYear;
+                        yearFromInput.max = maxYear;
+                        yearToInput.min = minYear;
+                        yearToInput.max = maxYear;
+                    }
+                }
+                
                 filterPapers(); // 数据加载完成后进行一次过滤和渲染
             } catch (error) {
                 console.error('加载论文数据失败:', error);
-                document.getElementById('paperList').innerHTML = '<li>加载论文数据失败，请检查控制台。</li>';
+                document.getElementById('paperList').innerHTML = '<li class="paper-item error">加载论文数据失败，请检查网络连接或数据文件。</li>';
+            }
+        }
+
+        // 切换摘要展开/收起状态
+        function toggleAbstract(element) {
+            const abstractElement = element.parentElement.querySelector('.paper-abstract');
+            if (abstractElement.classList.contains('expanded')) {
+                abstractElement.classList.remove('expanded');
+                element.textContent = '展开摘要';
+            } else {
+                abstractElement.classList.add('expanded');
+                element.textContent = '收起摘要';
             }
         }
 
@@ -148,51 +493,167 @@ layout: default
             const paperList = document.getElementById('paperList');
             paperList.innerHTML = '';
             
+            // 更新搜索统计信息
+            const searchStats = document.getElementById('searchStats');
+            const searchTerm = document.getElementById('searchInput').value.trim();
+            if (searchTerm) {
+                searchStats.textContent = `搜索"${searchTerm}"：找到 ${filteredPapers.length} 篇论文（共 ${allPapers.length} 篇）`;
+            } else {
+                searchStats.textContent = `显示 ${filteredPapers.length} / ${allPapers.length} 篇论文`;
+            }
+            
             if (filteredPapers.length === 0) {
-                paperList.innerHTML = '<li class="paper-item">没有找到匹配的论文</li>';
+                paperList.innerHTML = '<li class="paper-item no-results">没有找到匹配的论文</li>';
                 return;
             }
             
             filteredPapers.forEach(paper => {
                 const li = document.createElement('li');
                 li.className = 'paper-item';
+                
+                // 检查是否包含用户保存的关键词，如果包含则高亮显示
+                const containsSavedKeyword = savedKeywords.some(keyword => 
+                    paper.title.toLowerCase().includes(keyword.toLowerCase()) || 
+                    (paper.abstract && paper.abstract.toLowerCase().includes(keyword.toLowerCase())) ||
+                    (paper.keywords && Array.isArray(paper.keywords) && paper.keywords.some(k => 
+                        k.toLowerCase().includes(keyword.toLowerCase())
+                    ))
+                );
+                
+                if (containsSavedKeyword) {
+                    li.classList.add('highlight');
+                }
+                
                 li.innerHTML = `
                     <div class="paper-title">
-                        <a href="${paper.url}" target="_blank">${paper.title}</a>
+                        <a href="${paper.url || '#'}" target="_blank">${paper.title}</a>
                     </div>
                     <div class="paper-authors">${paper.authors}</div>
-                    <div class="paper-conference">${paper.conference} ${paper.year}</div>
-                    ${paper.abstract ? `<div class="paper-abstract"><strong>摘要:</strong> ${paper.abstract}</div>` : ''}
-                    ${paper.keywords && paper.keywords.length > 0 ? `<div class="paper-keywords"><strong>关键词:</strong> ${Array.isArray(paper.keywords) ? paper.keywords.join(', ') : paper.keywords}</div>` : ''}
+                    <div class="paper-conference">${paper.conference} ${paper.year || ''}</div>
+                    ${paper.abstract ? `
+                        <div class="paper-abstract">${paper.abstract}</div>
+                        <span class="toggle-abstract" onclick="toggleAbstract(this)">展开摘要</span>
+                    ` : ''}
+                    ${paper.keywords && paper.keywords.length > 0 ? `
+                        <div class="paper-keywords">
+                            ${Array.isArray(paper.keywords) ? 
+                                paper.keywords.map(keyword => `<span class="paper-keyword" onclick="addToSavedKeywords('${keyword}')">${keyword}</span>`).join('') : 
+                                paper.keywords}
+                        </div>
+                    ` : ''}
                 `;
                 paperList.appendChild(li);
             });
+        }
+
+        // 添加关键词到收藏
+        function addToSavedKeywords(keyword) {
+            if (!savedKeywords.includes(keyword)) {
+                savedKeywords.push(keyword);
+                saveKeywords();
+                renderSavedKeywords();
+                
+                // 显示添加成功的提示
+                const toast = document.createElement('div');
+                toast.className = 'keyword-toast';
+                toast.textContent = `已添加关键词: ${keyword}`;
+                document.body.appendChild(toast);
+                
+                setTimeout(() => {
+                    toast.style.opacity = '0';
+                    setTimeout(() => toast.remove(), 500);
+                }, 2000);
+            }
         }
 
         function filterPapers() {
             const searchTerm = document.getElementById('searchInput').value.toLowerCase();
             const selectedConferences = Array.from(document.querySelectorAll('.conference-filter input:checked'))
                 .map(checkbox => checkbox.value);
+            const yearFrom = parseInt(document.getElementById('yearFrom').value) || 0;
+            const yearTo = parseInt(document.getElementById('yearTo').value) || 9999;
             
             const filteredPapers = allPapers.filter(paper => {
-                const matchesSearch = paper.title.toLowerCase().includes(searchTerm) ||
-                                     paper.authors.toLowerCase().includes(searchTerm);
-                const matchesConference = selectedConferences.some(conf => 
-                    paper.conference.includes(conf));
-                return matchesSearch && matchesConference;
+                // 搜索匹配（标题、作者、摘要、关键词）
+                const matchesSearch = searchTerm === '' || 
+                    paper.title.toLowerCase().includes(searchTerm) ||
+                    paper.authors.toLowerCase().includes(searchTerm) ||
+                    (paper.abstract && paper.abstract.toLowerCase().includes(searchTerm)) ||
+                    (paper.keywords && Array.isArray(paper.keywords) && paper.keywords.some(keyword => 
+                        keyword.toLowerCase().includes(searchTerm)
+                    ));
+                
+                // 会议匹配
+                const matchesConference = selectedConferences.length === 0 || 
+                    selectedConferences.some(conf => paper.conference.includes(conf));
+                
+                // 年份匹配
+                const year = parseInt(paper.year);
+                const matchesYear = isNaN(year) || (year >= yearFrom && year <= yearTo);
+                
+                return matchesSearch && matchesConference && matchesYear;
             });
+            
+            // 按年份降序排序（最新的论文排在前面）
+            filteredPapers.sort((a, b) => {
+                const yearA = parseInt(a.year) || 0;
+                const yearB = parseInt(b.year) || 0;
+                return yearB - yearA;
+            });
+            
+            // 将包含保存关键词的论文排在前面
+            if (savedKeywords.length > 0) {
+                filteredPapers.sort((a, b) => {
+                    const aContainsSavedKeyword = savedKeywords.some(keyword => 
+                        a.title.toLowerCase().includes(keyword.toLowerCase()) || 
+                        (a.abstract && a.abstract.toLowerCase().includes(keyword.toLowerCase())) ||
+                        (a.keywords && Array.isArray(a.keywords) && a.keywords.some(k => 
+                            k.toLowerCase().includes(keyword.toLowerCase())
+                        ))
+                    );
+                    
+                    const bContainsSavedKeyword = savedKeywords.some(keyword => 
+                        b.title.toLowerCase().includes(keyword.toLowerCase()) || 
+                        (b.abstract && b.abstract.toLowerCase().includes(keyword.toLowerCase())) ||
+                        (b.keywords && Array.isArray(b.keywords) && b.keywords.some(k => 
+                            k.toLowerCase().includes(keyword.toLowerCase())
+                        ))
+                    );
+                    
+                    if (aContainsSavedKeyword && !bContainsSavedKeyword) return -1;
+                    if (!aContainsSavedKeyword && bContainsSavedKeyword) return 1;
+                    return 0;
+                });
+            }
             
             renderPapers(filteredPapers);
         }
 
-        // 监听搜索输入和会议选择变化
+        // 监听搜索输入和筛选条件变化
         document.getElementById('searchInput').addEventListener('input', filterPapers);
         document.querySelectorAll('.conference-filter input').forEach(checkbox => {
             checkbox.addEventListener('change', filterPapers);
         });
+        document.getElementById('yearFrom').addEventListener('input', filterPapers);
+        document.getElementById('yearTo').addEventListener('input', filterPapers);
+        
+        // 添加关键词按钮事件
+        document.getElementById('addKeywordBtn').addEventListener('click', addKeyword);
+        document.getElementById('keywordInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                addKeyword();
+            }
+        });
 
-        // 页面加载完成后加载论文数据
-        document.addEventListener('DOMContentLoaded', loadPapers);
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            loadSavedKeywords();
+            loadPapers();
+        });
+
+        // 全局函数，用于摘要展开/收起和添加关键词
+        window.toggleAbstract = toggleAbstract;
+        window.addToSavedKeywords = addToSavedKeywords;
     </script>
 </body>
 </html>
