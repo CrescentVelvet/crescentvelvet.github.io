@@ -46,12 +46,66 @@ layout: default
         .paper-conference {
             color: #888;
             font-size: 14px;
+            margin-bottom: 8px;
+        }
+        .paper-abstract {
+            color: #555;
+            font-size: 14px;
+            margin-top: 8px;
+            line-height: 1.4;
+            max-height: 80px;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+        .paper-abstract.expanded {
+            max-height: 500px;
+        }
+        .paper-keywords {
+            color: #666;
+            font-size: 13px;
+            margin-top: 5px;
         }
         .conference-filter {
             margin-bottom: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
         }
         .conference-filter label {
             margin-right: 15px;
+            cursor: pointer;
+            padding: 5px 10px;
+            border-radius: 15px;
+            background: #f0f0f0;
+            transition: background 0.2s;
+        }
+        .conference-filter label:hover {
+            background: #e0e0e0;
+        }
+        .conference-filter input:checked + span {
+            font-weight: bold;
+        }
+        .year-filter {
+            margin-left: 20px;
+            display: flex;
+            align-items: center;
+        }
+        .year-filter select {
+            margin-left: 10px;
+            padding: 5px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+        .search-stats {
+            margin-bottom: 10px;
+            color: #666;
+            font-size: 14px;
+        }
+        .toggle-abstract {
+            color: #0066cc;
+            cursor: pointer;
+            font-size: 12px;
+            margin-left: 10px;
         }
     </style>
 </head>
@@ -94,6 +148,11 @@ layout: default
             const paperList = document.getElementById('paperList');
             paperList.innerHTML = '';
             
+            if (filteredPapers.length === 0) {
+                paperList.innerHTML = '<li class="paper-item">没有找到匹配的论文</li>';
+                return;
+            }
+            
             filteredPapers.forEach(paper => {
                 const li = document.createElement('li');
                 li.className = 'paper-item';
@@ -102,7 +161,9 @@ layout: default
                         <a href="${paper.url}" target="_blank">${paper.title}</a>
                     </div>
                     <div class="paper-authors">${paper.authors}</div>
-                    <div class="paper-conference">${paper.conference}</div>
+                    <div class="paper-conference">${paper.conference} ${paper.year}</div>
+                    ${paper.abstract ? `<div class="paper-abstract"><strong>摘要:</strong> ${paper.abstract}</div>` : ''}
+                    ${paper.keywords && paper.keywords.length > 0 ? `<div class="paper-keywords"><strong>关键词:</strong> ${Array.isArray(paper.keywords) ? paper.keywords.join(', ') : paper.keywords}</div>` : ''}
                 `;
                 paperList.appendChild(li);
             });

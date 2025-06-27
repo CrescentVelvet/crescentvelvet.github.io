@@ -1,0 +1,92 @@
+[
+  {
+    "title": "NeRF: Representing Scenes as Neural Radiance Fields for View Synthesis",
+    "authors": "Ben Mildenhall, Pratul P. Srinivasan, Matthew Tancik, Jonathan T. Barron, Ravi Ramamoorthi, Ren Ng",
+    "year": 2020,
+    "conference": "ECCV 2020",
+    "abstract": "We present a method that achieves state-of-the-art results for synthesizing novel views of complex scenes by optimizing an underlying continuous volumetric scene function using a sparse set of input views.",
+    "keywords": ["neural rendering", "view synthesis", "implicit representation"],
+    "url": "https://www.ecva.net/papers/eccv_2020/papers_ECCV/papers/123460000.pdf"
+  },
+  {
+    "title": "CLIP: Connecting Text and Images",
+    "authors": "Alec Radford, Jong Wook Kim, Chris Hallacy, Aditya Ramesh, Gabriel Goh, Sandhini Agarwal, Girish Sastry, Amanda Askell, Pamela Mishkin, Jack Clark, Gretchen Krueger, Ilya Sutskever",
+    "year": 2021,
+    "conference": "CVPR 2021",
+    "abstract": "We present a neural network that efficiently learns visual concepts from natural language supervision. Our method can be applied to any visual classification benchmark by using the zero-shot transfer of the learned text-image representations.",
+    "keywords": ["vision-language", "contrastive learning", "zero-shot"],
+    "url": "https://openaccess.thecvf.com/content/CVPR2021/papers/Radford_Learning_Transferable_Visual_Models_From_Natural_Language_Supervision_CVPR_2021_paper.pdf"
+  },
+  {
+    "title": "Segment Anything",
+    "authors": "Alexander Kirillov, Eric Mintun, Nikhila Ravi, Hanzi Mao, Chloe Rolland, Laura Gustafson, Tete Xiao, Spencer Whitehead, Alexander C. Berg, Wan-Yen Lo, Piotr Dollár, Ross Girshick",
+    "year": 2023,
+    "conference": "ICCV 2023",
+    "abstract": "We introduce the Segment Anything (SA) project: a new task, model, and dataset for image segmentation. Using our efficient model in a data collection loop, we built the largest segmentation dataset to date (by far), with over 1 billion masks on 11M licensed and privacy-respecting images.",
+    "keywords": ["segmentation", "foundation model", "zero-shot"],
+    "url": "https://openaccess.thecvf.com/content/ICCV2023/papers/Kirillov_Segment_Anything_ICCV_2023_paper.pdf"
+  },
+  {
+    "title": "Masked Autoencoders Are Scalable Vision Learners",
+    "authors": "Kaiming He, Xinlei Chen, Saining Xie, Yanghao Li, Piotr Dollár, Ross Girshick",
+    "year": 2022,
+    "conference": "CVPR 2022",
+    "abstract": "This paper shows that masked autoencoders (MAE) are scalable self-supervised learners for computer vision. Our MAE approach is simple: we mask random patches of the input image and reconstruct the missing pixels.",
+    "keywords": ["self-supervised", "masked autoencoder", "vision transformer"],
+    "url": "https://openaccess.thecvf.com/content/CVPR2022/papers/He_Masked_Autoencoders_Are_Scalable_Vision_Learners_CVPR_2022_paper.pdf"
+  },
+  {
+    "title": "DINOv2: Learning Robust Visual Features without Supervision",
+    "authors": "Maxime Oquab, Timothée Darcet, Théo Moutakanni, Huy Vo, Marc Szafraniec, Vasil Khalidov, Pierre Fernandez, Daniel Haziza, Francisco Massa, Alaaeldin El-Nouby, Mahmoud Assran, Nicolas Ballas, Wojciech Galuba, Russell Howes, Po-Yao Huang, Shang-Wen Li, Ishan Misra, Michael Rabbat, Vasu Sharma, Gabriel Synnaeve, Hu Xu, Hervé Jegou, Julien Mairal, Patrick Labatut, Armand Joulin, Piotr Bojanowski",
+    "year": 2023,
+    "conference": "ICCV 2023",
+    "abstract": "We present a method and model for learning general-purpose visual features without relying on supervision from human annotations. We build upon the self-supervised method DINO, scaling it up to a larger model and dataset.",
+    "keywords": ["self-supervised", "foundation model", "visual features"],
+    "url": "https://openaccess.thecvf.com/content/ICCV2023/papers/Oquab_DINOv2_Learning_Robust_Visual_Features_without_Supervision_ICCV_2023_paper.pdf"
+  },
+  {
+    "title": "Denoising Diffusion Probabilistic Models",
+    "authors": "Jonathan Ho, Ajay Jain, Pieter Abbeel",
+    "year": 2020,
+    "conference": "CVPR 2020",
+    "abstract": "We present high quality image synthesis results using diffusion probabilistic models, a class of latent variable models inspired by considerations from nonequilibrium thermodynamics.",
+    "keywords": ["generative models", "diffusion models", "image synthesis"],
+    "url": "https://openaccess.thecvf.com/content_CVPR_2020/papers/Ho_Denoising_Diffusion_Probabilistic_Models_CVPR_2020_paper.pdf"
+  },
+  {
+    "title": "DALL-E: Creating Images from Text",
+    "authors": "Aditya Ramesh, Mikhail Pavlov, Gabriel Goh, Scott Gray, Chelsea Voss, Alec Radford, Mark Chen, Ilya Sutskever",
+    "year": 2021,
+    "conference": "CVPR 2021",
+    "abstract": "We present a neural network called DALL-E that creates images from text captions for a wide range of concepts expressible in natural language.",
+    "keywords": ["text-to-image", "generative models", "transformers"],
+    "url": "https://openaccess.thecvf.com/content/CVPR2021/papers/Ramesh_Zero-Shot_Text-to-Image_Generation_CVPR_2021_paper.pdf"
+  },
+  {
+    "title": "Swin Transformer: Hierarchical Vision Transformer using Shifted Windows",
+    "authors": "Ze Liu, Yutong Lin, Yue Cao, Han Hu, Yixuan Wei, Zheng Zhang, Stephen Lin, Baining Guo",
+    "year": 2021,
+    "conference": "ICCV 2021",
+    "abstract": "This paper presents a new vision Transformer, called Swin Transformer, that capably serves as a general-purpose backbone for computer vision.",
+    "keywords": ["vision transformer", "hierarchical representation", "shifted windows"],
+    "url": "https://openaccess.thecvf.com/content/ICCV2021/papers/Liu_Swin_Transformer_Hierarchical_Vision_Transformer_Using_Shifted_Windows_ICCV_2021_paper.pdf"
+  },
+  {
+    "title": "DINO: Emerging Properties in Self-Supervised Vision Transformers",
+    "authors": "Mathilde Caron, Hugo Touvron, Ishan Misra, Hervé Jégou, Julien Mairal, Piotr Bojanowski, Armand Joulin",
+    "year": 2021,
+    "conference": "ICCV 2021",
+    "abstract": "We discover that self-supervised vision transformers (ViT) trained with the DINO method produce features that contain explicit information about the semantic segmentation of an image.",
+    "keywords": ["self-supervised", "vision transformer", "feature learning"],
+    "url": "https://openaccess.thecvf.com/content/ICCV2021/papers/Caron_Emerging_Properties_in_Self-Supervised_Vision_Transformers_ICCV_2021_paper.pdf"
+  },
+  {
+    "title": "Stable Diffusion: High-Resolution Image Synthesis with Latent Diffusion Models",
+    "authors": "Robin Rombach, Andreas Blattmann, Dominik Lorenz, Patrick Esser, Björn Ommer",
+    "year": 2022,
+    "conference": "CVPR 2022",
+    "abstract": "By decomposing the image formation process into a sequential application of denoising autoencoders, diffusion models (DMs) achieve state-of-the-art synthesis results on image data and beyond.",
+    "keywords": ["diffusion models", "latent space", "image synthesis"],
+    "url": "https://openaccess.thecvf.com/content/CVPR2022/papers/Rombach_High-Resolution_Image_Synthesis_With_Latent_Diffusion_Models_CVPR_2022_paper.pdf"
+  }
+]
