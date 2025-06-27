@@ -1,5 +1,5 @@
 ---
-permalink: /chat.html
+permalink: /chat_bot.html
 layout: null
 title: "大模型对话页面"
 ---
@@ -129,15 +129,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
       if (selectedModelValue.endsWith('-siliconflow')) {
         apiUrl = 'https://api.siliconflow.cn/v1/chat/completions';
-        apiKey = 'sk-uaqwrwlwdbconrtgnybuseuzrejvjjymexblmbeedimdrncl';
+        apiKey = '';
         modelToUse = selectedModelValue.replace('-siliconflow', '').split('/')[selectedModelValue.replace('-siliconflow', '').split('/').length - 1];
       } else if (selectedModelValue.endsWith('-xiaoai')) {
         apiUrl = 'https://jf9s4sip6s.apifox.cn/';
-        apiKey = 'sk-VA44L20YifJbiBpUJp3C5GFmlB9QRXGeWP9YVIdxD3uFiM2n';
+        apiKey = '';
         modelToUse = selectedModelValue.replace('-xiaoai', '');
       } else if (selectedModelValue.endsWith('-chatanywhere')) {
         apiUrl = 'https://api.chatanywhere.tech/v1';
-        apiKey = 'sk-MA7hKS37UdRUmP3Xz4BzHt3Rqj6QFbRoEagxcmFwwBBHyZR6';
+        apiKey = '';
         modelToUse = selectedModelValue.replace('-chatanywhere', '');
       }
 
@@ -204,17 +204,17 @@ document.addEventListener('DOMContentLoaded', function() {
 
       if (selectedModelValue.endsWith('-siliconflow')) {
         apiUrl = 'https://api.siliconflow.cn/v1/chat/completions';
-        apiKey = 'sk-uaqwrwlwdbconrtgnybuseuzrejvjjymexblmbeedimdrncl';
+        apiKey = '';
         // 提取模型名称，移除 '-siliconflow' 后缀
         modelToSend = selectedModelValue.replace('-siliconflow', '').split('/')[selectedModelValue.replace('-siliconflow', '').split('/').length - 1];
       } else if (selectedModelValue.endsWith('-xiaoai')) {
         apiUrl = 'https://jf9s4sip6s.apifox.cn/';
-        apiKey = 'sk-VA44L20YifJbiBpUJp3C5GFmlB9QRXGeWP9YVIdxD3uFiM2n';
+        apiKey = '';
         // 提取模型名称，移除 '-xiaoai' 后缀
         modelToSend = selectedModelValue.replace('-xiaoai', '');
       } else if (selectedModelValue.endsWith('-chatanywhere')) {
         apiUrl = 'https://api.chatanywhere.tech/v1';
-        apiKey = 'sk-MA7hKS37UdRUmP3Xz4BzHt3Rqj6QFbRoEagxcmFwwBBHyZR6';
+        apiKey = '';
         // 提取模型名称，移除 '-chatanywhere' 后缀
         modelToSend = selectedModelValue.replace('-chatanywhere', '');
       }
