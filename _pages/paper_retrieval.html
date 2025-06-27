@@ -73,22 +73,22 @@ layout: default
     </div>
 
     <script>
-        // 示例论文数据
-        const papers = [
-            {
-                title: "Vision Transformer for Fast and Efficient Scene Text Recognition",
-                authors: "Zhang, X., Wang, Y., Chen, Z., Li, H.",
-                conference: "CVPR 2023",
-                url: "https://example.com/paper1"
-            },
-            {
-                title: "Self-Attention Based Scene Understanding",
-                authors: "Li, M., Chen, K., Wang, J.",
-                conference: "ICCV 2023",
-                url: "https://example.com/paper2"
-            },
-            // 更多论文数据将从API获取
-        ];
+        let allPapers = []; // 存储所有论文数据
+
+        // 从JSON文件加载论文数据
+        async function loadPapers() {
+            try {
+                const response = await fetch('/assets/data/paper_index.json'); // 假设JSON文件放在assets/data/目录下
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                allPapers = await response.json();
+                filterPapers(); // 数据加载完成后进行一次过滤和渲染
+            } catch (error) {
+                console.error('加载论文数据失败:', error);
+                document.getElementById('paperList').innerHTML = '<li>加载论文数据失败，请检查控制台。</li>';
+            }
+        }
 
         function renderPapers(filteredPapers) {
             const paperList = document.getElementById('paperList');
@@ -113,7 +113,7 @@ layout: default
             const selectedConferences = Array.from(document.querySelectorAll('.conference-filter input:checked'))
                 .map(checkbox => checkbox.value);
             
-            const filteredPapers = papers.filter(paper => {
+            const filteredPapers = allPapers.filter(paper => {
                 const matchesSearch = paper.title.toLowerCase().includes(searchTerm) ||
                                      paper.authors.toLowerCase().includes(searchTerm);
                 const matchesConference = selectedConferences.some(conf => 
@@ -130,8 +130,8 @@ layout: default
             checkbox.addEventListener('change', filterPapers);
         });
 
-        // 初始化显示所有论文
-        renderPapers(papers);
+        // 页面加载完成后加载论文数据
+        document.addEventListener('DOMContentLoaded', loadPapers);
     </script>
 </body>
 </html>
