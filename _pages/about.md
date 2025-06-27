@@ -117,14 +117,15 @@ redirect_from:
     <div id="ripple-container"></div>
     <h1>欢迎来到我的网站</h1>
     <hr>
-    <p><a href="/chat.html" class="link-button">大模型对话</a></p>
-    <p><a href="/map.html" class="link-button">旅行足迹</a></p>
-    <p><a href="/translate.html" class="link-button">多语言翻译</a></p>
-    <p><a href="/courses.html" class="link-button">进度记录</a></p>
+    <p><a href="/chat_bot.html" class="link-button">大模型对话</a></p>
+    <p><a href="/travel_map.html" class="link-button">旅行足迹</a></p>
+    <p><a href="/multi_translator.html" class="link-button">多语言翻译</a></p>
+    <p><a href="/course_recorder.html" class="link-button">进度记录</a></p>
     <p><a href="/game_plane.html" class="link-button">飞机大战</a></p>
     <p><a href="/db_viewer.html" class="link-button">数据库解析</a></p>
     <p><a href="/text_processor.html" class="link-button">文本处理</a></p>
     <p><a href="/receipt_scanner.html" class="link-button">票据识别</a></p>
+    <p><a href="/paper_retrieval.html" class="link-button">论文搜索</a></p>
     <hr>
     <p>强调一下<strong>几个单词</strong></p>
     <blockquote>引用内容</blockquote>

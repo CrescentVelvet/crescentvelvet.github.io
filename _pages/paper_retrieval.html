@@ -1,0 +1,137 @@
+---
+permalink: /paper_retrieval.html
+layout: default
+---
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>论文搜索</title>
+    <style>
+        .search-container {
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .search-box {
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .paper-list {
+            list-style: none;
+            padding: 0;
+        }
+        .paper-item {
+            background: #f9f9f9;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            border: 1px solid #eee;
+        }
+        .paper-title {
+            font-size: 18px;
+            color: #333;
+            margin-bottom: 8px;
+        }
+        .paper-authors {
+            color: #666;
+            margin-bottom: 5px;
+        }
+        .paper-conference {
+            color: #888;
+            font-size: 14px;
+        }
+        .conference-filter {
+            margin-bottom: 20px;
+        }
+        .conference-filter label {
+            margin-right: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="search-container">
+        <h1>计算机视觉会议论文搜索</h1>
+        
+        <div class="conference-filter">
+            <label><input type="checkbox" value="CVPR" checked> CVPR</label>
+            <label><input type="checkbox" value="ICCV" checked> ICCV</label>
+            <label><input type="checkbox" value="ECCV" checked> ECCV</label>
+        </div>
+
+        <input type="text" class="search-box" placeholder="输入关键词搜索论文..." id="searchInput">
+        
+        <ul class="paper-list" id="paperList">
+            <!-- 论文列表将通过JavaScript动态生成 -->
+        </ul>
+    </div>
+
+    <script>
+        // 示例论文数据
+        const papers = [
+            {
+                title: "Vision Transformer for Fast and Efficient Scene Text Recognition",
+                authors: "Zhang, X., Wang, Y., Chen, Z., Li, H.",
+                conference: "CVPR 2023",
+                url: "https://example.com/paper1"
+            },
+            {
+                title: "Self-Attention Based Scene Understanding",
+                authors: "Li, M., Chen, K., Wang, J.",
+                conference: "ICCV 2023",
+                url: "https://example.com/paper2"
+            },
+            // 更多论文数据将从API获取
+        ];
+
+        function renderPapers(filteredPapers) {
+            const paperList = document.getElementById('paperList');
+            paperList.innerHTML = '';
+            
+            filteredPapers.forEach(paper => {
+                const li = document.createElement('li');
+                li.className = 'paper-item';
+                li.innerHTML = `
+                    <div class="paper-title">
+                        <a href="${paper.url}" target="_blank">${paper.title}</a>
+                    </div>
+                    <div class="paper-authors">${paper.authors}</div>
+                    <div class="paper-conference">${paper.conference}</div>
+                `;
+                paperList.appendChild(li);
+            });
+        }
+
+        function filterPapers() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const selectedConferences = Array.from(document.querySelectorAll('.conference-filter input:checked'))
+                .map(checkbox => checkbox.value);
+            
+            const filteredPapers = papers.filter(paper => {
+                const matchesSearch = paper.title.toLowerCase().includes(searchTerm) ||
+                                     paper.authors.toLowerCase().includes(searchTerm);
+                const matchesConference = selectedConferences.some(conf => 
+                    paper.conference.includes(conf));
+                return matchesSearch && matchesConference;
+            });
+            
+            renderPapers(filteredPapers);
+        }
+
+        // 监听搜索输入和会议选择变化
+        document.getElementById('searchInput').addEventListener('input', filterPapers);
+        document.querySelectorAll('.conference-filter input').forEach(checkbox => {
+            checkbox.addEventListener('change', filterPapers);
+        });
+
+        // 初始化显示所有论文
+        renderPapers(papers);
+    </script>
+</body>
+</html>
