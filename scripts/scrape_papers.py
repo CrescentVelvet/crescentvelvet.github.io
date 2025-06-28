@@ -179,7 +179,8 @@ class ConferencePaperScraper:
                         'conference': 'arXiv',
                         'abstract': result.summary,
                         'keywords': result.categories,
-                        'url': result.entry_id
+                        'url': result.entry_id,
+                        'arxiv_id': result.arxiv_id
                     })
                 logger.info(f"[{category_config['name']}] 获取到 {len(arxiv_papers)} 篇论文")
             except Exception as e:
@@ -197,7 +198,62 @@ class ConferencePaperScraper:
         """
         if not conferences:
             conferences = list(self.conference_configs.keys())
-        
+
+        new_papers = []
+        seen_identifiers = set()
+
+        # 将现有论文添加到seen_identifiers中，以便去重
+        for paper in self.papers:
+            if 'arxiv_id' in paper and paper['arxiv_id']:
+                seen_identifiers.add(paper['arxiv_id'])
+            else:
+                identifier = (paper['title'], paper['year'], paper['url'])
+                seen_identifiers.add(identifier)
+
+        # 抓取会议论文
+        for conf_name in conferences:
+            if conf_name in self.conference_configs:
+                config = self.conference_configs[conf_name]
+                years_to_scrape = years if years else config['years']
+                for year in years_to_scrape:
+                    logger.info(f"开始抓取 {conf_name.upper()} {year} 年的论文...")
+                    try:
+                        # 对于CVF会议，URL模板需要年份
+                        if conf_name in ['cvpr', 'iccv']:
+                            url = config['url_template'].format(year=year)
+                        # 对于ECCV，URL是固定的，年份在解析器内部处理
+                        elif conf_name == 'eccv':
+                            url = config['url_template']
+                        else:
+                            logger.warning(f"未知会议配置: {conf_name}")
+                            continue
+
+                        response = requests.get(url)
+                        response.raise_for_status() # 检查HTTP请求是否成功
+                        scraped_papers = config['parser'](year, response.content)
+                        for paper in scraped_papers:
+                            identifier = (paper['title'], paper['year'], paper['url'])
+                            if identifier not in seen_identifiers:
+                                new_papers.append(paper)
+                                seen_identifiers.add(identifier)
+                            else:
+                                logger.info(f"跳过重复论文 (会议): {paper['title']}")
+                    except requests.exceptions.RequestException as e:
+                        logger.error(f"抓取 {conf_name.upper()} {year} 年论文失败: {e}")
+                    time.sleep(1) # 每次请求后暂停1秒
+
+        # 抓取arXiv论文
+        if include_arxiv:
+            logger.info("开始抓取arXiv论文...")
+            arxiv_scraped_papers = self._fetch_arxiv_papers()
+            for paper in arxiv_scraped_papers:
+                if 'arxiv_id' in paper and paper['arxiv_id'] not in seen_identifiers:
+                    new_papers.append(paper)
+                    seen_identifiers.add(paper['arxiv_id'])
+                else:
+                    logger.info(f"跳过重复论文 (arXiv): {paper['title']}")
+
+
         # 记录已有的论文ID（标题+年份作为唯一标识）
         existing_paper_ids = {(p['title'], p['year']) for p in self.papers}
         
