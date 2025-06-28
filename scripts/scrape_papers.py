@@ -109,8 +109,11 @@ class ConferencePaperScraper:
                     'keywords': keywords,
                     'url': paper_url
                 })
+            except AttributeError as e:
+                logger.error(f"解析论文时缺少必要字段: {e}. 论文条目HTML: {item}")
+                continue
             except Exception as e:
-                logger.error(f"解析论文失败: {e}")
+                logger.error(f"解析论文失败: {e}. 论文条目HTML: {item}")
                 continue
         
         return papers
@@ -145,8 +148,11 @@ class ConferencePaperScraper:
                     'keywords': [], # ECCV页面可能没有直接的关键词
                     'url': paper_url
                 })
+            except AttributeError as e:
+                logger.error(f"解析ECCV论文时缺少必要字段: {e}. 论文条目HTML: {paper_item}")
+                continue
             except Exception as e:
-                logger.error(f"解析ECCV论文失败: {e}")
+                logger.error(f"解析ECCV论文失败: {e}. 论文条目HTML: {paper_item}")
                 continue
         
         return papers

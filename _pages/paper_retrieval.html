@@ -435,46 +435,34 @@ layout: default
         }
 
         // 从JSON文件加载论文数据
-        async function loadPapers() {
-            try {
-                const response = await fetch('/assets/data/paper_index.json');
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                const rawPapers = await response.json();
-                allPapers = rawPapers.map(paper => ({
-                    ...paper,
-                    title_lower: paper.title ? paper.title.toLowerCase() : '',
-                    authors_lower: typeof paper.authors === 'string' ? paper.authors.toLowerCase() : '',
-                    abstract_lower: paper.abstract ? paper.abstract.toLowerCase() : '',
-                    keywords_lower: Array.isArray(paper.keywords) ? paper.keywords.map(k => k.toLowerCase()) : []
-                }));
-                
-                // 设置年份范围的默认值
-                if (allPapers.length > 0) {
-                    const years = allPapers.map(paper => parseInt(paper.year)).filter(year => !isNaN(year));
-                    if (years.length > 0) {
-                        const minYear = Math.min(...years);
-                        const maxYear = Math.max(...years);
-                        
-                        const yearFromInput = document.getElementById('yearFrom');
-                        const yearToInput = document.getElementById('yearTo');
-                        
-                        if (!yearFromInput.value) yearFromInput.value = minYear;
-                        if (!yearToInput.value) yearToInput.value = maxYear;
-                        
-                        yearFromInput.min = minYear;
-                        yearFromInput.max = maxYear;
-                        yearToInput.min = minYear;
-                        yearToInput.max = maxYear;
+        function loadPapers() {
+            fetch('assets/data/paper_index.json')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
                     }
-                }
-                
-                filterPapers(); // 数据加载完成后进行一次过滤和渲染
-            } catch (error) {
-                console.error('加载论文数据失败:', error);
-                document.getElementById('paperList').innerHTML = '<li class="paper-item error">加载论文数据失败，请检查网络连接或数据文件。</li>';
-            }
+                    return response.json();
+                })
+                .then(data => {
+                    allPapers = data.map(paper => ({
+                        ...paper,
+                        title_lower: paper.title ? paper.title.toLowerCase() : '',
+                        authors_lower: typeof paper.authors === 'string' ? paper.authors.toLowerCase() : '',
+                        abstract_lower: paper.abstract ? paper.abstract.toLowerCase() : '',
+                        keywords_lower: Array.isArray(paper.keywords) ? paper.keywords.map(k => k.toLowerCase()) : []
+                    }));
+                    
+                    // 设置年份范围的默认值
+                    const currentYear = new Date().getFullYear();
+                    document.getElementById('yearFrom').value = currentYear - 5; // 默认显示过去5年的论文
+                    document.getElementById('yearTo').value = currentYear;
+
+                    filterPapers();
+                })
+                .catch(error => {
+                    console.error('Error loading papers:', error);
+                    document.getElementById('paperList').innerHTML = '<li class="error-message">加载论文数据失败，请稍后再试。</li>';
+                });
         }
 
         // 切换摘要展开/收起状态
@@ -503,7 +491,7 @@ layout: default
             }
             
             if (filteredPapers.length === 0) {
-                paperList.innerHTML = '<li class="paper-item no-results">没有找到匹配的论文</li>';
+                paperList.innerHTML = '<li class="no-results">未找到相关论文。请尝试调整筛选条件。</li>';
                 return;
             }
             
