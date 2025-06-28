@@ -11,176 +11,224 @@ layout: default
     <title>论文搜索</title>
     <style>
         :root {
-            --primary-color: #4285f4;
-            --secondary-color: #34a853;
-            --accent-color: #ea4335;
-            --light-bg: #f8f9fa;
-            --border-color: #ddd;
-            --text-primary: #333;
-            --text-secondary: #666;
-            --text-tertiary: #888;
+            --primary-color: #007bff; /* 蓝色 */
+            --secondary-color: #6c757d; /* 灰色 */
+            --accent-color: #dc3545; /* 红色 */
+            --light-bg: #f8f9fa; /* 浅灰色背景 */
+            --dark-bg: #343a40; /* 深色背景 */
+            --border-color: #e9ecef; /* 边框颜色 */
+            --text-primary: #212529; /* 主要文本颜色 */
+            --text-secondary: #495057; /* 次要文本颜色 */
+            --text-light: #f8f9fa; /* 浅色文本 */
+            --shadow-light: rgba(0, 0, 0, 0.08); /* 浅阴影 */
+            --shadow-medium: rgba(0, 0, 0, 0.15); /* 中等阴影 */
         }
         
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Roboto', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; /* 更改字体 */
             line-height: 1.6;
             color: var(--text-primary);
-            background-color: #fff;
+            background-color: var(--light-bg); /* 使用浅灰色背景 */
+            margin: 0;
+            padding: 0;
         }
         
         .search-container {
-            max-width: 1000px;
-            margin: 30px auto;
-            padding: 25px;
+            max-width: 1100px; /* 增加最大宽度 */
+            margin: 40px auto; /* 增加外边距 */
+            padding: 30px; /* 增加内边距 */
             background-color: #fff;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-            border-radius: 8px;
+            box-shadow: 0 5px 20px var(--shadow-light); /* 调整阴影 */
+            border-radius: 12px; /* 增加圆角 */
         }
         
         h1 {
             color: var(--primary-color);
             text-align: center;
-            margin-bottom: 30px;
-            font-weight: 600;
+            margin-bottom: 35px;
+            font-weight: 700; /* 加粗标题 */
+            font-size: 2.5em; /* 增大标题字体 */
         }
         
         h3 {
-            font-size: 16px;
-            margin-bottom: 10px;
-            color: var(--text-primary);
+            font-size: 1.1em; /* 调整字体大小 */
+            margin-bottom: 12px;
+            color: var(--text-secondary); /* 调整颜色 */
             font-weight: 600;
+            border-bottom: 2px solid var(--border-color); /* 添加下划线 */
+            padding-bottom: 8px;
         }
         
         .filter-container {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
-            margin-bottom: 30px;
-            padding-bottom: 20px;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); /* 调整列宽 */
+            gap: 25px; /* 增加间距 */
+            margin-bottom: 40px; /* 增加外边距 */
+            padding-bottom: 25px;
             border-bottom: 1px solid var(--border-color);
         }
         
         .conference-filter, .year-filter, .keyword-filter {
-            padding: 15px;
-            background-color: var(--light-bg);
-            border-radius: 8px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            padding: 20px; /* 增加内边距 */
+            background-color: #fff; /* 更改背景色 */
+            border-radius: 10px; /* 增加圆角 */
+            box-shadow: 0 2px 8px var(--shadow-light); /* 调整阴影 */
+            border: 1px solid var(--border-color); /* 添加边框 */
         }
         
         .conference-filter label {
-            display: inline-block;
-            margin-right: 10px;
-            margin-bottom: 8px;
+            display: inline-flex; /* 使用flex布局 */
+            align-items: center;
+            margin-right: 15px; /* 增加间距 */
+            margin-bottom: 10px; /* 增加下边距 */
             cursor: pointer;
+            font-size: 0.95em; /* 调整字体大小 */
         }
         
         .conference-filter input[type="checkbox"] {
-            margin-right: 5px;
+            margin-right: 8px; /* 增加间距 */
+            transform: scale(1.1); /* 稍微放大复选框 */
         }
         
         .conference-filter span {
-            padding: 5px 10px;
-            border-radius: 15px;
-            background: #e0e0e0;
-            transition: all 0.2s;
+            padding: 6px 12px; /* 调整内边距 */
+            border-radius: 20px; /* 增加圆角 */
+            background: var(--border-color); /* 更改背景色 */
+            transition: all 0.3s ease; /* 调整过渡效果 */
             display: inline-block;
+            color: var(--text-secondary);
         }
         
         .conference-filter input:checked + span {
-            background: var(--primary-color);
-            color: white;
-            font-weight: bold;
+            background: var(--primary-color); /* 保持主色 */
+            color: var(--text-light); /* 浅色文本 */
+            font-weight: 600; /* 调整字体粗细 */
+            box-shadow: 0 2px 5px rgba(0, 123, 255, 0.3); /* 添加阴影 */
         }
         
         .year-range {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 15px; /* 增加间距 */
         }
         
         .year-input {
-            width: 70px;
-            padding: 5px;
+            width: 90px; /* 调整年份输入框宽度 */
+            padding: 10px 12px; /* 调整内边距 */
             border: 1px solid var(--border-color);
-            border-radius: 4px;
+            border-radius: 6px; /* 增加圆角 */
             text-align: center;
+            font-size: 15px; /* 调整字体大小 */
+            transition: border-color 0.3s, box-shadow 0.3s; /* 添加过渡效果 */
+        }
+        
+        .year-input:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25); /* 添加焦点阴影 */
+            outline: none;
         }
         
         .keyword-input-container {
             display: flex;
-            margin-top: 10px;
+            margin-top: 15px; /* 增加外边距 */
         }
         
         .keyword-input {
             flex: 1;
-            padding: 8px;
+            padding: 12px 15px; /* 增加内边距 */
             border: 1px solid var(--border-color);
-            border-radius: 4px 0 0 4px;
-            font-size: 14px;
+            border-radius: 8px 0 0 8px; /* 增加圆角 */
+            font-size: 16px; /* 调整字体大小 */
+            transition: border-color 0.3s, box-shadow 0.3s; /* 添加过渡效果 */
+        }
+        
+        .keyword-input:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+            outline: none;
         }
         
         .add-keyword-btn {
-            padding: 8px 15px;
+            padding: 12px 20px; /* 增加内边距 */
             background-color: var(--primary-color);
-            color: white;
+            color: var(--text-light);
             border: none;
-            border-radius: 0 4px 4px 0;
+            border-radius: 0 8px 8px 0; /* 增加圆角 */
             cursor: pointer;
-            transition: background-color 0.2s;
+            transition: background-color 0.3s, transform 0.2s; /* 调整过渡效果 */
+            font-size: 16px; /* 调整字体大小 */
+            font-weight: 600;
         }
         
         .add-keyword-btn:hover {
-            background-color: #3367d6;
+            background-color: #0056b3; /* 鼠标悬停颜色 */
+            transform: translateY(-1px); /* 悬停效果 */
         }
         
         .saved-keywords {
             display: flex;
             flex-wrap: wrap;
-            gap: 8px;
+            gap: 10px;
             margin-top: 10px;
             min-height: 30px;
+            padding-bottom: 5px;
+            border-bottom: 1px dashed var(--border-color); /* 添加虚线边框 */
+            padding-top: 5px;
         }
         
         .keyword-tag {
             display: inline-flex;
             align-items: center;
-            padding: 5px 10px;
-            background-color: #e1f5fe;
-            color: #0277bd;
-            border-radius: 15px;
-            font-size: 13px;
+            padding: 8px 15px; /* 调整内边距 */
+            background-color: #e0f7fa; /* 浅蓝色背景 */
+            color: #00796b; /* 深绿色文本 */
+            border-radius: 25px; /* 增加圆角 */
+            font-size: 0.9em; /* 调整字体大小 */
+            font-weight: 500;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1); /* 添加阴影 */
+            transition: all 0.2s ease;
+        }
+        
+        .keyword-tag:hover {
+            background-color: #c8e6c9; /* 悬停背景色 */
+            color: #1b5e20; /* 悬停文本色 */
+            transform: translateY(-1px);
         }
         
         .keyword-tag .remove {
-            margin-left: 5px;
+            margin-left: 8px; /* 增加间距 */
             cursor: pointer;
             font-weight: bold;
-            font-size: 16px;
+            font-size: 1.1em; /* 调整字体大小 */
+            color: var(--accent-color); /* 红色 */
         }
         
         .search-container-input {
-            margin-bottom: 20px;
+            margin-bottom: 30px; /* 增加外边距 */
         }
         
         .search-box {
             width: 100%;
-            padding: 12px 15px;
-            font-size: 16px;
+            padding: 15px 20px; /* 增加内边距 */
+            font-size: 18px; /* 增大字体 */
             border: 2px solid var(--border-color);
-            border-radius: 6px;
-            transition: border-color 0.3s;
-            margin-bottom: 10px;
+            border-radius: 10px; /* 增加圆角 */
+            transition: border-color 0.3s, box-shadow 0.3s; /* 添加阴影过渡 */
+            margin-bottom: 15px; /* 增加外边距 */
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.05); /* 添加内阴影 */
         }
         
         .search-box:focus {
             border-color: var(--primary-color);
+            box-shadow: 0 0 0 0.25rem rgba(0, 123, 255, 0.25); /* 添加焦点阴影 */
             outline: none;
         }
         
         .search-stats {
             color: var(--text-secondary);
-            font-size: 14px;
-            margin-bottom: 15px;
+            font-size: 15px; /* 调整字体大小 */
+            margin-bottom: 20px; /* 增加外边距 */
+            text-align: right; /* 右对齐 */
         }
         
         .paper-list {
@@ -190,64 +238,68 @@ layout: default
         
         .paper-item {
             background: #fff;
-            padding: 20px;
-            margin-bottom: 15px;
-            border-radius: 8px;
+            padding: 15px; /* 进一步缩小内边距 */
+            margin-bottom: 10px; /* 进一步缩小外边距 */
+            border-radius: 6px; /* 进一步缩小圆角 */
             border: 1px solid var(--border-color);
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 1px 8px var(--shadow-light); /* 调整阴影 */
+            transition: transform 0.3s ease, box-shadow 0.3s ease; /* 调整过渡效果 */
+            max-width: 650px; /* 进一步限制最大宽度 */
+            margin-left: auto;
+            margin-right: auto;
         }
         
         .paper-item:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            transform: translateY(-3px); /* 增加悬停位移 */
+            box-shadow: 0 8px 25px var(--shadow-medium); /* 增加悬停阴影 */
         }
         
         .paper-item.highlight {
-            border-left: 4px solid var(--accent-color);
+            border-left: 5px solid var(--accent-color); /* 调整高亮边框 */
         }
         
         .paper-title {
-            font-size: 18px;
+            font-size: 1.1em; /* 进一步缩小字体大小 */
             font-weight: 600;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
         }
         
         .paper-title a {
             color: var(--primary-color);
             text-decoration: none;
-            transition: color 0.2s;
+            transition: color 0.3s ease; /* 调整过渡效果 */
         }
         
         .paper-title a:hover {
-            color: #3367d6;
+            color: #0056b3; /* 悬停颜色 */
             text-decoration: underline;
         }
         
         .paper-authors {
             color: var(--text-secondary);
-            margin-bottom: 8px;
-            font-size: 15px;
+            margin-bottom: 6px;
+            font-size: 0.85em; /* 进一步缩小字体大小 */
         }
         
         .paper-conference {
             display: inline-block;
-            color: white;
-            font-size: 13px;
-            padding: 3px 8px;
-            border-radius: 4px;
-            background-color: var(--primary-color);
-            margin-bottom: 12px;
+            color: var(--text-light);
+            font-size: 0.85em; /* 调整字体大小 */
+            padding: 5px 10px; /* 调整内边距 */
+            border-radius: 5px; /* 增加圆角 */
+            background-color: var(--secondary-color); /* 使用次要颜色 */
+            margin-bottom: 15px; /* 增加外边距 */
+            font-weight: 500;
         }
         
         .paper-abstract {
             color: var(--text-secondary);
-            font-size: 15px;
+            font-size: 0.85em; /* 进一步缩小字体大小 */
             line-height: 1.5;
-            margin: 12px 0;
-            max-height: 100px;
+            margin: 10px 0; /* 缩小外边距 */
+            max-height: 100px; /* 缩小最大高度 */
             overflow: hidden;
-            transition: max-height 0.3s ease;
+            transition: max-height 0.4s ease; /* 调整过渡效果 */
             position: relative;
         }
         
@@ -261,8 +313,8 @@ layout: default
             bottom: 0;
             left: 0;
             width: 100%;
-            height: 30px;
-            background: linear-gradient(transparent, white);
+            height: 40px; /* 增加渐变高度 */
+            background: linear-gradient(transparent, white); /* 保持白色渐变 */
             pointer-events: none;
             transition: opacity 0.3s;
         }
@@ -274,45 +326,50 @@ layout: default
         .paper-keywords {
             display: flex;
             flex-wrap: wrap;
-            gap: 5px;
-            margin-top: 10px;
+            gap: 8px; /* 增加间距 */
+            margin-top: 15px; /* 增加外边距 */
+            padding-top: 10px;
+            border-top: 1px dashed var(--border-color); /* 添加虚线边框 */
         }
         
         .paper-keyword {
-            background-color: #f1f3f4;
+            background-color: var(--light-bg); /* 浅色背景 */
             color: var(--text-secondary);
-            padding: 3px 8px;
-            border-radius: 12px;
-            font-size: 12px;
+            padding: 4px 10px; /* 进一步缩小内边距 */
+            border-radius: 15px; /* 进一步缩小圆角 */
+            font-size: 0.75em; /* 进一步缩小字体大小 */
             cursor: pointer;
-            transition: background-color 0.2s, color 0.2s;
+            transition: background-color 0.3s, color 0.3s; /* 调整过渡效果 */
+            border: 1px solid var(--border-color);
         }
         
         .paper-keyword:hover {
-            background-color: #e1f5fe;
-            color: #0277bd;
+            background-color: #e9ecef; /* 悬停背景色 */
+            color: var(--primary-color); /* 悬停文本色 */
         }
         
         .keyword-toast {
             position: fixed;
-            bottom: 20px;
+            bottom: 30px; /* 调整位置 */
             left: 50%;
             transform: translateX(-50%);
-            background-color: rgba(0, 0, 0, 0.8);
-            color: white;
-            padding: 10px 20px;
-            border-radius: 4px;
+            background-color: var(--dark-bg); /* 深色背景 */
+            color: var(--text-light);
+            padding: 12px 25px; /* 调整内边距 */
+            border-radius: 8px; /* 增加圆角 */
             z-index: 1000;
-            transition: opacity 0.5s;
+            transition: opacity 0.5s, transform 0.3s ease; /* 添加过渡效果 */
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2); /* 添加阴影 */
         }
         
         .toggle-abstract {
             color: var(--primary-color);
             cursor: pointer;
-            font-size: 14px;
+            font-size: 0.9em; /* 调整字体大小 */
             display: inline-block;
-            margin-top: 5px;
+            margin-top: 8px; /* 调整外边距 */
             user-select: none;
+            font-weight: 500;
         }
         
         .toggle-abstract:hover {
@@ -325,12 +382,12 @@ layout: default
             }
             
             .search-container {
-                padding: 15px;
-                margin: 15px;
+                padding: 20px;
+                margin: 20px;
             }
             
             .paper-item {
-                padding: 15px;
+                padding: 20px;
             }
         }
     </style>
@@ -514,8 +571,10 @@ layout: default
                     <div class="paper-title">
                         <a href="${paper.url || '#'}" target="_blank">${paper.title}</a>
                     </div>
-                    <div class="paper-authors">${typeof paper.authors === 'string' ? paper.authors.split(',')[0].trim() : paper.authors}${typeof paper.authors === 'string' && paper.authors.includes(',') ? ' et al.' : ''}</div>
-                    <div class="paper-conference">${paper.conference} ${paper.year || ''}</div>
+                    <p class="paper-authors">
+                         ${paper.conference ? `<span class="paper-conference">${paper.conference}</span>` : ''}
+                         ${typeof paper.authors === 'string' ? paper.authors.split(',')[0].trim() : paper.authors}
+                     </p>
                     ${paper.abstract ? `
                         <div class="paper-abstract">${paper.abstract}</div>
                         <span class="toggle-abstract" onclick="toggleAbstract(this)">展开摘要</span>
