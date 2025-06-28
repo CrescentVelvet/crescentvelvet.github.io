@@ -441,7 +441,14 @@ layout: default
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
-                allPapers = await response.json();
+                const rawPapers = await response.json();
+                allPapers = rawPapers.map(paper => ({
+                    ...paper,
+                    title_lower: paper.title ? paper.title.toLowerCase() : '',
+                    authors_lower: typeof paper.authors === 'string' ? paper.authors.toLowerCase() : '',
+                    abstract_lower: paper.abstract ? paper.abstract.toLowerCase() : '',
+                    keywords_lower: Array.isArray(paper.keywords) ? paper.keywords.map(k => k.toLowerCase()) : []
+                }));
                 
                 // 设置年份范围的默认值
                 if (allPapers.length > 0) {
@@ -506,11 +513,9 @@ layout: default
                 
                 // 检查是否包含用户保存的关键词，如果包含则高亮显示
                 const containsSavedKeyword = savedKeywords.some(keyword => 
-                    paper.title.toLowerCase().includes(keyword.toLowerCase()) || 
-                    (paper.abstract && paper.abstract.toLowerCase().includes(keyword.toLowerCase())) ||
-                    (paper.keywords && Array.isArray(paper.keywords) && paper.keywords.some(k => 
-                        k.toLowerCase().includes(keyword.toLowerCase())
-                    ))
+                    paper.title_lower.includes(keyword.toLowerCase()) || 
+                    paper.abstract_lower.includes(keyword.toLowerCase()) ||
+                    paper.keywords_lower.some(k => k.includes(keyword.toLowerCase()))
                 );
                 
                 if (containsSavedKeyword) {
@@ -569,12 +574,10 @@ layout: default
             const filteredPapers = allPapers.filter(paper => {
                 // 搜索匹配（标题、作者、摘要、关键词）
                 const matchesSearch = searchTerm === '' || 
-                    paper.title.toLowerCase().includes(searchTerm) ||
-                    paper.authors.toLowerCase().includes(searchTerm) ||
-                    (paper.abstract && paper.abstract.toLowerCase().includes(searchTerm)) ||
-                    (paper.keywords && Array.isArray(paper.keywords) && paper.keywords.some(keyword => 
-                        keyword.toLowerCase().includes(searchTerm)
-                    ));
+                    paper.title_lower.includes(searchTerm) ||
+                    paper.authors_lower.includes(searchTerm) ||
+                    paper.abstract_lower.includes(searchTerm) ||
+                    paper.keywords_lower.some(k => k.includes(searchTerm));
                 
                 // 会议匹配
                 const matchesConference = selectedConferences.length === 0 || 
@@ -598,19 +601,15 @@ layout: default
             if (savedKeywords.length > 0) {
                 filteredPapers.sort((a, b) => {
                     const aContainsSavedKeyword = savedKeywords.some(keyword => 
-                        a.title.toLowerCase().includes(keyword.toLowerCase()) || 
-                        (a.abstract && a.abstract.toLowerCase().includes(keyword.toLowerCase())) ||
-                        (a.keywords && Array.isArray(a.keywords) && a.keywords.some(k => 
-                            k.toLowerCase().includes(keyword.toLowerCase())
-                        ))
+                        a.title_lower.includes(keyword.toLowerCase()) || 
+                        a.abstract_lower.includes(keyword.toLowerCase()) ||
+                        a.keywords_lower.some(k => k.includes(keyword.toLowerCase()))
                     );
                     
                     const bContainsSavedKeyword = savedKeywords.some(keyword => 
-                        b.title.toLowerCase().includes(keyword.toLowerCase()) || 
-                        (b.abstract && b.abstract.toLowerCase().includes(keyword.toLowerCase())) ||
-                        (b.keywords && Array.isArray(b.keywords) && b.keywords.some(k => 
-                            k.toLowerCase().includes(keyword.toLowerCase())
-                        ))
+                        b.title_lower.includes(keyword.toLowerCase()) || 
+                        b.abstract_lower.includes(keyword.toLowerCase()) ||
+                        b.keywords_lower.some(k => k.includes(keyword.toLowerCase()))
                     );
                     
                     if (aContainsSavedKeyword && !bContainsSavedKeyword) return -1;
