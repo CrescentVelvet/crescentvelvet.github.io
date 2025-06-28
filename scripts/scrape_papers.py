@@ -28,12 +28,12 @@ class ConferencePaperScraper:
         current_year = datetime.now().year
         self.conference_configs = {
             "cvpr": {
-                "url_template": "https://openaccess.thecvf.com/{year}",
+                "url_template": "https://openaccess.thecvf.com/CVPR{year}",
                 "years": list(range(current_year - 4, current_year + 1)), # 最近五年
                 "parser": self._parse_cvf_conference
             },
             "iccv": {
-                "url_template": "https://openaccess.thecvf.com/{year}",
+                "url_template": "https://openaccess.thecvf.com/ICCV{year}",
                 "years": list(range(current_year - 4, current_year + 1, 2)), # 最近五年，双年会议
                 "parser": self._parse_cvf_conference
             },
@@ -90,7 +90,10 @@ class ConferencePaperScraper:
             try:
                 title_elem = item.find('a')
                 title = title_elem.text.strip()
-                paper_url = f"https://openaccess.thecvf.com/{title_elem['href']}"
+                # 动态获取会议名称，确保URL拼接正确
+                conf_key = 'cvpr' if 'CVPR' in self.conference_configs['cvpr']['url_template'] else 'iccv'
+                conf_name_in_url = 'CVPR' if 'CVPR' in self.conference_configs[conf_key]['url_template'] else 'ICCV'
+                paper_url = title_elem['href'] if title_elem['href'].startswith('http') else f"https://openaccess.thecvf.com/{conf_name_in_url}{year}/{title_elem['href'].lstrip('/')}"
                 
                 # 获取论文详情页
                 time.sleep(0.5)  # 避免请求过快
@@ -179,7 +182,7 @@ class ConferencePaperScraper:
             try:
                 title_elem = paper_item.select_one('p.title a')
                 title = title_elem.text.strip() if title_elem else 'N/A'
-                paper_url = f"https://papers.nips.cc{title_elem['href']}" if title_elem and 'href' in title_elem.attrs else ''
+                paper_url = title_elem['href'] if title_elem['href'].startswith('http') else f"https://papers.nips.cc/paper_files/paper/{year}/{title_elem['href'].lstrip('/')}"
 
                 # 访问论文详情页获取作者和摘要
                 if paper_url:
@@ -277,17 +280,17 @@ class ConferencePaperScraper:
                 for result in client.results(search):
                     arxiv_papers.append({
                         'title': result.title,
-                        'authors': [author.name for author in result.authors],
+                        'authors': [result.authors[0].name] + ['et al.'] if len(result.authors) > 1 else [author.name for author in result.authors],
                         'year': result.published.year,
                         'conference': 'arXiv',
                         'abstract': result.summary,
                         'keywords': result.categories,
                         'url': result.entry_id,
-                        'arxiv_id': result.arxiv_id
+                        'arxiv_id': result.entry_id.split('/')[-1] # 从entry_id中提取arxiv_id
                     })
                 logger.info(f"[{category_config['name']}] 获取到 {len(arxiv_papers)} 篇论文")
             except Exception as e:
-                logger.error(f"抓取arXiv论文失败: {e}")
+                logger.error(f"抓取arXiv论文失败: {str(e)}")
         return arxiv_papers
     
     def update_index(self, conferences: Optional[List[str]] = None,
@@ -325,15 +328,13 @@ class ConferencePaperScraper:
                     logger.info(f"开始抓取 {conf_name.upper()} {year} 年的论文...")
                     try:
                         # 对于CVF会议，URL模板需要年份
-                        if conf_name in ['cvpr', 'iccv']:
+                        if conf_name in ['cvpr', 'iccv', 'neurips', 'iclr']:
                             url = config['url_template'].format(year=year)
+
                         # 对于ECCV，URL是固定的，年份在解析器内部处理
                         elif conf_name == 'eccv':
                             url = config['url_template']
-                        elif conf_name == 'neurips':
-                            url = config['url_template'].format(year=year)
-                        elif conf_name == 'iclr':
-                            url = config['url_template'].format(year=year)
+
                         else:
                             logger.warning(f"未知会议配置: {conf_name}")
                             scrape_results["conference"][conf_name]["failed"] += 1

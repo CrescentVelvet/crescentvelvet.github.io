@@ -573,7 +573,7 @@ layout: default
                     </div>
                     <p class="paper-authors">
                          ${paper.conference ? `<span class="paper-conference">${paper.conference}</span>` : ''}
-                         ${typeof paper.authors === 'string' ? paper.authors.split(',')[0].trim() : paper.authors}
+                         ${paper.authors.length > 1 ? paper.authors[0] + ' et al.' : paper.authors.join(', ')}
                      </p>
                     ${paper.abstract ? `
                         <div class="paper-abstract">${paper.abstract}</div>
