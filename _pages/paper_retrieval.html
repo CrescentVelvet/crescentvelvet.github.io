@@ -342,30 +342,8 @@ layout: default
         <div class="filter-container">
             <div class="conference-filter">
                 <h3>会议筛选</h3>
-                <label>
-                    <input type="checkbox" value="CVPR" checked> <span>CVPR</span>
-                </label>
-                <label>
-                    <input type="checkbox" value="ICCV" checked> <span>ICCV</span>
-                </label>
-                <label>
-                    <input type="checkbox" value="ECCV" checked> <span>ECCV</span>
-                </label>
-                <label>
-                    <input type="checkbox" value="NeurIPS" checked> <span>NeurIPS</span>
-                </label>
-                <label>
-                    <input type="checkbox" value="ICLR" checked> <span>ICLR</span>
-                </label>
-                <label>
-                    <input type="checkbox" value="AAAI" checked> <span>AAAI</span>
-                </label>
-                <label>
-                    <input type="checkbox" value="ACL" checked> <span>ACL</span>
-                </label>
-                <label>
-                    <input type="checkbox" value="arXiv" checked> <span>arXiv</span>
-                </label>
+
+
             </div>
             
             <div class="year-filter">
@@ -669,6 +647,32 @@ layout: default
         // 全局函数，用于摘要展开/收起和添加关键词
         window.toggleAbstract = toggleAbstract;
         window.addToSavedKeywords = addToSavedKeywords;
+
+        // 动态生成会议筛选复选框
+        const conferences = [
+            { name: 'CVPR', value: 'CVPR', checked: true },
+            { name: 'ICCV', value: 'ICCV', checked: true },
+            { name: 'ECCV', value: 'ECCV', checked: false },
+            { name: 'NeurIPS', value: 'NeurIPS', checked: false },
+            { name: 'ICLR', value: 'ICLR', checked: false },
+            { name: 'AAAI', value: 'AAAI', checked: false },
+            { name: 'ACL', value: 'ACL', checked: false },
+            { name: 'arXiv', value: 'arXiv', checked: false }
+        ];
+
+        const conferenceFilterDiv = document.querySelector('.conference-filter');
+        conferences.forEach(conf => {
+            const label = document.createElement('label');
+            label.innerHTML = `
+                <input type="checkbox" value="${conf.value}" ${conf.checked ? 'checked' : ''}> <span>${conf.name}</span>
+            `;
+            conferenceFilterDiv.appendChild(label);
+        });
+
+        // 重新绑定事件监听器，因为DOM元素已动态生成
+        document.querySelectorAll('.conference-filter input').forEach(checkbox => {
+            checkbox.addEventListener('change', filterPapers);
+        });
     </script>
 </body>
 </html>
