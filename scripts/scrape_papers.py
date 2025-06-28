@@ -7,6 +7,7 @@ from bs4 import BeautifulSoup
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 import logging
+import arxiv # 导入arxiv库
 
 # 配置日志
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -40,6 +41,16 @@ class ConferencePaperScraper:
                 "years": list(range(2012, datetime.now().year + 1, 2)),
                 "parser": self._parse_eccv
             }
+        }
+
+        # 定义arXiv配置
+        self.arxiv_config = {
+            "categories": [
+                {"name": "Computer Vision", "query": "cat:cs.CV", "max_results": 10},
+                {"name": "Machine Learning", "query": "cat:cs.LG", "max_results": 10}
+            ],
+            "delay_seconds": 3,
+            "num_retries": 5
         }
     
     def _load_index(self) -> List[Dict[str, Any]]:
@@ -139,14 +150,50 @@ class ConferencePaperScraper:
                 continue
         
         return papers
+
+    def _get_arxiv_client(self) -> arxiv.Client:
+        """创建带重试机制的arXiv客户端"""
+        return arxiv.Client(
+            page_size=100,
+            delay_seconds=self.arxiv_config["delay_seconds"],
+            num_retries=self.arxiv_config["num_retries"]
+        )
+
+    def _fetch_arxiv_papers(self) -> List[Dict[str, Any]]:
+        """抓取arXiv的最新论文"""
+        arxiv_papers = []
+        client = self._get_arxiv_client()
+        for category_config in self.arxiv_config["categories"]:
+            logger.info(f"开始抓取arXiv分类: {category_config['name']}")
+            search = arxiv.Search(
+                query=category_config["query"],
+                max_results=category_config["max_results"],
+                sort_by=arxiv.SortCriterion.SubmittedDate
+            )
+            try:
+                for result in client.results(search):
+                    arxiv_papers.append({
+                        'title': result.title,
+                        'authors': [author.name for author in result.authors],
+                        'year': result.published.year,
+                        'conference': 'arXiv',
+                        'abstract': result.summary,
+                        'keywords': result.categories,
+                        'url': result.entry_id
+                    })
+                logger.info(f"[{category_config['name']}] 获取到 {len(arxiv_papers)} 篇论文")
+            except Exception as e:
+                logger.error(f"抓取arXiv论文失败: {e}")
+        return arxiv_papers
     
     def update_index(self, conferences: Optional[List[str]] = None,
-                      years: Optional[List[int]] = None) -> None:
+                      years: Optional[List[int]] = None, include_arxiv: bool = False) -> None:
         """更新论文索引
         
         Args:
             conferences: 要更新的会议列表，如 ['cvpr', 'iccv']
             years: 要更新的年份列表，如 [2020, 2021]
+            include_arxiv: 是否包含arXiv论文
         """
         if not conferences:
             conferences = list(self.conference_configs.keys())
@@ -191,12 +238,26 @@ class ConferencePaperScraper:
                 except Exception as e:
                     logger.error(f"处理 {conf_name.upper()} {year} 年数据时发生错误: {e}")
         
+        if include_arxiv:
+            logger.info("开始更新arXiv论文索引")
+            arxiv_new_papers = self._fetch_arxiv_papers()
+            for paper in arxiv_new_papers:
+                # arXiv论文可能没有年份，或者年份不作为唯一标识的一部分，这里简化处理
+                # 实际应用中可能需要更复杂的去重逻辑，例如使用entry_id
+                paper_id = (paper['title'], paper['year'], paper['url'])
+                if paper_id not in existing_paper_ids:
+                    self.papers.append(paper)
+                    existing_paper_ids.add(paper_id)
+                    logger.info(f"新增arXiv论文: {paper['title']} ({paper['year']})")
+                else:
+                    logger.debug(f"arXiv论文已存在，跳过: {paper['title']}")
+
         self._save_index()
 
 if __name__ == "__main__":
     scraper = ConferencePaperScraper()
-    # 示例：更新所有支持的会议的索引
-    scraper.update_index()
+    # 示例：更新所有支持的会议的索引，并包含arXiv论文
+    scraper.update_index(include_arxiv=True)
     # 示例：只更新CVPR和ICCV的2023年数据
     # scraper.update_index(conferences=['cvpr', 'iccv'], years=[2023])
     # 示例：只更新ECCV的所有数据
