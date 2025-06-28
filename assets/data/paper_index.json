@@ -1,7 +1,14 @@
 [
   {
     "title": "NeRF: Representing Scenes as Neural Radiance Fields for View Synthesis",
-    "authors": "Ben Mildenhall, Pratul P. Srinivasan, Matthew Tancik, Jonathan T. Barron, Ravi Ramamoorthi, Ren Ng",
+    "authors": [
+      "Ben Mildenhall",
+      "Pratul P. Srinivasan",
+      "Matthew Tancik",
+      "Jonathan T. Barron",
+      "Ravi Ramamoorthi",
+      "Ren Ng"
+    ],
     "year": 2020,
     "conference": "ECCV 2020",
     "abstract": "We present a method that achieves state-of-the-art results for synthesizing novel views of complex scenes by optimizing an underlying continuous volumetric scene function using a sparse set of input views.",
@@ -14,7 +21,20 @@
   },
   {
     "title": "CLIP: Connecting Text and Images",
-    "authors": "Alec Radford, Jong Wook Kim, Chris Hallacy, Aditya Ramesh, Gabriel Goh, Sandhini Agarwal, Girish Sastry, Amanda Askell, Pamela Mishkin, Jack Clark, Gretchen Krueger, Ilya Sutskever",
+    "authors": [
+      "Alec Radford",
+      "Jong Wook Kim",
+      "Chris Hallacy",
+      "Aditya Ramesh",
+      "Gabriel Goh",
+      "Sandhini Agarwal",
+      "Girish Sastry",
+      "Amanda Askell",
+      "Pamela Mishkin",
+      "Jack Clark",
+      "Gretchen Krueger",
+      "Ilya Sutskever"
+    ],
     "year": 2021,
     "conference": "CVPR 2021",
     "abstract": "We present a neural network that efficiently learns visual concepts from natural language supervision. Our method can be applied to any visual classification benchmark by using the zero-shot transfer of the learned text-image representations.",
@@ -27,7 +47,20 @@
   },
   {
     "title": "Segment Anything",
-    "authors": "Alexander Kirillov, Eric Mintun, Nikhila Ravi, Hanzi Mao, Chloe Rolland, Laura Gustafson, Tete Xiao, Spencer Whitehead, Alexander C. Berg, Wan-Yen Lo, Piotr Dollár, Ross Girshick",
+    "authors": [
+      "Alexander Kirillov",
+      "Eric Mintun",
+      "Nikhila Ravi",
+      "Hanzi Mao",
+      "Chloe Rolland",
+      "Laura Gustafson",
+      "Tete Xiao",
+      "Spencer Whitehead",
+      "Alexander C. Berg",
+      "Wan-Yen Lo",
+      "Piotr Dollár",
+      "Ross Girshick"
+    ],
     "year": 2023,
     "conference": "ICCV 2023",
     "abstract": "We introduce the Segment Anything (SA) project: a new task, model, and dataset for image segmentation. Using our efficient model in a data collection loop, we built the largest segmentation dataset to date (by far), with over 1 billion masks on 11M licensed and privacy-respecting images.",
@@ -40,7 +73,14 @@
   },
   {
     "title": "Masked Autoencoders Are Scalable Vision Learners",
-    "authors": "Kaiming He, Xinlei Chen, Saining Xie, Yanghao Li, Piotr Dollár, Ross Girshick",
+    "authors": [
+      "Kaiming He",
+      "Xinlei Chen",
+      "Saining Xie",
+      "Yanghao Li",
+      "Piotr Dollár",
+      "Ross Girshick"
+    ],
     "year": 2022,
     "conference": "CVPR 2022",
     "abstract": "This paper shows that masked autoencoders (MAE) are scalable self-supervised learners for computer vision. Our MAE approach is simple: we mask random patches of the input image and reconstruct the missing pixels.",
@@ -53,7 +93,33 @@
   },
   {
     "title": "DINOv2: Learning Robust Visual Features without Supervision",
-    "authors": "Maxime Oquab, Timothée Darcet, Théo Moutakanni, Huy Vo, Marc Szafraniec, Vasil Khalidov, Pierre Fernandez, Daniel Haziza, Francisco Massa, Alaaeldin El-Nouby, Mahmoud Assran, Nicolas Ballas, Wojciech Galuba, Russell Howes, Po-Yao Huang, Shang-Wen Li, Ishan Misra, Michael Rabbat, Vasu Sharma, Gabriel Synnaeve, Hu Xu, Hervé Jegou, Julien Mairal, Patrick Labatut, Armand Joulin, Piotr Bojanowski",
+    "authors": [
+      "Maxime Oquab",
+      "Timothée Darcet",
+      "Théo Moutakanni",
+      "Huy Vo",
+      "Marc Szafraniec",
+      "Vasil Khalidov",
+      "Pierre Fernandez",
+      "Daniel Haziza",
+      "Francisco Massa",
+      "Alaaeldin El-Nouby",
+      "Mahmoud Assran",
+      "Nicolas Ballas",
+      "Wojciech Galuba",
+      "Russell Howes",
+      "Po-Yao Huang",
+      "Shang-Wen Li",
+      "Ishan Misra",
+      "Michael Rabbat",
+      "Vasu Sharma",
+      "Gabriel Synnaeve",
+      "Hu Xu",
+      "Hervé Jegou",
+      "Julien Mairal",
+      "Patrick Labatut",
+      "Armand Joulin"
+    ],
     "year": 2023,
     "conference": "ICCV 2023",
     "abstract": "We present a method and model for learning general-purpose visual features without relying on supervision from human annotations. We build upon the self-supervised method DINO, scaling it up to a larger model and dataset.",
@@ -66,7 +132,11 @@
   },
   {
     "title": "Denoising Diffusion Probabilistic Models",
-    "authors": "Jonathan Ho, Ajay Jain, Pieter Abbeel",
+    "authors": [
+      "Jonathan Ho",
+      "Ajay Jain",
+      "Pieter Abbeel"
+    ],
     "year": 2020,
     "conference": "CVPR 2020",
     "abstract": "We present high quality image synthesis results using diffusion probabilistic models, a class of latent variable models inspired by considerations from nonequilibrium thermodynamics.",
@@ -79,7 +149,16 @@
   },
   {
     "title": "DALL-E: Creating Images from Text",
-    "authors": "Aditya Ramesh, Mikhail Pavlov, Gabriel Goh, Scott Gray, Chelsea Voss, Alec Radford, Mark Chen, Ilya Sutskever",
+    "authors": [
+      "Aditya Ramesh",
+      "Mikhail Pavlov",
+      "Gabriel Goh",
+      "Scott Gray",
+      "Chelsea Voss",
+      "Alec Radford",
+      "Mark Chen",
+      "Ilya Sutskever"
+    ],
     "year": 2021,
     "conference": "CVPR 2021",
     "abstract": "We present a neural network called DALL-E that creates images from text captions for a wide range of concepts expressible in natural language.",
@@ -92,7 +171,16 @@
   },
   {
     "title": "Swin Transformer: Hierarchical Vision Transformer using Shifted Windows",
-    "authors": "Ze Liu, Yutong Lin, Yue Cao, Han Hu, Yixuan Wei, Zheng Zhang, Stephen Lin, Baining Guo",
+    "authors": [
+      "Ze Liu",
+      "Yutong Lin",
+      "Yue Cao",
+      "Han Hu",
+      "Yixuan Wei",
+      "Zheng Zhang",
+      "Stephen Lin",
+      "Baining Guo"
+    ],
     "year": 2021,
     "conference": "ICCV 2021",
     "abstract": "This paper presents a new vision Transformer, called Swin Transformer, that capably serves as a general-purpose backbone for computer vision.",
@@ -105,7 +193,15 @@
   },
   {
     "title": "DINO: Emerging Properties in Self-Supervised Vision Transformers",
-    "authors": "Mathilde Caron, Hugo Touvron, Ishan Misra, Hervé Jégou, Julien Mairal, Piotr Bojanowski, Armand Joulin",
+    "authors": [
+      "Mathilde Caron",
+      "Hugo Touvron",
+      "Ishan Misra",
+      "Hervé Jégou",
+      "Julien Mairal",
+      "Piotr Bojanowski",
+      "Armand Joulin"
+    ],
     "year": 2021,
     "conference": "ICCV 2021",
     "abstract": "We discover that self-supervised vision transformers (ViT) trained with the DINO method produce features that contain explicit information about the semantic segmentation of an image.",
@@ -118,7 +214,13 @@
   },
   {
     "title": "Stable Diffusion: High-Resolution Image Synthesis with Latent Diffusion Models",
-    "authors": "Robin Rombach, Andreas Blattmann, Dominik Lorenz, Patrick Esser, Björn Ommer",
+    "authors": [
+      "Robin Rombach",
+      "Andreas Blattmann",
+      "Dominik Lorenz",
+      "Patrick Esser",
+      "Björn Ommer"
+    ],
     "year": 2022,
     "conference": "CVPR 2022",
     "abstract": "By decomposing the image formation process into a sequential application of denoising autoencoders, diffusion models (DMs) achieve state-of-the-art synthesis results on image data and beyond.",
@@ -424,5 +526,390 @@
       "q-bio.QM"
     ],
     "url": "http://arxiv.org/abs/2506.21500v1"
+  },
+  {
+    "title": "Whole-Body Conditioned Egocentric Video Prediction",
+    "authors": [
+      "Yutong Bai",
+      "Danny Tran",
+      "Amir Bar",
+      "Yann LeCun",
+      "Trevor Darrell",
+      "Jitendra Malik"
+    ],
+    "year": 2025,
+    "conference": "arXiv",
+    "abstract": "We train models to Predict Ego-centric Video from human Actions (PEVA), given\nthe past video and an action represented by the relative 3D body pose. By\nconditioning on kinematic pose trajectories, structured by the joint hierarchy\nof the body, our model learns to simulate how physical human actions shape the\nenvironment from a first-person point of view. We train an auto-regressive\nconditional diffusion transformer on Nymeria, a large-scale dataset of\nreal-world egocentric video and body pose capture. We further design a\nhierarchical evaluation protocol with increasingly challenging tasks, enabling\na comprehensive analysis of the model's embodied prediction and control\nabilities. Our work represents an initial attempt to tackle the challenges of\nmodeling complex real-world environments and embodied agent behaviors with\nvideo prediction from the perspective of a human.",
+    "keywords": [
+      "cs.CV",
+      "cs.AI",
+      "cs.LG",
+      "cs.MM",
+      "cs.RO"
+    ],
+    "url": "http://arxiv.org/abs/2506.21552v1",
+    "arxiv_id": "2506.21552v1"
+  },
+  {
+    "title": "SiM3D: Single-instance Multiview Multimodal and Multisetup 3D Anomaly Detection Benchmark",
+    "authors": [
+      "Alex Costanzino",
+      "Pierluigi Zama Ramirez",
+      "Luigi Lella",
+      "Matteo Ragaglia",
+      "Alessandro Oliva",
+      "Giuseppe Lisanti",
+      "Luigi Di Stefano"
+    ],
+    "year": 2025,
+    "conference": "arXiv",
+    "abstract": "We propose SiM3D, the first benchmark considering the integration of\nmultiview and multimodal information for comprehensive 3D anomaly detection and\nsegmentation (ADS), where the task is to produce a voxel-based Anomaly Volume.\nMoreover, SiM3D focuses on a scenario of high interest in manufacturing:\nsingle-instance anomaly detection, where only one object, either real or\nsynthetic, is available for training. In this respect, SiM3D stands out as the\nfirst ADS benchmark that addresses the challenge of generalising from synthetic\ntraining data to real test data. SiM3D includes a novel multimodal multiview\ndataset acquired using top-tier industrial sensors and robots. The dataset\nfeatures multiview high-resolution images (12 Mpx) and point clouds (7M points)\nfor 333 instances of eight types of objects, alongside a CAD model for each\ntype. We also provide manually annotated 3D segmentation GTs for anomalous test\nsamples. To establish reference baselines for the proposed multiview 3D ADS\ntask, we adapt prominent singleview methods and assess their performance using\nnovel metrics that operate on Anomaly Volumes.",
+    "keywords": [
+      "cs.CV"
+    ],
+    "url": "http://arxiv.org/abs/2506.21549v1",
+    "arxiv_id": "2506.21549v1"
+  },
+  {
+    "title": "SAM4D: Segment Anything in Camera and LiDAR Streams",
+    "authors": [
+      "Jianyun Xu",
+      "Song Wang",
+      "Ziqian Ni",
+      "Chunyong Hu",
+      "Sheng Yang",
+      "Jianke Zhu",
+      "Qiang Li"
+    ],
+    "year": 2025,
+    "conference": "arXiv",
+    "abstract": "We present SAM4D, a multi-modal and temporal foundation model designed for\npromptable segmentation across camera and LiDAR streams. Unified Multi-modal\nPositional Encoding (UMPE) is introduced to align camera and LiDAR features in\na shared 3D space, enabling seamless cross-modal prompting and interaction.\nAdditionally, we propose Motion-aware Cross-modal Memory Attention (MCMA),\nwhich leverages ego-motion compensation to enhance temporal consistency and\nlong-horizon feature retrieval, ensuring robust segmentation across dynamically\nchanging autonomous driving scenes. To avoid annotation bottlenecks, we develop\na multi-modal automated data engine that synergizes VFM-driven video masklets,\nspatiotemporal 4D reconstruction, and cross-modal masklet fusion. This\nframework generates camera-LiDAR aligned pseudo-labels at a speed orders of\nmagnitude faster than human annotation while preserving VFM-derived semantic\nfidelity in point cloud representations. We conduct extensive experiments on\nthe constructed Waymo-4DSeg, which demonstrate the powerful cross-modal\nsegmentation ability and great potential in data annotation of proposed SAM4D.",
+    "keywords": [
+      "cs.CV",
+      "cs.RO"
+    ],
+    "url": "http://arxiv.org/abs/2506.21547v1",
+    "arxiv_id": "2506.21547v1"
+  },
+  {
+    "title": "HalluSegBench: Counterfactual Visual Reasoning for Segmentation Hallucination Evaluation",
+    "authors": [
+      "Xinzhuo Li",
+      "Adheesh Juvekar",
+      "Xingyou Liu",
+      "Muntasir Wahed",
+      "Kiet A. Nguyen",
+      "Ismini Lourentzou"
+    ],
+    "year": 2025,
+    "conference": "arXiv",
+    "abstract": "Recent progress in vision-language segmentation has significantly advanced\ngrounded visual understanding. However, these models often exhibit\nhallucinations by producing segmentation masks for objects not grounded in the\nimage content or by incorrectly labeling irrelevant regions. Existing\nevaluation protocols for segmentation hallucination primarily focus on label or\ntextual hallucinations without manipulating the visual context, limiting their\ncapacity to diagnose critical failures. In response, we introduce\nHalluSegBench, the first benchmark specifically designed to evaluate\nhallucinations in visual grounding through the lens of counterfactual visual\nreasoning. Our benchmark consists of a novel dataset of 1340 counterfactual\ninstance pairs spanning 281 unique object classes, and a set of newly\nintroduced metrics that quantify hallucination sensitivity under visually\ncoherent scene edits. Experiments on HalluSegBench with state-of-the-art\nvision-language segmentation models reveal that vision-driven hallucinations\nare significantly more prevalent than label-driven ones, with models often\npersisting in false segmentation, highlighting the need for counterfactual\nreasoning to diagnose grounding fidelity.",
+    "keywords": [
+      "cs.CV",
+      "cs.AI",
+      "cs.CL",
+      "cs.LG"
+    ],
+    "url": "http://arxiv.org/abs/2506.21546v1",
+    "arxiv_id": "2506.21546v1"
+  },
+  {
+    "title": "DeOcc-1-to-3: 3D De-Occlusion from a Single Image via Self-Supervised Multi-View Diffusion",
+    "authors": [
+      "Yansong Qu",
+      "Shaohui Dai",
+      "Xinyang Li",
+      "Yuze Wang",
+      "You Shen",
+      "Liujuan Cao",
+      "Rongrong Ji"
+    ],
+    "year": 2025,
+    "conference": "arXiv",
+    "abstract": "Reconstructing 3D objects from a single image is a long-standing challenge,\nespecially under real-world occlusions. While recent diffusion-based view\nsynthesis models can generate consistent novel views from a single RGB image,\nthey generally assume fully visible inputs and fail when parts of the object\nare occluded. This leads to inconsistent views and degraded 3D reconstruction\nquality. To overcome this limitation, we propose an end-to-end framework for\nocclusion-aware multi-view generation. Our method directly synthesizes six\nstructurally consistent novel views from a single partially occluded image,\nenabling downstream 3D reconstruction without requiring prior inpainting or\nmanual annotations. We construct a self-supervised training pipeline using the\nPix2Gestalt dataset, leveraging occluded-unoccluded image pairs and\npseudo-ground-truth views to teach the model structure-aware completion and\nview consistency. Without modifying the original architecture, we fully\nfine-tune the view synthesis model to jointly learn completion and multi-view\ngeneration. Additionally, we introduce the first benchmark for occlusion-aware\nreconstruction, encompassing diverse occlusion levels, object categories, and\nmask patterns. This benchmark provides a standardized protocol for evaluating\nfuture methods under partial occlusions. Our code is available at\nhttps://github.com/Quyans/DeOcc123.",
+    "keywords": [
+      "cs.CV"
+    ],
+    "url": "http://arxiv.org/abs/2506.21544v1",
+    "arxiv_id": "2506.21544v1"
+  },
+  {
+    "title": "StruMamba3D: Exploring Structural Mamba for Self-supervised Point Cloud Representation Learning",
+    "authors": [
+      "Chuxin Wang",
+      "Yixin Zha",
+      "Wenfei Yang",
+      "Tianzhu Zhang"
+    ],
+    "year": 2025,
+    "conference": "arXiv",
+    "abstract": "Recently, Mamba-based methods have demonstrated impressive performance in\npoint cloud representation learning by leveraging State Space Model (SSM) with\nthe efficient context modeling ability and linear complexity. However, these\nmethods still face two key issues that limit the potential of SSM: Destroying\nthe adjacency of 3D points during SSM processing and failing to retain\nlong-sequence memory as the input length increases in downstream tasks. To\naddress these issues, we propose StruMamba3D, a novel paradigm for\nself-supervised point cloud representation learning. It enjoys several merits.\nFirst, we design spatial states and use them as proxies to preserve spatial\ndependencies among points. Second, we enhance the SSM with a state-wise update\nstrategy and incorporate a lightweight convolution to facilitate interactions\nbetween spatial states for efficient structure modeling. Third, our method\nreduces the sensitivity of pre-trained Mamba-based models to varying input\nlengths by introducing a sequence length-adaptive strategy. Experimental\nresults across four downstream tasks showcase the superior performance of our\nmethod. In addition, our method attains the SOTA 95.1% accuracy on ModelNet40\nand 92.75% accuracy on the most challenging split of ScanObjectNN without\nvoting strategy.",
+    "keywords": [
+      "cs.CV"
+    ],
+    "url": "http://arxiv.org/abs/2506.21541v1",
+    "arxiv_id": "2506.21541v1"
+  },
+  {
+    "title": "Maximal Matching Matters: Preventing Representation Collapse for Robust Cross-Modal Retrieval",
+    "authors": [
+      "Hani Alomari",
+      "Anushka Sivakumar",
+      "Andrew Zhang",
+      "Chris Thomas"
+    ],
+    "year": 2025,
+    "conference": "arXiv",
+    "abstract": "Cross-modal image-text retrieval is challenging because of the diverse\npossible associations between content from different modalities. Traditional\nmethods learn a single-vector embedding to represent semantics of each sample,\nbut struggle to capture nuanced and diverse relationships that can exist across\nmodalities. Set-based approaches, which represent each sample with multiple\nembeddings, offer a promising alternative, as they can capture richer and more\ndiverse relationships. In this paper, we show that, despite their promise,\nthese set-based representations continue to face issues including sparse\nsupervision and set collapse, which limits their effectiveness. To address\nthese challenges, we propose Maximal Pair Assignment Similarity to optimize\none-to-one matching between embedding sets which preserve semantic diversity\nwithin the set. We also introduce two loss functions to further enhance the\nrepresentations: Global Discriminative Loss to enhance distinction among\nembeddings, and Intra-Set Divergence Loss to prevent collapse within each set.\nOur method achieves state-of-the-art performance on MS-COCO and Flickr30k\nwithout relying on external data.",
+    "keywords": [
+      "cs.CV",
+      "cs.IR",
+      "cs.LG"
+    ],
+    "url": "http://arxiv.org/abs/2506.21538v1",
+    "arxiv_id": "2506.21538v1"
+  },
+  {
+    "title": "ResQ: A Novel Framework to Implement Residual Neural Networks on Analog Rydberg Atom Quantum Computers",
+    "authors": [
+      "Nicholas S. DiBrita",
+      "Jason Han",
+      "Tirthak Patel"
+    ],
+    "year": 2025,
+    "conference": "arXiv",
+    "abstract": "Research in quantum machine learning has recently proliferated due to the\npotential of quantum computing to accelerate machine learning. An area of\nmachine learning that has not yet been explored is neural ordinary differential\nequation (neural ODE) based residual neural networks (ResNets), which aim to\nimprove the effectiveness of neural networks using the principles of ordinary\ndifferential equations. In this work, we present our insights about why analog\nRydberg atom quantum computers are especially well-suited for ResNets. We also\nintroduce ResQ, a novel framework to optimize the dynamics of Rydberg atom\nquantum computers to solve classification problems in machine learning using\nanalog quantum neural ODEs.",
+    "keywords": [
+      "quant-ph",
+      "cs.CV",
+      "cs.ET"
+    ],
+    "url": "http://arxiv.org/abs/2506.21537v1",
+    "arxiv_id": "2506.21537v1"
+  },
+  {
+    "title": "Exploring the Design Space of 3D MLLMs for CT Report Generation",
+    "authors": [
+      "Mohammed Baharoon",
+      "Jun Ma",
+      "Congyu Fang",
+      "Augustin Toma",
+      "Bo Wang"
+    ],
+    "year": 2025,
+    "conference": "arXiv",
+    "abstract": "Multimodal Large Language Models (MLLMs) have emerged as a promising way to\nautomate Radiology Report Generation (RRG). In this work, we systematically\ninvestigate the design space of 3D MLLMs, including visual input\nrepresentation, projectors, Large Language Models (LLMs), and fine-tuning\ntechniques for 3D CT report generation. We also introduce two knowledge-based\nreport augmentation methods that improve performance on the GREEN score by up\nto 10\\%, achieving the 2nd place on the MICCAI 2024 AMOS-MM challenge. Our\nresults on the 1,687 cases from the AMOS-MM dataset show that RRG is largely\nindependent of the size of LLM under the same training protocol. We also show\nthat larger volume size does not always improve performance if the original ViT\nwas pre-trained on a smaller volume size. Lastly, we show that using a\nsegmentation mask along with the CT volume improves performance. The code is\npublicly available at https://github.com/bowang-lab/AMOS-MM-Solution",
+    "keywords": [
+      "eess.IV",
+      "cs.CV",
+      "cs.LG"
+    ],
+    "url": "http://arxiv.org/abs/2506.21535v1",
+    "arxiv_id": "2506.21535v1"
+  },
+  {
+    "title": "WAFT: Warping-Alone Field Transforms for Optical Flow",
+    "authors": [
+      "Yihan Wang",
+      "Jia Deng"
+    ],
+    "year": 2025,
+    "conference": "arXiv",
+    "abstract": "We introduce Warping-Alone Field Transforms (WAFT), a simple and effective\nmethod for optical flow. WAFT is similar to RAFT but replaces cost volume with\nhigh-resolution warping, achieving better accuracy with lower memory cost. This\ndesign challenges the conventional wisdom that constructing cost volumes is\nnecessary for strong performance. WAFT is a simple and flexible\nmeta-architecture with minimal inductive biases and reliance on custom designs.\nCompared with existing methods, WAFT ranks 1st on Spring and KITTI benchmarks,\nachieves the best zero-shot generalization on KITTI, while being up to 4.1x\nfaster than methods with similar performance. Code and model weights are\navailable at https://github.com/princeton-vl/WAFT.",
+    "keywords": [
+      "cs.CV"
+    ],
+    "url": "http://arxiv.org/abs/2506.21526v1",
+    "arxiv_id": "2506.21526v1"
+  },
+  {
+    "title": "mTSBench: Benchmarking Multivariate Time Series Anomaly Detection and Model Selection at Scale",
+    "authors": [
+      "Xiaona Zhou",
+      "Constantin Brif",
+      "Ismini Lourentzou"
+    ],
+    "year": 2025,
+    "conference": "arXiv",
+    "abstract": "Multivariate time series anomaly detection (MTS-AD) is critical in domains\nlike healthcare, cybersecurity, and industrial monitoring, yet remains\nchallenging due to complex inter-variable dependencies, temporal dynamics, and\nsparse anomaly labels. We introduce mTSBench, the largest benchmark to date for\nMTS-AD and unsupervised model selection, spanning 344 labeled time series\nacross 19 datasets and 12 diverse application domains. mTSBench evaluates 24\nanomaly detection methods, including large language model (LLM)-based detectors\nfor multivariate time series, and systematically benchmarks unsupervised model\nselection techniques under standardized conditions. Consistent with prior\nfindings, our results confirm that no single detector excels across datasets,\nunderscoring the importance of model selection. However, even state-of-the-art\nselection methods remain far from optimal, revealing critical gaps. mTSBench\nprovides a unified evaluation suite to enable rigorous, reproducible\ncomparisons and catalyze future advances in adaptive anomaly detection and\nrobust model selection.",
+    "keywords": [
+      "cs.LG",
+      "cs.AI"
+    ],
+    "url": "http://arxiv.org/abs/2506.21550v1",
+    "arxiv_id": "2506.21550v1"
+  },
+  {
+    "title": "WorldVLA: Towards Autoregressive Action World Model",
+    "authors": [
+      "Jun Cen",
+      "Chaohui Yu",
+      "Hangjie Yuan",
+      "Yuming Jiang",
+      "Siteng Huang",
+      "Jiayan Guo",
+      "Xin Li",
+      "Yibing Song",
+      "Hao Luo",
+      "Fan Wang",
+      "Deli Zhao",
+      "Hao Chen"
+    ],
+    "year": 2025,
+    "conference": "arXiv",
+    "abstract": "We present WorldVLA, an autoregressive action world model that unifies action\nand image understanding and generation. Our WorldVLA intergrates\nVision-Language-Action (VLA) model and world model in one single framework. The\nworld model predicts future images by leveraging both action and image\nunderstanding, with the purpose of learning the underlying physics of the\nenvironment to improve action generation. Meanwhile, the action model generates\nthe subsequent actions based on image observations, aiding in visual\nunderstanding and in turn helps visual generation of the world model. We\ndemonstrate that WorldVLA outperforms standalone action and world models,\nhighlighting the mutual enhancement between the world model and the action\nmodel. In addition, we find that the performance of the action model\ndeteriorates when generating sequences of actions in an autoregressive manner.\nThis phenomenon can be attributed to the model's limited generalization\ncapability for action prediction, leading to the propagation of errors from\nearlier actions to subsequent ones. To address this issue, we propose an\nattention mask strategy that selectively masks prior actions during the\ngeneration of the current action, which shows significant performance\nimprovement in the action chunk generation task.",
+    "keywords": [
+      "cs.RO",
+      "cs.AI"
+    ],
+    "url": "http://arxiv.org/abs/2506.21539v1",
+    "arxiv_id": "2506.21539v1"
+  },
+  {
+    "title": "PsyLite Technical Report",
+    "authors": [
+      "Fangjun Ding",
+      "Renyu Zhang",
+      "Xinyu Feng",
+      "Chengye Xie",
+      "Zheng Zhang",
+      "Yanting Zhang"
+    ],
+    "year": 2025,
+    "conference": "arXiv",
+    "abstract": "With the rapid development of digital technology, AI-driven psychological\ncounseling has gradually become an important research direction in the field of\nmental health. However, existing models still have deficiencies in dialogue\nsafety, detailed scenario handling, and lightweight deployment. To address\nthese issues, this study proposes PsyLite, a lightweight psychological\ncounseling large language model agent developed based on the base model\nInternLM2.5-7B-chat. Through a two-stage training strategy (hybrid distillation\ndata fine-tuning and ORPO preference optimization), PsyLite enhances the\nmodel's deep-reasoning ability, psychological counseling ability, and safe\ndialogue ability. After deployment using Ollama and Open WebUI, a custom\nworkflow is created with Pipelines. An innovative conditional RAG is designed\nto introduce crosstalk humor elements at appropriate times during psychological\ncounseling to enhance user experience and decline dangerous requests to\nstrengthen dialogue safety. Evaluations show that PsyLite outperforms the\nbaseline models in the Chinese general evaluation (CEval), psychological\ncounseling professional evaluation (CPsyCounE), and dialogue safety evaluation\n(SafeDialBench), particularly in psychological counseling professionalism\n(CPsyCounE score improvement of 47.6\\%) and dialogue safety (\\safe{} score\nimprovement of 2.4\\%). Additionally, the model uses quantization technology\n(GGUF q4\\_k\\_m) to achieve low hardware deployment (5GB memory is sufficient\nfor operation), providing a feasible solution for psychological counseling\napplications in resource-constrained environments.",
+    "keywords": [
+      "cs.AI",
+      "cs.HC"
+    ],
+    "url": "http://arxiv.org/abs/2506.21536v1",
+    "arxiv_id": "2506.21536v1"
+  },
+  {
+    "title": "\"What's Up, Doc?\": Analyzing How Users Seek Health Information in Large-Scale Conversational AI Datasets",
+    "authors": [
+      "Akshay Paruchuri",
+      "Maryam Aziz",
+      "Rohit Vartak",
+      "Ayman Ali",
+      "Best Uchehara",
+      "Xin Liu",
+      "Ishan Chatterjee",
+      "Monica Agrawal"
+    ],
+    "year": 2025,
+    "conference": "arXiv",
+    "abstract": "People are increasingly seeking healthcare information from large language\nmodels (LLMs) via interactive chatbots, yet the nature and inherent risks of\nthese conversations remain largely unexplored. In this paper, we filter\nlarge-scale conversational AI datasets to achieve HealthChat-11K, a curated\ndataset of 11K real-world conversations composed of 25K user messages. We use\nHealthChat-11K and a clinician-driven taxonomy for how users interact with LLMs\nwhen seeking healthcare information in order to systematically study user\ninteractions across 21 distinct health specialties. Our analysis reveals\ninsights into the nature of how and why users seek health information, such as\ncommon interactions, instances of incomplete context, affective behaviors, and\ninteractions (e.g., leading questions) that can induce sycophancy, underscoring\nthe need for improvements in the healthcare support capabilities of LLMs\ndeployed as conversational AI. Code and artifacts to retrieve our analyses and\ncombine them into a curated dataset can be found here:\nhttps://github.com/yahskapar/HealthChat",
+    "keywords": [
+      "cs.CL",
+      "cs.AI",
+      "cs.CY"
+    ],
+    "url": "http://arxiv.org/abs/2506.21532v1",
+    "arxiv_id": "2506.21532v1"
+  },
+  {
+    "title": "Potemkin Understanding in Large Language Models",
+    "authors": [
+      "Marina Mancoridis",
+      "Bec Weeks",
+      "Keyon Vafa",
+      "Sendhil Mullainathan"
+    ],
+    "year": 2025,
+    "conference": "arXiv",
+    "abstract": "Large language models (LLMs) are regularly evaluated using benchmark\ndatasets. But what justifies making inferences about an LLM's capabilities\nbased on its answers to a curated set of questions? This paper first introduces\na formal framework to address this question. The key is to note that the\nbenchmarks used to test LLMs -- such as AP exams -- are also those used to test\npeople. However, this raises an implication: these benchmarks are only valid\ntests if LLMs misunderstand concepts in ways that mirror human\nmisunderstandings. Otherwise, success on benchmarks only demonstrates potemkin\nunderstanding: the illusion of understanding driven by answers irreconcilable\nwith how any human would interpret a concept. We present two procedures for\nquantifying the existence of potemkins: one using a specially designed\nbenchmark in three domains, the other using a general procedure that provides a\nlower-bound on their prevalence. We find that potemkins are ubiquitous across\nmodels, tasks, and domains. We also find that these failures reflect not just\nincorrect understanding, but deeper internal incoherence in concept\nrepresentations.",
+    "keywords": [
+      "cs.CL",
+      "cs.AI"
+    ],
+    "url": "http://arxiv.org/abs/2506.21521v1",
+    "arxiv_id": "2506.21521v1"
+  },
+  {
+    "title": "skLEP: A Slovak General Language Understanding Benchmark",
+    "authors": [
+      "Marek Šuppa",
+      "Andrej Ridzik",
+      "Daniel Hládek",
+      "Tomáš Javůrek",
+      "Viktória Ondrejová",
+      "Kristína Sásiková",
+      "Martin Tamajka",
+      "Marián Šimko"
+    ],
+    "year": 2025,
+    "conference": "arXiv",
+    "abstract": "In this work, we introduce skLEP, the first comprehensive benchmark\nspecifically designed for evaluating Slovak natural language understanding\n(NLU) models. We have compiled skLEP to encompass nine diverse tasks that span\ntoken-level, sentence-pair, and document-level challenges, thereby offering a\nthorough assessment of model capabilities. To create this benchmark, we curated\nnew, original datasets tailored for Slovak and meticulously translated\nestablished English NLU resources. Within this paper, we also present the first\nsystematic and extensive evaluation of a wide array of Slovak-specific,\nmultilingual, and English pre-trained language models using the skLEP tasks.\nFinally, we also release the complete benchmark data, an open-source toolkit\nfacilitating both fine-tuning and evaluation of models, and a public\nleaderboard at https://github.com/slovak-nlp/sklep in the hopes of fostering\nreproducibility and drive future research in Slovak NLU.",
+    "keywords": [
+      "cs.CL",
+      "cs.AI",
+      "cs.IR",
+      "cs.LG",
+      "68T50",
+      "I.2.7"
+    ],
+    "url": "http://arxiv.org/abs/2506.21508v1",
+    "arxiv_id": "2506.21508v1"
+  },
+  {
+    "title": "Mind2Web 2: Evaluating Agentic Search with Agent-as-a-Judge",
+    "authors": [
+      "Boyu Gou",
+      "Zanming Huang",
+      "Yuting Ning",
+      "Yu Gu",
+      "Michael Lin",
+      "Weijian Qi",
+      "Andrei Kopanev",
+      "Botao Yu",
+      "Bernal Jiménez Gutiérrez",
+      "Yiheng Shu",
+      "Chan Hee Song",
+      "Jiaman Wu",
+      "Shijie Chen",
+      "Hanane Nour Moussa",
+      "Tianshu Zhang",
+      "Jian Xie",
+      "Yifei Li",
+      "Tianci Xue",
+      "Zeyi Liao",
+      "Kai Zhang",
+      "Boyuan Zheng",
+      "Zhaowei Cai",
+      "Viktor Rozgic",
+      "Morteza Ziyadi",
+      "Huan Sun",
+      "Yu Su"
+    ],
+    "year": 2025,
+    "conference": "arXiv",
+    "abstract": "Agentic search such as Deep Research systems, where large language models\nautonomously browse the web, synthesize information, and return comprehensive\ncitation-backed answers, represents a major shift in how users interact with\nweb-scale information. While promising greater efficiency and cognitive\noffloading, the growing complexity and open-endedness of agentic search have\noutpaced existing evaluation benchmarks and methodologies, which largely assume\nshort search horizons and static answers. In this paper, we introduce Mind2Web\n2, a benchmark of 130 realistic, high-quality, and long-horizon tasks that\nrequire real-time web browsing and extensive information synthesis, constructed\nwith over 1,000 hours of human labor. To address the challenge of evaluating\ntime-varying and complex answers, we propose a novel Agent-as-a-Judge\nframework. Our method constructs task-specific judge agents based on a\ntree-structured rubric design to automatically assess both answer correctness\nand source attribution. We conduct a comprehensive evaluation of nine frontier\nagentic search systems and human performance, along with a detailed error\nanalysis to draw insights for future development. The best-performing system,\nOpenAI Deep Research, can already achieve 50-70% of human performance while\nspending half the time, showing a great potential. Altogether, Mind2Web 2\nprovides a rigorous foundation for developing and benchmarking the next\ngeneration of agentic search systems.",
+    "keywords": [
+      "cs.AI",
+      "cs.CL"
+    ],
+    "url": "http://arxiv.org/abs/2506.21506v1",
+    "arxiv_id": "2506.21506v1"
+  },
+  {
+    "title": "Process mining-driven modeling and simulation to enhance fault diagnosis in cyber-physical systems",
+    "authors": [
+      "Francesco Vitale",
+      "Nicola Dall'Ora",
+      "Sebastiano Gaiardelli",
+      "Enrico Fraccaroli",
+      "Nicola Mazzocca",
+      "Franco Fummi"
+    ],
+    "year": 2025,
+    "conference": "arXiv",
+    "abstract": "Fault diagnosis in Cyber-Physical Systems (CPSs) is essential for ensuring\nsystem dependability and operational efficiency by accurately detecting\nanomalies and identifying their root causes. However, the manual modeling of\nfaulty behaviors often demands extensive domain expertise and produces models\nthat are complex, error-prone, and difficult to interpret. To address this\nchallenge, we present a novel unsupervised fault diagnosis methodology that\nintegrates collective anomaly detection in multivariate time series, process\nmining, and stochastic simulation. Initially, collective anomalies are detected\nfrom low-level sensor data using multivariate time-series analysis. These\nanomalies are then transformed into structured event logs, enabling the\ndiscovery of interpretable process models through process mining. By\nincorporating timing distributions into the extracted Petri nets, the approach\nsupports stochastic simulation of faulty behaviors, thereby enhancing root\ncause analysis and behavioral understanding. The methodology is validated using\nthe Robotic Arm Dataset (RoAD), a widely recognized benchmark in smart\nmanufacturing. Experimental results demonstrate its effectiveness in modeling,\nsimulating, and classifying faulty behaviors in CPSs. This enables the creation\nof comprehensive fault dictionaries that support predictive maintenance and the\ndevelopment of digital twins for industrial environments.",
+    "keywords": [
+      "cs.LG",
+      "cs.AI"
+    ],
+    "url": "http://arxiv.org/abs/2506.21502v1",
+    "arxiv_id": "2506.21502v1"
   }
 ]
