@@ -58,7 +58,7 @@ class ConferencePaperScraper:
         self.arxiv_config = {
             "categories": [
                 {"name": "Computer Vision", "query": "cat:cs.CV", "max_results": 10},
-                {"name": "Machine Learning", "query": "cat:cs.LG", "max_results": 10}
+                {"name": "Large Language Models", "query": "cat:cs.CL OR cat:cs.AI AND (large language model OR LLM)", "max_results": 10}
             ],
             "delay_seconds": 3,
             "num_retries": 5
@@ -302,7 +302,9 @@ class ConferencePaperScraper:
         if not conferences:
             conferences = list(self.conference_configs.keys())
 
-        new_papers = []
+        new_papers_count = 0
+        scrape_results = {"conference": {}, "arxiv": {"success": 0, "failed": 0}}
+
         seen_identifiers = set()
 
         # 将现有论文添加到seen_identifiers中，以便去重
@@ -315,6 +317,7 @@ class ConferencePaperScraper:
 
         # 抓取会议论文
         for conf_name in conferences:
+            scrape_results["conference"][conf_name] = {"success": 0, "failed": 0}
             if conf_name in self.conference_configs:
                 config = self.conference_configs[conf_name]
                 years_to_scrape = years if years else config['years']
@@ -327,91 +330,66 @@ class ConferencePaperScraper:
                         # 对于ECCV，URL是固定的，年份在解析器内部处理
                         elif conf_name == 'eccv':
                             url = config['url_template']
+                        elif conf_name == 'neurips':
+                            url = config['url_template'].format(year=year)
+                        elif conf_name == 'iclr':
+                            url = config['url_template'].format(year=year)
                         else:
                             logger.warning(f"未知会议配置: {conf_name}")
+                            scrape_results["conference"][conf_name]["failed"] += 1
                             continue
 
                         response = requests.get(url)
                         response.raise_for_status() # 检查HTTP请求是否成功
                         scraped_papers = config['parser'](year, response.content)
+                        current_conf_new_papers = 0
                         for paper in scraped_papers:
                             identifier = (paper['title'], paper['year'], paper['url'])
                             if identifier not in seen_identifiers:
-                                new_papers.append(paper)
+                                self.papers.append(paper)
                                 seen_identifiers.add(identifier)
+                                new_papers_count += 1
+                                current_conf_new_papers += 1
                             else:
-                                logger.info(f"跳过重复论文 (会议): {paper['title']}")
+                                logger.debug(f"跳过重复论文 (会议): {paper['title']}")
+                        scrape_results["conference"][conf_name]["success"] += current_conf_new_papers
+                        logger.info(f"成功抓取 {conf_name.upper()} {year} 年论文 {current_conf_new_papers} 篇。")
                     except requests.exceptions.RequestException as e:
                         logger.error(f"抓取 {conf_name.upper()} {year} 年论文失败: {e}")
+                        scrape_results["conference"][conf_name]["failed"] += 1
+                    except Exception as e:
+                        logger.error(f"处理 {conf_name.upper()} {year} 年数据时发生错误: {e}")
+                        scrape_results["conference"][conf_name]["failed"] += 1
                     time.sleep(1) # 每次请求后暂停1秒
 
         # 抓取arXiv论文
         if include_arxiv:
             logger.info("开始抓取arXiv论文...")
-            arxiv_scraped_papers = self._fetch_arxiv_papers()
-            for paper in arxiv_scraped_papers:
-                if 'arxiv_id' in paper and paper['arxiv_id'] not in seen_identifiers:
-                    new_papers.append(paper)
-                    seen_identifiers.add(paper['arxiv_id'])
-                else:
-                    logger.info(f"跳过重复论文 (arXiv): {paper['title']}")
-
-
-        # 记录已有的论文ID（标题+年份作为唯一标识）
-        existing_paper_ids = {(p['title'], p['year']) for p in self.papers}
-        
-        for conf_name in conferences:
-            if conf_name not in self.conference_configs:
-                logger.warning(f"不支持的会议: {conf_name}")
-                continue
-                
-            conf_config = self.conference_configs[conf_name]
-            conf_years = years or conf_config['years']
-            
-            logger.info(f"开始更新 {conf_name.upper()} 会议论文索引，年份: {conf_years}")
-            
-            for year in conf_years:
-                # 检查年份是否在配置的年份范围内
-                if year not in conf_config['years']:
-                    logger.warning(f"{conf_name.upper()} 会议在 {year} 年没有数据或不支持爬取")
-                    continue
-
-                try:
-                    url = conf_config['url_template'].format(year=year)
-                    logger.info(f"爬取 {conf_name.upper()} {year} 年的页面: {url}")
-                    response = requests.get(url)
-                    response.raise_for_status() # 检查HTTP请求是否成功
-                    
-                    new_papers = conf_config['parser'](year, response.content)
-                    for paper in new_papers:
-                        paper_id = (paper['title'], paper['year'])
-                        if paper_id not in existing_paper_ids:
-                            self.papers.append(paper)
-                            existing_paper_ids.add(paper_id)
-                            logger.info(f"新增论文: {paper['title']} ({paper['conference']} {paper['year']})")
-                        else:
-                            logger.debug(f"论文已存在，跳过: {paper['title']}")
-                    
-                except requests.exceptions.RequestException as e:
-                    logger.error(f"请求 {conf_name.upper()} {year} 年页面失败: {e}")
-                except Exception as e:
-                    logger.error(f"处理 {conf_name.upper()} {year} 年数据时发生错误: {e}")
-        
-        if include_arxiv:
-            logger.info("开始更新arXiv论文索引")
-            arxiv_new_papers = self._fetch_arxiv_papers()
-            for paper in arxiv_new_papers:
-                # arXiv论文可能没有年份，或者年份不作为唯一标识的一部分，这里简化处理
-                # 实际应用中可能需要更复杂的去重逻辑，例如使用entry_id
-                paper_id = (paper['title'], paper['year'], paper['url'])
-                if paper_id not in existing_paper_ids:
-                    self.papers.append(paper)
-                    existing_paper_ids.add(paper_id)
-                    logger.info(f"新增arXiv论文: {paper['title']} ({paper['year']})")
-                else:
-                    logger.debug(f"arXiv论文已存在，跳过: {paper['title']}")
+            try:
+                arxiv_scraped_papers = self._fetch_arxiv_papers()
+                current_arxiv_new_papers = 0
+                for paper in arxiv_scraped_papers:
+                    if 'arxiv_id' in paper and paper['arxiv_id'] not in seen_identifiers:
+                        self.papers.append(paper)
+                        seen_identifiers.add(paper['arxiv_id'])
+                        new_papers_count += 1
+                        current_arxiv_new_papers += 1
+                    else:
+                        logger.debug(f"跳过重复论文 (arXiv): {paper['title']}")
+                scrape_results["arxiv"]["success"] += current_arxiv_new_papers
+                logger.info(f"成功抓取arXiv论文 {current_arxiv_new_papers} 篇。")
+            except Exception as e:
+                logger.error(f"抓取arXiv论文失败: {e}")
+                scrape_results["arxiv"]["failed"] += 1
 
         self._save_index()
+        logger.info(f"本次运行共新增 {new_papers_count} 篇论文。")
+        logger.info("\n--- 抓取结果总结 ---")
+        for conf_name, stats in scrape_results["conference"].items():
+            logger.info(f"会议 {conf_name.upper()}: 成功抓取 {stats['success']} 篇，失败 {stats['failed']} 次")
+        if include_arxiv:
+            logger.info(f"arXiv: 成功抓取 {scrape_results['arxiv']['success']} 篇，失败 {scrape_results['arxiv']['failed']} 次")
+        logger.info("--------------------")
 
 if __name__ == "__main__":
     scraper = ConferencePaperScraper()
