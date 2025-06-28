@@ -25,21 +25,32 @@ class ConferencePaperScraper:
         self.papers = self._load_index()
         
         # 定义支持的会议及其URL模板
+        current_year = datetime.now().year
         self.conference_configs = {
             "cvpr": {
                 "url_template": "https://openaccess.thecvf.com/{year}",
-                "years": list(range(2013, datetime.now().year + 1)),
+                "years": list(range(current_year - 4, current_year + 1)), # 最近五年
                 "parser": self._parse_cvf_conference
             },
             "iccv": {
                 "url_template": "https://openaccess.thecvf.com/{year}",
-                "years": list(range(2013, datetime.now().year + 1, 2)),
+                "years": list(range(current_year - 4, current_year + 1, 2)), # 最近五年，双年会议
                 "parser": self._parse_cvf_conference
             },
             "eccv": {
-                "url_template": "https://www.ecva.net/papers.php",
-                "years": list(range(2012, datetime.now().year + 1, 2)),
+                "url_template": "https://www.ecva.net/papers.php", # ECCV的URL可能需要更复杂的处理，这里暂时保持不变
+                "years": list(range(current_year - 4, current_year + 1, 2)), # 最近五年，双年会议
                 "parser": self._parse_eccv
+            },
+            "neurips": {
+                "url_template": "https://papers.nips.cc/paper_files/paper/{year}",
+                "years": list(range(current_year - 4, current_year + 1)),
+                "parser": self._parse_neurips
+            },
+            "iclr": {
+                "url_template": "https://openreview.net/group?id=ICLR.cc/{year}/Conference",
+                "years": list(range(current_year - 4, current_year + 1)),
+                "parser": self._parse_iclr
             }
         }
 
@@ -153,6 +164,92 @@ class ConferencePaperScraper:
                 continue
             except Exception as e:
                 logger.error(f"解析ECCV论文失败: {e}. 论文条目HTML: {paper_item}")
+                continue
+        
+        return papers
+
+    def _parse_neurips(self, year: int, content: str) -> List[Dict[str, Any]]:
+        """解析NeurIPS会议的论文信息"""
+        soup = BeautifulSoup(content, 'html.parser')
+        papers = []
+        
+        # NeurIPS网站结构可能每年不同，这里尝试一种常见结构
+        # 查找所有论文条目，通常在 'div.paper' 或 'li' 元素中
+        for paper_item in soup.select('div.maincard'): # 假设论文条目有这样的class
+            try:
+                title_elem = paper_item.select_one('p.title a')
+                title = title_elem.text.strip() if title_elem else 'N/A'
+                paper_url = f"https://papers.nips.cc{title_elem['href']}" if title_elem and 'href' in title_elem.attrs else ''
+
+                # 访问论文详情页获取作者和摘要
+                if paper_url:
+                    time.sleep(0.5) # 避免请求过快
+                    paper_detail_page = requests.get(paper_url)
+                    paper_detail_soup = BeautifulSoup(paper_detail_page.content, 'html.parser')
+
+                    authors_elem = paper_detail_soup.select_one('p.authors')
+                    authors = [a.strip() for a in authors_elem.text.replace('Authors:', '').split(',') if a.strip()] if authors_elem else []
+
+                    abstract_elem = paper_detail_soup.select_one('p.abstract')
+                    abstract = abstract_elem.text.replace('Abstract:', '').strip() if abstract_elem else ''
+
+                    papers.append({
+                        'title': title,
+                        'authors': authors,
+                        'year': year,
+                        'conference': 'NeurIPS',
+                        'abstract': abstract,
+                        'keywords': [], # NeurIPS页面可能没有直接的关键词
+                        'url': paper_url
+                    })
+            except AttributeError as e:
+                logger.error(f"解析NeurIPS论文时缺少必要字段: {e}. 论文条目HTML: {paper_item}")
+                continue
+            except Exception as e:
+                logger.error(f"解析NeurIPS论文失败: {e}. 论文条目HTML: {paper_item}")
+                continue
+        
+        return papers
+
+    def _parse_iclr(self, year: int, content: str) -> List[Dict[str, Any]]:
+        """解析ICLR会议的论文信息"""
+        soup = BeautifulSoup(content, 'html.parser')
+        papers = []
+        
+        # ICLR论文通常发布在OpenReview上，其结构可能与NeurIPS类似
+        # 查找所有论文条目
+        for paper_item in soup.select('div.note'): # 假设论文条目在 'div.note' 中
+            try:
+                title_elem = paper_item.select_one('h4.note_content_title a')
+                title = title_elem.text.strip() if title_elem else 'N/A'
+                paper_url = f"https://openreview.net{title_elem['href']}" if title_elem and 'href' in title_elem.attrs else ''
+
+                # 访问论文详情页获取作者和摘要
+                if paper_url:
+                    time.sleep(0.5) # 避免请求过快
+                    paper_detail_page = requests.get(paper_url)
+                    paper_detail_soup = BeautifulSoup(paper_detail_page.content, 'html.parser')
+
+                    authors_elem = paper_detail_soup.select_one('div.note_content_authors')
+                    authors = [a.strip() for a in authors_elem.text.replace('Authors:', '').split(',') if a.strip()] if authors_elem else []
+
+                    abstract_elem = paper_detail_soup.select_one('div.abstract_content')
+                    abstract = abstract_elem.text.strip() if abstract_elem else ''
+
+                    papers.append({
+                        'title': title,
+                        'authors': authors,
+                        'year': year,
+                        'conference': 'ICLR',
+                        'abstract': abstract,
+                        'keywords': [], # ICLR页面可能没有直接的关键词
+                        'url': paper_url
+                    })
+            except AttributeError as e:
+                logger.error(f"解析ICLR论文时缺少必要字段: {e}. 论文条目HTML: {paper_item}")
+                continue
+            except Exception as e:
+                logger.error(f"解析ICLR论文失败: {e}. 论文条目HTML: {paper_item}")
                 continue
         
         return papers
