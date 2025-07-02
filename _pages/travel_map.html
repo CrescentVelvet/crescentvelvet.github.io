@@ -10,7 +10,8 @@ layout: null
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>我的航旅足迹</title>
     <!-- 设置基础URL，解决CORS问题 -->
-    <base href="http://localhost:4000/" />
+    <!-- <base href="http://localhost:4000/" /> -->
+    <base href="http://127.0.0.1:4000/" />
     <!-- 引入 Leaflet 样式 -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
     <!-- 引入 Leaflet 脚本 -->
@@ -151,8 +152,10 @@ layout: null
                     <option value="curved">弧线航线</option>
                 </select>
                 <button onclick="addFlight()">添加航线</button>
-                <button onclick="clearFlights()">清除所有航线</button>
+                <button onclick="clearFlights()" style="background-color: #008B8B;">清除所有航线</button>
                 <button onclick="playAnimation()" style="background-color: #FF6347;">播放航线动画</button>
+                <button onclick="exportFlightPaths()" style="background-color: #77c306;">导出航线</button>
+                <button id="backHomeBtn" class="action-button" onclick="window.location.href='index.html'" style="background-color: #FF4500;">返回首页</button>
             </div>
             <div id="flight-list"></div>
         </div>
@@ -1086,7 +1089,33 @@ layout: null
                 window.travelMap.invalidateSize();
             }
         });
+
+        // 导出航线数据为JSON文件
+        function exportFlightPaths() {
+            if (flights.length === 0) {
+                alert('没有航线数据可以导出！');
+                return;
+            }
+
+            const dataStr = JSON.stringify(flights, null, 4); // 格式化JSON
+            const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
+
+            const exportFileDefaultName = 'flight_paths.json';
+
+            let linkElement = document.createElement('a');
+            linkElement.setAttribute('href', dataUri);
+            linkElement.setAttribute('download', exportFileDefaultName);
+            linkElement.click(); // 模拟点击下载
+            linkElement.remove(); // 移除创建的a标签
+        }
+
+        // 绑定导出按钮事件
+        document.addEventListener('DOMContentLoaded', function() {
+            const exportBtn = document.getElementById('exportFlightsBtn');
+            if (exportBtn) {
+                exportBtn.addEventListener('click', exportFlightPaths);
+            }
+        });
     </script>
-    <a href="/" class="back-button" style="position: fixed; bottom: 20px; left: 20px; background-color: #1E90FF; color: white; padding: 10px 15px; text-decoration: none; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); z-index: 1000;">返回首页</a>
 </body>
 </html>
