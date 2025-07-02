@@ -1,6 +1,6 @@
 ---
 permalink: /travel_map.html
-layout: default
+layout: null
 ---
 
 <!DOCTYPE html>
@@ -8,31 +8,51 @@ layout: default
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>我的旅行足迹</title>
+    <title>我的航旅足迹</title>
+    <!-- 设置基础URL，解决CORS问题 -->
+    <base href="http://localhost:4000/" />
     <!-- 引入 Leaflet 样式 -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
     <!-- 引入 Leaflet 脚本 -->
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <!-- 引入 Leaflet.curve 插件，用于绘制曲线 -->
+    <script src="https://unpkg.com/leaflet-curve@2.0.0/leaflet.curve.js"></script>
     <style>
-        body {
+        html, body {
             font-family: Arial, sans-serif;
             margin: 0;
             padding: 0;
+            height: 100%;
+            width: 100%;
+            overflow: hidden;
+        }
+        
+        body {
             display: flex;
             flex-direction: column;
-            height: 100vh;
         }
 
         .header {
-            background-color: #4CAF50;
+            background-color: #1E90FF;
             color: white;
             padding: 15px;
             text-align: center;
+            height: 30px;
+            line-height: 30px;
+            z-index: 2;
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
         }
 
         .content {
             display: flex;
             flex: 1;
+            height: calc(100% - 60px); /* 减去header的高度 */
+            overflow: hidden;
+            position: relative;
         }
 
         .sidebar {
@@ -40,10 +60,17 @@ layout: default
             background-color: #f4f4f4;
             padding: 20px;
             overflow-y: auto;
+            z-index: 2;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+            height: 100%;
         }
 
         #map {
             flex: 1;
+            height: 100% !important; /* 确保地图容器有高度 */
+            width: 100% !important;
+            position: relative !important;
+            z-index: 1;
         }
 
         .form-container {
@@ -57,14 +84,15 @@ layout: default
         }
 
         button {
-            background-color: #4CAF50;
+            background-color: #1E90FF;
             color: white;
             border: none;
             cursor: pointer;
+            border-radius: 4px;
         }
 
         button:hover {
-            background-color: #45a049;
+            background-color: #187bcd;
         }
 
         .location-item {
@@ -78,126 +106,676 @@ layout: default
 </head>
 <body>
     <div class="header">
-        <h1>我的旅行足迹</h1>
+        <h1>我的航旅足迹</h1>
     </div>
     <div class="content">
         <div class="sidebar">
             <div class="form-container">
-                <input type="text" id="location" placeholder="输入地点">
-                <input type="datetime-local" id="time">
-                <button onclick="addLocation()">保存地点</button>
-                <button onclick="clearLocations()">清除轨迹</button>
+                <input type="text" id="departure" placeholder="出发机场 (如: PEK, 北京首都)">
+                <input type="text" id="arrival" placeholder="到达机场 (如: SHA, 上海虹桥)">
+                <input type="datetime-local" id="flight-time">
+                <select id="flight-type" style="margin: 5px; padding: 8px; width: calc(100% - 10px);">
+                    <option value="direct">直飞航线</option>
+                    <option value="curved">弧线航线</option>
+                </select>
+                <button onclick="addFlight()">添加航线</button>
+                <button onclick="clearFlights()">清除所有航线</button>
+                <button onclick="playAnimation()" style="background-color: #FF6347;">播放航线动画</button>
             </div>
-            <div id="location-list"></div>
+            <div id="flight-list"></div>
         </div>
         <div id="map"></div>
     </div>
 
     <script>
-        // 初始化地图
-        var map = L.map('map').setView([0, 0], 2);
-
-        // 添加地图图层
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap contributors'
-        }).addTo(map);
-
-        // 添加调试信息
-        console.log('地图初始化完成');
-        if(!map) {
-            console.error('地图初始化失败');
+        // 添加调试信息 - 检查DOM是否已加载
+        console.log('DOM加载状态:', document.readyState);
+        
+        // 全局变量，用于跟踪地图瓦片加载状态
+        var tileLoadErrors = 0;
+        var tileLoadSuccess = 0;
+        
+        // 添加全局错误处理函数，用于捕获地图瓦片加载错误
+        function handleTileError(event) {
+            tileLoadErrors++;
+            console.warn('地图瓦片加载失败:', event);
+            
+            // 如果错误太多，尝试切换到备用图层
+            if (tileLoadErrors > 5 && window.travelMap && window.fallbackLayerAdded === false) {
+                console.warn('检测到多个瓦片加载错误，尝试切换到备用图层');
+                try {
+                    window.fallbackLayer.addTo(window.travelMap);
+                    window.fallbackLayerAdded = true;
+                    console.log('已切换到备用地图图层');
+                } catch (error) {
+                    console.error('切换到备用图层失败:', error);
+                }
+            }
         }
+        
+        // 添加全局函数，用于处理地图瓦片加载成功
+        function handleTileLoad() {
+            tileLoadSuccess++;
+            // 可以在这里添加加载进度指示
+        }
+        
+        // 使用window.onload确保所有资源（包括图片）都加载完成
+        window.onload = function() {
+            console.log('所有资源加载完成，开始初始化地图');
+            // 给DOM渲染一些时间
+            setTimeout(function() {
+                console.log('地图容器元素:', document.getElementById('map'));
+                console.log('地图容器尺寸:', document.getElementById('map').offsetWidth, 'x', document.getElementById('map').offsetHeight);
+                initMap();
+            }, 500);
+        };
+        
+        // 添加全局错误处理
+        window.addEventListener('error', function(event) {
+            if (event.target && (event.target.src || event.target.href)) {
+                var resource = event.target.src || event.target.href;
+                // 检查是否是地图瓦片资源
+                if (resource.includes('tile') || resource.includes('mapbox') || resource.includes('carto')) {
+                    handleTileError(event);
+                    // 阻止错误冒泡
+                    event.stopPropagation();
+                    event.preventDefault();
+                    return true;
+                }
+            }
+        }, true); // 使用捕获阶段
+        
+        function initMap() {
+            try {
+                // 初始化地图
+                console.log('正在初始化地图...');
+                var mapContainer = document.getElementById('map');
+                console.log('地图容器尺寸:', mapContainer.offsetWidth, 'x', mapContainer.offsetHeight);
+                
+                // 确保地图容器可见
+                mapContainer.style.display = 'block';
+                
+                // 创建地图实例
+                var map = L.map('map', {
+                    center: [39.9042, 116.4074], // 默认视图设为中国
+                    zoom: 5,
+                    zoomControl: true,
+                    attributionControl: true
+                });
 
-        // 存储轨迹点和地点信息
-        var locations = JSON.parse(localStorage.getItem('travelLocations')) || [];
-        var locationInfo = JSON.parse(localStorage.getItem('locationInfo')) || [];
-        var polyline = L.polyline(locations, {color: 'red'}).addTo(map);
+                // 添加地图图层 - 使用Mapbox替代OpenStreetMap以解决连接问题
+                // 添加多个备选地图源，如果一个失败可以尝试另一个
+                var mainLayer = L.tileLayer('https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}?access_token=pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTA2emYycXBndHRqcmZ3N3gifQ.rJcFIG214AriISLbB6B5aw', {
+                    attribution: '© <a href="https://www.mapbox.com/about/maps/">Mapbox</a> © <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+                    id: 'mapbox/streets-v11',
+                    tileSize: 512,
+                    zoomOffset: -1,
+                    maxZoom: 19
+                });
+                
+                // 创建备用图层并存储到全局变量
+                window.fallbackLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+                    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions">CARTO</a>',
+                    subdomains: 'abcd',
+                    maxZoom: 19
+                });
+                
+                // 第三备用图层 - 使用高德地图（适合中国大陆地区）
+                window.thirdLayer = L.tileLayer('https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}', {
+                    attribution: '© 高德地图',
+                    subdomains: "1234",
+                    maxZoom: 19
+                });
+                
+                // 初始化图层状态标志
+                window.fallbackLayerAdded = false;
+                window.thirdLayerAdded = false;
+                
+                // 添加瓦片加载事件监听
+                mainLayer.on('tileerror', function(event) {
+                    handleTileError(event);
+                });
+                
+                mainLayer.on('tileload', function() {
+                    handleTileLoad();
+                });
+                
+                // 尝试添加主图层，如果失败则使用备用图层
+                try {
+                    mainLayer.addTo(map);
+                    console.log('主地图图层加载成功');
+                } catch (error) {
+                    console.error('主地图图层加载失败，尝试备用图层:', error);
+                    try {
+                        window.fallbackLayer.addTo(map);
+                        window.fallbackLayerAdded = true;
+                        console.log('备用地图图层加载成功');
+                    } catch (fallbackError) {
+                        console.error('备用地图图层加载失败，尝试第三备用图层:', fallbackError);
+                        try {
+                            window.thirdLayer.addTo(map);
+                            window.thirdLayerAdded = true;
+                            console.log('第三备用地图图层加载成功');
+                        } catch (thirdError) {
+                            console.error('所有地图图层加载失败:', thirdError);
+                            alert('地图图层加载失败，请检查网络连接');
+                        }
+                    }
+                }
 
-        // 重新绘制轨迹
-        function redrawPolyline() {
-            polyline.setLatLngs(locations);
-            if (locations.length > 0) {
-                map.fitBounds(polyline.getBounds());
+                console.log('地图初始化完成');
+                
+                // 存储地图实例到全局变量
+                window.travelMap = map;
+                
+                // 强制重新计算地图大小
+                setTimeout(function() {
+                    map.invalidateSize();
+                    console.log('地图大小已重新计算');
+                    
+                        // 初始化航线
+                    initFlightPaths();
+                }, 100);
+            } catch (error) {
+                console.error('地图初始化失败:', error);
+                alert('地图加载失败，请查看控制台获取详细信息');
             }
         }
 
-        // 更新地点列表
-        function updateLocationList() {
-            var locationList = document.getElementById('location-list');
-            locationList.innerHTML = '';
-            locationInfo.forEach((info, index) => {
+        // 存储航线和航班信息
+        var flights = JSON.parse(localStorage.getItem('flights')) || [];
+        var flightInfo = JSON.parse(localStorage.getItem('flightInfo')) || [];
+        var flightPaths = [];
+        var animationMarker;
+        var animationPath;
+        var animationInterval;
+        
+        // 常用机场数据 - 包含IATA代码、名称、经纬度
+        var airports = {
+            // 中国主要机场
+            "PEK": { name: "北京首都国际机场", lat: 40.0799, lng: 116.6031 },
+            "PKX": { name: "北京大兴国际机场", lat: 39.5098, lng: 116.4105 },
+            "SHA": { name: "上海虹桥国际机场", lat: 31.1979, lng: 121.3363 },
+            "PVG": { name: "上海浦东国际机场", lat: 31.1443, lng: 121.8083 },
+            "CAN": { name: "广州白云国际机场", lat: 23.3959, lng: 113.3080 },
+            "SZX": { name: "深圳宝安国际机场", lat: 22.6394, lng: 113.8106 },
+            "CTU": { name: "成都双流国际机场", lat: 30.5785, lng: 103.9471 },
+            "TFU": { name: "成都天府国际机场", lat: 30.3125, lng: 104.4415 },
+            "CKG": { name: "重庆江北国际机场", lat: 29.7192, lng: 106.6413 },
+            "XIY": { name: "西安咸阳国际机场", lat: 34.4471, lng: 108.7516 },
+            "HGH": { name: "杭州萧山国际机场", lat: 30.2294, lng: 120.4412 },
+            "NKG": { name: "南京禄口国际机场", lat: 31.7418, lng: 118.8673 },
+            "CSX": { name: "长沙黄花国际机场", lat: 28.1913, lng: 113.2192 },
+            "KMG": { name: "昆明长水国际机场", lat: 25.1019, lng: 102.9299 },
+            "WUH": { name: "武汉天河国际机场", lat: 30.7838, lng: 114.2081 },
+            "TSN": { name: "天津滨海国际机场", lat: 39.1246, lng: 117.3462 },
+            "CGO": { name: "郑州新郑国际机场", lat: 34.5196, lng: 113.8408 },
+            "TAO": { name: "青岛流亭国际机场", lat: 36.2661, lng: 120.3826 },
+            "DLC": { name: "大连周水子国际机场", lat: 38.9657, lng: 121.5385 },
+            "SYX": { name: "三亚凤凰国际机场", lat: 18.3029, lng: 109.4120 },
+            "HAK": { name: "海口美兰国际机场", lat: 19.9349, lng: 110.4590 },
+            
+            // 国际主要机场
+            "HKG": { name: "香港国际机场", lat: 22.3080, lng: 113.9185 },
+            "TPE": { name: "台北桃园国际机场", lat: 25.0797, lng: 121.2342 },
+            "NRT": { name: "东京成田国际机场", lat: 35.7647, lng: 140.3864 },
+            "HND": { name: "东京羽田国际机场", lat: 35.5494, lng: 139.7798 },
+            "ICN": { name: "首尔仁川国际机场", lat: 37.4602, lng: 126.4407 },
+            "SIN": { name: "新加坡樟宜国际机场", lat: 1.3644, lng: 103.9915 },
+            "BKK": { name: "曼谷素万那普国际机场", lat: 13.6900, lng: 100.7501 },
+            "KUL": { name: "吉隆坡国际机场", lat: 2.7456, lng: 101.7099 },
+            "JFK": { name: "纽约肯尼迪国际机场", lat: 40.6413, lng: -73.7781 },
+            "LAX": { name: "洛杉矶国际机场", lat: 33.9416, lng: -118.4085 },
+            "LHR": { name: "伦敦希思罗国际机场", lat: 51.4700, lng: -0.4543 },
+            "CDG": { name: "巴黎戴高乐国际机场", lat: 49.0097, lng: 2.5479 },
+            "FRA": { name: "法兰克福国际机场", lat: 50.0379, lng: 8.5622 },
+            "SYD": { name: "悉尼金斯福德·史密斯国际机场", lat: -33.9399, lng: 151.1753 }
+        };
+        
+        // 搜索机场函数
+        function searchAirport(query) {
+            query = query.trim().toUpperCase();
+            
+            // 直接匹配IATA代码
+            if (airports[query]) {
+                return [{
+                    code: query,
+                    ...airports[query]
+                }];
+            }
+            
+            // 搜索机场名称
+            var results = [];
+            for (var code in airports) {
+                if (airports[code].name.includes(query) || code.includes(query)) {
+                    results.push({
+                        code: code,
+                        ...airports[code]
+                    });
+                }
+            }
+            
+            return results;
+        }
+        
+        // 在地图初始化完成后初始化航线
+        function initFlightPaths() {
+            if (window.travelMap) {
+                console.log('初始化航线');
+                try {
+                    // 清除现有航线
+                    clearFlightPaths();
+                    
+                    // 绘制所有保存的航线
+                    flights.forEach((flight, index) => {
+                        drawFlight(flight.from, flight.to, flight.type, index);
+                    });
+                    
+                    // 更新航班列表
+                    updateFlightList();
+                    
+                    // 如果有航线，调整地图视图
+                    if (flightPaths.length > 0) {
+                        fitMapToFlights();
+                    }
+                    
+                    console.log('航线初始化完成');
+                } catch (error) {
+                    console.error('航线初始化失败:', error);
+                }
+            } else {
+                console.error('地图未初始化，无法添加航线');
+                // 稍后重试
+                setTimeout(initFlightPaths, 1000);
+            }
+        }
+        
+        // 清除所有航线路径
+        function clearFlightPaths() {
+            flightPaths.forEach(path => {
+                if (window.travelMap) {
+                    window.travelMap.removeLayer(path.path);
+                    if (path.markers) {
+                        path.markers.forEach(marker => window.travelMap.removeLayer(marker));
+                    }
+                }
+            });
+            flightPaths = [];
+        }
+        
+        // 绘制单个航线
+        function drawFlight(from, to, type, index) {
+            if (!window.travelMap) return;
+            
+            try {
+                // 创建出发和到达机场的标记
+                var departureMarker = L.marker([from.lat, from.lng], {
+                    icon: L.divIcon({
+                        className: 'airport-marker',
+                        html: `<div style="background-color: #1E90FF; color: white; border-radius: 50%; width: 24px; height: 24px; display: flex; justify-content: center; align-items: center; font-weight: bold;">${from.code}</div>`,
+                        iconSize: [24, 24]
+                    })
+                }).addTo(window.travelMap).bindPopup(`<b>${from.name}</b><br>${from.code}`);
+                
+                var arrivalMarker = L.marker([to.lat, to.lng], {
+                    icon: L.divIcon({
+                        className: 'airport-marker',
+                        html: `<div style="background-color: #FF6347; color: white; border-radius: 50%; width: 24px; height: 24px; display: flex; justify-content: center; align-items: center; font-weight: bold;">${to.code}</div>`,
+                        iconSize: [24, 24]
+                    })
+                }).addTo(window.travelMap).bindPopup(`<b>${to.name}</b><br>${to.code}`);
+                
+                var flightPath;
+                var flightPathOptions = {
+                    color: getFlightColor(index),
+                    weight: 3,
+                    opacity: 0.8,
+                    dashArray: '5, 5'
+                };
+                
+                if (type === 'curved') {
+                    // 创建弧线航线
+                    var latlngs = calculateCurvedPath(from, to);
+                    flightPath = L.polyline(latlngs, flightPathOptions).addTo(window.travelMap);
+                } else {
+                    // 创建直线航线
+                    flightPath = L.polyline([[from.lat, from.lng], [to.lat, to.lng]], flightPathOptions).addTo(window.travelMap);
+                }
+                
+                // 添加飞机图标在航线中间
+                var midPoint = getMidPoint(from, to, type === 'curved');
+                var planeIcon = L.divIcon({
+                    className: 'plane-icon',
+                    html: '<div style="font-size: 20px; transform: rotate(45deg);">✈️</div>',
+                    iconSize: [20, 20]
+                });
+                
+                var planeMarker = L.marker(midPoint, { icon: planeIcon }).addTo(window.travelMap);
+                
+                // 存储航线信息
+                flightPaths.push({
+                    path: flightPath,
+                    markers: [departureMarker, arrivalMarker, planeMarker],
+                    from: from,
+                    to: to,
+                    type: type
+                });
+                
+            } catch (error) {
+                console.error('绘制航线失败:', error);
+            }
+        }
+        
+        // 计算弧线路径点
+        function calculateCurvedPath(from, to) {
+            var latlngs = [];
+            var offsetX = (to.lng - from.lng) * 0.15;
+            var offsetY = (to.lat - from.lat) * 0.15;
+            var midLat = (from.lat + to.lat) / 2;
+            var midLng = (from.lng + to.lng) / 2;
+            
+            // 计算垂直于连线的方向
+            var dx = to.lng - from.lng;
+            var dy = to.lat - from.lat;
+            var dist = Math.sqrt(dx * dx + dy * dy);
+            
+            // 弧线高度与距离成正比
+            var curveHeight = dist * 0.15;
+            
+            // 垂直方向的单位向量
+            var perpX = -dy / dist;
+            var perpY = dx / dist;
+            
+            // 弧线的控制点
+            var ctrlLat = midLat + perpY * curveHeight;
+            var ctrlLng = midLng + perpX * curveHeight;
+            
+            // 生成弧线上的点
+            for (var i = 0; i <= 100; i++) {
+                var t = i / 100;
+                var lat = (1 - t) * (1 - t) * from.lat + 2 * (1 - t) * t * ctrlLat + t * t * to.lat;
+                var lng = (1 - t) * (1 - t) * from.lng + 2 * (1 - t) * t * ctrlLng + t * t * to.lng;
+                latlngs.push([lat, lng]);
+            }
+            
+            return latlngs;
+        }
+        
+        // 获取航线中点
+        function getMidPoint(from, to, curved) {
+            if (curved) {
+                var dx = to.lng - from.lng;
+                var dy = to.lat - from.lat;
+                var dist = Math.sqrt(dx * dx + dy * dy);
+                
+                // 垂直方向的单位向量
+                var perpX = -dy / dist;
+                var perpY = dx / dist;
+                
+                // 弧线高度与距离成正比
+                var curveHeight = dist * 0.15;
+                
+                // 弧线的最高点
+                var midLat = (from.lat + to.lat) / 2 + perpY * curveHeight;
+                var midLng = (from.lng + to.lng) / 2 + perpX * curveHeight;
+                
+                return [midLat, midLng];
+            } else {
+                return [(from.lat + to.lat) / 2, (from.lng + to.lng) / 2];
+            }
+        }
+        
+        // 根据索引获取不同颜色
+        function getFlightColor(index) {
+            var colors = ['#1E90FF', '#FF6347', '#32CD32', '#FFD700', '#9370DB', '#FF69B4', '#20B2AA', '#FF8C00', '#4682B4', '#8A2BE2'];
+            return colors[index % colors.length];
+        }
+        
+        // 调整地图视图以适应所有航线
+        function fitMapToFlights() {
+            if (flightPaths.length === 0 || !window.travelMap) return;
+            
+            var bounds = L.latLngBounds();
+            flightPaths.forEach(path => {
+                bounds.extend([path.from.lat, path.from.lng]);
+                bounds.extend([path.to.lat, path.to.lng]);
+            });
+            
+            window.travelMap.fitBounds(bounds, { padding: [50, 50] });
+        }
+        
+        // 保存原始的window.onload函数
+        var originalOnload = window.onload;
+        window.onload = function() {
+            if (originalOnload) originalOnload();
+            // 注意：initFlightPaths会在地图初始化完成后自动调用
+            // 不需要在这里再次调用
+        };
+
+        // 更新航班列表
+        function updateFlightList() {
+            var flightList = document.getElementById('flight-list');
+            flightList.innerHTML = '';
+            flightInfo.forEach((info, index) => {
                 var item = document.createElement('div');
                 item.className = 'location-item';
                 item.innerHTML = `
-                    <h4>${info.location}</h4>
-                    <p>${info.time}</p>
-                    <button onclick="removeLocation(${index})">删除</button>
+                    <h4>${info.from.code} → ${info.to.code}</h4>
+                    <p>${info.from.name} → ${info.to.name}</p>
+                    <p>${info.time || '未设置时间'}</p>
+                    <p>航线类型: ${info.type === 'curved' ? '弧线' : '直线'}</p>
+                    <button onclick="removeFlight(${index})">删除</button>
                 `;
-                locationList.appendChild(item);
+                flightList.appendChild(item);
             });
         }
 
-        // 添加地点
-        function addLocation() {
-            var locationInput = document.getElementById('location');
-            var timeInput = document.getElementById('time');
+        // 添加航线
+        function addFlight() {
+            if (!window.travelMap) {
+                alert('地图尚未初始化，请稍后再试');
+                console.error('添加航线失败：地图未初始化');
+                return;
+            }
+            
+            var departureInput = document.getElementById('departure');
+            var arrivalInput = document.getElementById('arrival');
+            var timeInput = document.getElementById('flight-time');
+            var typeSelect = document.getElementById('flight-type');
 
-            var location = locationInput.value;
+            var departure = departureInput.value.trim();
+            var arrival = arrivalInput.value.trim();
             var time = timeInput.value;
+            var type = typeSelect.value;
 
-            if (location && time) {
-                // 使用 Nominatim 进行地理编码
-                fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(location)}`)
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.length > 0) {
-                            var lat = parseFloat(data[0].lat);
-                            var lng = parseFloat(data[0].lon);
-                            locations.push([lat, lng]);
-                            locationInfo.push({ location, time });
-                            localStorage.setItem('travelLocations', JSON.stringify(locations));
-                            localStorage.setItem('locationInfo', JSON.stringify(locationInfo));
-                            redrawPolyline();
-                            updateLocationList();
-                            locationInput.value = '';
-                            timeInput.value = '';
-                        } else {
-                            alert('未找到该地点，请尝试其他名称。');
-                        }
-                    })
-                    .catch(error => {
-                        console.error('地理编码出错:', error);
-                        alert('地理编码出错，请稍后重试。');
-                    });
+            if (!departure || !arrival) {
+                alert('请输入出发和到达机场');
+                return;
+            }
+            
+            // 搜索出发机场
+            var departureResults = searchAirport(departure);
+            if (departureResults.length === 0) {
+                alert('未找到出发机场，请检查输入或尝试使用IATA代码（如PEK、SHA等）');
+                return;
+            }
+            
+            // 搜索到达机场
+            var arrivalResults = searchAirport(arrival);
+            if (arrivalResults.length === 0) {
+                alert('未找到到达机场，请检查输入或尝试使用IATA代码（如PEK、SHA等）');
+                return;
+            }
+            
+            var from = departureResults[0];
+            var to = arrivalResults[0];
+            
+            // 检查是否为相同机场
+            if (from.code === to.code) {
+                alert('出发和到达机场不能相同');
+                return;
+            }
+            
+            console.log('添加航线:', from.code, '→', to.code, '类型:', type);
+            
+            // 保存航线信息
+            flights.push({ from, to, type });
+            flightInfo.push({ from, to, time, type });
+            localStorage.setItem('flights', JSON.stringify(flights));
+            localStorage.setItem('flightInfo', JSON.stringify(flightInfo));
+            
+            // 绘制航线
+            drawFlight(from, to, type, flights.length - 1);
+            updateFlightList();
+            
+            // 清空输入框
+            departureInput.value = '';
+            arrivalInput.value = '';
+            timeInput.value = '';
+            
+            // 调整地图视图
+            fitMapToFlights();
+        }
+
+        // 删除航线
+        function removeFlight(index) {
+            // 移除地图上的航线
+            if (flightPaths[index] && window.travelMap) {
+                window.travelMap.removeLayer(flightPaths[index].path);
+                flightPaths[index].markers.forEach(marker => window.travelMap.removeLayer(marker));
+            }
+            
+            // 从数组和存储中移除
+            flights.splice(index, 1);
+            flightInfo.splice(index, 1);
+            flightPaths.splice(index, 1);
+            localStorage.setItem('flights', JSON.stringify(flights));
+            localStorage.setItem('flightInfo', JSON.stringify(flightInfo));
+            
+            // 重新绘制所有航线（更新颜色）
+            clearFlightPaths();
+            flights.forEach((flight, i) => {
+                drawFlight(flight.from, flight.to, flight.type, i);
+            });
+            
+            updateFlightList();
+        }
+
+        // 清除所有航线
+        function clearFlights() {
+            clearFlightPaths();
+            flights = [];
+            flightInfo = [];
+            localStorage.removeItem('flights');
+            localStorage.removeItem('flightInfo');
+            updateFlightList();
+        }
+        
+        // 播放航线动画
+        function playAnimation() {
+            // 停止现有动画
+            stopAnimation();
+            
+            if (flights.length === 0) {
+                alert('没有航线可以播放');
+                return;
+            }
+            
+            // 创建飞机图标
+            var planeIcon = L.divIcon({
+                className: 'animated-plane',
+                html: '<div style="font-size: 30px; transform: rotate(45deg); filter: drop-shadow(0 0 5px white);">✈️</div>',
+                iconSize: [30, 30]
+            });
+            
+            // 随机选择一条航线进行动画
+            var randomIndex = Math.floor(Math.random() * flights.length);
+            var flight = flights[randomIndex];
+            
+            // 获取航线路径点
+            var pathPoints;
+            if (flight.type === 'curved') {
+                pathPoints = calculateCurvedPath(flight.from, flight.to);
             } else {
-                alert('请输入地点和时间。');
+                pathPoints = [[flight.from.lat, flight.from.lng], [flight.to.lat, flight.to.lng]];
+            }
+            
+            // 创建动画标记
+            animationMarker = L.marker(pathPoints[0], { icon: planeIcon }).addTo(window.travelMap);
+            
+            // 动画参数
+            var step = 0;
+            var totalSteps = flight.type === 'curved' ? pathPoints.length : 100;
+            
+            // 开始动画
+            animationInterval = setInterval(function() {
+                if (step >= totalSteps) {
+                    stopAnimation();
+                    return;
+                }
+                
+                var position;
+                if (flight.type === 'curved') {
+                    // 弧线路径直接使用预计算的点
+                    position = pathPoints[step];
+                } else {
+                    // 直线路径插值计算
+                    var t = step / totalSteps;
+                    var lat = flight.from.lat + (flight.to.lat - flight.from.lat) * t;
+                    var lng = flight.from.lng + (flight.to.lng - flight.from.lng) * t;
+                    position = [lat, lng];
+                }
+                
+                // 更新飞机位置
+                animationMarker.setLatLng(position);
+                
+                step++;
+            }, 50);
+            
+            // 调整地图视图以显示整个航线
+            if (window.travelMap) {
+                var bounds = L.latLngBounds([flight.from.lat, flight.from.lng], [flight.to.lat, flight.to.lng]);
+                window.travelMap.fitBounds(bounds, { padding: [50, 50] });
+            }
+        }
+        
+        // 停止动画
+        function stopAnimation() {
+            if (animationInterval) {
+                clearInterval(animationInterval);
+                animationInterval = null;
+            }
+            
+            if (animationMarker && window.travelMap) {
+                window.travelMap.removeLayer(animationMarker);
+                animationMarker = null;
             }
         }
 
-        // 删除地点
-        function removeLocation(index) {
-            locations.splice(index, 1);
-            locationInfo.splice(index, 1);
-            localStorage.setItem('travelLocations', JSON.stringify(locations));
-            localStorage.setItem('locationInfo', JSON.stringify(locationInfo));
-            redrawPolyline();
-            updateLocationList();
-        }
-
-        // 清除轨迹
-        function clearLocations() {
-            locations = [];
-            locationInfo = [];
-            localStorage.removeItem('travelLocations');
-            localStorage.removeItem('locationInfo');
-            redrawPolyline();
-            updateLocationList();
-        }
-
-        // 页面加载时重新绘制轨迹和更新列表
-        redrawPolyline();
-        updateLocationList();
+        // 注意：页面加载时重新绘制轨迹和更新列表的逻辑已移至DOM加载完成事件中
+        // 添加页面可见性变化监听，解决页面切换后地图可能不显示的问题
+        document.addEventListener('visibilitychange', function() {
+            if (document.visibilityState === 'visible' && window.travelMap) {
+                console.log('页面变为可见，刷新地图');
+                window.travelMap.invalidateSize();
+                if (flightPaths.length > 0) {
+                    // 重新绘制所有航线
+                    clearFlightPaths();
+                    flights.forEach((flight, i) => {
+                        drawFlight(flight.from, flight.to, flight.type, i);
+                    });
+                }
+            }
+        });
+        
+        // 添加窗口大小变化监听，确保地图正确调整大小
+        window.addEventListener('resize', function() {
+            if (window.travelMap) {
+                console.log('窗口大小变化，刷新地图大小');
+                window.travelMap.invalidateSize();
+            }
+        });
     </script>
-    <a href="/" class="back-button">返回首页</a>
+    <a href="/" class="back-button" style="position: fixed; bottom: 20px; left: 20px; background-color: #1E90FF; color: white; padding: 10px 15px; text-decoration: none; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); z-index: 1000;">返回首页</a>
 </body>
 </html>
