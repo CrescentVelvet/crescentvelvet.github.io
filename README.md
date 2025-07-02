@@ -4,16 +4,17 @@
 
 1. 修改网站设置_config.yaml，页面设置_data\navigation.yml
 2. 在_pages\about.md中撰写Markdown格式的网页内容
-3. 在浏览器中打开[crescentvelvet.github.io](crescentvelvet.github.io)即可查看网页
+3. 打开浏览器，访问 [crescentvelvet.github.io](crescentvelvet.github.io) 查看网页
 
 ## Ubuntu本地运行
 
 1. Ubuntu本地下载本仓库
 2. 安装ruby-dev, bundler, nodejs: `sudo apt install ruby-dev ruby-bundler nodejs`
-3. 运行 `bundle clean` 来清理目录(无需运行`--force`)
+3. 运行 `bundle clean` 来清理目录 (无需运行`--force`)
 4. 运行 `bundle install`来安装Ruby依赖包，如果报错，删除Gemfile.lock后重新安装，`Remove-Item Gemfile.lock; bundle install
 5. 运行 `bundle exec jekyll liveserve`来生成HTML
 6. 打开浏览器，访问 [http://localhost:4000](http://localhost:4000) 查看网页
+7. 修改代码保存后，可以实时预览网页，无需重复运行上述命令
 
 ## Windows本地运行
 
