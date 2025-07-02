@@ -180,13 +180,13 @@ layout: null
             // 获取当前活动图层名称
             var currentLayerName = '未知';
             if (window.fourthLayerAdded) {
-                currentLayerName = '第四备用图层(高德地图)';
+                currentLayerName = '第四备用图层(Mapbox)';
+            } else if (window.fallbackLayerAdded) {
+                currentLayerName = '第二备用图层(CartoDB)';
             } else if (window.thirdLayerAdded) {
                 currentLayerName = '第三备用图层(Stadia Maps)';
-            } else if (window.fallbackLayerAdded) {
-                currentLayerName = '备用图层(CartoDB)';
             } else {
-                currentLayerName = '主图层(Mapbox)';
+                currentLayerName = '主图层(高德地图)';
             }
             
             // 详细记录错误信息
@@ -212,8 +212,8 @@ layout: null
             
             // 如果错误太多，尝试切换到备用图层
             if (tileLoadErrors > 5 && window.travelMap && window.fallbackLayerAdded === false) {
-                console.warn('检测到多个瓦片加载错误，尝试切换到备用图层(CartoDB)');
-                showMapLoading('主地图服务不可用，正在切换到备用地图...');
+                console.warn('检测到多个瓦片加载错误，尝试切换到第二备用图层(CartoDB)');
+                showMapLoading('主地图服务不可用，正在切换到第二备用地图...');
                 try {
                     // 移除主图层，减少错误
                     if (window.mainLayer && window.travelMap) {
@@ -222,12 +222,12 @@ layout: null
                     
                     window.fallbackLayer.addTo(window.travelMap);
                     window.fallbackLayerAdded = true;
-                    console.log('已切换到备用地图图层(CartoDB)');
+                    console.log('已切换到第二备用地图图层(CartoDB)');
                     // 重置计数器，给新图层一个机会
                     tileLoadErrors = 0;
                     tileLoadSuccess = 0;
                     
-                    // 添加备用图层的错误监听
+                    // 添加第二备用图层的错误监听
                     window.fallbackLayer.on('tileerror', function(event) {
                         handleTileError(event);
                     });
@@ -236,11 +236,11 @@ layout: null
                         handleTileLoad();
                     });
                 } catch (error) {
-                    console.error('切换到备用图层失败:', error);
+                    console.error('切换到第二备用图层(CartoDB)失败:', error);
                 }
             } else if (tileLoadErrors > 15 && window.travelMap && window.thirdLayerAdded === false) {
                 console.warn('检测到过多瓦片加载错误，尝试切换到第三备用图层(Stadia Maps)');
-                showMapLoading('备用地图服务不可用，正在切换到第三备用地图...');
+                showMapLoading('第二备用地图服务不可用，正在切换到第三备用地图...');
                 try {
                     // 移除之前的图层
                     if (window.fallbackLayerAdded && window.fallbackLayer && window.travelMap) {
@@ -263,11 +263,11 @@ layout: null
                         handleTileLoad();
                     });
                 } catch (error) {
-                    console.error('切换到第三备用图层失败:', error);
+                    console.error('切换到第三备用图层(Stadia Maps)失败:', error);
                 }
             } else if (tileLoadErrors > 25 && window.travelMap && window.fourthLayerAdded === false) {
-                console.warn('检测到严重瓦片加载错误，尝试切换到第四备用图层(高德地图)');
-                showMapLoading('所有备用地图服务不可用，正在切换到最终备用地图...');
+                console.warn('检测到严重瓦片加载错误，尝试切换到第四备用图层(Mapbox)');
+                showMapLoading('第三备用地图服务不可用，正在切换到第四备用地图...');
                 try {
                     // 移除之前的图层
                     if (window.thirdLayerAdded && window.thirdLayer && window.travelMap) {
@@ -276,7 +276,7 @@ layout: null
                     
                     window.fourthLayer.addTo(window.travelMap);
                     window.fourthLayerAdded = true;
-                    console.log('已切换到第四备用地图图层(高德地图)');
+                    console.log('已切换到第四备用地图图层(Mapbox)');
                     // 重置计数器
                     tileLoadErrors = 0;
                     tileLoadSuccess = 0;
@@ -290,7 +290,7 @@ layout: null
                         handleTileLoad();
                     });
                 } catch (error) {
-                    console.error('切换到第四备用图层失败:', error);
+                    console.error('切换到第四备用图层(Mapbox)失败:', error);
                 }
             } else if (tileLoadErrors > 35) {
                 // 所有图层都失败
@@ -305,17 +305,17 @@ layout: null
             // 获取当前活动图层名称
             var currentLayerName = '未知';
             if (window.fourthLayerAdded) {
-                currentLayerName = '第四备用图层(高德地图)';
+                currentLayerName = '第四备用图层(Mapbox)';
+            } else if (window.fallbackLayerAdded) {
+                currentLayerName = '第二备用图层(CartoDB)';
             } else if (window.thirdLayerAdded) {
                 currentLayerName = '第三备用图层(Stadia Maps)';
-            } else if (window.fallbackLayerAdded) {
-                currentLayerName = '备用图层(CartoDB)';
             } else {
-                currentLayerName = '主图层(Mapbox)';
+                currentLayerName = '主图层(高德地图)';
             }
             
-            // 每10个瓦片记录一次加载进度
-            if (tileLoadSuccess % 10 === 0) {
+            // 每50个瓦片记录一次加载进度
+            if (tileLoadSuccess % 50 === 0) {
                 console.log(`${currentLayerName}已成功加载 ${tileLoadSuccess} 个瓦片`);
             }
             
@@ -325,7 +325,7 @@ layout: null
                 // 如果加载了足够多的瓦片，隐藏加载指示器
                 if (tileLoadSuccess > 15) {
                     hideMapLoading();
-                    console.log(`${currentLayerName}加载完成，已加载 ${tileLoadSuccess} 个瓦片`);
+                    // console.log(`${currentLayerName}加载完成，已加载 ${tileLoadSuccess} 个瓦片`);
                 } else {
                     loadingText.textContent = `正在加载${currentLayerName}...已加载 ${tileLoadSuccess} 个瓦片`;
                 }
@@ -421,12 +421,10 @@ layout: null
                 });
 
                 // 添加地图图层 - 使用更可靠的地图源
-                // 创建主图层并存储到全局变量
-                window.mainLayer = L.tileLayer('https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}?access_token=pk.eyJ1IjoiY3Jlc2NlbnR2ZWx2ZXQiLCJhIjoiY2xzMWFkZGRsMDFnMzJrbXUyaGdqcXdwdyJ9.Jm9RZGiQE3I1t9KyQqYXYA', {
-                    attribution: '© <a href="https://www.mapbox.com/about/maps/">Mapbox</a> © <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-                    id: 'mapbox/streets-v11',
-                    tileSize: 512,
-                    zoomOffset: -1,
+                // 创建主图层并存储到全局变量 - 使用高德地图作为主图层
+                window.mainLayer = L.tileLayer('https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}', {
+                    attribution: '© 高德地图',
+                    subdomains: "1234",
                     maxZoom: 19,
                     // 添加错误处理选项
                     errorTileUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', // 透明图片
@@ -451,10 +449,12 @@ layout: null
                     crossOrigin: true
                 });
                 
-                // 第四备用图层 - 使用高德地图（适合中国大陆地区）
-                window.fourthLayer = L.tileLayer('https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}', {
-                    attribution: '© 高德地图',
-                    subdomains: "1234",
+                // 第四备用图层 - 使用Mapbox
+                window.fourthLayer = L.tileLayer('https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}?access_token=pk.eyJ1IjoiY3Jlc2NlbnR2ZWx2ZXQiLCJhIjoiY2xzMWFkZGRsMDFnMzJrbXUyaGdqcXdwdyJ9.Jm9RZGiQE3I1t9KyQqYXYA', {
+                    attribution: '© <a href="https://www.mapbox.com/about/maps/">Mapbox</a> © <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+                    id: 'mapbox/streets-v11',
+                    tileSize: 512,
+                    zoomOffset: -1,
                     maxZoom: 19,
                     errorTileUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
                     crossOrigin: true
@@ -477,7 +477,7 @@ layout: null
                 // 尝试添加主图层，如果失败则使用备用图层
                 try {
                     window.mainLayer.addTo(map);
-                    console.log('主地图图层(Mapbox)加载成功');
+                    console.log('主地图图层(高德地图)加载成功');
                 } catch (error) {
                     console.error('主地图图层加载失败，尝试备用图层:', error);
                     showMapLoading('主地图服务不可用，正在切换到备用地图...');
@@ -485,9 +485,9 @@ layout: null
                     try {
                         window.fallbackLayer.addTo(map);
                         window.fallbackLayerAdded = true;
-                        console.log('备用地图图层(CartoDB)加载成功');
+                        console.log('第二备用地图图层(CartoDB)加载成功');
                         
-                        // 添加备用图层的错误监听
+                        // 添加第二备用图层的错误监听
                         window.fallbackLayer.on('tileerror', function(event) {
                             handleTileError(event);
                         });
@@ -496,8 +496,8 @@ layout: null
                             handleTileLoad();
                         });
                     } catch (fallbackError) {
-                        console.error('备用地图图层加载失败，尝试第三备用图层:', fallbackError);
-                        showMapLoading('备用地图服务不可用，正在切换到第三备用地图...');
+                        console.error('第二备用地图图层(CartoDB)加载失败，尝试第三备用图层:', fallbackError);
+                        showMapLoading('第二备用地图服务不可用，正在切换到第三备用地图...');
                         
                         try {
                             window.thirdLayer.addTo(map);
@@ -513,13 +513,13 @@ layout: null
                                 handleTileLoad();
                             });
                         } catch (thirdError) {
-                            console.error('第三备用地图图层加载失败，尝试第四备用图层:', thirdError);
-                            showMapLoading('第三备用地图服务不可用，正在切换到最终备用地图...');
+                            console.error('第三备用地图图层(Stadia Maps)加载失败，尝试第四备用图层:', thirdError);
+                            showMapLoading('第三备用地图服务不可用，正在切换到第四备用地图...');
                             
                             try {
                                 window.fourthLayer.addTo(map);
                                 window.fourthLayerAdded = true;
-                                console.log('第四备用地图图层(高德地图)加载成功');
+                                console.log('第四备用地图图层(Mapbox)加载成功');
                                 
                                 // 添加第四备用图层的错误监听
                                 window.fourthLayer.on('tileerror', function(event) {
