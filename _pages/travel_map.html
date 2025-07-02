@@ -135,6 +135,26 @@ layout: null
             border-radius: 5px;
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
+
+        .autocomplete-suggestions {
+            border: 1px solid #ddd;
+            max-height: 150px;
+            overflow-y: auto;
+            position: absolute;
+            background-color: white;
+            z-index: 1000;
+            width: calc(100% - 10px);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .suggestion-item {
+            padding: 8px;
+            cursor: pointer;
+        }
+
+        .suggestion-item:hover {
+            background-color: #f0f0f0;
+        }
     </style>
 </head>
 <body>
@@ -145,7 +165,9 @@ layout: null
         <div class="sidebar">
             <div class="form-container">
                 <input type="text" id="departure" placeholder="出发机场 (如: PEK, 北京首都)">
+                <div id="departure-suggestions" class="autocomplete-suggestions"></div>
                 <input type="text" id="arrival" placeholder="到达机场 (如: SHA, 上海虹桥)">
+                <div id="arrival-suggestions" class="autocomplete-suggestions"></div>
                 <input type="datetime-local" id="flight-time">
                 <select id="flight-type" style="margin: 5px; padding: 8px; width: calc(100% - 10px);">
                     <option value="direct">直飞航线</option>
@@ -1096,7 +1118,7 @@ layout: null
                 return;
             }
 
-            const dataStr = JSON.stringify(flights, null, 4); // 格式化JSON
+            const dataStr = JSON.stringify(flightInfo, null, 4); // 格式化JSON
             const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
 
             const exportFileDefaultName = 'flight_paths.json';
@@ -1114,6 +1136,49 @@ layout: null
             if (exportBtn) {
                 exportBtn.addEventListener('click', exportFlightPaths);
             }
+
+            // 自动补全逻辑
+            function setupAutocomplete(inputId, suggestionsId) {
+                const input = document.getElementById(inputId);
+                const suggestionsContainer = document.getElementById(suggestionsId);
+
+                input.addEventListener('input', function() {
+                    const query = this.value;
+                    suggestionsContainer.innerHTML = '';
+                    if (query.length < 2) {
+                        return;
+                    }
+
+                    const results = searchAirport(query);
+                    results.forEach(airport => {
+                        const item = document.createElement('div');
+                        item.classList.add('suggestion-item');
+                        item.textContent = `${airport.code} - ${airport.name}`;
+                        item.addEventListener('click', function() {
+                            input.value = airport.code;
+                            suggestionsContainer.innerHTML = '';
+                        });
+                        suggestionsContainer.appendChild(item);
+                    });
+                });
+
+                // 点击其他地方或输入框失去焦点时隐藏建议
+                document.addEventListener('click', function(event) {
+                    if (!input.contains(event.target) && !suggestionsContainer.contains(event.target)) {
+                        suggestionsContainer.innerHTML = '';
+                    }
+                });
+
+                input.addEventListener('blur', function() {
+                    // 延迟清除，以便点击建议项的click事件能够触发
+                    setTimeout(() => {
+                        suggestionsContainer.innerHTML = '';
+                    }, 100);
+                });
+            }
+
+            setupAutocomplete('departure', 'departure-suggestions');
+            setupAutocomplete('arrival', 'arrival-suggestions');
         });
     </script>
 </body>
