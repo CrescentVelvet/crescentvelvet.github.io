@@ -176,42 +176,123 @@ layout: null
         // 添加全局错误处理函数，用于捕获地图瓦片加载错误
         function handleTileError(event) {
             tileLoadErrors++;
-            console.warn('地图瓦片加载失败:', event);
+            
+            // 获取当前活动图层名称
+            var currentLayerName = '未知';
+            if (window.fourthLayerAdded) {
+                currentLayerName = '第四备用图层(高德地图)';
+            } else if (window.thirdLayerAdded) {
+                currentLayerName = '第三备用图层(Stadia Maps)';
+            } else if (window.fallbackLayerAdded) {
+                currentLayerName = '备用图层(CartoDB)';
+            } else {
+                currentLayerName = '主图层(Mapbox)';
+            }
+            
+            // 详细记录错误信息
+            var errorSource = event.target && (event.target.src || event.target.href) ? (event.target.src || event.target.href) : '未知源';
+            var errorType = event.type || '未知错误类型';
+            var errorMessage = event.message || '无错误消息';
+            var errorStatus = event.target && event.target.status ? event.target.status : '未知状态';
+            
+            console.warn(`地图瓦片加载失败(${currentLayerName}):`, {
+                错误源: errorSource,
+                错误类型: errorType,
+                错误消息: errorMessage,
+                错误状态: errorStatus,
+                错误计数: tileLoadErrors,
+                完整事件: event
+            });
             
             // 更新加载指示器消息
             var loadingText = document.getElementById('loading-text');
             if (loadingText) {
-                loadingText.textContent = `地图加载中...遇到 ${tileLoadErrors} 个错误，正在尝试恢复`;
+                loadingText.textContent = `${currentLayerName}加载中...遇到 ${tileLoadErrors} 个错误，正在尝试恢复`;
             }
             
             // 如果错误太多，尝试切换到备用图层
             if (tileLoadErrors > 5 && window.travelMap && window.fallbackLayerAdded === false) {
-                console.warn('检测到多个瓦片加载错误，尝试切换到备用图层');
+                console.warn('检测到多个瓦片加载错误，尝试切换到备用图层(CartoDB)');
                 showMapLoading('主地图服务不可用，正在切换到备用地图...');
                 try {
+                    // 移除主图层，减少错误
+                    if (window.mainLayer && window.travelMap) {
+                        window.travelMap.removeLayer(window.mainLayer);
+                    }
+                    
                     window.fallbackLayer.addTo(window.travelMap);
                     window.fallbackLayerAdded = true;
-                    console.log('已切换到备用地图图层');
+                    console.log('已切换到备用地图图层(CartoDB)');
                     // 重置计数器，给新图层一个机会
                     tileLoadErrors = 0;
                     tileLoadSuccess = 0;
+                    
+                    // 添加备用图层的错误监听
+                    window.fallbackLayer.on('tileerror', function(event) {
+                        handleTileError(event);
+                    });
+                    
+                    window.fallbackLayer.on('tileload', function() {
+                        handleTileLoad();
+                    });
                 } catch (error) {
                     console.error('切换到备用图层失败:', error);
                 }
             } else if (tileLoadErrors > 15 && window.travelMap && window.thirdLayerAdded === false) {
-                console.warn('检测到过多瓦片加载错误，尝试切换到第三备用图层');
+                console.warn('检测到过多瓦片加载错误，尝试切换到第三备用图层(Stadia Maps)');
                 showMapLoading('备用地图服务不可用，正在切换到第三备用地图...');
                 try {
+                    // 移除之前的图层
+                    if (window.fallbackLayerAdded && window.fallbackLayer && window.travelMap) {
+                        window.travelMap.removeLayer(window.fallbackLayer);
+                    }
+                    
                     window.thirdLayer.addTo(window.travelMap);
                     window.thirdLayerAdded = true;
-                    console.log('已切换到第三备用地图图层');
+                    console.log('已切换到第三备用地图图层(Stadia Maps)');
                     // 重置计数器
                     tileLoadErrors = 0;
                     tileLoadSuccess = 0;
+                    
+                    // 添加第三备用图层的错误监听
+                    window.thirdLayer.on('tileerror', function(event) {
+                        handleTileError(event);
+                    });
+                    
+                    window.thirdLayer.on('tileload', function() {
+                        handleTileLoad();
+                    });
                 } catch (error) {
                     console.error('切换到第三备用图层失败:', error);
                 }
-            } else if (tileLoadErrors > 25) {
+            } else if (tileLoadErrors > 25 && window.travelMap && window.fourthLayerAdded === false) {
+                console.warn('检测到严重瓦片加载错误，尝试切换到第四备用图层(高德地图)');
+                showMapLoading('所有备用地图服务不可用，正在切换到最终备用地图...');
+                try {
+                    // 移除之前的图层
+                    if (window.thirdLayerAdded && window.thirdLayer && window.travelMap) {
+                        window.travelMap.removeLayer(window.thirdLayer);
+                    }
+                    
+                    window.fourthLayer.addTo(window.travelMap);
+                    window.fourthLayerAdded = true;
+                    console.log('已切换到第四备用地图图层(高德地图)');
+                    // 重置计数器
+                    tileLoadErrors = 0;
+                    tileLoadSuccess = 0;
+                    
+                    // 添加第四备用图层的错误监听
+                    window.fourthLayer.on('tileerror', function(event) {
+                        handleTileError(event);
+                    });
+                    
+                    window.fourthLayer.on('tileload', function() {
+                        handleTileLoad();
+                    });
+                } catch (error) {
+                    console.error('切换到第四备用图层失败:', error);
+                }
+            } else if (tileLoadErrors > 35) {
                 // 所有图层都失败
                 showMapLoading('所有地图服务均不可用，请检查网络连接或稍后再试');
             }
@@ -221,14 +302,32 @@ layout: null
         function handleTileLoad() {
             tileLoadSuccess++;
             
+            // 获取当前活动图层名称
+            var currentLayerName = '未知';
+            if (window.fourthLayerAdded) {
+                currentLayerName = '第四备用图层(高德地图)';
+            } else if (window.thirdLayerAdded) {
+                currentLayerName = '第三备用图层(Stadia Maps)';
+            } else if (window.fallbackLayerAdded) {
+                currentLayerName = '备用图层(CartoDB)';
+            } else {
+                currentLayerName = '主图层(Mapbox)';
+            }
+            
+            // 每10个瓦片记录一次加载进度
+            if (tileLoadSuccess % 10 === 0) {
+                console.log(`${currentLayerName}已成功加载 ${tileLoadSuccess} 个瓦片`);
+            }
+            
             // 更新加载进度
             var loadingText = document.getElementById('loading-text');
             if (loadingText) {
                 // 如果加载了足够多的瓦片，隐藏加载指示器
-                if (tileLoadSuccess > 10) {
+                if (tileLoadSuccess > 15) {
                     hideMapLoading();
+                    console.log(`${currentLayerName}加载完成，已加载 ${tileLoadSuccess} 个瓦片`);
                 } else {
-                    loadingText.textContent = `正在加载地图...已加载 ${tileLoadSuccess} 个瓦片`;
+                    loadingText.textContent = `正在加载${currentLayerName}...已加载 ${tileLoadSuccess} 个瓦片`;
                 }
             }
         }
@@ -272,8 +371,15 @@ layout: null
             if (event.target && (event.target.src || event.target.href)) {
                 var resource = event.target.src || event.target.href;
                 // 检查是否是地图瓦片资源
-                if (resource.includes('tile') || resource.includes('mapbox') || resource.includes('carto')) {
+                if (resource.includes('tile') || 
+                    resource.includes('mapbox') || 
+                    resource.includes('carto') || 
+                    resource.includes('stadiamaps') || 
+                    resource.includes('autonavi')) {
+                    
+                    console.log('捕获到地图资源加载错误:', resource);
                     handleTileError(event);
+                    
                     // 阻止错误冒泡
                     event.stopPropagation();
                     event.preventDefault();
@@ -281,6 +387,15 @@ layout: null
                 }
             }
         }, true); // 使用捕获阶段
+        
+        // 添加全局图片错误处理
+        document.addEventListener('error', function(event) {
+            if (event.target && event.target.tagName === 'IMG' && event.target.classList.contains('leaflet-tile')) {
+                console.log('捕获到地图瓦片图片加载错误:', event.target.src);
+                handleTileError(event);
+                return true;
+            }
+        }, true);
         
         function initMap() {
             try {
@@ -292,6 +407,9 @@ layout: null
                 // 确保地图容器可见
                 mapContainer.style.display = 'block';
                 
+                // 显示加载指示器
+                showMapLoading('正在初始化地图...');
+                
                 // 创建地图实例
                 var map = L.map('map', {
                     center: [35.0, 105.0], // 中国中心位置
@@ -302,62 +420,123 @@ layout: null
                     attributionControl: true
                 });
 
-                // 添加地图图层 - 使用Mapbox替代OpenStreetMap以解决连接问题
-                // 添加多个备选地图源，如果一个失败可以尝试另一个
-                var mainLayer = L.tileLayer('https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}?access_token=pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTA2emYycXBndHRqcmZ3N3gifQ.rJcFIG214AriISLbB6B5aw', {
+                // 添加地图图层 - 使用更可靠的地图源
+                // 创建主图层并存储到全局变量
+                window.mainLayer = L.tileLayer('https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}?access_token=pk.eyJ1IjoiY3Jlc2NlbnR2ZWx2ZXQiLCJhIjoiY2xzMWFkZGRsMDFnMzJrbXUyaGdqcXdwdyJ9.Jm9RZGiQE3I1t9KyQqYXYA', {
                     attribution: '© <a href="https://www.mapbox.com/about/maps/">Mapbox</a> © <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
                     id: 'mapbox/streets-v11',
                     tileSize: 512,
                     zoomOffset: -1,
-                    maxZoom: 19
+                    maxZoom: 19,
+                    // 添加错误处理选项
+                    errorTileUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', // 透明图片
+                    crossOrigin: true
                 });
                 
-                // 创建备用图层并存储到全局变量
+                // 创建备用图层并存储到全局变量 - 使用CartoDB作为备用
                 window.fallbackLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
                     attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions">CARTO</a>',
                     subdomains: 'abcd',
-                    maxZoom: 19
+                    maxZoom: 19,
+                    errorTileUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
+                    crossOrigin: true
                 });
                 
-                // 第三备用图层 - 使用高德地图（适合中国大陆地区）
-                window.thirdLayer = L.tileLayer('https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}', {
+                // 第三备用图层 - 使用Stadia Maps作为第三备用
+                window.thirdLayer = L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}{r}.png', {
+                    attribution: '&copy; <a href="https://stadiamaps.com/">Stadia Maps</a>, &copy; <a href="https://openmaptiles.org/">OpenMapTiles</a> &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors',
+                    subdomains: 'abcd',
+                    maxZoom: 19,
+                    errorTileUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
+                    crossOrigin: true
+                });
+                
+                // 第四备用图层 - 使用高德地图（适合中国大陆地区）
+                window.fourthLayer = L.tileLayer('https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}', {
                     attribution: '© 高德地图',
                     subdomains: "1234",
-                    maxZoom: 19
+                    maxZoom: 19,
+                    errorTileUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
+                    crossOrigin: true
                 });
                 
                 // 初始化图层状态标志
                 window.fallbackLayerAdded = false;
                 window.thirdLayerAdded = false;
+                window.fourthLayerAdded = false;
                 
                 // 添加瓦片加载事件监听
-                mainLayer.on('tileerror', function(event) {
+                window.mainLayer.on('tileerror', function(event) {
                     handleTileError(event);
                 });
                 
-                mainLayer.on('tileload', function() {
+                window.mainLayer.on('tileload', function() {
                     handleTileLoad();
                 });
                 
                 // 尝试添加主图层，如果失败则使用备用图层
                 try {
-                    mainLayer.addTo(map);
-                    console.log('主地图图层加载成功');
+                    window.mainLayer.addTo(map);
+                    console.log('主地图图层(Mapbox)加载成功');
                 } catch (error) {
                     console.error('主地图图层加载失败，尝试备用图层:', error);
+                    showMapLoading('主地图服务不可用，正在切换到备用地图...');
+                    
                     try {
                         window.fallbackLayer.addTo(map);
                         window.fallbackLayerAdded = true;
-                        console.log('备用地图图层加载成功');
+                        console.log('备用地图图层(CartoDB)加载成功');
+                        
+                        // 添加备用图层的错误监听
+                        window.fallbackLayer.on('tileerror', function(event) {
+                            handleTileError(event);
+                        });
+                        
+                        window.fallbackLayer.on('tileload', function() {
+                            handleTileLoad();
+                        });
                     } catch (fallbackError) {
                         console.error('备用地图图层加载失败，尝试第三备用图层:', fallbackError);
+                        showMapLoading('备用地图服务不可用，正在切换到第三备用地图...');
+                        
                         try {
                             window.thirdLayer.addTo(map);
                             window.thirdLayerAdded = true;
-                            console.log('第三备用地图图层加载成功');
+                            console.log('第三备用地图图层(Stadia Maps)加载成功');
+                            
+                            // 添加第三备用图层的错误监听
+                            window.thirdLayer.on('tileerror', function(event) {
+                                handleTileError(event);
+                            });
+                            
+                            window.thirdLayer.on('tileload', function() {
+                                handleTileLoad();
+                            });
                         } catch (thirdError) {
-                            console.error('所有地图图层加载失败:', thirdError);
-                            alert('地图图层加载失败，请检查网络连接');
+                            console.error('第三备用地图图层加载失败，尝试第四备用图层:', thirdError);
+                            showMapLoading('第三备用地图服务不可用，正在切换到最终备用地图...');
+                            
+                            try {
+                                window.fourthLayer.addTo(map);
+                                window.fourthLayerAdded = true;
+                                console.log('第四备用地图图层(高德地图)加载成功');
+                                
+                                // 添加第四备用图层的错误监听
+                                window.fourthLayer.on('tileerror', function(event) {
+                                    handleTileError(event);
+                                });
+                                
+                                window.fourthLayer.on('tileload', function() {
+                                    handleTileLoad();
+                                });
+                            } catch (fourthError) {
+                                console.error('所有地图图层加载失败:', fourthError);
+                                showMapLoading('所有地图服务均不可用，请检查网络连接或稍后再试');
+                                
+                                setTimeout(function() {
+                                    alert('地图图层加载失败，请检查网络连接');
+                                }, 500);
+                            }
                         }
                     }
                 }
@@ -367,17 +546,35 @@ layout: null
                 // 存储地图实例到全局变量
                 window.travelMap = map;
                 
-                // 强制重新计算地图大小
-                setTimeout(function() {
+                // 地图初始化完成事件
+                map.whenReady(function() {
+                    console.log('地图初始化完成，等待瓦片加载...');
+                    
+                    // 强制重新计算地图大小
                     map.invalidateSize();
                     console.log('地图大小已重新计算');
                     
+                    // 如果没有瓦片错误，隐藏加载指示器
+                    setTimeout(function() {
+                        if (tileLoadErrors === 0 || tileLoadSuccess > 10) {
+                            hideMapLoading();
+                            console.log('地图加载完成，隐藏加载指示器');
+                        } else {
+                            console.log('检测到瓦片加载错误，保持加载指示器显示');
+                        }
+                        
                         // 初始化航线
-                    initFlightPaths();
-                }, 100);
+                        initFlightPaths();
+                    }, 1000); // 增加延迟，确保瓦片有足够时间加载
+                });
             } catch (error) {
                 console.error('地图初始化失败:', error);
-                alert('地图加载失败，请查看控制台获取详细信息');
+                // 更新加载指示器显示错误信息
+                showMapLoading('地图加载失败，请刷新页面重试');
+                // 延迟显示错误提示，避免加载指示器被立即隐藏
+                setTimeout(function() {
+                    alert('地图加载失败，请查看控制台获取详细信息');
+                }, 500);
             }
         }
 
