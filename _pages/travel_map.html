@@ -566,6 +566,21 @@ layout: null
                             console.log('检测到瓦片加载错误，保持加载指示器显示');
                         }
                         
+                        // 从JSON文件加载初始航线数据
+                        fetch('/assets/data/initial_flight_paths.json')
+                            .then(response => response.json())
+                            .then(data => {
+                                flights = data.flights || [];
+                                flightInfo = data.flightInfo || [];
+                                console.log('初始航线数据加载成功:', flights, flightInfo);
+                                // 确保在数据加载完成后初始化航线
+                                initFlightPaths();
+                            })
+                            .catch(error => {
+                                console.error('加载初始航线数据失败:', error);
+                                // 如果加载失败，仍然尝试初始化航线，但数据为空
+                                initFlightPaths();
+                            });
 
                     }, 1000); // 增加延迟，确保瓦片有足够时间加载
                 });
@@ -583,22 +598,6 @@ layout: null
         // 存储航线和航班信息
         var flights = [];
         var flightInfo = [];
-
-        // 从JSON文件加载初始航线数据
-        fetch('/assets/data/initial_flight_paths.json')
-            .then(response => response.json())
-            .then(data => {
-                flights = data.flights || [];
-                flightInfo = data.flightInfo || [];
-                console.log('初始航线数据加载成功:', flights, flightInfo);
-                // 确保在数据加载完成后初始化航线
-                initFlightPaths();
-            })
-            .catch(error => {
-                console.error('加载初始航线数据失败:', error);
-                // 如果加载失败，仍然尝试初始化航线，但数据为空
-                initFlightPaths();
-            });
         var flightPaths = [];
         var animationMarker;
         var animationPath;
