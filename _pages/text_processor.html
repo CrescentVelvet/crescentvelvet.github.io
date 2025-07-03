@@ -132,8 +132,9 @@ title: "文本处理工具"
             border-radius: 4px;
             padding: 10px;
             min-height: 400px;
+            max-height: 400px; /* 设置最大高度 */
             background-color: #fff;
-            overflow-y: auto;
+            overflow-y: auto; /* 垂直滚动条 */
             white-space: pre-wrap;
             word-wrap: break-word;
             font-size: 14px;
@@ -205,8 +206,8 @@ title: "文本处理工具"
             <button id="removeExtraLineBreaks" class="step-button">4. 去除多余换行</button>
             <button id="addLeisurePrefix" class="step-button">5. 添加"闲情逸致"</button>
             <button id="processAll" class="step-button">一键处理全部</button>
-            <button id="copyResult" class="copy-button">复制结果</button>
             <button id="resetText" class="reset-button">重置</button>
+            <button id="copyResult" class="copy-button">复制结果</button>
         </div>
         <div id="status" class="status"></div>
         <div class="info-box">
