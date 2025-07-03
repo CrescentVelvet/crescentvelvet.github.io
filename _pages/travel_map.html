@@ -175,7 +175,7 @@ layout: null
                 </select>
                 <button onclick="addFlight()">添加航线</button>
                 <button onclick="clearFlights()" style="background-color: #008B8B;">清除所有航线</button>
-                <button onclick="playAnimation()" style="background-color: #FF6347;">播放航线动画</button>
+                <button id="toggleAnimationBtn" onclick="toggleAnimation()" style="background-color: #FF6347;">播放航线动画</button>
                 <button onclick="exportFlightPaths()" style="background-color: #77c306;">导出航线</button>
                 <button id="backHomeBtn" class="action-button" onclick="window.location.href='index.html'" style="background-color: #FF4500;">返回首页</button>
             </div>
@@ -1007,7 +1007,22 @@ layout: null
         }
         
         // 播放航线动画
-        var currentFlightIndex = 0; // 新增：当前播放的航线索引
+        var currentFlightIndex = 0; // 当前播放的航线索引
+        var isPlaying = false; // 新增：是否正在播放动画
+
+        function toggleAnimation() {
+            if (isPlaying) {
+                stopAnimation();
+                document.getElementById('toggleAnimationBtn').textContent = '播放航线动画';
+                document.getElementById('toggleAnimationBtn').style.backgroundColor = '#FF6347';
+                isPlaying = false;
+            } else {
+                playAnimation();
+                document.getElementById('toggleAnimationBtn').textContent = '暂停航线动画';
+                document.getElementById('toggleAnimationBtn').style.backgroundColor = '#FF8C00';
+                isPlaying = true;
+            }
+        }
 
         function playAnimation() {
             // 停止现有动画
@@ -1107,6 +1122,11 @@ layout: null
                 window.travelMap.removeLayer(animationMarker);
                 animationMarker = null;
             }
+            
+            if (!isPlaying) return;
+            document.getElementById('toggleAnimationBtn').textContent = '播放航线动画';
+            document.getElementById('toggleAnimationBtn').style.backgroundColor = '#FF6347';
+            isPlaying = false;
         }
 
         // 注意：页面加载时重新绘制轨迹和更新列表的逻辑已移至DOM加载完成事件中
