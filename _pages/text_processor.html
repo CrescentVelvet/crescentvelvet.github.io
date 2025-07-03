@@ -206,11 +206,11 @@ title: "文本处理工具"
         </div>
         <div class="buttons-section">
             <button id="resetText" class="reset-button">清空</button>
-            <button id="formatFont" class="step-button">1. 设置字体</button>
-            <button id="formatParagraph" class="step-button">2. 设置段落格式</button>
-            <button id="processDates" class="step-button">3. 处理日期</button>
-            <button id="removeExtraLineBreaks" class="step-button">4. 去除换行与撤回</button>
-            <button id="addLeisurePrefix" class="step-button">5. 添加"闲情逸致"</button>
+            <button id="formatFont" class="step-button">1. 字体设置</button>
+            <button id="formatParagraph" class="step-button">2. 段落格式</button>
+            <button id="processDates" class="step-button">3. 日期处理</button>
+            <button id="removeExtraLineBreaks" class="step-button">4. 换行撤回</button>
+            <button id="addLeisurePrefix" class="step-button">5. 闲情逸致</button>
             <button id="processAll" class="step-button">一键处理全部</button>
             <button id="copyResult" class="copy-button">复制结果</button>
         </div>
@@ -221,7 +221,7 @@ title: "文本处理工具"
             <div class="info-feature">2. 设置段落格式：将文本分段并添加段落样式。</div>
             <div class="info-feature">2. 处理日期：对于形如“YYYY-MM-DD HH:MM:SS 用户名(用户ID)”的行，只保留日期部分（YYYY-MM-DD），并移除重复日期。</div>
             <div class="info-feature">4. 去除换行与撤回：删除文本中不必要的空行与撤回信息。</div>
-            <div class="info-feature">5. 添加前缀：在包含特定短语的行前添加固定文本。</div>
+            <div class="info-feature">5. 闲情逸致：在包含特定短语的行前添加固定文本。</div>
             <div class="info-feature">6. 一键处理全部：按顺序执行所有处理步骤。</div>
             <div class="info-feature">7. 复制结果：将处理后的文本复制到剪贴板。</div>
             <div class="info-feature">8. 清空：清空输入和输出区域。</div>
@@ -357,31 +357,36 @@ title: "文本处理工具"
             }
             
             let content = outputPreview.innerHTML;
-            // 确保处理的是纯文本，而不是HTML内容
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = content;
-            content = tempDiv.innerText;
-
-            // 移除包含“撤回了一条消息”的行
-            content = content.replace(/^.*撤回了一条消息.*$\n?/gm, '');
-
-            // 将连续的两个换行符替换为单个换行
-            content = content.replace(/\n\n/g, '\n');
-            // 移除行尾空格
-            content = content.split('\n').map(line => line.trimEnd()).join('\n');
-            // 再次处理可能存在的连续换行，确保只剩一个
-            content = content.replace(/\n{2,}/g, '\n');
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(content, 'text/html');
+            const paragraphs = doc.querySelectorAll('p.preview-content');
             
-            // 将处理后的纯文本重新包裹成 <p> 标签
-            const formattedContent = content.split('\n').map(line => {
-                if (line.trim()) {
-                    return `<p class="preview-content">${line}</p>`;
-                } else {
-                    return '';
+            let processedParagraphs = [];
+
+            paragraphs.forEach(p => {
+                let text = p.textContent;
+                let originalClasses = p.className; // 保存原始类名
+
+                // 移除包含“撤回了一条消息”的行
+                text = text.replace(/^.*撤回了一条消息.*$\n?/gm, '');
+
+                // 将连续的两个换行符替换为单个换行
+                text = text.replace(/\n\n/g, '\n');
+                // 移除行尾空格
+                text = text.split('\n').map(line => line.trimEnd()).join('\n');
+                // 再次处理可能存在的连续换行，确保只剩一个
+                text = text.replace(/\n{2,}/g, '\n');
+
+                if (text.trim()) {
+                    // 重新创建p标签，并保留原始类名
+                    const newP = document.createElement('p');
+                    newP.className = originalClasses;
+                    newP.textContent = text;
+                    processedParagraphs.push(newP.outerHTML);
                 }
-            }).filter(line => line !== '').join('\n');
+            });
             
-            updatePreview(formattedContent);
+            updatePreview(processedParagraphs.join('\n'));
             showStatus('多余换行已移除');
         });
         
@@ -395,7 +400,7 @@ title: "文本处理工具"
             let content = outputPreview.innerHTML;
             
             // 查找"今天都做了些什么"并添加前缀（确保不会重复添加）
-            content = content.replace(/(?!<span class="leisure-title">闲情逸致：<\/span>)今天都做了些什么/g, '<span class="leisure-title">闲情逸致：</span>今天都做了些什么');
+            content = content.replace(/(<p[^>]*>)(?!<span class="leisure-title">闲情逸致：<\/span>)(今天都做了些什么)/g, '$1<span class="leisure-title">闲情逸致：</span>$2');
             
             updatePreview(content);
             showStatus('已添加"闲情逸致"前缀');
