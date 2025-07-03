@@ -592,9 +592,8 @@ layout: null
                         fetch('/assets/data/initial_flight_paths.json')
                             .then(response => response.json())
                             .then(data => {
-                                flights = data.flights || [];
-                                flightInfo = data.flightInfo || [];
-                                console.log('初始航线数据加载成功:', flights, flightInfo);
+                                flightInfo = data || [];
+                                console.log('初始航线数据加载成功:', flightInfo);
                                 // 确保在数据加载完成后初始化航线
                                 initFlightPaths();
                             })
@@ -618,7 +617,6 @@ layout: null
         }
 
         // 存储航线和航班信息
-        var flights = [];
         var flightInfo = [];
         var flightPaths = [];
         var animationMarker;
@@ -710,7 +708,7 @@ layout: null
                     clearFlightPaths();
                     
                     // 绘制所有保存的航线
-                    flights.forEach((flight, index) => {
+                    flightInfo.forEach((flight, index) => {
                         drawFlight(flight.from, flight.to, flight.type, index);
                     });
                     
@@ -962,13 +960,11 @@ layout: null
             console.log('添加航线:', from.code, '→', to.code, '类型:', type);
             
             // 保存航线信息
-            flights.push({ from, to, type });
             flightInfo.push({ from, to, time, type });
-            localStorage.setItem('flights', JSON.stringify(flights));
             localStorage.setItem('flightInfo', JSON.stringify(flightInfo));
             
             // 绘制航线
-            drawFlight(from, to, type, flights.length - 1);
+            drawFlight(from, to, type, flightInfo.length - 1);
             updateFlightList();
             
             // 清空输入框
@@ -989,15 +985,13 @@ layout: null
             }
             
             // 从数组和存储中移除
-            flights.splice(index, 1);
             flightInfo.splice(index, 1);
             flightPaths.splice(index, 1);
-            localStorage.setItem('flights', JSON.stringify(flights));
             localStorage.setItem('flightInfo', JSON.stringify(flightInfo));
             
             // 重新绘制所有航线（更新颜色）
             clearFlightPaths();
-            flights.forEach((flight, i) => {
+            flightInfo.forEach((flight, i) => {
                 drawFlight(flight.from, flight.to, flight.type, i);
             });
             
@@ -1007,9 +1001,7 @@ layout: null
         // 清除所有航线
         function clearFlights() {
             clearFlightPaths();
-            flights = [];
             flightInfo = [];
-            localStorage.removeItem('flights');
             localStorage.removeItem('flightInfo');
             updateFlightList();
         }
@@ -1019,7 +1011,7 @@ layout: null
             // 停止现有动画
             stopAnimation();
             
-            if (flights.length === 0) {
+            if (flightInfo.length === 0) {
                 alert('没有航线可以播放');
                 return;
             }
@@ -1032,8 +1024,8 @@ layout: null
             });
             
             // 随机选择一条航线进行动画
-            var randomIndex = Math.floor(Math.random() * flights.length);
-            var flight = flights[randomIndex];
+            var randomIndex = Math.floor(Math.random() * flightInfo.length);
+            var flight = flightInfo[randomIndex];
             
             // 获取航线路径点
             var pathPoints;
@@ -1104,7 +1096,7 @@ layout: null
                 if (flightPaths.length > 0) {
                     // 重新绘制所有航线
                     clearFlightPaths();
-                    flights.forEach((flight, i) => {
+                    flightInfo.forEach((flight, i) => {
                         drawFlight(flight.from, flight.to, flight.type, i);
                     });
                 }
@@ -1121,7 +1113,7 @@ layout: null
 
         // 导出航线数据为JSON文件
         function exportFlightPaths() {
-            if (flights.length === 0) {
+            if (flightInfo.length === 0) {
                 alert('没有航线数据可以导出！');
                 return;
             }
