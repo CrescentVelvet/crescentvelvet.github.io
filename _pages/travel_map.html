@@ -1007,26 +1007,42 @@ layout: null
         }
         
         // 播放航线动画
+        var currentFlightIndex = 0; // 新增：当前播放的航线索引
+
         function playAnimation() {
             // 停止现有动画
             stopAnimation();
-            
+
             if (flightInfo.length === 0) {
                 alert('没有航线可以播放');
                 return;
             }
-            
+
+            // 按时间排序航线
+            flightInfo.sort((a, b) => new Date('1970/01/01 ' + a.time) - new Date('1970/01/01 ' + b.time));
+
+            // 从当前索引开始播放
+            playNextFlightAnimation();
+        }
+
+        function playNextFlightAnimation() {
+            if (currentFlightIndex >= flightInfo.length) {
+                console.log('所有航线动画播放完毕');
+                stopAnimation();
+                currentFlightIndex = 0; // 重置索引以便下次播放
+                return;
+            }
+
+            var flight = flightInfo[currentFlightIndex];
+            console.log('播放航线动画:', flight.from.code, '→', flight.to.code, '时间:', flight.time);
+
             // 创建飞机图标
             var planeIcon = L.divIcon({
                 className: 'animated-plane',
                 html: '<div style="font-size: 30px; transform: rotate(45deg); filter: drop-shadow(0 0 5px white);">✈️</div>',
                 iconSize: [30, 30]
             });
-            
-            // 随机选择一条航线进行动画
-            var randomIndex = Math.floor(Math.random() * flightInfo.length);
-            var flight = flightInfo[randomIndex];
-            
+
             // 获取航线路径点
             var pathPoints;
             if (flight.type === 'curved') {
@@ -1034,21 +1050,33 @@ layout: null
             } else {
                 pathPoints = [[flight.from.lat, flight.from.lng], [flight.to.lat, flight.to.lng]];
             }
-            
+
             // 创建动画标记
             animationMarker = L.marker(pathPoints[0], { icon: planeIcon }).addTo(window.travelMap);
-            
+
+            // 调整地图视图以显示当前航线
+            if (window.travelMap) {
+                var bounds = L.latLngBounds([flight.from.lat, flight.from.lng], [flight.to.lat, flight.to.lng]);
+                window.travelMap.fitBounds(bounds, { padding: [50, 50] });
+            }
+
             // 动画参数
             var step = 0;
             var totalSteps = flight.type === 'curved' ? pathPoints.length : 100;
-            
+            var animationDuration = 3000; // 每条航线动画持续时间（毫秒）
+            var intervalTime = animationDuration / totalSteps; // 计算每步的时间间隔
+
             // 开始动画
             animationInterval = setInterval(function() {
                 if (step >= totalSteps) {
-                    stopAnimation();
+                    clearInterval(animationInterval);
+                    window.travelMap.removeLayer(animationMarker);
+                    animationMarker = null;
+                    currentFlightIndex++;
+                    playNextFlightAnimation(); // 播放下一条航线
                     return;
                 }
-                
+
                 var position;
                 if (flight.type === 'curved') {
                     // 弧线路径直接使用预计算的点
@@ -1060,18 +1088,12 @@ layout: null
                     var lng = flight.from.lng + (flight.to.lng - flight.from.lng) * t;
                     position = [lat, lng];
                 }
-                
+
                 // 更新飞机位置
                 animationMarker.setLatLng(position);
-                
+
                 step++;
-            }, 50);
-            
-            // 调整地图视图以显示整个航线
-            if (window.travelMap) {
-                var bounds = L.latLngBounds([flight.from.lat, flight.from.lng], [flight.to.lat, flight.to.lng]);
-                window.travelMap.fitBounds(bounds, { padding: [50, 50] });
-            }
+            }, intervalTime);
         }
         
         // 停止动画
