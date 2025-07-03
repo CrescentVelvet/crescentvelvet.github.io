@@ -186,7 +186,11 @@ title: "文本处理工具"
             margin: 10px 0;
         }
         .leisure-title {
-            color: #0056b3;
+            color: #0056b3; /* 蓝色 */
+            font-weight: bold;
+        }
+        .dream-title {
+            color: #8A2BE2; /* 紫罗兰色 */
             font-weight: bold;
         }
     </style>
@@ -400,7 +404,10 @@ title: "文本处理工具"
             let content = outputPreview.innerHTML;
             
             // 查找"今天都做了些什么"并添加前缀（确保不会重复添加）
-            content = content.replace(/(<p[^>]*>)(?!<span class="leisure-title">闲情逸致：<\/span>)(今天都做了些什么)/g, '$1<span class="leisure-title">闲情逸致：</span>$2');
+            // 查找"今天都做了些什么"并添加"闲情逸致："前缀（确保不会重复添加）
+            content = content.replace(/(<p[^>]*>)(?!<span class="leisure-title">闲情逸致：<\/span>)(今天都做了些什么)/g, '$1<span class="leisure-title">闲情逸致：<\/span>$2');
+            // 查找"梦幻空花："并高亮显示
+            content = content.replace(/(梦幻空花：)/g, '<span class="dream-title">$1</span>');
             
             updatePreview(content);
             showStatus('已添加"闲情逸致"前缀');
@@ -480,19 +487,21 @@ title: "文本处理工具"
 2023-01-02 14:30:45 Crescent Velvet(315762814)
 这是第二天的内容。
 
-2023-01-04 09:15:22 Crescent Velvet(315762814)
-这是第四天的内容。
+2023-01-04 16:45:33 User Name(123456789)
+这里有一些重复的日期。
+我撤回了一条消息。
+你也撤回了一条消息。
+他们都撤回了一条消息。
 
 2023-01-04 16:45:33 User Name(123456789)
-这里有一些多余的日期。
-
-2023-01-04 16:45:33 User Name(123456789)
-这里有一些多余的日期，以及一整个段落不换行的语句。
+这里有一些重复的日期，以及一整个段落不换行的语句。
 斯缇科西亚，醉与梦的海滨之城，旧日的歌声仍在浮浪间回荡。大海的女儿海列屈拉，清洗「海洋」火种的黄金裔，你要驱散污浊的暗流，为天外的英雄奏响不醉不归的盛宴——散场之时未到，纵然希望如泡沫般易碎，浪花也将一往无前。
 
 2023-01-05 10:20:18 Another User(987654321)
 这里是一些需要添加前缀的内容：
-今天都做了些什么`;
+今天都做了些什么
+梦幻空花：我做了一个梦
+`;
             document.getElementById('inputText').value = exampleText;
             showStatus('示例文本已加载');
         });
