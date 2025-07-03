@@ -200,13 +200,13 @@ title: "文本处理工具"
             </div>
         </div>
         <div class="buttons-section">
+            <button id="resetText" class="reset-button">清空</button>
             <button id="formatFont" class="step-button">1. 设置字体</button>
             <button id="formatParagraph" class="step-button">2. 设置段落格式</button>
             <button id="processDates" class="step-button">3. 处理日期</button>
             <button id="removeExtraLineBreaks" class="step-button">4. 去除多余换行</button>
             <button id="addLeisurePrefix" class="step-button">5. 添加"闲情逸致"</button>
             <button id="processAll" class="step-button">一键处理全部</button>
-            <button id="resetText" class="reset-button">重置</button>
             <button id="copyResult" class="copy-button">复制结果</button>
         </div>
         <div id="status" class="status"></div>
@@ -219,7 +219,7 @@ title: "文本处理工具"
             <div class="info-feature">5. 添加前缀：在包含特定短语的行前添加固定文本。</div>
             <div class="info-feature">6. 一键处理全部：按顺序执行所有处理步骤。</div>
             <div class="info-feature">7. 复制结果：将处理后的文本复制到剪贴板。</div>
-            <div class="info-feature">8. 重置：清空输入和输出区域。</div>
+            <div class="info-feature">8. 清空：清空输入和输出区域。</div>
             <div class="info-feature">9. 快速导航：使用页面右侧的快速导航按钮，可以快速跳转到各个处理步骤。</div>
         </div>
     </div>
@@ -381,8 +381,8 @@ title: "文本处理工具"
             
             let content = outputPreview.innerHTML;
             
-            // 查找"今天都做了些什么"并添加前缀
-            content = content.replace(/今天都做了些什么/g, '<span class="leisure-title">闲情逸致：</span>今天都做了些什么');
+            // 查找"今天都做了些什么"并添加前缀（确保不会重复添加）
+            content = content.replace(/(?!<span class="leisure-title">闲情逸致：<\/span>)今天都做了些什么/g, '<span class="leisure-title">闲情逸致：</span>今天都做了些什么');
             
             updatePreview(content);
             showStatus('已添加"闲情逸致"前缀');
@@ -436,12 +436,12 @@ title: "文本处理工具"
             document.body.removeChild(tempElement);
         });
         
-        // 重置
+        // 清空
         document.getElementById('resetText').addEventListener('click', () => {
             inputText.value = '';
             outputPreview.innerHTML = '';
             outputPreview.className = 'output-preview';
-            showStatus('已重置');
+            showStatus('已清空');
         });
         
         // 添加示例文本按钮
