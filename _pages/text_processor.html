@@ -143,6 +143,7 @@ title: "文本处理工具"
             font-weight: bold;
             color: #0056b3;
             padding: 2px 0;
+            font-size: 20px; /* 三号字体 */
         }
         .toc {
             background-color: #f8f9fa;
@@ -186,7 +187,7 @@ title: "文本处理工具"
             margin: 10px 0;
         }
         .leisure-title {
-            color: #0056b3; /* 蓝色 */
+            color: #d35f05; /* 橙红色 */
             font-weight: bold;
         }
         .dream-title {
@@ -306,7 +307,7 @@ title: "文本处理工具"
         document.getElementById('processDates').addEventListener('click', () => {
             // 处理日期（匹配并样式化日期，然后移除其他出现）
             // 匹配形如 "YYYY-MM-DD HH:MM:SS 用户名(用户ID)" 的日期时间用户ID行
-            const dateTimeUserRegex = /(\d{4}-\d{2}-\d{2})\s+\d{1,2}:\d{2}:\d{2}\s+[^\n\(]+\([^\)]+\)/g;
+            const dateTimeUserRegex = /(\d{4}[-/]\d{1,2}[-/]\d{1,2})\s+\d{1,2}:\d{2}:\d{2}\s+[^\n\(]+\([^\)]+\)/g;
 
             let content = outputPreview.innerHTML;
             // 确保处理的是纯文本，而不是HTML内容
@@ -314,13 +315,23 @@ title: "文本处理工具"
             tempDiv.innerHTML = content;
             content = tempDiv.innerText;
 
+            // 将 YYYY/MM/DD 格式的日期转换为 YYYY-MM-DD
+            content = content.replace(/(\d{4})\/(\d{1,2})\/(\d{1,2})/g, '$1-$2-$3');
+
             // 替换日期时间用户ID行，只保留日期部分
             content = content.replace(dateTimeUserRegex, (match, date) => {
                 return date;
             });
 
+            // 对日期中的月和日进行补零处理
+            content = content.replace(/(\d{4})[-/](\d{1,2})[-/](\d{1,2})/g, (match, year, month, day) => {
+                const paddedMonth = month.padStart(2, '0');
+                const paddedDay = day.padStart(2, '0');
+                return `${year}-${paddedMonth}-${paddedDay}`;
+            });
+
             // 匹配其他日期格式 YYYY-MM-DD
-            const dateRegex = /\b\d{4}-\d{2}-\d{2}\b/g;
+            const dateRegex = /\b\d{4}[-/]\d{1,2}[-/]\d{1,2}\b/g;
             // 移除重复日期
             let lines = content.split('\n');
             let processedLines = new Set();
@@ -407,6 +418,7 @@ title: "文本处理工具"
             // 查找"今天都做了些什么"并添加"闲情逸致："前缀（确保不会重复添加）
             content = content.replace(/(<p[^>]*>)(?!<span class="leisure-title">闲情逸致：<\/span>)(今天都做了些什么)/g, '$1<span class="leisure-title">闲情逸致：<\/span>$2');
             // 查找"梦幻空花："并高亮显示
+            content = content.replace(/(闲情逸致：)/g, '<span class="leisure-title">$1</span>');
             content = content.replace(/(梦幻空花：)/g, '<span class="dream-title">$1</span>');
             
             updatePreview(content);
@@ -484,8 +496,8 @@ title: "文本处理工具"
 2023-01-01
 这是第一天的内容。
 
-2023-01-02 14:30:45 Crescent Velvet(315762814)
-这是第二天的内容。
+2023/1/2 14:30:45 Crescent Velvet(315762814)
+这是第二天的内容，另一种格式的日期。
 
 2023-01-04 16:45:33 User Name(123456789)
 这里有一些重复的日期。
