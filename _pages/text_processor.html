@@ -203,8 +203,7 @@ title: "文本处理工具"
             <button id="formatParagraph" class="step-button">2. 设置段落格式</button>
             <button id="processDates" class="step-button">3. 处理日期</button>
             <button id="removeExtraLineBreaks" class="step-button">4. 去除多余换行</button>
-            <button id="generateTOC" class="step-button">5. 生成目录</button>
-            <button id="addLeisurePrefix" class="step-button">6. 添加"闲情逸致"</button>
+            <button id="addLeisurePrefix" class="step-button">5. 添加"闲情逸致"</button>
             <button id="processAll" class="step-button">一键处理全部</button>
             <button id="copyResult" class="copy-button">复制结果</button>
             <button id="resetText" class="reset-button">重置</button>
@@ -216,12 +215,11 @@ title: "文本处理工具"
             <div class="info-feature">2. 设置段落格式：将文本分段并添加段落样式。</div>
             <div class="info-feature">2. 处理日期：对于形如“YYYY-MM-DD HH:MM:SS 用户名(用户ID)”的行，只保留日期部分（YYYY-MM-DD），并移除重复日期。</div>
             <div class="info-feature">4. 去除多余换行：删除文本中不必要的空行。</div>
-            <div class="info-feature">5. 自动生成目录：根据日期自动创建目录。</div>
-            <div class="info-feature">6. 添加前缀：在包含特定短语的行前添加固定文本。</div>
-            <div class="info-feature">7. 一键处理全部：按顺序执行所有处理步骤。</div>
-            <div class="info-feature">8. 复制结果：将处理后的文本复制到剪贴板。</div>
-            <div class="info-feature">9. 重置：清空输入和输出区域。</div>
-            <div class="info-feature">10. 快速导航：使用页面右侧的快速导航按钮，可以快速跳转到各个处理步骤。</div>
+            <div class="info-feature">5. 添加前缀：在包含特定短语的行前添加固定文本。</div>
+            <div class="info-feature">6. 一键处理全部：按顺序执行所有处理步骤。</div>
+            <div class="info-feature">7. 复制结果：将处理后的文本复制到剪贴板。</div>
+            <div class="info-feature">8. 重置：清空输入和输出区域。</div>
+            <div class="info-feature">9. 快速导航：使用页面右侧的快速导航按钮，可以快速跳转到各个处理步骤。</div>
         </div>
     </div>
     
@@ -231,9 +229,7 @@ title: "文本处理工具"
         <button data-target="formatParagraph">2</button>
         <button data-target="processDates">3</button>
         <button data-target="removeExtraLineBreaks">4</button>
-
-        <button data-target="generateTOC">6</button>
-        <button data-target="addLeisurePrefix">7</button>
+        <button data-target="addLeisurePrefix">5</button>
     </div>
 
     <script>
@@ -355,12 +351,12 @@ title: "文本处理工具"
             tempDiv.innerHTML = content;
             content = tempDiv.innerText;
 
-            // 将连续两个及以上的换行替换为单个换行
-            content = content.replace(/\n{2,}/g, '\n');
+            // 将连续的两个换行符替换为单个换行
+            content = content.replace(/\n\n/g, '\n');
             // 移除行尾空格
             content = content.split('\n').map(line => line.trimEnd()).join('\n');
-            // 移除连续的空行
-            content = content.replace(/\n\s*\n/g, '\n');
+            // 再次处理可能存在的连续换行，确保只剩一个
+            content = content.replace(/\n{2,}/g, '\n');
             
             // 将处理后的纯文本重新包裹成 <p> 标签
             const formattedContent = content.split('\n').map(line => {
@@ -375,34 +371,7 @@ title: "文本处理工具"
             showStatus('多余换行已移除');
         });
         
-        // 5. 自动生成目录
-        document.getElementById('generateTOC').addEventListener('click', () => {
-            if (!outputPreview.innerHTML.trim()) {
-                showStatus('请先处理文本', true);
-                return;
-            }
-            
-            let content = outputPreview.innerHTML;
-            const dateRegex = /\b\d{4}-\d{2}-\d{2}\b/g;
-            const dates = (content.match(dateRegex) || []).filter((value, index, self) => self.indexOf(value) === index);
-            
-            if (dates.length === 0) {
-                showStatus('未找到日期，无法生成目录', true);
-                return;
-            }
-            
-            // 创建目录
-            let toc = '<div class="toc"><div class="toc-title">目录</div>';
-            dates.forEach(date => {
-                toc += `<div class="toc-item">${date}</div>`;
-            });
-            toc += '</div>';
-            
-            updatePreview(toc + content);
-            showStatus('目录已生成');
-        });
-        
-        // 6. 添加"闲情逸致"
+        // 5. 添加"闲情逸致"
         document.getElementById('addLeisurePrefix').addEventListener('click', () => {
             if (!outputPreview.innerHTML.trim()) {
                 showStatus('请先处理文本', true);
@@ -430,9 +399,8 @@ title: "文本处理工具"
             setTimeout(() => document.getElementById('formatParagraph').click(), 100);
             setTimeout(() => document.getElementById('processDates').click(), 200);
             setTimeout(() => document.getElementById('removeExtraLineBreaks').click(), 300);
-            setTimeout(() => document.getElementById('generateTOC').click(), 500);
-            setTimeout(() => document.getElementById('addLeisurePrefix').click(), 600);
-            setTimeout(() => showStatus('全部处理完成'), 700);
+            setTimeout(() => document.getElementById('addLeisurePrefix').click(), 400);
+            setTimeout(() => showStatus('全部处理完成'), 500);
         });
         
         // 复制结果
