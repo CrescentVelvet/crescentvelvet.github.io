@@ -306,8 +306,8 @@ title: "文本处理工具"
         // 3. 处理日期
         document.getElementById('processDates').addEventListener('click', () => {
             // 处理日期（匹配并样式化日期，然后移除其他出现）
-            // 匹配形如 "YYYY-MM-DD HH:MM:SS 用户名(用户ID)" 的日期时间用户ID行
-            const dateTimeUserRegex = /(\d{4}[-/]\d{1,2}[-/]\d{1,2})\s+\d{1,2}:\d{2}:\d{2}\s+[^\n\(]+\([^\)]+\)/g;
+            // 匹配形如 "YYYY-MM-DD" 或 "YYYY/MM/DD" 的日期行
+            const dateTimeUserRegex = /.*?(\d{4}[-/]\d{1,2}[-/]\d{1,2})\s+\d{1,2}:\d{2}:\d{2}.*/g;
 
             let content = outputPreview.innerHTML;
             // 确保处理的是纯文本，而不是HTML内容
@@ -493,13 +493,13 @@ title: "文本处理工具"
         document.getElementById('loadExample').addEventListener('click', () => {
             const exampleText = `这是一个示例文本，用于演示文本处理工具的功能。
 
-2023-01-01
+2023-01-01 16:45:33 User Name(123456789)
 这是第一天的内容。
 
-2023/1/2 14:30:45 Crescent Velvet(315762814)
+【郁金香】蹦蹦八个蛋 2023/1/2 1:03:53
 这是第二天的内容，另一种格式的日期。
 
-2023-01-04 16:45:33 User Name(123456789)
+2023/1/4 16:30:45 Crescent Velvet(315762814)
 这里有一些重复的日期。
 我撤回了一条消息。
 你也撤回了一条消息。
