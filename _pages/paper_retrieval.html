@@ -511,7 +511,17 @@ layout: default
             <h3 style="margin-top:0;">arXiv论文提取</h3>
             <div class="input-group" style="display:flex;gap:12px;margin-top:15px;align-items:center;">
                 <input type="text" id="arxivInput" class="input-control" style="flex:1" 
-                    placeholder="输入arXiv链接或ID，将自动提取并分析（如：2406.12345 或完整链接）">
+                    placeholder="输入arXiv链接或ID，点击“读取arXiv”按钮（如：2406.12345 或完整链接）">
+                <button id="readArxivBtn" class="btn btn-primary">读取arXiv</button>
+            </div>
+            <div class="input-group" style="display:flex;gap:12px;margin-top:15px;align-items:center;">
+                <select id="llmSelect" class="input-control" style="flex:1;">
+                    <option value="kimi">Kimi (Moonshot)</option>
+                     <option value="yuanbao" selected>元宝 (ByteDance)</option>
+                     <option value="doubao">豆包 (ByteDance)</option>
+                     <option value="qwen">千问 (Aliyun)</option>
+                </select>
+                <button id="analyzePaperBtn" class="btn btn-primary">分析论文</button>
             </div>
             <div id="arxivResult" class="result-box" style="margin-top:15px;padding:15px;border-radius:var(--button-radius);background:var(--text-light);"></div>
             <div id="kimiResult" class="result-box" style="margin-top:15px;padding:15px;border-radius:var(--button-radius);background:var(--text-light);"></div>
@@ -812,25 +822,7 @@ layout: default
             }
         });
 
-        // 防抖函数
-        function debounce(func, wait) {
-            let timeout;
-            return function executedFunction(...args) {
-                const later = () => {
-                    clearTimeout(timeout);
-                    func(...args);
-                };
-                clearTimeout(timeout);
-                timeout = setTimeout(later, wait);
-            };
-        }
 
-        // 自动提取arXiv论文信息的防抖处理
-        const debouncedFetchArxiv = debounce((input) => {
-            if (input.length >= 7) { // 最短的arXiv ID长度为7 (YYMM.NNN)
-                fetchArxiv();
-            }
-        }, 1000); // 1秒后执行
 
         // 页面加载完成后初始化
         document.addEventListener('DOMContentLoaded', () => {
@@ -840,10 +832,15 @@ layout: default
             document.getElementById('importJsonBtn').onclick = triggerImportJson;
             document.getElementById('importJsonInput').addEventListener('change', handleImportJson);
 
-            // 监听arXiv输入框的变化
+            // 监听arXiv输入框的变化 (不再自动触发，需要点击按钮)
             document.getElementById('arxivInput').addEventListener('input', (e) => {
-                const input = e.target.value.trim();
-                debouncedFetchArxiv(input);
+                // 仅用于清除之前的错误或结果，不自动触发fetchArxiv
+                const arxivResultDiv = document.getElementById('arxivResult');
+    
+                if (e.target.value.trim() === '') {
+                    arxivResultDiv.innerHTML = '';
+                    kimiResultDiv.innerHTML = '';
+                }
             });
 
             // 监听回车键触发
@@ -851,6 +848,15 @@ layout: default
                 if (e.key === 'Enter') {
                     fetchArxiv();
                 }
+            });
+
+            // 监听“读取arXiv”按钮点击事件
+            document.getElementById('readArxivBtn').addEventListener('click', fetchArxiv);
+
+            // 监听“分析论文”按钮点击事件
+            document.getElementById('analyzePaperBtn').addEventListener('click', () => {
+                const selectedLlm = document.getElementById('llmSelect').value;
+                analyzePaperWithLLM(selectedLlm);
             });
         });
 
@@ -974,24 +980,60 @@ layout: default
             // 注意：直接从arxiv.org/pdf/下载PDF会遇到CORS问题，因为arxiv服务器没有设置Access-Control-Allow-Origin头。
             // 客户端JavaScript无法直接跨域下载PDF。如果需要此功能，需要设置一个后端代理服务来转发请求。
             // 目前，Kimi分析功能将依赖于浏览器是否允许跨域请求，或者用户手动下载PDF。
-            // 自动触发Kimi分析
-            analyzeWithKimi();
+            // 自动触发Kimi分析功能已移除，现在需要手动点击“分析论文”按钮
             document.getElementById('kimiResult').innerHTML = '';
         }
 
-        // 警告：API Key 不应直接暴露在前端代码中。在生产环境中，请务必通过后端服务代理请求，以保护您的API Key。
-        const kimiApiKey = 'sk-URIWaOsVdGAZRX9AAMRDTRwp1JiIqSGtGg74gaO7E3xNOClP';
+
         
-        // 将Kimi分析功能提取为独立函数
-        async function analyzeWithKimi() {
+        // 将论文分析功能提取为独立函数，支持不同大模型
+        async function analyzePaperWithLLM(model) {
             const kimiResultDiv = document.getElementById('kimiResult');
+            if (!kimiResultDiv) {
+                console.error('Element with ID "kimiResult" not found.');
+                return;
+            }
             if (!currentArxivPdfUrl) {
                 kimiResultDiv.innerHTML = '请先提取论文信息';
                 return;
             }
+
+            let apiUrl = '';
+            let apiKey = '';
+            let modelName = '';
+
+            // 根据选择的模型设置API信息
+            switch (model) {
+                case 'kimi':
+                    apiUrl = 'https://api.moonshot.cn/v1/chat/completions';
+                    apiKey = 'YOUR_KIMI_API_KEY'; // 替换为你的Kimi API Key
+                    modelName = 'moonshot-v1-8k';
+                    break;
+                case 'yuanbao':
+                    // 注意：以下API Key和模型名称仅为示例，请替换为实际的API Key和模型名称
+                    // 生产环境中，请务必通过后端服务代理请求，以保护您的API Key。
+                    apiUrl = 'https://api.yuanbao.bytedance.com/v1/chat/completions'; 
+                    apiKey = 'YOUR_YUANBAO_API_KEY'; 
+                    modelName = 'yuanbao-model-name'; 
+                    break;
+                case 'doubao':
+                    apiUrl = 'https://api.doubao.bytedance.com/v1/chat/completions';
+                    apiKey = 'YOUR_DOUBAO_API_KEY'; 
+                    modelName = 'doubao-model-name'; 
+                    break;
+                case 'qwen':
+                    apiUrl = 'https://api.qwen.aliyun.com/v1/chat/completions';
+                    apiKey = 'YOUR_QWEN_API_KEY'; 
+                    modelName = 'qwen-model-name';
+                    break;
+                default:
+                    kimiResultDiv.innerHTML = '不支持的模型选择';
+                    return;
+            }
+
             kimiResultDiv.innerHTML = `
                 <div style="padding: 15px; border-radius: var(--button-radius); background: var(--light-bg);">
-                    <div style="margin-bottom: 10px;">🔄 正在处理论文分析，请稍候...</div>
+                    <div style="margin-bottom: 10px;">🔄 正在使用 ${model.toUpperCase()} 处理论文分析，请稍候...</div>
                     <div style="font-size: 0.9em; color: var(--text-secondary);">1. 下载PDF文件</div>
                 </div>
             `;
@@ -1035,7 +1077,7 @@ layout: default
             `;
             try {
                 const body = JSON.stringify({
-                    model: 'moonshot-v1-8k',
+                    model: modelName,
                     messages: [
                         {"role": "system", "content": "你是论文解读助手，善于将论文内容结构化总结。"},
                         {"role": "user", "content": `请帮我阅读这篇论文（见附件），并用简明扼要的中文结构化总结以下内容：\n1. 论文的核心任务\n2. 核心思路\n3. 算法框架\n4. 输入输出\n5. 主要解决了什么问题\n请分点输出。`}
@@ -1044,11 +1086,11 @@ layout: default
                     max_tokens: 2048,
                     temperature: 0.3
                 });
-                const chatRes = await fetch('https://api.moonshot.cn/v1/chat/completions', {
+                const chatRes = await fetch(apiUrl, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': 'Bearer ' + kimiApiKey
+                        'Authorization': 'Bearer ' + apiKey
                     },
                     body
                 });
