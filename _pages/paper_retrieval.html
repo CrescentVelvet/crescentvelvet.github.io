@@ -744,13 +744,25 @@ layout: default
         function fetchArxiv() {
             const input = document.getElementById('arxivInput').value.trim();
             const resultDiv = document.getElementById('arxivResult');
-            // 提取arXiv ID
-            const match = input.match(/arxiv\.org\/abs\/([0-9]+\.[0-9]+)(v\d+)?/i);
-            if (!match) {
-                resultDiv.innerHTML = '<span style="color:#dc3545;">请输入正确的 arXiv 链接</span>';
+            // 兼容多种arXiv链接和ID格式
+            let arxivId = null;
+            // 支持@前缀
+            let cleaned = input.replace(/^@/, '').trim();
+            // 匹配 https://arxiv.org/abs/2505.07747 或 https://arxiv.org/pdf/2505.07747
+            let match = cleaned.match(/arxiv\.org\/(abs|pdf)\/(\d{4}\.\d{4,5})(v\d+)?/i);
+            if (match) {
+                arxivId = match[2];
+            } else {
+                // 直接输入ID
+                match = cleaned.match(/^(\d{4}\.\d{4,5})(v\d+)?$/);
+                if (match) {
+                    arxivId = match[1];
+                }
+            }
+            if (!arxivId) {
+                resultDiv.innerHTML = '<span style="color:#dc3545;">请输入正确的 arXiv 链接或ID</span>';
                 return;
             }
-            const arxivId = match[1];
             resultDiv.innerHTML = '正在获取...';
             fetch(`https://export.arxiv.org/api/query?id_list=${arxivId}`)
                 .then(res => res.text())
