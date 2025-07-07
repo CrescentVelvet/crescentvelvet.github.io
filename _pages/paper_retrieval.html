@@ -11,17 +11,21 @@ layout: default
     <title>论文搜索</title>
     <style>
         :root {
-            --primary-color: #007bff; /* 蓝色 */
-            --secondary-color: #6c757d; /* 灰色 */
-            --accent-color: #dc3545; /* 红色 */
-            --light-bg: #f8f9fa; /* 浅灰色背景 */
-            --dark-bg: #343a40; /* 深色背景 */
+            --primary-color: #4a90e2; /* 主色调：清新蓝色 */
+            --secondary-color: #6c757d; /* 次要色：灰色 */
+            --accent-color: #f0654b; /* 强调色：珊瑚红 */
+            --success-color: #66bb6a; /* 成功色：绿色 */
+            --light-bg: #f8f9fa; /* 浅色背景 */
+            --dark-bg: #2c3e50; /* 深色背景 */
             --border-color: #e9ecef; /* 边框颜色 */
-            --text-primary: #212529; /* 主要文本颜色 */
-            --text-secondary: #495057; /* 次要文本颜色 */
-            --text-light: #f8f9fa; /* 浅色文本 */
+            --text-primary: #2c3e50; /* 主要文本色 */
+            --text-secondary: #6c757d; /* 次要文本色 */
+            --text-light: #ffffff; /* 浅色文本 */
             --shadow-light: rgba(0, 0, 0, 0.08); /* 浅阴影 */
             --shadow-medium: rgba(0, 0, 0, 0.15); /* 中等阴影 */
+            --button-radius: 8px; /* 按钮圆角 */
+            --card-radius: 12px; /* 卡片圆角 */
+            --transition-speed: 0.3s; /* 过渡动画速度 */
         }
         
         body {
@@ -33,13 +37,19 @@ layout: default
             padding: 0;
         }
         
+        /* 容器基础样式 */
+        .container {
+            background-color: var(--text-light);
+            border-radius: var(--card-radius);
+            box-shadow: 0 8px 30px var(--shadow-light);
+            transition: all var(--transition-speed) ease;
+        }
+
         .search-container {
-            max-width: 1100px; /* 增加最大宽度 */
-            margin: 40px auto; /* 增加外边距 */
-            padding: 30px; /* 增加内边距 */
-            background-color: #fff;
-            box-shadow: 0 5px 20px var(--shadow-light); /* 调整阴影 */
-            border-radius: 12px; /* 增加圆角 */
+            composes: container;
+            max-width: 1100px;
+            margin: 40px auto;
+            padding: 35px;
         }
         
         h1 {
@@ -68,12 +78,15 @@ layout: default
             border-bottom: 1px solid var(--border-color);
         }
         
+        .filter-card {
+            composes: container;
+            padding: 22px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 4px 12px var(--shadow-light);
+        }
+
         .conference-filter, .year-filter, .keyword-filter {
-            padding: 20px; /* 增加内边距 */
-            background-color: #fff; /* 更改背景色 */
-            border-radius: 10px; /* 增加圆角 */
-            box-shadow: 0 2px 8px var(--shadow-light); /* 调整阴影 */
-            border: 1px solid var(--border-color); /* 添加边框 */
+            composes: filter-card;
         }
         
         .conference-filter label {
@@ -112,20 +125,34 @@ layout: default
             gap: 15px; /* 增加间距 */
         }
         
-        .year-input {
-            width: 90px; /* 调整年份输入框宽度 */
-            padding: 10px 12px; /* 调整内边距 */
-            border: 1px solid var(--border-color);
-            border-radius: 6px; /* 增加圆角 */
-            text-align: center;
-            font-size: 15px; /* 调整字体大小 */
-            transition: border-color 0.3s, box-shadow 0.3s; /* 添加过渡效果 */
+        /* 通用输入框样式 */
+        .input-control {
+            padding: 10px 15px;
+            border: 1.5px solid var(--border-color);
+            border-radius: var(--button-radius);
+            font-size: 15px;
+            transition: all var(--transition-speed) ease;
+            background-color: var(--text-light);
+            color: var(--text-primary);
+            box-shadow: inset 0 2px 4px var(--shadow-light);
         }
-        
-        .year-input:focus {
+
+        .input-control:focus {
             border-color: var(--primary-color);
-            box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25); /* 添加焦点阴影 */
+            box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.2);
             outline: none;
+        }
+
+        .input-control::placeholder {
+            color: var(--text-secondary);
+            opacity: 0.7;
+        }
+
+        /* 年份输入框特殊样式 */
+        .year-input {
+            composes: input-control;
+            width: 90px;
+            text-align: center;
         }
         
         .keyword-input-container {
@@ -134,35 +161,72 @@ layout: default
         }
         
         .keyword-input {
+            composes: input-control;
             flex: 1;
-            padding: 12px 15px; /* 增加内边距 */
-            border: 1px solid var(--border-color);
-            border-radius: 8px 0 0 8px; /* 增加圆角 */
-            font-size: 16px; /* 调整字体大小 */
-            transition: border-color 0.3s, box-shadow 0.3s; /* 添加过渡效果 */
+            border-radius: var(--button-radius) 0 0 var(--button-radius);
+            font-size: 15px;
         }
         
-        .keyword-input:focus {
-            border-color: var(--primary-color);
-            box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
-            outline: none;
-        }
-        
-        .add-keyword-btn {
-            padding: 12px 20px; /* 增加内边距 */
+        /* 通用按钮样式 */
+        .btn {
+            padding: 10px 20px;
             background-color: var(--primary-color);
             color: var(--text-light);
             border: none;
-            border-radius: 0 8px 8px 0; /* 增加圆角 */
+            border-radius: var(--button-radius);
             cursor: pointer;
-            transition: background-color 0.3s, transform 0.2s; /* 调整过渡效果 */
-            font-size: 16px; /* 调整字体大小 */
+            font-size: 15px;
             font-weight: 600;
+            transition: all var(--transition-speed) ease;
+            box-shadow: 0 2px 4px var(--shadow-light);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            line-height: 1.5;
         }
-        
-        .add-keyword-btn:hover {
-            background-color: #0056b3; /* 鼠标悬停颜色 */
-            transform: translateY(-1px); /* 悬停效果 */
+
+        .btn:hover {
+            background-color: #357abd;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px var(--shadow-medium);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 4px var(--shadow-light);
+        }
+
+        .btn-secondary {
+            background-color: var(--secondary-color);
+        }
+
+        .btn-secondary:hover {
+            background-color: #5a6268;
+        }
+
+        .btn-accent {
+            background-color: var(--accent-color);
+        }
+
+        .btn-accent:hover {
+            background-color: #d84315;
+        }
+
+        .btn-success {
+            background-color: var(--success-color);
+        }
+
+        .btn-success:hover {
+            background-color: #4caf50;
+        }
+
+        /* 特殊按钮样式 */
+        .add-keyword-btn {
+            composes: btn;
+            border-radius: 0 var(--button-radius) var(--button-radius) 0;
+            padding: 12px 20px;
+            font-size: 16px;
         }
         
         .saved-keywords {
@@ -208,20 +272,12 @@ layout: default
         }
         
         .search-box {
+            composes: input-control;
             width: 100%;
-            padding: 15px 20px; /* 增加内边距 */
-            font-size: 18px; /* 增大字体 */
-            border: 2px solid var(--border-color);
-            border-radius: 10px; /* 增加圆角 */
-            transition: border-color 0.3s, box-shadow 0.3s; /* 添加阴影过渡 */
-            margin-bottom: 15px; /* 增加外边距 */
-            box-shadow: inset 0 1px 3px rgba(0,0,0,0.05); /* 添加内阴影 */
-        }
-        
-        .search-box:focus {
-            border-color: var(--primary-color);
-            box-shadow: 0 0 0 0.25rem rgba(0, 123, 255, 0.25); /* 添加焦点阴影 */
-            outline: none;
+            padding: 15px 20px;
+            font-size: 17px;
+            margin-bottom: 15px;
+            border-width: 2px;
         }
         
         .search-stats {
@@ -237,21 +293,20 @@ layout: default
         }
         
         .paper-item {
-            background: #fff;
-            padding: 15px; /* 进一步缩小内边距 */
-            margin-bottom: 10px; /* 进一步缩小外边距 */
-            border-radius: 6px; /* 进一步缩小圆角 */
+            composes: container;
+            padding: 20px;
+            margin-bottom: 15px;
             border: 1px solid var(--border-color);
-            box-shadow: 0 1px 8px var(--shadow-light); /* 调整阴影 */
-            transition: transform 0.3s ease, box-shadow 0.3s ease; /* 调整过渡效果 */
-            max-width: 650px; /* 进一步限制最大宽度 */
+            max-width: 650px;
             margin-left: auto;
             margin-right: auto;
+            transition: transform var(--transition-speed) ease,
+                        box-shadow var(--transition-speed) ease;
         }
         
         .paper-item:hover {
-            transform: translateY(-3px); /* 增加悬停位移 */
-            box-shadow: 0 8px 25px var(--shadow-medium); /* 增加悬停阴影 */
+            transform: translateY(-3px);
+            box-shadow: 0 12px 30px var(--shadow-medium);
         }
         
         .paper-item.highlight {
@@ -376,18 +431,73 @@ layout: default
             text-decoration: underline;
         }
         
+        /* 响应式设计 */
         @media (max-width: 768px) {
             .filter-container {
                 grid-template-columns: 1fr;
+                gap: 20px;
             }
             
             .search-container {
                 padding: 20px;
-                margin: 20px;
+                margin: 15px;
             }
             
             .paper-item {
-                padding: 20px;
+                padding: 15px;
+                margin-bottom: 12px;
+            }
+
+            .input-group {
+                flex-direction: column;
+            }
+
+            .select-wrapper {
+                width: 100%;
+                min-width: unset;
+            }
+
+            .btn {
+                width: 100%;
+                margin-top: 10px;
+            }
+
+            .year-range {
+                flex-wrap: wrap;
+            }
+
+            .year-input {
+                flex: 1;
+                min-width: 120px;
+            }
+
+            .paper-conference {
+                display: inline-block;
+                margin-bottom: 8px;
+            }
+
+            .paper-keywords {
+                gap: 6px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .search-container {
+                padding: 15px;
+                margin: 10px;
+            }
+
+            h1 {
+                font-size: 2em;
+                margin-bottom: 25px;
+            }
+
+            .paper-title {
+                font-size: 1em;
+            }
+
+            .paper-abstract {
+                font-size: 0.8em;
             }
         }
     </style>
@@ -397,24 +507,38 @@ layout: default
         <h1>论文搜索</h1>
         
         <!-- arXiv提取功能开始 -->
-        <div style="margin-bottom: 30px; padding: 18px 20px; background: #f4f8fb; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.04);">
-            <label for="arxivInput" style="font-weight:600;">输入arXiv链接，自动提取论文信息：</label>
-            <div style="display:flex;gap:10px;margin-top:10px;">
-                <input type="text" id="arxivInput" placeholder="如 https://arxiv.org/abs/2406.12345" style="flex:1;padding:10px 12px;border:1px solid #ccc;border-radius:5px;font-size:15px;">
-                <button onclick="fetchArxiv()" style="padding:10px 18px;background:#007bff;color:#fff;border:none;border-radius:5px;font-weight:600;cursor:pointer;">提取</button>
+        <div class="arxiv-section filter-card" style="margin-bottom: 30px; background: var(--light-bg);">
+            <h3 style="margin-top:0;">arXiv论文提取</h3>
+            <div class="input-group" style="display:flex;gap:12px;margin-top:15px;align-items:center;">
+                <input type="text" id="arxivInput" class="input-control" style="flex:1" 
+                    placeholder="输入arXiv链接，如 https://arxiv.org/abs/2406.12345">
+                <div class="select-wrapper" style="position:relative;min-width:120px;">
+                    <select id="llmSelect" class="input-control" style="width:100%;appearance:none;padding-right:30px;">
+                        <option value="kimi">千问</option>
+                        <option value="moonshot">元宝</option>
+                        <option value="qwen">豆包</option>
+                        <option value="glm">Kimi</option>
+                    </select>
+                    <div style="position:absolute;right:10px;top:50%;transform:translateY(-50%);pointer-events:none;">
+                        <svg width="12" height="12" viewBox="0 0 12 12">
+                            <path d="M2 4L6 8L10 4" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round"/>
+                        </svg>
+                    </div>
+                </div>
+                <button id="llmAnalyzeBtn" class="btn btn-primary">分析PDF</button>
             </div>
-            <div id="arxivResult" style="margin-top:15px;"></div>
-            <button id="kimiAnalyzeBtn" style="margin-top:10px;display:none;">用Kimi分析PDF</button>
-            <div id="kimiResult" style="margin-top:15px;"></div>
+            <div id="arxivResult" class="result-box" style="margin-top:15px;padding:15px;border-radius:var(--button-radius);background:var(--text-light);"></div>
+            <button id="kimiAnalyzeBtn" class="btn btn-accent" style="margin-top:15px;display:none;">用Kimi分析PDF</button>
+            <div id="kimiResult" class="result-box" style="margin-top:15px;padding:15px;border-radius:var(--button-radius);background:var(--text-light);"></div>
         </div>
         <!-- arXiv提取功能结束 -->
 
         <!-- 导入导出JSON功能开始 -->
-        <div style="margin-bottom:18px;display:flex;gap:10px;">
-          <button id="exportJsonBtn" style="padding:8px 18px;font-weight:600;">导出为JSON</button>
-          <input type="file" id="importJsonInput" accept=".json" style="display:none;">
-          <button id="importJsonBtn" style="padding:8px 18px;font-weight:600;">导入JSON</button>
-        </div>
+        <div class="button-group" style="margin-bottom:20px;display:flex;gap:12px;">
+                <button id="exportJsonBtn" class="btn btn-secondary">导出为JSON</button>
+                <input type="file" id="importJsonInput" accept=".json" style="display:none;">
+                <button id="importJsonBtn" class="btn btn-secondary">导入JSON</button>
+            </div>
         <!-- 导入导出JSON功能结束 -->
         
         <div class="filter-container">
