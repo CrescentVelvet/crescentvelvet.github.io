@@ -971,21 +971,24 @@ layout: default
                     document.getElementById('kimiResult').innerHTML = '';
                 });
             currentArxivPdfUrl = `https://arxiv.org/pdf/${arxivId}.pdf`;
+            // 注意：直接从arxiv.org/pdf/下载PDF会遇到CORS问题，因为arxiv服务器没有设置Access-Control-Allow-Origin头。
+            // 客户端JavaScript无法直接跨域下载PDF。如果需要此功能，需要设置一个后端代理服务来转发请求。
+            // 目前，Kimi分析功能将依赖于浏览器是否允许跨域请求，或者用户手动下载PDF。
             // 自动触发Kimi分析
             analyzeWithKimi();
-            document.getElementById('kimiAnalyzeBtn').style.display = 'none';
             document.getElementById('kimiResult').innerHTML = '';
         }
 
+        // 警告：API Key 不应直接暴露在前端代码中。在生产环境中，请务必通过后端服务代理请求，以保护您的API Key。
         const kimiApiKey = 'sk-URIWaOsVdGAZRX9AAMRDTRwp1JiIqSGtGg74gaO7E3xNOClP';
         
         // 将Kimi分析功能提取为独立函数
         async function analyzeWithKimi() {
+            const kimiResultDiv = document.getElementById('kimiResult');
             if (!currentArxivPdfUrl) {
-                document.getElementById('kimiResult').innerHTML = '请先提取论文信息';
+                kimiResultDiv.innerHTML = '请先提取论文信息';
                 return;
             }
-            const kimiResultDiv = document.getElementById('kimiResult');
             kimiResultDiv.innerHTML = `
                 <div style="padding: 15px; border-radius: var(--button-radius); background: var(--light-bg);">
                     <div style="margin-bottom: 10px;">🔄 正在处理论文分析，请稍候...</div>
@@ -996,7 +999,7 @@ layout: default
             try {
                 pdfBlob = await fetch(currentArxivPdfUrl).then(r => r.blob());
             } catch (e) {
-                document.getElementById('kimiResult').innerHTML = 'PDF下载失败：' + e;
+                kimiResultDiv.innerHTML = 'PDF下载失败：' + e;
                 return;
             }
             kimiResultDiv.innerHTML = `
@@ -1019,7 +1022,7 @@ layout: default
                 fileId = uploadData.id || uploadData.file_id || uploadData.data?.file_id;
                 if (!fileId) throw new Error('未获得file_id');
             } catch (e) {
-                document.getElementById('kimiResult').innerHTML = 'PDF上传失败：' + e;
+                kimiResultDiv.innerHTML = 'PDF上传失败：' + e;
                 return;
             }
             kimiResultDiv.innerHTML = `
@@ -1061,7 +1064,7 @@ layout: default
                     </div>
                 `;
             } catch (e) {
-                document.getElementById('kimiResult').innerHTML = 'Kimi分析失败：' + e;
+                kimiResultDiv.innerHTML = 'Kimi分析失败：' + e;
             }
         };
 
