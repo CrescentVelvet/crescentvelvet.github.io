@@ -396,6 +396,17 @@ layout: default
     <div class="search-container">
         <h1>论文搜索</h1>
         
+        <!-- arXiv提取功能开始 -->
+        <div style="margin-bottom: 30px; padding: 18px 20px; background: #f4f8fb; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.04);">
+            <label for="arxivInput" style="font-weight:600;">输入arXiv链接，自动提取论文信息：</label>
+            <div style="display:flex;gap:10px;margin-top:10px;">
+                <input type="text" id="arxivInput" placeholder="如 https://arxiv.org/abs/2406.12345" style="flex:1;padding:10px 12px;border:1px solid #ccc;border-radius:5px;font-size:15px;">
+                <button onclick="fetchArxiv()" style="padding:10px 18px;background:#007bff;color:#fff;border:none;border-radius:5px;font-weight:600;cursor:pointer;">提取</button>
+            </div>
+            <div id="arxivResult" style="margin-top:15px;"></div>
+        </div>
+        <!-- arXiv提取功能结束 -->
+        
         <div class="filter-container">
             <div class="conference-filter">
                 <h3>会议筛选</h3>
@@ -716,6 +727,46 @@ layout: default
         document.querySelectorAll('.conference-filter input').forEach(checkbox => {
             checkbox.addEventListener('change', filterPapers);
         });
+
+        // arXiv论文信息提取功能
+        function fetchArxiv() {
+            const input = document.getElementById('arxivInput').value.trim();
+            const resultDiv = document.getElementById('arxivResult');
+            // 提取arXiv ID
+            const match = input.match(/arxiv\.org\/abs\/([0-9]+\.[0-9]+)(v\d+)?/i);
+            if (!match) {
+                resultDiv.innerHTML = '<span style="color:#dc3545;">请输入正确的 arXiv 链接</span>';
+                return;
+            }
+            const arxivId = match[1];
+            resultDiv.innerHTML = '正在获取...';
+            fetch(`https://export.arxiv.org/api/query?id_list=${arxivId}`)
+                .then(res => res.text())
+                .then(xmlStr => {
+                    const parser = new DOMParser();
+                    const xml = parser.parseFromString(xmlStr, "text/xml");
+                    const entry = xml.querySelector("entry");
+                    if (!entry) {
+                        resultDiv.innerHTML = '<span style="color:#dc3545;">未找到论文信息</span>';
+                        return;
+                    }
+                    const title = entry.querySelector("title")?.textContent.trim();
+                    const summary = entry.querySelector("summary")?.textContent.trim();
+                    const authors = Array.from(entry.querySelectorAll("author > name")).map(n => n.textContent).join(', ');
+                    const published = entry.querySelector("published")?.textContent.slice(0,10);
+                    const link = entry.querySelector("id")?.textContent;
+                    resultDiv.innerHTML = `
+                        <b>标题：</b>${title}<br>
+                        <b>作者：</b>${authors}<br>
+                        <b>发表日期：</b>${published}<br>
+                        <b>摘要：</b><pre style="white-space: pre-wrap;background:#f8f9fa;padding:10px;border-radius:5px;">${summary}</pre>
+                        <b>arXiv链接：</b><a href="${link}" target="_blank">${link}</a>
+                    `;
+                })
+                .catch(e => {
+                    resultDiv.innerHTML = '<span style="color:#dc3545;">请求失败：' + e + '</span>';
+                });
+        }
     </script>
 </body>
 </html>
