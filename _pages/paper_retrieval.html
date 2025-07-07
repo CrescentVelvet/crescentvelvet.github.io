@@ -406,6 +406,14 @@ layout: default
             <div id="arxivResult" style="margin-top:15px;"></div>
         </div>
         <!-- arXiv提取功能结束 -->
+
+        <!-- 导入导出JSON功能开始 -->
+        <div style="margin-bottom:18px;display:flex;gap:10px;">
+          <button id="exportJsonBtn" style="padding:8px 18px;font-weight:600;">导出为JSON</button>
+          <input type="file" id="importJsonInput" accept=".json" style="display:none;">
+          <button id="importJsonBtn" style="padding:8px 18px;font-weight:600;">导入JSON</button>
+        </div>
+        <!-- 导入导出JSON功能结束 -->
         
         <div class="filter-container">
             <div class="conference-filter">
@@ -444,6 +452,7 @@ layout: default
     <script>
         let allPapers = []; // 存储所有论文数据
         let savedKeywords = []; // 存储用户保存的关键词
+        let importedPapers = null; // 用于存储导入的论文
 
         // 从本地存储加载保存的关键词
         function loadSavedKeywords() {
@@ -628,8 +637,8 @@ layout: default
                 .map(checkbox => checkbox.value);
             const yearFrom = parseInt(document.getElementById('yearFrom').value) || 0;
             const yearTo = parseInt(document.getElementById('yearTo').value) || 9999;
-            
-            const filteredPapers = allPapers.filter(paper => {
+            const basePapers = importedPapers || allPapers;
+            const filteredPapers = basePapers.filter(paper => {
                 // 搜索匹配（标题、作者、摘要、关键词）
                 const matchesSearch = searchTerm === '' || 
                     paper.title_lower.includes(searchTerm) ||
@@ -696,6 +705,9 @@ layout: default
         document.addEventListener('DOMContentLoaded', () => {
             loadSavedKeywords();
             loadPapers();
+            document.getElementById('exportJsonBtn').onclick = exportCurrentPapers;
+            document.getElementById('importJsonBtn').onclick = triggerImportJson;
+            document.getElementById('importJsonInput').addEventListener('change', handleImportJson);
         });
 
         // 全局函数，用于摘要展开/收起和添加关键词
@@ -766,6 +778,69 @@ layout: default
                 .catch(e => {
                     resultDiv.innerHTML = '<span style="color:#dc3545;">请求失败：' + e + '</span>';
                 });
+        }
+
+        // 导出当前搜索结果为JSON
+        function exportCurrentPapers() {
+            // 重新过滤一次，确保导出的是当前显示的
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const selectedConferences = Array.from(document.querySelectorAll('.conference-filter input:checked'))
+                .map(checkbox => checkbox.value);
+            const yearFrom = parseInt(document.getElementById('yearFrom').value) || 0;
+            const yearTo = parseInt(document.getElementById('yearTo').value) || 9999;
+            const basePapers = importedPapers || allPapers;
+            const filteredPapers = basePapers.filter(paper => {
+                const matchesSearch = searchTerm === '' ||
+                    paper.title_lower.includes(searchTerm) ||
+                    paper.authors_lower.includes(searchTerm) ||
+                    paper.abstract_lower.includes(searchTerm) ||
+                    paper.keywords_lower.some(k => k.includes(searchTerm));
+                const matchesConference = selectedConferences.length === 0 ||
+                    selectedConferences.some(conf => paper.conference.includes(conf));
+                const year = parseInt(paper.year);
+                const matchesYear = isNaN(year) || (year >= yearFrom && year <= yearTo);
+                return matchesSearch && matchesConference && matchesYear;
+            });
+            const jsonStr = JSON.stringify(filteredPapers, null, 2);
+            const blob = new Blob([jsonStr], {type: "application/json"});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = "papers_export.json";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // 触发文件选择
+        function triggerImportJson() {
+            document.getElementById('importJsonInput').click();
+        }
+
+        // 处理文件导入
+        function handleImportJson(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                try {
+                    const papers = JSON.parse(evt.target.result);
+                    if (!Array.isArray(papers)) throw new Error("格式错误");
+                    importedPapers = papers.map(paper => ({
+                        ...paper,
+                        title_lower: paper.title ? paper.title.toLowerCase() : '',
+                        authors_lower: typeof paper.authors === 'string' ? paper.authors.toLowerCase() : (Array.isArray(paper.authors) ? paper.authors.join(',').toLowerCase() : ''),
+                        abstract_lower: paper.abstract ? paper.abstract.toLowerCase() : '',
+                        keywords_lower: Array.isArray(paper.keywords) ? paper.keywords.map(k => k.toLowerCase()) : []
+                    }));
+                    renderPapers(importedPapers);
+                    document.getElementById('searchStats').textContent = `已导入 ${importedPapers.length} 篇论文（本地浏览，不影响原始数据）`;
+                } catch (err) {
+                    alert("导入失败：" + err.message);
+                }
+            };
+            reader.readAsText(file, "utf-8");
         }
     </script>
 </body>
