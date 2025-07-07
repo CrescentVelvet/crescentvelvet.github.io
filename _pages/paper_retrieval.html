@@ -1032,71 +1032,93 @@ layout: default
             kimiResultDiv.innerHTML = `
                 <div style="padding: 15px; border-radius: var(--button-radius); background: var(--light-bg);">
                     <div style="margin-bottom: 10px;">🔄 正在使用 ${model.toUpperCase()} 处理论文分析，请稍候...</div>
-                    <div style="font-size: 0.9em; color: var(--text-secondary);">1. 下载PDF文件</div>
+                    <div style="font-size: 0.9em; color: var(--text-secondary);">正在将论文链接发送给大模型进行分析...</div>
                 </div>
             `;
-            let pdfBlob;
+            
+            // 获取论文的arXiv ID和链接
+            const arxivId = currentArxivPdfUrl.split('/').pop().replace('.pdf', '');
+            const arxivAbstractUrl = `https://arxiv.org/abs/${arxivId}`;
+            
             try {
-                pdfBlob = await fetch(currentArxivPdfUrl).then(r => r.blob());
-            } catch (e) {
-                kimiResultDiv.innerHTML = 'PDF下载失败：' + e;
-                return;
-            }
-            kimiResultDiv.innerHTML = `
-                <div style="padding: 15px; border-radius: var(--button-radius); background: var(--light-bg);">
-                    <div style="margin-bottom: 10px;">🔄 正在处理论文分析，请稍候...</div>
-                    <div style="font-size: 0.9em; color: var(--text-secondary);">1. ✅ PDF文件下载完成</div>
-                    <div style="font-size: 0.9em; color: var(--text-secondary);">2. 上传PDF到Kimi</div>
-                </div>
-            `;
-            let fileId;
-            try {
-                const formData = new FormData();
-                formData.append('file', pdfBlob, 'paper.pdf');
-                const uploadRes = await fetch('https://api.moonshot.cn/v1/files', {
-                    method: 'POST',
-                    headers: { 'Authorization': 'Bearer ' + kimiApiKey },
-                    body: formData
-                });
-                const uploadData = await uploadRes.json();
-                fileId = uploadData.id || uploadData.file_id || uploadData.data?.file_id;
-                if (!fileId) throw new Error('未获得file_id');
-            } catch (e) {
-                kimiResultDiv.innerHTML = 'PDF上传失败：' + e;
-                return;
-            }
-            kimiResultDiv.innerHTML = `
-                <div style="padding: 15px; border-radius: var(--button-radius); background: var(--light-bg);">
-                    <div style="margin-bottom: 10px;">🔄 正在处理论文分析，请稍候...</div>
-                    <div style="font-size: 0.9em; color: var(--text-secondary);">1. ✅ PDF文件下载完成</div>
-                    <div style="font-size: 0.9em; color: var(--text-secondary);">2. ✅ PDF上传完成</div>
-                    <div style="font-size: 0.9em; color: var(--text-secondary);">3. Kimi正在分析论文内容</div>
-                </div>
-            `;
-            try {
-                const body = JSON.stringify({
-                    model: modelName,
-                    messages: [
-                        {"role": "system", "content": "你是论文解读助手，善于将论文内容结构化总结。"},
-                        {"role": "user", "content": `请帮我阅读这篇论文（见附件），并用简明扼要的中文结构化总结以下内容：\n1. 论文的核心任务\n2. 核心思路\n3. 算法框架\n4. 输入输出\n5. 主要解决了什么问题\n请分点输出。`}
-                    ],
-                    files: [fileId],
-                    max_tokens: 2048,
-                    temperature: 0.3
-                });
-                const chatRes = await fetch(apiUrl, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': 'Bearer ' + apiKey
-                    },
-                    body
-                });
-                const chatData = await chatRes.json();
-                let answer = '';
-                if (chatData.choices && chatData.choices[0] && chatData.choices[0].message && chatData.choices[0].message.content) {
-                    answer = chatData.choices[0].message.content.replace(/\\n/g, '<br>');
+                // 根据不同模型构建请求体
+                let requestBody;
+                let headers = {
+                    'Content-Type': 'application/json'
+                };
+                
+                switch (model) {
+                    case 'kimi':
+                        headers['Authorization'] = `Bearer ${apiKey}`;
+                        requestBody = {
+                            model: modelName,
+                            messages: [
+                                {"role": "system", "content": "你是论文解读助手，善于将论文内容结构化总结。"},
+                                {"role": "user", "content": `请帮我分析这篇arXiv论文，论文链接：${arxivAbstractUrl}\n请用简明扼要的中文结构化总结以下内容：\n1. 论文的核心任务\n2. 核心思路\n3. 算法框架\n4. 输入输出\n5. 主要解决了什么问题\n请分点输出。`}
+                            ],
+                            max_tokens: 2048,
+                            temperature: 0.3
+                        };
+                        break;
+                    case 'doubao':
+                        headers['Authorization'] = `Bearer ${apiKey}`;
+                        requestBody = {
+                            model: modelName,
+                            messages: [
+                                {"role": "system", "content": "你是论文解读助手，善于将论文内容结构化总结。"},
+                                {"role": "user", "content": `请帮我分析这篇arXiv论文，论文链接：${arxivAbstractUrl}\n请用简明扼要的中文结构化总结以下内容：\n1. 论文的核心任务\n2. 核心思路\n3. 算法框架\n4. 输入输出\n5. 主要解决了什么问题\n请分点输出。`}
+                            ],
+                            max_tokens: 2048,
+                            temperature: 0.3
+                        };
+                        break;
+                    case 'qwen':
+                        headers['Authorization'] = `Bearer ${apiKey}`;
+                        requestBody = {
+                            model: modelName,
+                            messages: [
+                                {"role": "system", "content": "你是论文解读助手，善于将论文内容结构化总结。"},
+                                {"role": "user", "content": `请帮我分析这篇arXiv论文，论文链接：${arxivAbstractUrl}\n请用简明扼要的中文结构化总结以下内容：\n1. 论文的核心任务\n2. 核心思路\n3. 算法框架\n4. 输入输出\n5. 主要解决了什么问题\n请分点输出。`}
+                            ],
+                            max_tokens: 2048,
+                            temperature: 0.3
+                        };
+                        break;
+                    case 'hunyuan':
+                        // 混元模型需要特殊处理，这里仅为示例
+                        // 实际上混元模型需要签名认证，前端直接调用可能会有问题
+                        const [secretId, secretKey] = apiKey.split(',').map(part => part.split(':')[1]);
+                        requestBody = {
+                            app_id: "123456789", // 需要替换为实际的app_id
+                            secret_id: secretId,
+                            secret_key: secretKey,
+                            query: `请帮我分析这篇arXiv论文，论文链接：${arxivAbstractUrl}\n请用简明扼要的中文结构化总结以下内容：\n1. 论文的核心任务\n2. 核心思路\n3. 算法框架\n4. 输入输出\n5. 主要解决了什么问题\n请分点输出。`
+                        };
+                        break;
                 }
+                
+                // 发送请求到大模型API
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify(requestBody)
+                });
+                
+                const data = await response.json();
+                let answer = '';
+                
+                // 根据不同模型解析返回结果
+                if (model === 'kimi' || model === 'doubao' || model === 'qwen') {
+                    if (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) {
+                        answer = data.choices[0].message.content.replace(/\n/g, '<br>');
+                    }
+                } else if (model === 'hunyuan') {
+                    // 混元模型返回结果解析，需要根据实际API调整
+                    if (data.response) {
+                        answer = data.response.replace(/\n/g, '<br>');
+                    }
+                }
+                
                 kimiResultDiv.innerHTML = `
                     <div style="padding: 15px; border-radius: var(--button-radius); background: var(--light-bg);">
                         <div style="margin-bottom: 10px;">✅ 论文分析完成</div>
@@ -1104,8 +1126,20 @@ layout: default
                     </div>
                 `;
             } catch (e) {
-                kimiResultDiv.innerHTML = 'Kimi分析失败：' + e;
+                console.error('API调用错误:', e);
+                kimiResultDiv.innerHTML = `
+                    <div style="padding: 15px; border-radius: var(--button-radius); background: var(--light-bg);">
+                        <div style="color: var(--accent-color);">❌ 分析失败</div>
+                        <div style="margin-top: 8px; font-size: 0.9em; color: var(--text-secondary);">错误信息: ${e.message || e}</div>
+                        <div style="margin-top: 8px; font-size: 0.9em; color: var(--text-secondary);">注意: 大多数大模型API可能无法直接通过链接访问论文内容，因为:</div>
+                        <div style="margin-top: 4px; font-size: 0.9em; color: var(--text-secondary);">1. 大模型可能无法直接访问外部URL</div>
+                        <div style="margin-top: 4px; font-size: 0.9em; color: var(--text-secondary);">2. 浏览器的CORS策略限制了跨域请求</div>
+                        <div style="margin-top: 4px; font-size: 0.9em; color: var(--text-secondary);">3. 某些API需要特殊的认证方式</div>
+                        <div style="margin-top: 8px; font-size: 0.9em; color: var(--text-secondary);">建议使用后端代理服务来实现此功能。</div>
+                    </div>
+                `;
             }
+            // 已在上面的try-catch块中实现了API调用和结果处理
         };
 
         // 导出当前搜索结果为JSON
