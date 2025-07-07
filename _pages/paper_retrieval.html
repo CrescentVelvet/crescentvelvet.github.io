@@ -511,24 +511,9 @@ layout: default
             <h3 style="margin-top:0;">arXiv论文提取</h3>
             <div class="input-group" style="display:flex;gap:12px;margin-top:15px;align-items:center;">
                 <input type="text" id="arxivInput" class="input-control" style="flex:1" 
-                    placeholder="输入arXiv链接，如 https://arxiv.org/abs/2406.12345">
-                <div class="select-wrapper" style="position:relative;min-width:120px;">
-                    <select id="llmSelect" class="input-control" style="width:100%;appearance:none;padding-right:30px;">
-                        <option value="kimi">千问</option>
-                        <option value="moonshot">元宝</option>
-                        <option value="qwen">豆包</option>
-                        <option value="glm">Kimi</option>
-                    </select>
-                    <div style="position:absolute;right:10px;top:50%;transform:translateY(-50%);pointer-events:none;">
-                        <svg width="12" height="12" viewBox="0 0 12 12">
-                            <path d="M2 4L6 8L10 4" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round"/>
-                        </svg>
-                    </div>
-                </div>
-                <button id="llmAnalyzeBtn" class="btn btn-primary">分析PDF</button>
+                    placeholder="输入arXiv链接或ID，将自动提取并分析（如：2406.12345 或完整链接）">
             </div>
             <div id="arxivResult" class="result-box" style="margin-top:15px;padding:15px;border-radius:var(--button-radius);background:var(--text-light);"></div>
-            <button id="kimiAnalyzeBtn" class="btn btn-accent" style="margin-top:15px;display:none;">用Kimi分析PDF</button>
             <div id="kimiResult" class="result-box" style="margin-top:15px;padding:15px;border-radius:var(--button-radius);background:var(--text-light);"></div>
         </div>
         <!-- arXiv提取功能结束 -->
@@ -827,6 +812,26 @@ layout: default
             }
         });
 
+        // 防抖函数
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+
+        // 自动提取arXiv论文信息的防抖处理
+        const debouncedFetchArxiv = debounce((input) => {
+            if (input.length >= 7) { // 最短的arXiv ID长度为7 (YYMM.NNN)
+                fetchArxiv();
+            }
+        }, 1000); // 1秒后执行
+
         // 页面加载完成后初始化
         document.addEventListener('DOMContentLoaded', () => {
             loadSavedKeywords();
@@ -834,6 +839,19 @@ layout: default
             document.getElementById('exportJsonBtn').onclick = exportCurrentPapers;
             document.getElementById('importJsonBtn').onclick = triggerImportJson;
             document.getElementById('importJsonInput').addEventListener('change', handleImportJson);
+
+            // 监听arXiv输入框的变化
+            document.getElementById('arxivInput').addEventListener('input', (e) => {
+                const input = e.target.value.trim();
+                debouncedFetchArxiv(input);
+            });
+
+            // 监听回车键触发
+            document.getElementById('arxivInput').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    fetchArxiv();
+                }
+            });
         });
 
         // 全局函数，用于摘要展开/收起和添加关键词
@@ -887,10 +905,26 @@ layout: default
                 }
             }
             if (!arxivId) {
-                resultDiv.innerHTML = '<span style="color:#dc3545;">请输入正确的 arXiv 链接或ID</span>';
+                resultDiv.innerHTML = `
+                    <div style="padding: 15px; border-radius: var(--button-radius); background: var(--light-bg);">
+                        <div style="color: var(--accent-color);">⚠️ 请输入正确的 arXiv 链接或ID</div>
+                        <div style="margin-top: 8px; font-size: 0.9em; color: var(--text-secondary);">支持的格式：
+                            <ul style="margin-top: 5px; margin-bottom: 0;">
+                                <li>arXiv ID（如：2406.12345）</li>
+                                <li>完整链接（如：https://arxiv.org/abs/2406.12345）</li>
+                                <li>PDF链接（如：https://arxiv.org/pdf/2406.12345.pdf）</li>
+                            </ul>
+                        </div>
+                    </div>
+                `;
+                document.getElementById('kimiResult').innerHTML = '';
                 return;
             }
-            resultDiv.innerHTML = '正在获取...';
+            resultDiv.innerHTML = `
+                <div style="padding: 15px; border-radius: var(--button-radius); background: var(--light-bg);">
+                    <div style="margin-bottom: 10px;">🔄 正在获取论文信息...</div>
+                </div>
+            `;
             fetch(`https://export.arxiv.org/api/query?id_list=${arxivId}`)
                 .then(res => res.text())
                 .then(xmlStr => {
@@ -898,7 +932,13 @@ layout: default
                     const xml = parser.parseFromString(xmlStr, "text/xml");
                     const entry = xml.querySelector("entry");
                     if (!entry) {
-                        resultDiv.innerHTML = '<span style="color:#dc3545;">未找到论文信息</span>';
+                        resultDiv.innerHTML = `
+                            <div style="padding: 15px; border-radius: var(--button-radius); background: var(--light-bg);">
+                                <div style="color: var(--accent-color);">❌ 未找到论文信息</div>
+                                <div style="margin-top: 8px; font-size: 0.9em; color: var(--text-secondary);">请检查输入的ID是否正确</div>
+                            </div>
+                        `;
+                        document.getElementById('kimiResult').innerHTML = '';
                         return;
                     }
                     const title = entry.querySelector("title")?.textContent.trim();
@@ -907,28 +947,51 @@ layout: default
                     const published = entry.querySelector("published")?.textContent.slice(0,10);
                     const link = entry.querySelector("id")?.textContent;
                     resultDiv.innerHTML = `
-                        <b>标题：</b>${title}<br>
-                        <b>作者：</b>${authors}<br>
-                        <b>发表日期：</b>${published}<br>
-                        <b>摘要：</b><pre style="white-space: pre-wrap;background:#f8f9fa;padding:10px;border-radius:5px;">${summary}</pre>
-                        <b>arXiv链接：</b><a href="${link}" target="_blank">${link}</a>
+                        <div style="padding: 15px; border-radius: var(--button-radius); background: var(--light-bg);">
+                            <div style="margin-bottom: 15px; color: var(--success-color);">✅ 论文信息获取成功</div>
+                            <div class="paper-info">
+                                <div style="margin-bottom: 10px;"><b>标题：</b>${title}</div>
+                                <div style="margin-bottom: 10px;"><b>作者：</b>${authors}</div>
+                                <div style="margin-bottom: 10px;"><b>发表日期：</b>${published}</div>
+                                <div style="margin-bottom: 10px;"><b>摘要：</b>
+                                    <div style="background: var(--text-light); padding: 12px; border-radius: var(--button-radius); margin-top: 5px; font-size: 0.95em;">${summary}</div>
+                                </div>
+                                <div><b>arXiv链接：</b><a href="${link}" target="_blank" style="color: var(--primary-color);">${link}</a></div>
+                            </div>
+                        </div>
                     `;
                 })
                 .catch(e => {
-                    resultDiv.innerHTML = '<span style="color:#dc3545;">请求失败：' + e + '</span>';
+                    resultDiv.innerHTML = `
+                        <div style="padding: 15px; border-radius: var(--button-radius); background: var(--light-bg);">
+                            <div style="color: var(--accent-color);">❌ 请求失败</div>
+                            <div style="margin-top: 8px; font-size: 0.9em; color: var(--text-secondary);">${e}</div>
+                        </div>
+                    `;
+                    document.getElementById('kimiResult').innerHTML = '';
                 });
             currentArxivPdfUrl = `https://arxiv.org/pdf/${arxivId}.pdf`;
-            document.getElementById('kimiAnalyzeBtn').style.display = 'inline-block';
+            // 自动触发Kimi分析
+            analyzeWithKimi();
+            document.getElementById('kimiAnalyzeBtn').style.display = 'none';
             document.getElementById('kimiResult').innerHTML = '';
         }
 
         const kimiApiKey = 'sk-URIWaOsVdGAZRX9AAMRDTRwp1JiIqSGtGg74gaO7E3xNOClP';
-        document.getElementById('kimiAnalyzeBtn').onclick = async function() {
+        
+        // 将Kimi分析功能提取为独立函数
+        async function analyzeWithKimi() {
             if (!currentArxivPdfUrl) {
                 document.getElementById('kimiResult').innerHTML = '请先提取论文信息';
                 return;
             }
-            document.getElementById('kimiResult').innerHTML = '正在下载PDF...';
+            const kimiResultDiv = document.getElementById('kimiResult');
+            kimiResultDiv.innerHTML = `
+                <div style="padding: 15px; border-radius: var(--button-radius); background: var(--light-bg);">
+                    <div style="margin-bottom: 10px;">🔄 正在处理论文分析，请稍候...</div>
+                    <div style="font-size: 0.9em; color: var(--text-secondary);">1. 下载PDF文件</div>
+                </div>
+            `;
             let pdfBlob;
             try {
                 pdfBlob = await fetch(currentArxivPdfUrl).then(r => r.blob());
@@ -936,7 +999,13 @@ layout: default
                 document.getElementById('kimiResult').innerHTML = 'PDF下载失败：' + e;
                 return;
             }
-            document.getElementById('kimiResult').innerHTML = '正在上传PDF到Kimi...';
+            kimiResultDiv.innerHTML = `
+                <div style="padding: 15px; border-radius: var(--button-radius); background: var(--light-bg);">
+                    <div style="margin-bottom: 10px;">🔄 正在处理论文分析，请稍候...</div>
+                    <div style="font-size: 0.9em; color: var(--text-secondary);">1. ✅ PDF文件下载完成</div>
+                    <div style="font-size: 0.9em; color: var(--text-secondary);">2. 上传PDF到Kimi</div>
+                </div>
+            `;
             let fileId;
             try {
                 const formData = new FormData();
@@ -953,7 +1022,14 @@ layout: default
                 document.getElementById('kimiResult').innerHTML = 'PDF上传失败：' + e;
                 return;
             }
-            document.getElementById('kimiResult').innerHTML = 'Kimi正在分析PDF，请稍候...';
+            kimiResultDiv.innerHTML = `
+                <div style="padding: 15px; border-radius: var(--button-radius); background: var(--light-bg);">
+                    <div style="margin-bottom: 10px;">🔄 正在处理论文分析，请稍候...</div>
+                    <div style="font-size: 0.9em; color: var(--text-secondary);">1. ✅ PDF文件下载完成</div>
+                    <div style="font-size: 0.9em; color: var(--text-secondary);">2. ✅ PDF上传完成</div>
+                    <div style="font-size: 0.9em; color: var(--text-secondary);">3. Kimi正在分析论文内容</div>
+                </div>
+            `;
             try {
                 const body = JSON.stringify({
                     model: 'moonshot-v1-8k',
@@ -978,7 +1054,12 @@ layout: default
                 if (chatData.choices && chatData.choices[0] && chatData.choices[0].message && chatData.choices[0].message.content) {
                     answer = chatData.choices[0].message.content.replace(/\\n/g, '<br>');
                 }
-                document.getElementById('kimiResult').innerHTML = answer || '未能获取有效分析结果';
+                kimiResultDiv.innerHTML = `
+                    <div style="padding: 15px; border-radius: var(--button-radius); background: var(--light-bg);">
+                        <div style="margin-bottom: 10px;">✅ 论文分析完成</div>
+                        <div style="margin-top: 15px; white-space: pre-wrap;">${answer || '未能获取有效分析结果'}</div>
+                    </div>
+                `;
             } catch (e) {
                 document.getElementById('kimiResult').innerHTML = 'Kimi分析失败：' + e;
             }
