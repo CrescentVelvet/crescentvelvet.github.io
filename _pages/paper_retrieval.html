@@ -404,6 +404,8 @@ layout: default
                 <button onclick="fetchArxiv()" style="padding:10px 18px;background:#007bff;color:#fff;border:none;border-radius:5px;font-weight:600;cursor:pointer;">提取</button>
             </div>
             <div id="arxivResult" style="margin-top:15px;"></div>
+            <button id="kimiAnalyzeBtn" style="margin-top:10px;display:none;">用Kimi分析PDF</button>
+            <div id="kimiResult" style="margin-top:15px;"></div>
         </div>
         <!-- arXiv提取功能结束 -->
 
@@ -740,6 +742,7 @@ layout: default
             checkbox.addEventListener('change', filterPapers);
         });
 
+        let currentArxivPdfUrl = null;
         // arXiv论文信息提取功能
         function fetchArxiv() {
             const input = document.getElementById('arxivInput').value.trim();
@@ -790,7 +793,47 @@ layout: default
                 .catch(e => {
                     resultDiv.innerHTML = '<span style="color:#dc3545;">请求失败：' + e + '</span>';
                 });
+                currentArxivPdfUrl = `https://arxiv.org/pdf/${arxivId}.pdf`;
+            document.getElementById('kimiAnalyzeBtn').style.display = 'inline-block';
+            document.getElementById('kimiResult').innerHTML = '';
         }
+
+        const kimiApiKey = 'sk-URIWaOsVdGAZRX9AAMRDTRwp1JiIqSGtGg74gaO7E3xNOClP';
+        document.getElementById('kimiAnalyzeBtn').onclick = function() {
+            if (!currentArxivPdfUrl) {
+                document.getElementById('kimiResult').innerHTML = '请先提取论文信息';
+                return;
+            }
+            document.getElementById('kimiResult').innerHTML = 'Kimi正在分析PDF，请稍候...';
+            fetch('https://api.moonshot.cn/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + kimiApiKey
+                },
+                body: JSON.stringify({
+                    model: 'moonshot-v1-8k',
+                    messages: [
+                        {"role": "system", "content": "你是论文解读助手，善于将论文内容结构化总结。"},
+                        {"role": "user", "content": `请帮我阅读这篇论文，并用简明扼要的中文结构化总结以下内容：\\n1. 论文的核心任务\\n2. 核心思路\\n3. 算法框架\\n4. 输入输出\\n5. 主要解决了什么问题\\n请分点输出。`}
+                    ],
+                    pdf_urls: [currentArxivPdfUrl],
+                    max_tokens: 2048,
+                    temperature: 0.3
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                let answer = '';
+                if (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) {
+                    answer = data.choices[0].message.content.replace(/\\n/g, '<br>');
+                }
+                document.getElementById('kimiResult').innerHTML = answer || '未能获取有效分析结果';
+            })
+            .catch(e => {
+                document.getElementById('kimiResult').innerHTML = 'Kimi分析失败：' + e;
+            });
+        };
 
         // 导出当前搜索结果为JSON
         function exportCurrentPapers() {
