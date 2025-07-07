@@ -517,9 +517,10 @@ layout: default
             <div class="input-group" style="display:flex;gap:12px;margin-top:15px;align-items:center;">
                 <select id="llmSelect" class="input-control" style="flex:1;">
                     <option value="kimi">Kimi (Moonshot)</option>
-                     <option value="yuanbao" selected>元宝 (ByteDance)</option>
+
                      <option value="doubao">豆包 (ByteDance)</option>
                      <option value="qwen">千问 (Aliyun)</option>
+                     <option value="hunyuan" selected>混元 (Tencent)</option>
                 </select>
                 <button id="analyzePaperBtn" class="btn btn-primary">分析论文</button>
             </div>
@@ -983,8 +984,6 @@ layout: default
             // 自动触发Kimi分析功能已移除，现在需要手动点击“分析论文”按钮
             document.getElementById('kimiResult').innerHTML = '';
         }
-
-
         
         // 将论文分析功能提取为独立函数，支持不同大模型
         async function analyzePaperWithLLM(model) {
@@ -1006,16 +1005,10 @@ layout: default
             switch (model) {
                 case 'kimi':
                     apiUrl = 'https://api.moonshot.cn/v1/chat/completions';
-                    apiKey = 'YOUR_KIMI_API_KEY'; // 替换为你的Kimi API Key
+                    apiKey = 'sk-URIWaOsVdGAZRX9AAMRDTRwp1JiIqSGtGg74gaO7E3xNOClP'; // 替换为你的Kimi API Key
                     modelName = 'moonshot-v1-8k';
                     break;
-                case 'yuanbao':
-                    // 注意：以下API Key和模型名称仅为示例，请替换为实际的API Key和模型名称
-                    // 生产环境中，请务必通过后端服务代理请求，以保护您的API Key。
-                    apiUrl = 'https://api.yuanbao.bytedance.com/v1/chat/completions'; 
-                    apiKey = 'YOUR_YUANBAO_API_KEY'; 
-                    modelName = 'yuanbao-model-name'; 
-                    break;
+
                 case 'doubao':
                     apiUrl = 'https://api.doubao.bytedance.com/v1/chat/completions';
                     apiKey = 'YOUR_DOUBAO_API_KEY'; 
@@ -1025,6 +1018,11 @@ layout: default
                     apiUrl = 'https://api.qwen.aliyun.com/v1/chat/completions';
                     apiKey = 'YOUR_QWEN_API_KEY'; 
                     modelName = 'qwen-model-name';
+                    break;
+                case 'hunyuan':
+                    apiKey = 'SecretId:AKID3Zu42mMm7TkutuzwjKivwkMl02tX1ISS,SecretKey:tneNuQvFNLNJBuTq34va4MRK3a2LSPBl';
+                    apiUrl = 'https://hunyuan.cloud.tencent.com/gw.json';
+                    modelName = 'Hunyuan-model-name';
                     break;
                 default:
                     kimiResultDiv.innerHTML = '不支持的模型选择';
