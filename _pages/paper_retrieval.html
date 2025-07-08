@@ -1005,22 +1005,24 @@ layout: default
             switch (model) {
                 case 'kimi':
                     apiUrl = 'https://api.moonshot.cn/v1/chat/completions';
-                    apiKey = 'sk-URIWaOsVdGAZRX9AAMRDTRwp1JiIqSGtGg74gaO7E3xNOClP'; // 替换为你的Kimi API Key
+                    apiKey = document.getElementById('kimiApiKey').value; // 从输入字段获取Kimi API Key
                     modelName = 'moonshot-v1-8k';
                     break;
 
                 case 'doubao':
                     apiUrl = 'https://api.doubao.bytedance.com/v1/chat/completions';
-                    apiKey = 'YOUR_DOUBAO_API_KEY'; 
+                    apiKey = document.getElementById('doubaoApiKey').value; // 从输入字段获取豆包 API Key
                     modelName = 'doubao-model-name'; 
                     break;
                 case 'qwen':
                     apiUrl = 'https://api.qwen.aliyun.com/v1/chat/completions';
-                    apiKey = 'YOUR_QWEN_API_KEY'; 
+                    apiKey = document.getElementById('qwenApiKey').value; // 从输入字段获取通义千问 API Key
                     modelName = 'qwen-model-name';
                     break;
                 case 'hunyuan':
-                    apiKey = 'SecretId:AKID3Zu42mMm7TkutuzwjKivwkMl02tX1ISS,SecretKey:tneNuQvFNLNJBuTq34va4MRK3a2LSPBl';
+                    const hunyuanSecretId = document.getElementById('hunyuanSecretId').value;
+                    const hunyuanSecretKey = document.getElementById('hunyuanSecretKey').value;
+                    apiKey = `SecretId:${hunyuanSecretId},SecretKey:${hunyuanSecretKey}`;
                     apiUrl = 'https://hunyuan.cloud.tencent.com/gw.json';
                     modelName = 'Hunyuan-model-name';
                     break;
