@@ -377,18 +377,20 @@ title: "文本处理工具"
 
                 // 移除包含“撤回了一条消息”的行
                 text = text.replace(/^.*撤回了一条消息.*$\n?/gm, '');
-
-                // 将连续的两个换行符替换为单个换行
-                text = text.replace(/\n\n/g, '\n');
+                // 将连续的两个及以上换行符替换为单个换行
+                text = text.replace(/\n{2,}/g, '\n');
                 // 移除行尾空格
                 text = text.split('\n').map(line => line.trimEnd()).join('\n');
                 // 再次处理可能存在的连续换行，确保只剩一个
                 text = text.replace(/\n{2,}/g, '\n');
 
                 if (text.trim()) {
-                    // 重新创建p标签，并保留原始类名
+                    // 重新创建p标签，并保留原始类名，设置单倍行距和段前段后间距为0
                     const newP = document.createElement('p');
                     newP.className = originalClasses;
+                    newP.style.lineHeight = '1.0';
+                    newP.style.marginTop = '0';
+                    newP.style.marginBottom = '0';
                     newP.textContent = text;
                     processedParagraphs.push(newP.outerHTML);
                 }
