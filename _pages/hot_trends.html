@@ -1,0 +1,518 @@
+---
+permalink: /hot_trends.html
+layout: null
+title: "今日热榜"
+---
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>今日热榜</title>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --secondary-color: #6c757d;
+            --accent-color: #f0654b;
+            --success-color: #66bb6a;
+            --light-bg: #f8f9fa;
+            --dark-bg: #2c3e50;
+            --border-color: #e9ecef;
+            --text-primary: #2c3e50;
+            --text-secondary: #6c757d;
+            --text-light: #ffffff;
+            --shadow-light: rgba(0, 0, 0, 0.08);
+            --shadow-medium: rgba(0, 0, 0, 0.15);
+            --button-radius: 8px;
+            --card-radius: 12px;
+            --transition-speed: 0.3s;
+        }
+        
+        body {
+            font-family: 'Roboto', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: var(--text-primary);
+            background-color: var(--light-bg);
+            margin: 0;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: var(--text-light);
+            border-radius: var(--card-radius);
+            box-shadow: 0 8px 30px var(--shadow-light);
+            padding: 30px;
+        }
+        
+        h1 {
+            text-align: center;
+            color: var(--primary-color);
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            font-weight: 300;
+        }
+        
+        .tabs {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-bottom: 30px;
+            border-bottom: 2px solid var(--border-color);
+        }
+        
+        .tab {
+            padding: 12px 24px;
+            margin: 0 5px;
+            background-color: transparent;
+            border: none;
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+            font-size: 16px;
+            color: var(--text-secondary);
+            transition: all var(--transition-speed) ease;
+            border-radius: var(--button-radius) var(--button-radius) 0 0;
+        }
+        
+        .tab:hover {
+            background-color: var(--light-bg);
+            color: var(--primary-color);
+        }
+        
+        .tab.active {
+            color: var(--primary-color);
+            border-bottom-color: var(--primary-color);
+            background-color: var(--light-bg);
+        }
+        
+        .content {
+            display: none;
+            animation: fadeIn 0.5s ease-in;
+        }
+        
+        .content.active {
+            display: block;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .trend-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        
+        .trend-item {
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            margin-bottom: 10px;
+            background-color: var(--text-light);
+            border: 1px solid var(--border-color);
+            border-radius: var(--button-radius);
+            transition: all var(--transition-speed) ease;
+            cursor: pointer;
+        }
+        
+        .trend-item:hover {
+            box-shadow: 0 4px 15px var(--shadow-light);
+            transform: translateY(-2px);
+            border-color: var(--primary-color);
+        }
+        
+        .trend-rank {
+            font-size: 18px;
+            font-weight: bold;
+            color: var(--primary-color);
+            margin-right: 15px;
+            min-width: 30px;
+        }
+        
+        .trend-rank.top3 {
+            color: var(--accent-color);
+        }
+        
+        .trend-content {
+            flex: 1;
+        }
+        
+        .trend-title {
+            font-size: 16px;
+            font-weight: 500;
+            color: var(--text-primary);
+            margin-bottom: 5px;
+            text-decoration: none;
+        }
+        
+        .trend-title:hover {
+            color: var(--primary-color);
+        }
+        
+        .trend-meta {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 50px;
+            color: var(--text-secondary);
+        }
+        
+        .error {
+            text-align: center;
+            padding: 50px;
+            color: var(--accent-color);
+        }
+        
+        .back-button {
+            display: inline-block;
+            color: white;
+            background-color: var(--secondary-color);
+            text-decoration: none;
+            padding: 12px 24px;
+            border-radius: var(--button-radius);
+            transition: all var(--transition-speed) ease;
+            box-shadow: 0 2px 5px var(--shadow-light);
+            margin: 20px 0;
+            border: none;
+            font-weight: normal;
+        }
+        
+        .back-button:hover {
+            background-color: #5a6268;
+            box-shadow: 0 4px 8px var(--shadow-medium);
+            transform: translateY(-1px);
+        }
+        
+        .refresh-button {
+            background-color: var(--success-color);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: var(--button-radius);
+            cursor: pointer;
+            font-size: 14px;
+            transition: all var(--transition-speed) ease;
+            margin-left: 10px;
+        }
+        
+        .refresh-button:hover {
+            background-color: #5cb85c;
+            transform: translateY(-1px);
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+                margin: 10px;
+            }
+            
+            .tabs {
+                flex-direction: column;
+            }
+            
+            .tab {
+                margin: 2px 0;
+                border-radius: var(--button-radius);
+                border-bottom: none;
+            }
+            
+            .tab.active {
+                background-color: var(--primary-color);
+                color: white;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>今日热榜 📈</h1>
+        
+        <div class="tabs">
+            <button class="tab active" data-tab="github">GitHub热门</button>
+            <button class="tab" data-tab="weibo">微博热搜</button>
+            <button class="tab" data-tab="zhihu">知乎热榜</button>
+            <button class="tab" data-tab="baidu">百度热搜</button>
+            <button class="tab" data-tab="douyin">抖音热榜</button>
+            <button class="tab" data-tab="bilibili">B站热门</button>
+        </div>
+        
+        <div id="github" class="content active">
+            <h2>GitHub热门项目 <button class="refresh-button" onclick="loadGitHubTrends()">刷新</button></h2>
+            <div id="github-list" class="loading">正在加载...</div>
+        </div>
+        
+        <div id="weibo" class="content">
+            <h2>微博热搜 <button class="refresh-button" onclick="loadWeiboTrends()">刷新</button></h2>
+            <div id="weibo-list" class="loading">正在加载...</div>
+        </div>
+        
+        <div id="zhihu" class="content">
+            <h2>知乎热榜 <button class="refresh-button" onclick="loadZhihuTrends()">刷新</button></h2>
+            <div id="zhihu-list" class="loading">正在加载...</div>
+        </div>
+        
+        <div id="baidu" class="content">
+            <h2>百度热搜 <button class="refresh-button" onclick="loadBaiduTrends()">刷新</button></h2>
+            <div id="baidu-list" class="loading">正在加载...</div>
+        </div>
+        
+        <div id="douyin" class="content">
+            <h2>抖音热榜 <button class="refresh-button" onclick="loadDouyinTrends()">刷新</button></h2>
+            <div id="douyin-list" class="loading">正在加载...</div>
+        </div>
+        
+        <div id="bilibili" class="content">
+            <h2>B站热门 <button class="refresh-button" onclick="loadBilibiliTrends()">刷新</button></h2>
+            <div id="bilibili-list" class="loading">正在加载...</div>
+        </div>
+        
+        <a href="/" class="back-button">返回首页</a>
+    </div>
+    
+    <script>
+        // 标签页切换功能
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                // 移除所有活动状态
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.content').forEach(c => c.classList.remove('active'));
+                
+                // 添加活动状态
+                tab.classList.add('active');
+                const tabId = tab.getAttribute('data-tab');
+                document.getElementById(tabId).classList.add('active');
+                
+                // 如果内容还没加载，则加载
+                const listElement = document.getElementById(tabId + '-list');
+                if (listElement.classList.contains('loading')) {
+                    loadTrendData(tabId);
+                }
+            });
+        });
+        
+        // 通用的趋势数据加载函数
+        function loadTrendData(type) {
+            switch(type) {
+                case 'github':
+                    loadGitHubTrends();
+                    break;
+                case 'weibo':
+                    loadWeiboTrends();
+                    break;
+                case 'zhihu':
+                    loadZhihuTrends();
+                    break;
+                case 'baidu':
+                    loadBaiduTrends();
+                    break;
+                case 'douyin':
+                    loadDouyinTrends();
+                    break;
+                case 'bilibili':
+                    loadBilibiliTrends();
+                    break;
+            }
+        }
+        
+        // GitHub热门项目
+        async function loadGitHubTrends() {
+            const listElement = document.getElementById('github-list');
+            listElement.innerHTML = '<div class="loading">正在加载GitHub热门项目...</div>';
+            
+            try {
+                const response = await fetch('https://api.github.com/search/repositories?q=created:>2024-01-01&sort=stars&order=desc&per_page=20');
+                const data = await response.json();
+                
+                if (data.items && data.items.length > 0) {
+                    const html = data.items.map((repo, index) => `
+                        <div class="trend-item" onclick="window.open('${repo.html_url}', '_blank')">
+                            <div class="trend-rank ${index < 3 ? 'top3' : ''}">${index + 1}</div>
+                            <div class="trend-content">
+                                <div class="trend-title">${repo.full_name}</div>
+                                <div class="trend-meta">⭐ ${repo.stargazers_count.toLocaleString()} | ${repo.description || '暂无描述'}</div>
+                            </div>
+                        </div>
+                    `).join('');
+                    listElement.innerHTML = html;
+                } else {
+                    listElement.innerHTML = '<div class="error">暂无数据</div>';
+                }
+            } catch (error) {
+                console.error('GitHub API错误:', error);
+                listElement.innerHTML = '<div class="error">加载失败，请稍后重试</div>';
+            }
+        }
+        
+        // 微博热搜（使用第三方API或模拟数据）
+        async function loadWeiboTrends() {
+            const listElement = document.getElementById('weibo-list');
+            listElement.innerHTML = '<div class="loading">正在加载微博热搜...</div>';
+            
+            try {
+                // 由于跨域限制，这里使用模拟数据
+                // 实际项目中可以使用代理服务器或第三方API
+                const mockData = [
+                    { title: '春节档电影票房创新高', hot: '4521万', url: '#' },
+                    { title: '新能源汽车销量突破', hot: '3892万', url: '#' },
+                    { title: '人工智能发展新突破', hot: '3456万', url: '#' },
+                    { title: '环保政策新举措', hot: '2987万', url: '#' },
+                    { title: '教育改革最新动态', hot: '2654万', url: '#' },
+                    { title: '科技创新成果展示', hot: '2321万', url: '#' },
+                    { title: '文化活动精彩纷呈', hot: '2098万', url: '#' },
+                    { title: '体育赛事激烈角逐', hot: '1876万', url: '#' },
+                    { title: '健康生活新理念', hot: '1654万', url: '#' },
+                    { title: '旅游景点推荐', hot: '1432万', url: '#' }
+                ];
+                
+                const html = mockData.map((item, index) => `
+                    <div class="trend-item" onclick="window.open('${item.url}', '_blank')">
+                        <div class="trend-rank ${index < 3 ? 'top3' : ''}">${index + 1}</div>
+                        <div class="trend-content">
+                            <div class="trend-title">${item.title}</div>
+                            <div class="trend-meta">🔥 ${item.hot} 热度</div>
+                        </div>
+                    </div>
+                `).join('');
+                listElement.innerHTML = html;
+            } catch (error) {
+                listElement.innerHTML = '<div class="error">加载失败，请稍后重试</div>';
+            }
+        }
+        
+        // 知乎热榜
+        async function loadZhihuTrends() {
+            const listElement = document.getElementById('zhihu-list');
+            listElement.innerHTML = '<div class="loading">正在加载知乎热榜...</div>';
+            
+            // 模拟数据
+            const mockData = [
+                { title: '如何看待人工智能的发展前景？', answer: '1.2万回答', url: '#' },
+                { title: '程序员如何提升技术能力？', answer: '8956回答', url: '#' },
+                { title: '新能源汽车值得购买吗？', answer: '7654回答', url: '#' },
+                { title: '如何平衡工作与生活？', answer: '6543回答', url: '#' },
+                { title: '投资理财有哪些建议？', answer: '5432回答', url: '#' },
+                { title: '学习编程从哪里开始？', answer: '4321回答', url: '#' },
+                { title: '如何提高英语水平？', answer: '3210回答', url: '#' },
+                { title: '健康饮食的重要性', answer: '2109回答', url: '#' },
+                { title: '旅行的意义是什么？', answer: '1987回答', url: '#' },
+                { title: '如何培养良好的习惯？', answer: '1765回答', url: '#' }
+            ];
+            
+            const html = mockData.map((item, index) => `
+                <div class="trend-item" onclick="window.open('${item.url}', '_blank')">
+                    <div class="trend-rank ${index < 3 ? 'top3' : ''}">${index + 1}</div>
+                    <div class="trend-content">
+                        <div class="trend-title">${item.title}</div>
+                        <div class="trend-meta">💬 ${item.answer}</div>
+                    </div>
+                </div>
+            `).join('');
+            listElement.innerHTML = html;
+        }
+        
+        // 百度热搜
+        async function loadBaiduTrends() {
+            const listElement = document.getElementById('baidu-list');
+            listElement.innerHTML = '<div class="loading">正在加载百度热搜...</div>';
+            
+            // 模拟数据
+            const mockData = [
+                { title: '春节假期安排', index: '100万', url: '#' },
+                { title: '新冠疫苗接种', index: '95万', url: '#' },
+                { title: '股市行情分析', index: '87万', url: '#' },
+                { title: '天气预报查询', index: '76万', url: '#' },
+                { title: '在线教育平台', index: '65万', url: '#' },
+                { title: '电商购物节', index: '54万', url: '#' },
+                { title: '房价走势预测', index: '43万', url: '#' },
+                { title: '健康养生知识', index: '32万', url: '#' },
+                { title: '科技新闻资讯', index: '21万', url: '#' },
+                { title: '娱乐八卦热点', index: '18万', url: '#' }
+            ];
+            
+            const html = mockData.map((item, index) => `
+                <div class="trend-item" onclick="window.open('${item.url}', '_blank')">
+                    <div class="trend-rank ${index < 3 ? 'top3' : ''}">${index + 1}</div>
+                    <div class="trend-content">
+                        <div class="trend-title">${item.title}</div>
+                        <div class="trend-meta">📊 ${item.index} 搜索指数</div>
+                    </div>
+                </div>
+            `).join('');
+            listElement.innerHTML = html;
+        }
+        
+        // 抖音热榜
+        async function loadDouyinTrends() {
+            const listElement = document.getElementById('douyin-list');
+            listElement.innerHTML = '<div class="loading">正在加载抖音热榜...</div>';
+            
+            // 模拟数据
+            const mockData = [
+                { title: '春节创意短视频', views: '2.1亿播放', url: '#' },
+                { title: '美食制作教程', views: '1.8亿播放', url: '#' },
+                { title: '搞笑日常生活', views: '1.5亿播放', url: '#' },
+                { title: '舞蹈挑战赛', views: '1.2亿播放', url: '#' },
+                { title: '宠物可爱瞬间', views: '9800万播放', url: '#' },
+                { title: '旅行风景分享', views: '8700万播放', url: '#' },
+                { title: '健身运动指导', views: '7600万播放', url: '#' },
+                { title: '化妆技巧教学', views: '6500万播放', url: '#' },
+                { title: '科普知识普及', views: '5400万播放', url: '#' },
+                { title: '音乐翻唱作品', views: '4300万播放', url: '#' }
+            ];
+            
+            const html = mockData.map((item, index) => `
+                <div class="trend-item" onclick="window.open('${item.url}', '_blank')">
+                    <div class="trend-rank ${index < 3 ? 'top3' : ''}">${index + 1}</div>
+                    <div class="trend-content">
+                        <div class="trend-title">${item.title}</div>
+                        <div class="trend-meta">📺 ${item.views}</div>
+                    </div>
+                </div>
+            `).join('');
+            listElement.innerHTML = html;
+        }
+        
+        // B站热门
+        async function loadBilibiliTrends() {
+            const listElement = document.getElementById('bilibili-list');
+            listElement.innerHTML = '<div class="loading">正在加载B站热门...</div>';
+            
+            // 模拟数据
+            const mockData = [
+                { title: '【技术分享】前端开发最佳实践', stats: '156万播放 · 2.3万弹幕', url: '#' },
+                { title: '【游戏解说】最新游戏通关攻略', stats: '134万播放 · 1.8万弹幕', url: '#' },
+                { title: '【科普向】人工智能发展历程', stats: '112万播放 · 1.5万弹幕', url: '#' },
+                { title: '【音乐】原创歌曲MV首发', stats: '98万播放 · 1.2万弹幕', url: '#' },
+                { title: '【美食】家常菜制作教程', stats: '87万播放 · 9800弹幕', url: '#' },
+                { title: '【动画】原创动画短片', stats: '76万播放 · 8700弹幕', url: '#' },
+                { title: '【生活】日常vlog分享', stats: '65万播放 · 7600弹幕', url: '#' },
+                { title: '【学习】编程入门教程', stats: '54万播放 · 6500弹幕', url: '#' },
+                { title: '【娱乐】搞笑视频合集', stats: '43万播放 · 5400弹幕', url: '#' },
+                { title: '【影视】电影解说推荐', stats: '32万播放 · 4300弹幕', url: '#' }
+            ];
+            
+            const html = mockData.map((item, index) => `
+                <div class="trend-item" onclick="window.open('${item.url}', '_blank')">
+                    <div class="trend-rank ${index < 3 ? 'top3' : ''}">${index + 1}</div>
+                    <div class="trend-content">
+                        <div class="trend-title">${item.title}</div>
+                        <div class="trend-meta">📹 ${item.stats}</div>
+                    </div>
+                </div>
+            `).join('');
+            listElement.innerHTML = html;
+        }
+        
+        // 页面加载时自动加载GitHub热门
+        document.addEventListener('DOMContentLoaded', function() {
+            loadGitHubTrends();
+        });
+    </script>
+</body>
+</html>
