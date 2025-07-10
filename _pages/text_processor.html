@@ -175,6 +175,10 @@ title: "文本处理工具"
             color: #8A2BE2; /* 紫罗兰色 */
             font-weight: bold;
         }
+        .video-highlight {
+            color: #0056b3; /* 蓝色 */
+            font-weight: bold;
+        }
         .review-highlight {
             color: #e67e22; /* 橙色高亮 */
             background: #fffbe6;
@@ -415,6 +419,10 @@ title: "文本处理工具"
             // 再查找“闲情逸致：”并高亮显示整行
             content = content.replace(
                 /(<p[^>]*>)(闲情逸致：)(.*?)(<\/p>)/g, '$1<span class="leisure-highlight">$2$3</span>$4'
+            );
+            // 再查找“做视频想法：”并高亮显示整行
+            content = content.replace(
+                /(<p[^>]*>)(做视频想法：)(.*?)(<\/p>)/g, '$1<span class="video-highlight">$2$3</span>$4'
             );
             
             updatePreview(content);
