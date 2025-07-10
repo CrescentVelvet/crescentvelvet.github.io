@@ -153,11 +153,18 @@ title: "加密日志阅读器"
             background: #ffe9b3 !important;
             transition: background 0.6s;
         }
+        .word-count {
+            color: #888;
+            font-size: 14px;
+            margin-bottom: 10px;
+            text-align: right;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>加密日志阅读器</h1>
+        <div id="word-count" class="word-count"></div>
         <div id="toc" class="toc"></div>
         <div class="file-list">
             <label for="fileSelect">选择日志文件：</label>
@@ -223,6 +230,7 @@ title: "加密日志阅读器"
             status.className = 'success';
             output.innerHTML = decrypted;
             generateTOC();
+            updateWordCount();
         } catch (e) {
             status.textContent = '解密失败：' + e.message;
             status.className = 'error';
@@ -278,6 +286,18 @@ title: "加密日志阅读器"
                 }
             };
         });
+    }
+    </script>
+    <script>
+    // 自动统计总字数
+    function updateWordCount() {
+        const output = document.getElementById('output');
+        const wordCountDiv = document.getElementById('word-count');
+        // 获取纯文本内容，去除所有HTML标签
+        const text = output.innerText || output.textContent || '';
+        // 统计所有非空字符数
+        const count = text.replace(/\s/g, '').length;
+        wordCountDiv.textContent = `总字数：${count}`;
     }
     </script>
 </body>
