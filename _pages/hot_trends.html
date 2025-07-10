@@ -32,26 +32,30 @@ title: "今日热榜"
             font-family: 'Roboto', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             line-height: 1.6;
             color: var(--text-primary);
-            background-color: var(--light-bg);
+            background: linear-gradient(135deg, #e0e7ff 0%, #f8fafc 100%);
             margin: 0;
             padding: 20px;
+            min-height: 100vh;
         }
         
         .container {
             max-width: 1200px;
             margin: 0 auto;
-            background-color: var(--text-light);
+            background: rgba(255,255,255,0.95);
             border-radius: var(--card-radius);
-            box-shadow: 0 8px 30px var(--shadow-light);
-            padding: 30px;
+            box-shadow: 0 8px 32px 0 rgba(60,60,120,0.10), 0 1.5px 6px 0 rgba(60,60,120,0.08);
+            padding: 36px 30px 30px 30px;
+            backdrop-filter: blur(2px);
         }
         
         h1 {
             text-align: center;
             color: var(--primary-color);
             margin-bottom: 30px;
-            font-size: 2.5em;
-            font-weight: 300;
+            font-size: 2.7em;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-shadow: 0 2px 8px #e0e7ff;
         }
         
         .tabs {
@@ -60,30 +64,29 @@ title: "今日热榜"
             justify-content: center;
             margin-bottom: 30px;
             border-bottom: 2px solid var(--border-color);
+            gap: 8px;
         }
         
         .tab {
-            padding: 12px 24px;
-            margin: 0 5px;
-            background-color: transparent;
+            padding: 12px 28px;
+            margin: 0 2px;
+            background: linear-gradient(90deg, #f8fafc 60%, #e0e7ff 100%);
             border: none;
             border-bottom: 3px solid transparent;
             cursor: pointer;
-            font-size: 16px;
+            font-size: 17px;
             color: var(--text-secondary);
-            transition: all var(--transition-speed) ease;
+            transition: all var(--transition-speed) cubic-bezier(.4,2,.6,1);
             border-radius: var(--button-radius) var(--button-radius) 0 0;
+            font-weight: 500;
+            box-shadow: 0 1px 4px var(--shadow-light);
         }
         
-        .tab:hover {
-            background-color: var(--light-bg);
-            color: var(--primary-color);
-        }
-        
-        .tab.active {
+        .tab:hover, .tab.active {
+            background: linear-gradient(90deg, #e0e7ff 60%, #f8fafc 100%);
             color: var(--primary-color);
             border-bottom-color: var(--primary-color);
-            background-color: var(--light-bg);
+            box-shadow: 0 2px 8px var(--shadow-light);
         }
         
         .content {
@@ -109,31 +112,55 @@ title: "今日热榜"
         .trend-item {
             display: flex;
             align-items: center;
-            padding: 15px;
-            margin-bottom: 10px;
-            background-color: var(--text-light);
+            padding: 18px 18px 18px 10px;
+            margin-bottom: 14px;
+            background: linear-gradient(90deg, #f8fafc 80%, #e0e7ff 100%);
             border: 1px solid var(--border-color);
             border-radius: var(--button-radius);
-            transition: all var(--transition-speed) ease;
+            transition: all var(--transition-speed) cubic-bezier(.4,2,.6,1);
             cursor: pointer;
+            box-shadow: 0 1px 4px var(--shadow-light);
+            position: relative;
+            overflow: hidden;
         }
         
         .trend-item:hover {
-            box-shadow: 0 4px 15px var(--shadow-light);
-            transform: translateY(-2px);
+            box-shadow: 0 8px 24px var(--shadow-light);
+            transform: scale(1.025) translateY(-2px);
             border-color: var(--primary-color);
+            background: linear-gradient(90deg, #e0e7ff 60%, #f8fafc 100%);
+        }
+        
+        .trend-item:not(:last-child)::after {
+            content: "";
+            position: absolute;
+            left: 60px;
+            right: 10px;
+            bottom: 0;
+            height: 1px;
+            background: var(--border-color);
+            opacity: 0.5;
         }
         
         .trend-rank {
-            font-size: 18px;
+            font-size: 22px;
             font-weight: bold;
             color: var(--primary-color);
-            margin-right: 15px;
-            min-width: 30px;
+            margin-right: 18px;
+            min-width: 36px;
+            text-align: center;
+            border-radius: 50%;
+            background: #e0e7ff;
+            width: 36px;
+            height: 36px;
+            line-height: 36px;
+            box-shadow: 0 1px 4px var(--shadow-light);
         }
         
         .trend-rank.top3 {
-            color: var(--accent-color);
+            color: #fff;
+            background: linear-gradient(135deg, #f0654b 60%, #ffb199 100%);
+            box-shadow: 0 2px 8px #f0654b33;
         }
         
         .trend-content {
@@ -141,90 +168,118 @@ title: "今日热榜"
         }
         
         .trend-title {
-            font-size: 16px;
-            font-weight: 500;
+            font-size: 17px;
+            font-weight: 600;
             color: var(--text-primary);
-            margin-bottom: 5px;
+            margin-bottom: 4px;
             text-decoration: none;
+            letter-spacing: 0.5px;
         }
         
         .trend-title:hover {
             color: var(--primary-color);
+            text-decoration: underline;
         }
         
         .trend-meta {
-            font-size: 12px;
+            font-size: 13px;
             color: var(--text-secondary);
+            margin-top: 2px;
         }
         
-        .loading {
+        .loading, .error {
             text-align: center;
-            padding: 50px;
+            padding: 50px 0;
             color: var(--text-secondary);
+            font-size: 18px;
         }
         
         .error {
-            text-align: center;
-            padding: 50px;
             color: var(--accent-color);
         }
         
         .back-button {
             display: inline-block;
             color: white;
-            background-color: var(--secondary-color);
+            background: linear-gradient(90deg, #6c757d 60%, #4a90e2 100%);
             text-decoration: none;
-            padding: 12px 24px;
+            padding: 13px 28px;
             border-radius: var(--button-radius);
-            transition: all var(--transition-speed) ease;
-            box-shadow: 0 2px 5px var(--shadow-light);
-            margin: 20px 0;
+            transition: all var(--transition-speed) cubic-bezier(.4,2,.6,1);
+            box-shadow: 0 2px 8px var(--shadow-light);
+            margin: 30px 0 0 0;
             border: none;
-            font-weight: normal;
+            font-weight: 500;
+            font-size: 16px;
+            letter-spacing: 1px;
         }
         
         .back-button:hover {
-            background-color: #5a6268;
-            box-shadow: 0 4px 8px var(--shadow-medium);
-            transform: translateY(-1px);
+            background: linear-gradient(90deg, #4a90e2 60%, #6c757d 100%);
+            box-shadow: 0 4px 16px var(--shadow-medium);
+            transform: scale(1.04) translateY(-1px);
         }
         
         .refresh-button {
-            background-color: var(--success-color);
+            background: linear-gradient(90deg, #66bb6a 60%, #4a90e2 100%);
             color: white;
             border: none;
-            padding: 10px 20px;
+            padding: 10px 22px;
             border-radius: var(--button-radius);
             cursor: pointer;
-            font-size: 14px;
-            transition: all var(--transition-speed) ease;
+            font-size: 15px;
+            transition: all var(--transition-speed) cubic-bezier(.4,2,.6,1);
             margin-left: 10px;
+            font-weight: 500;
+            box-shadow: 0 1px 4px var(--shadow-light);
         }
         
         .refresh-button:hover {
-            background-color: #5cb85c;
-            transform: translateY(-1px);
+            background: linear-gradient(90deg, #4a90e2 60%, #66bb6a 100%);
+            transform: scale(1.06) translateY(-1px);
         }
         
         @media (max-width: 768px) {
             .container {
-                padding: 15px;
-                margin: 10px;
+                padding: 10px;
+                margin: 6px;
             }
-            
+            h1 {
+                font-size: 1.7em;
+            }
             .tabs {
                 flex-direction: column;
+                gap: 0;
             }
-            
             .tab {
                 margin: 2px 0;
                 border-radius: var(--button-radius);
                 border-bottom: none;
+                font-size: 15px;
+                padding: 10px 0;
             }
-            
             .tab.active {
-                background-color: var(--primary-color);
+                background: var(--primary-color);
                 color: white;
+            }
+            .trend-item {
+                padding: 12px 8px 12px 6px;
+                margin-bottom: 8px;
+            }
+            .trend-rank {
+                font-size: 16px;
+                min-width: 28px;
+                width: 28px;
+                height: 28px;
+                line-height: 28px;
+            }
+            .back-button {
+                font-size: 14px;
+                padding: 10px 18px;
+            }
+            .refresh-button {
+                font-size: 13px;
+                padding: 8px 14px;
             }
         }
     </style>
