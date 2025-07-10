@@ -385,18 +385,18 @@ title: "文本处理工具"
                 text = text.replace(/\n{2,}/g, '\n');
 
                 if (text.trim()) {
-                    // 重新创建p标签，并保留原始类名，设置单倍行距和段前段后间距为0
+                    // 重新创建p标签，并保留原始类名，设置单倍行距和段前段后间距为0.5倍行高
                     const newP = document.createElement('p');
                     newP.className = originalClasses;
                     newP.style.lineHeight = '1.0';
-                    newP.style.marginTop = '0';
-                    newP.style.marginBottom = '0';
+                    newP.style.marginTop = '0.5em';
+                    newP.style.marginBottom = '0.5em';
                     newP.textContent = text;
                     processedParagraphs.push(newP.outerHTML);
                 }
             });
             
-            updatePreview(processedParagraphs.join('\n'));
+            updatePreview(processedParagraphs.join(''));
             showStatus('多余换行已移除');
         });
         
@@ -547,9 +547,13 @@ title: "文本处理工具"
 这是第二天的内容，另一种格式的日期。
 
 2023/1/4 16:30:45 Crescent Velvet(315762814)
-这里有一些重复的日期。
+这里有一些重复的日期和多余的空行。
+
 我撤回了一条消息。
+
 你也撤回了一条消息。
+
+
 他们都撤回了一条消息。
 
 2023-01-04 16:45:33 User Name(123456789)
