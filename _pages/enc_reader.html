@@ -159,6 +159,37 @@ title: "加密日志阅读器"
             margin-bottom: 10px;
             text-align: right;
         }
+        .search-bar {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        #searchInput {
+            flex: 1;
+            padding: 6px 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 15px;
+        }
+        #searchBtn {
+            padding: 6px 18px;
+            border: none;
+            border-radius: 4px;
+            background: #4a90e2;
+            color: #fff;
+            font-size: 15px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        #searchBtn:hover {
+            background: #357ab8;
+        }
+        .search-highlight {
+            background: #ffe066;
+            color: #d35f05;
+            border-radius: 2px;
+            padding: 0 2px;
+        }
     </style>
 </head>
 <body>
@@ -174,6 +205,10 @@ title: "加密日志阅读器"
             <input type="password" id="password" placeholder="请输入解密密码">
         </div>
         <button id="decryptBtn">解密并显示</button>
+        <div class="search-bar">
+            <input type="text" id="searchInput" placeholder="搜索日志内容..." />
+            <button id="searchBtn">搜索</button>
+        </div>
         <div id="status"></div>
         <div class="output" id="output"></div>
     </div>
@@ -298,6 +333,52 @@ title: "加密日志阅读器"
         // 统计所有非空字符数
         const count = text.replace(/\s/g, '').length;
         wordCountDiv.textContent = `总字数：${count}`;
+    }
+    </script>
+    <script>
+    // 文字搜索功能
+    document.getElementById('searchBtn').onclick = function() {
+        const keyword = document.getElementById('searchInput').value.trim();
+        const output = document.getElementById('output');
+        clearSearchHighlight(output);
+        if (!keyword) return;
+        highlightKeyword(output, keyword);
+    };
+
+    function highlightKeyword(container, keyword) {
+        if (!keyword) return;
+        // 遍历所有文本节点，进行高亮
+        const treeWalker = document.createTreeWalker(
+            container,
+            NodeFilter.SHOW_TEXT,
+            null,
+            false
+        );
+        const nodes = [];
+        while (treeWalker.nextNode()) {
+            nodes.push(treeWalker.currentNode);
+        }
+        nodes.forEach(node => {
+            const idx = node.nodeValue.toLowerCase().indexOf(keyword.toLowerCase());
+            if (idx > -1 && node.nodeValue.trim() !== '') {
+                const span = document.createElement('span');
+                const before = node.nodeValue.slice(0, idx);
+                const match = node.nodeValue.slice(idx, idx + keyword.length);
+                const after = node.nodeValue.slice(idx + keyword.length);
+                span.innerHTML = `${before}<span class="search-highlight">${match}</span>${after}`;
+                node.parentNode.replaceChild(span, node);
+            }
+        });
+    }
+
+    function clearSearchHighlight(container) {
+        // 移除所有高亮
+        const highlights = container.querySelectorAll('.search-highlight');
+        highlights.forEach(span => {
+            const parent = span.parentNode;
+            parent.replaceChild(document.createTextNode(span.textContent), span);
+            parent.normalize();
+        });
     }
     </script>
 </body>
