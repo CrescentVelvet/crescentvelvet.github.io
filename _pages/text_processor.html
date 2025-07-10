@@ -43,25 +43,6 @@ title: "文本处理工具"
         .info-feature {
             margin-bottom: 5px;
         }
-        .quick-nav {
-            position: fixed;
-            right: 20px;
-            top: 50%;
-            transform: translateY(-50%);
-            background-color: rgba(255, 255, 255, 0.9);
-            border-radius: 4px;
-            padding: 10px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-            z-index: 1000;
-            display: flex;
-            flex-direction: column;
-            gap: 5px;
-        }
-        .quick-nav button {
-            min-width: 40px;
-            padding: 5px;
-            font-size: 12px;
-        }
         h1 {
             color: #0056b3;
             text-align: center;
@@ -224,6 +205,10 @@ title: "文本处理工具"
             <button id="addLeisurePrefix" class="step-button">5. 闲情逸致</button>
             <button id="processAll" class="step-button">一键处理全部</button>
             <button id="copyResult" class="copy-button">复制结果</button>
+            <button id="exportEncrypted" class="copy-button">加密导出</button>
+            <button id="importEncrypted" class="copy-button">加密导入</button>
+            <input type="file" id="importFileInput" style="display:none" />
+            <button id="loadExample" class="copy-button">加载示例文本</button>
         </div>
         <div id="status" class="status"></div>
         <div class="info-box">
@@ -240,21 +225,12 @@ title: "文本处理工具"
         </div>
     </div>
     
-    <!-- 快速导航按钮 -->
-    <div class="quick-nav" id="quickNav">
-        <button data-target="formatFont">1</button>
-        <button data-target="formatParagraph">2</button>
-        <button data-target="processDates">3</button>
-        <button data-target="removeExtraLineBreaks">4</button>
-        <button data-target="addLeisurePrefix">5</button>
-    </div>
-
+    <script src="https://cdn.jsdelivr.net/npm/crypto-js@4.1.1/crypto-js.min.js"></script>
     <script>
         // 获取DOM元素
         const inputText = document.getElementById('inputText');
         const outputPreview = document.getElementById('outputPreview');
         const statusDiv = document.getElementById('status');
-        const quickNav = document.getElementById('quickNav');
         
         // 处理状态显示
         function showStatus(message, isError = false) {
@@ -492,6 +468,55 @@ title: "文本处理工具"
             document.body.removeChild(tempElement);
         });
         
+        // 加密导出
+        document.getElementById('exportEncrypted').addEventListener('click', () => {
+            const content = outputPreview.innerHTML;
+            if (!content.trim()) {
+                showStatus('没有可加密的内容', true);
+                return;
+            }
+            const password = prompt('请输入加密密码：');
+            if (!password) return;
+            // AES加密
+            const ciphertext = CryptoJS.AES.encrypt(content, password).toString();
+            // 导出为文件
+            const blob = new Blob([ciphertext], {type: 'text/plain'});
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'encrypted_log.txt';
+            a.click();
+            showStatus('已加密导出');
+        });
+
+        // 加密导入
+        document.getElementById('importEncrypted').addEventListener('click', () => {
+            document.getElementById('importFileInput').click();
+        });
+
+        document.getElementById('importFileInput').addEventListener('change', function() {
+            const file = this.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const ciphertext = e.target.result;
+                const password = prompt('请输入解密密码：');
+                if (!password) return;
+                try {
+                    const bytes = CryptoJS.AES.decrypt(ciphertext, password);
+                    const decrypted = bytes.toString(CryptoJS.enc.Utf8);
+                    if (!decrypted) {
+                        showStatus('密码错误或文件损坏', true);
+                        return;
+                    }
+                    outputPreview.innerHTML = decrypted;
+                    showStatus('解密导入成功');
+                } catch (err) {
+                    showStatus('解密失败', true);
+                }
+            };
+            reader.readAsText(file);
+        });
+        
         // 清空
         document.getElementById('resetText').addEventListener('click', () => {
             inputText.value = '';
@@ -499,14 +524,6 @@ title: "文本处理工具"
             outputPreview.className = 'output-preview';
             showStatus('已清空');
         });
-        
-        // 添加示例文本按钮
-        const buttonsSection = document.querySelector('.buttons-section');
-        const exampleButton = document.createElement('button');
-        exampleButton.textContent = '加载示例文本';
-        exampleButton.className = 'copy-button';
-        exampleButton.id = 'loadExample';
-        buttonsSection.appendChild(exampleButton);
         
         // 加载示例文本
         document.getElementById('loadExample').addEventListener('click', () => {
@@ -536,18 +553,6 @@ title: "文本处理工具"
 `;
             document.getElementById('inputText').value = exampleText;
             showStatus('示例文本已加载');
-        });
-        
-        // 快速导航按钮事件处理
-        quickNav.querySelectorAll('button').forEach(button => {
-            button.addEventListener('click', () => {
-                const targetId = button.getAttribute('data-target');
-                const targetButton = document.getElementById(targetId);
-                if (targetButton) {
-                    targetButton.click();
-                    targetButton.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                }
-            });
         });
         
 
