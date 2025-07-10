@@ -186,11 +186,11 @@ title: "文本处理工具"
             font-weight: bold;
             margin: 10px 0;
         }
-        .leisure-title {
+        .leisure-highlight {
             color: #d35f05; /* 橙红色 */
             font-weight: bold;
         }
-        .dream-title {
+        .dream-highlight {
             color: #8A2BE2; /* 紫罗兰色 */
             font-weight: bold;
         }
@@ -426,12 +426,19 @@ title: "文本处理工具"
             
             let content = outputPreview.innerHTML;
             
-            // 查找"今天都做了些什么"并添加前缀（确保不会重复添加）
-            // 查找"今天都做了些什么"并添加"闲情逸致："前缀（确保不会重复添加）
-            content = content.replace(/(<p[^>]*>)(?!<span class="leisure-title">闲情逸致：<\/span>)(今天都做了些什么)/g, '$1<span class="leisure-title">闲情逸致：<\/span>$2');
-            // 查找"梦幻空花："并高亮显示
-            content = content.replace(/(闲情逸致：)/g, '<span class="leisure-title">$1</span>');
-            content = content.replace(/(梦幻空花：)/g, '<span class="dream-title">$1</span>');
+            // 匹配所有以“今天都做了些什么”开头的行，无论后面有没有内容，整行替换为高亮“闲情逸致：”前缀+原文，且不会重复添加
+            content = content.replace(
+              /(<p[^>]*>)(?!<span class="leisure-highlight">)(今天都做了些什么.*?)(<\/p>)/g,
+              '$1<span class="leisure-highlight">闲情逸致：$2</span>$3'
+            );
+            // 再查找“梦幻空花：”并高亮显示整行
+            content = content.replace(
+                /(<p[^>]*>)(梦幻空花：)(.*?)(<\/p>)/g, '$1<span class="dream-highlight">$2$3</span>$4'
+            );
+            // 再查找“闲情逸致：”并高亮显示整行
+            content = content.replace(
+                /(<p[^>]*>)(闲情逸致：)(.*?)(<\/p>)/g, '$1<span class="leisure-highlight">$2$3</span>$4'
+            );
             
             updatePreview(content);
             showStatus('已添加"闲情逸致"前缀');
@@ -524,8 +531,8 @@ title: "文本处理工具"
 
 2023-01-05 10:20:18 Another User(987654321)
 这里是一些需要添加前缀的内容：
-今天都做了些什么
-梦幻空花：我做了一个梦
+今天都做了些什么：异彩纷呈的一天。
+梦幻空花：我做了一个梦。
 `;
             document.getElementById('inputText').value = exampleText;
             showStatus('示例文本已加载');
