@@ -126,6 +126,7 @@ redirect_from:
     <p><a href="/text_processor.html" class="link-button">文本处理</a></p>
     <p><a href="/receipt_scanner.html" class="link-button">票据识别</a></p>
     <p><a href="/paper_retrieval.html" class="link-button">论文搜索</a></p>
+    <p><a href="/hot_trends.html" class="link-button">每日热榜</a></p>
     <hr>
     <p>强调一下<strong>几个单词</strong></p>
     <blockquote>引用内容</blockquote>

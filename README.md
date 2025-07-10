@@ -43,5 +43,4 @@
 - 在localhost或127.0.0.1上部署的本地网页，会遇到浏览器的CORS限制，无法通过URL和API调用大模型
 - 浏览器中的JavaScript受到严格的安全限制，不允许直接向不同源的网站发起请求并获取数据，只能在本地运行脚本实现爬虫功能
 - 本地运行Python脚本需要创建虚拟环境，安装依赖包，/Users/velvet/Documents/code/crescentvelvet.github.i
-o/.venv/bin/python -m pip install requests，运行脚本，/Users/velvet/Documents/code/crescentvelvet.github.i
-o/.venv/bin/python ./scipt/scrape_papers.py
+o/.venv/bin/python -m pip install requests，运行脚本，/Users/velvet/Documents/code/crescentvelvet.github.io/.venv/bin/python ./scipt/scrape_papers.py
