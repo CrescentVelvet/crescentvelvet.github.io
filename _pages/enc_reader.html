@@ -1,0 +1,158 @@
+---
+permalink: /enc_reader.html
+layout: null
+title: "加密日志阅读器"
+---
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>加密日志阅读器</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: #f8f9fa;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 700px;
+            margin: 40px auto;
+            background: #fff;
+            border-radius: 10px;
+            box-shadow: 0 4px 24px rgba(60,60,120,0.08);
+            padding: 32px 24px 24px 24px;
+        }
+        h1 {
+            text-align: center;
+            color: #4a90e2;
+            margin-bottom: 30px;
+        }
+        .file-list {
+            margin-bottom: 20px;
+        }
+        .file-list label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+        select {
+            width: 100%;
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            font-size: 15px;
+        }
+        .input-group {
+            margin-bottom: 18px;
+        }
+        input[type="password"] {
+            width: 100%;
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            font-size: 15px;
+        }
+        button {
+            background: #4a90e2;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            padding: 10px 24px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 8px;
+            transition: background 0.2s;
+        }
+        button:hover {
+            background: #357ab8;
+        }
+        .output {
+            margin-top: 24px;
+            background: #f4f8fb;
+            border-radius: 6px;
+            padding: 18px;
+            min-height: 120px;
+            font-size: 15px;
+            color: #222;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        .error {
+            color: #dc3545;
+            margin-top: 10px;
+        }
+        .success {
+            color: #28a745;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>加密日志阅读器</h1>
+        <div class="file-list">
+            <label for="fileSelect">选择日志文件：</label>
+            <select id="fileSelect"></select>
+        </div>
+        <div class="input-group">
+            <input type="password" id="password" placeholder="请输入解密密码">
+        </div>
+        <button id="decryptBtn">解密并显示</button>
+        <div id="status"></div>
+        <div class="output" id="output"></div>
+    </div>
+    <script src="/assets/js/crypto-js.min.js"></script>
+    <script>
+    // 你可以在这里手动维护文件列表，或用Jekyll/Liquid自动生成
+    const files = [
+        'encrypted_log.txt'
+    ];
+    // 自动填充下拉框
+    const fileSelect = document.getElementById('fileSelect');
+    files.forEach(f => {
+        const opt = document.createElement('option');
+        opt.value = f;
+        opt.textContent = f;
+        fileSelect.appendChild(opt);
+    });
+    document.getElementById('decryptBtn').onclick = async function() {
+        const file = fileSelect.value;
+        const password = document.getElementById('password').value;
+        const status = document.getElementById('status');
+        const output = document.getElementById('output');
+        status.textContent = '';
+        output.textContent = '';
+        if (!file) {
+            status.textContent = '请选择文件';
+            status.className = 'error';
+            return;
+        }
+        if (!password) {
+            status.textContent = '请输入密码';
+            status.className = 'error';
+            return;
+        }
+        try {
+            const res = await fetch(`/assets/data/${file}`);
+            if (!res.ok) throw new Error('文件读取失败');
+            const ciphertext = await res.text();
+            const bytes = CryptoJS.AES.decrypt(ciphertext, password);
+            const decrypted = bytes.toString(CryptoJS.enc.Utf8);
+            if (!decrypted) {
+                status.textContent = '密码错误或文件损坏';
+                status.className = 'error';
+                return;
+            }
+            status.textContent = '解密成功';
+            status.className = 'success';
+            output.innerHTML = decrypted;
+        } catch (e) {
+            status.textContent = '解密失败：' + e.message;
+            status.className = 'error';
+        }
+    };
+    </script>
+</body>
+</html> 
