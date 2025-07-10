@@ -133,18 +133,25 @@ title: "加密日志阅读器"
     </div>
     <script src="/assets/js/crypto-js.min.js"></script>
     <script>
-    // 你可以在这里手动维护文件列表，或用Jekyll/Liquid自动生成
-    const files = [
-        'encrypted_log.txt'
+    window.files = [
+    {% for file in site.static_files %}
+    {% if file.path contains '/assets/data/' and file.extname == '.txt' %}
+        '{{ file.name }}',
+    {% endif %}
+    {% endfor %}
     ];
-    // 自动填充下拉框
+    </script>
+    <script>
+    window.files = window.files.filter(f => f && f.trim());
     const fileSelect = document.getElementById('fileSelect');
-    files.forEach(f => {
+    window.files.forEach(f => {
         const opt = document.createElement('option');
         opt.value = f;
         opt.textContent = f;
         fileSelect.appendChild(opt);
     });
+    </script>
+    <script>
     document.getElementById('decryptBtn').onclick = async function() {
         const file = fileSelect.value;
         const password = document.getElementById('password').value;
