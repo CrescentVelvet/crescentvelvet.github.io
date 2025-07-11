@@ -96,6 +96,7 @@ layout: null
             z-index: 2;
             box-shadow: 2px 0 5px rgba(0,0,0,0.1);
             height: 100%;
+            transition: max-height 0.3s;
         }
 
         #map {
@@ -155,6 +156,51 @@ layout: null
         .suggestion-item:hover {
             background-color: #f0f0f0;
         }
+
+        /* 响应式：移动端下侧栏折叠，地图最大化 */
+        @media (max-width: 768px) {
+            .content {
+                flex-direction: column;
+            }
+            .sidebar {
+                width: 100%;
+                height: auto;
+                box-shadow: none;
+                padding: 10px;
+                position: relative;
+                z-index: 10;
+                max-height: 60vh;
+                overflow-y: auto;
+                transition: max-height 0.3s;
+            }
+            #map {
+                width: 100% !important;
+                height: calc(100vh - 60px) !important;
+                min-height: 300px;
+            }
+            .sidebar.collapsed {
+                max-height: 0;
+                padding: 0;
+                overflow: hidden;
+            }
+            .sidebar-toggle-btn {
+                display: block;
+                width: 100%;
+                background: #1E90FF;
+                color: #fff;
+                border: none;
+                padding: 10px;
+                font-size: 16px;
+                cursor: pointer;
+                border-radius: 0;
+                margin-bottom: 0;
+            }
+        }
+        @media (min-width: 769px) {
+            .sidebar-toggle-btn {
+                display: none;
+            }
+        }
     </style>
 </head>
 <body>
@@ -162,6 +208,7 @@ layout: null
         <h1>我的航旅足迹</h1>
     </div>
     <div class="content">
+        <button class="sidebar-toggle-btn" onclick="toggleSidebar()">☰ 显示/隐藏航线操作区</button>
         <div class="sidebar">
             <div class="form-container">
                 <input type="text" id="departure" placeholder="出发机场 (如: PEK, 北京首都)">
@@ -1170,6 +1217,12 @@ layout: null
             linkElement.setAttribute('download', exportFileDefaultName);
             linkElement.click(); // 模拟点击下载
             linkElement.remove(); // 移除创建的a标签
+        }
+
+        // 折叠侧栏函数
+        function toggleSidebar() {
+            var sidebar = document.querySelector('.sidebar');
+            sidebar.classList.toggle('collapsed');
         }
 
         // 绑定导出按钮事件
