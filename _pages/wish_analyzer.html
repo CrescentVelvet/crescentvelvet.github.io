@@ -82,12 +82,15 @@ title: "原神抽卡分析"
         <textarea id="wishLink" rows="3" placeholder="请粘贴以 wish_ 开头的原神抽卡链接，或官方抽卡API链接"></textarea>
         <button onclick="analyzeWish()">分析抽卡</button>
         <div class="result" id="result"></div>
+        <div id="charts" style="margin-top:1.5em;"></div>
     </div>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <script>
-    // 支持 wish_ 链接和官方API链接
+    // 支持 wish_ 链接和官方API链接，API自动翻页，ECharts图表展示
     async function analyzeWish() {
         const input = document.getElementById('wishLink').value.trim();
         const resultDiv = document.getElementById('result');
+        document.getElementById('charts').innerHTML = '';
         if (input.startsWith('wish_')) {
             try {
                 let base64 = input.slice(5)
@@ -159,39 +162,105 @@ title: "原神抽卡分析"
         } else if (/gachaLog/.test(input)) {
             resultDiv.innerHTML = '正在获取数据...';
             try {
-                const resp = await fetch(input);
-                const data = await resp.json();
-                if (!data.data || !Array.isArray(data.data.list)) {
+                // 自动翻页抓取所有数据
+                let allList = [];
+                let page = 1;
+                let end_id = '0';
+                let size = 20;
+                let urlBase = input.replace(/([&?])page=\d+/, '$1page={page}')
+                                   .replace(/([&?])size=\d+/, '$1size={size}')
+                                   .replace(/([&?])end_id=[^&]*/, '$1end_id={end_id}');
+                if (!/page=\{page\}/.test(urlBase)) urlBase += (urlBase.includes('?') ? '&' : '?') + 'page={page}';
+                if (!/size=\{size\}/.test(urlBase)) urlBase += '&size={size}';
+                if (!/end_id=\{end_id\}/.test(urlBase)) urlBase += '&end_id={end_id}';
+                while (true) {
+                    let url = urlBase.replace('{page}', page).replace('{size}', size).replace('{end_id}', end_id);
+                    let resp = await fetch(url);
+                    let data = await resp.json();
+                    if (!data.data || !Array.isArray(data.data.list) || data.data.list.length === 0) break;
+                    allList = allList.concat(data.data.list);
+                    if (data.data.list.length < size) break;
+                    end_id = data.data.list[data.data.list.length-1].id;
+                    page++;
+                    if (page > 100) break; // 防止死循环
+                }
+                if (allList.length === 0) {
                     resultDiv.innerHTML = '未获取到有效抽卡数据。';
                     return;
                 }
-                const list = data.data.list;
-                let total = list.length, five = 0, four = 0, maxPity = 0, curPity = 0, sumPity = 0, lastFive = 0;
-                let fiveList = [];
+                // 统计分析
+                const list = allList;
+                let total = list.length, five = 0, four = 0, three = 0, maxPity = 0, curPity = 0, sumPity = 0, lastFive = 0;
+                let fiveList = [], starMap = {5:0,4:0,3:0}, fivePityArr = [];
                 list.forEach((item, idx) => {
                     if (item.rank_type == '5') {
                         five++;
                         fiveList.push({idx: idx+1, name: item.name, time: item.time});
                         maxPity = Math.max(maxPity, curPity+1);
                         sumPity += curPity+1;
+                        fivePityArr.push(curPity+1);
                         curPity = 0;
                         lastFive = idx+1;
+                        starMap[5]++;
                     } else if (item.rank_type == '4') {
                         four++;
                         curPity++;
+                        starMap[4]++;
                     } else {
+                        three++;
                         curPity++;
+                        starMap[3]++;
                     }
                 });
                 let avgPity = five ? (sumPity / five).toFixed(2) : '-';
                 let lastPity = total - lastFive;
-                resultDiv.innerHTML = `总抽数：<b>${total}</b><br>五星数：<b>${five}</b><br>四星数：<b>${four}</b><br>最大垫刀：<b>${maxPity}</b><br>平均垫刀：<b>${avgPity}</b><br>距离上次出金：<b>${lastPity}</b><br><hr>五星出货：<br>${fiveList.map(f=>`第${f.idx}抽：${f.name}（${f.time}）`).join('<br>')}`;
+                resultDiv.innerHTML = `总抽数：<b>${total}</b><br>五星数：<b>${five}</b><br>四星数：<b>${four}</b><br>三星数：<b>${three}</b><br>最大垫刀：<b>${maxPity}</b><br>平均垫刀：<b>${avgPity}</b><br>距离上次出金：<b>${lastPity}</b><br><hr>五星出货：<br>${fiveList.map(f=>`第${f.idx}抽：${f.name}（${f.time}）`).join('<br>')}`;
+                // 图表展示
+                showWishCharts(starMap, fivePityArr, fiveList);
             } catch (e) {
                 resultDiv.innerHTML = '获取或解析失败：' + e.message;
             }
         } else {
             resultDiv.innerHTML = '请输入以 wish_ 开头的链接，或官方抽卡API链接（含gachaLog）！';
         }
+    }
+
+    // ECharts图表展示
+    function showWishCharts(starMap, fivePityArr, fiveList) {
+        const chartsDiv = document.getElementById('charts');
+        chartsDiv.innerHTML = '<div id="starPie" style="width:100%;max-width:350px;height:260px;margin:auto;"></div><div id="pityBar" style="width:100%;max-width:350px;height:260px;margin:auto;"></div>';
+        // 星级分布饼图
+        let pie = echarts.init(document.getElementById('starPie'));
+        pie.setOption({
+            title: {text:'星级分布',left:'center',top:10,textStyle:{fontSize:16}},
+            tooltip: {trigger:'item'},
+            legend: {bottom:0},
+            series: [{
+                type:'pie',radius:['40%','70%'],
+                data:[
+                    {value:starMap[5]||0, name:'五星'},
+                    {value:starMap[4]||0, name:'四星'},
+                    {value:starMap[3]||0, name:'三星'}
+                ],
+                label:{formatter:'{b}: {c} ({d}%)'}
+            }]
+        });
+        // 五星出货垫刀分布柱状图
+        let bar = echarts.init(document.getElementById('pityBar'));
+        let pityBins = Array(10).fill(0); // 0-9,10-19,...,90+
+        fivePityArr.forEach(n=>{
+            let bin = Math.min(Math.floor((n-1)/10),9);
+            pityBins[bin]++;
+        });
+        bar.setOption({
+            title:{text:'五星出货垫刀分布',left:'center',top:10,textStyle:{fontSize:16}},
+            tooltip:{},
+            xAxis:{type:'category',data:['1-10','11-20','21-30','31-40','41-50','51-60','61-70','71-80','81-90','90+']},
+            yAxis:{type:'value'},
+            series:[{
+                type:'bar',data:pityBins,barWidth:'60%',itemStyle:{color:'#eacb5a'}
+            }]
+        });
     }
     </script>
 </body>
