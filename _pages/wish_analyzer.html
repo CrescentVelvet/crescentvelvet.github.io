@@ -79,8 +79,10 @@ title: "原神抽卡分析"
 <body>
     <div class="container">
         <h1>原神抽卡链接分析</h1>
-        <textarea id="wishLink" rows="3" placeholder="请粘贴以 wish_ 开头的原神抽卡链接，或官方抽卡API链接"></textarea>
+        <textarea id="wishLink" rows="3" placeholder="请粘贴官方抽卡API链接"></textarea>
         <button onclick="analyzeWish()">分析抽卡</button>
+        <input type="file" id="jsonFile" accept=".json" style="margin-top:0.5em;width:100%;" />
+        <button onclick="analyzeJsonFile()" style="margin-bottom:1em;">分析json文件</button>
         <div class="result" id="result"></div>
         <div id="charts" style="margin-top:1.5em;"></div>
     </div>
@@ -221,7 +223,7 @@ title: "原神抽卡分析"
                 resultDiv.innerHTML = '获取或解析失败：' + e.message;
             }
         } else {
-            resultDiv.innerHTML = '请输入以 wish_ 开头的链接，或官方抽卡API链接（含gachaLog）！';
+            resultDiv.innerHTML = '请输入官方抽卡API链接（含gachaLog）！';
         }
     }
 
@@ -261,6 +263,59 @@ title: "原神抽卡分析"
                 type:'bar',data:pityBins,barWidth:'60%',itemStyle:{color:'#eacb5a'}
             }]
         });
+    }
+
+    // 新增：分析json文件
+    function analyzeJsonFile() {
+        const fileInput = document.getElementById('jsonFile');
+        const resultDiv = document.getElementById('result');
+        document.getElementById('charts').innerHTML = '';
+        if (!fileInput.files.length) {
+            resultDiv.innerHTML = '请先选择json文件！';
+            return;
+        }
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const data = JSON.parse(e.target.result);
+                // 兼容米游社/喵喵等格式
+                let list = data.list || (data.data && data.data.list) || data;
+                if (!Array.isArray(list)) {
+                    resultDiv.innerHTML = '未识别到有效抽卡数据。';
+                    return;
+                }
+                // 统计分析
+                let total = list.length, five = 0, four = 0, three = 0, maxPity = 0, curPity = 0, sumPity = 0, lastFive = 0;
+                let fiveList = [], starMap = {5:0,4:0,3:0}, fivePityArr = [];
+                list.forEach((item, idx) => {
+                    if (item.rank_type == '5') {
+                        five++;
+                        fiveList.push({idx: idx+1, name: item.name, time: item.time});
+                        maxPity = Math.max(maxPity, curPity+1);
+                        sumPity += curPity+1;
+                        fivePityArr.push(curPity+1);
+                        curPity = 0;
+                        lastFive = idx+1;
+                        starMap[5]++;
+                    } else if (item.rank_type == '4') {
+                        four++;
+                        curPity++;
+                        starMap[4]++;
+                    } else {
+                        three++;
+                        curPity++;
+                        starMap[3]++;
+                    }
+                });
+                let avgPity = five ? (sumPity / five).toFixed(2) : '-';
+                let lastPity = total - lastFive;
+                resultDiv.innerHTML = `总抽数：<b>${total}</b><br>五星数：<b>${five}</b><br>四星数：<b>${four}</b><br>三星数：<b>${three}</b><br>最大垫刀：<b>${maxPity}</b><br>平均垫刀：<b>${avgPity}</b><br>距离上次出金：<b>${lastPity}</b><br><hr>五星出货：<br>${fiveList.map(f=>`第${f.idx}抽：${f.name}（${f.time}）`).join('<br>')}`;
+                showWishCharts(starMap, fivePityArr, fiveList);
+            } catch (err) {
+                resultDiv.innerHTML = '解析json失败：' + err.message;
+            }
+        };
+        reader.readAsText(fileInput.files[0]);
     }
     </script>
 </body>
