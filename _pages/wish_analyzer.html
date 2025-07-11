@@ -1,0 +1,172 @@
+---
+permalink: /wish_analyzer.html
+layout: null
+title: "原神抽卡分析"
+---
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>原神抽卡分析</title>
+    <style>
+        body {
+            background: linear-gradient(120deg, #e0c3fc 0%, #8ec5fc 100%);
+            min-height: 100vh;
+            margin: 0;
+            font-family: 'Segoe UI', 'Arial', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            background: rgba(255,255,255,0.95);
+            border-radius: 16px;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+            padding: 2em 1.5em;
+            margin-top: 2em;
+            max-width: 420px;
+            width: 100%;
+        }
+        h1 {
+            text-align: center;
+            color: #6a4bc6;
+        }
+        textarea, input[type=text] {
+            width: 100%;
+            padding: 0.7em;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            margin-bottom: 1em;
+            font-size: 1em;
+            box-sizing: border-box;
+        }
+        button {
+            width: 100%;
+            padding: 0.8em;
+            background: #6a4bc6;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1em;
+            cursor: pointer;
+            margin-bottom: 1em;
+            transition: background 0.2s;
+        }
+        button:hover {
+            background: #4b2fa6;
+        }
+        .result {
+            margin-top: 1.5em;
+            background: #f7f7fb;
+            border-radius: 10px;
+            padding: 1em;
+            font-size: 1em;
+            color: #333;
+            word-break: break-all;
+        }
+        @media (max-width: 600px) {
+            .container {
+                margin-top: 0.5em;
+                padding: 1em 0.5em;
+            }
+            h1 {
+                font-size: 1.3em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>原神抽卡链接分析</h1>
+        <textarea id="wishLink" rows="3" placeholder="请粘贴以 wish_ 开头的原神抽卡链接"></textarea>
+        <button onclick="analyzeWish()">分析抽卡</button>
+        <div class="result" id="result"></div>
+    </div>
+    <script>
+    // 仅支持 wish_ 开头的链接，直接解码分析
+    function analyzeWish() {
+        const input = document.getElementById('wishLink').value.trim();
+        const resultDiv = document.getElementById('result');
+        if (!input.startsWith('wish_')) {
+            resultDiv.innerHTML = '请输入以 wish_ 开头的原神抽卡链接！';
+            return;
+        }
+        try {
+            // wish_ 后为 base64（部分可能有 URL 安全字符）
+            let base64 = input.slice(5)
+                .replace(/-/g, '+')
+                .replace(/_/g, '/')
+                .replace(/\s/g, '');
+            // 补齐 =
+            while (base64.length % 4 !== 0) base64 += '=';
+            let decoded = atob(base64);
+            // 兼容部分工具加密，尝试解码为 json
+            let data;
+            try {
+                data = JSON.parse(decoded);
+            } catch {
+                // 不是 json，尝试分割字段
+                data = decoded;
+            }
+            // 兼容两种格式
+            if (typeof data === 'string') {
+                // 纯文本格式，按行分割
+                const lines = data.split(/\r?\n/).filter(Boolean);
+                let total = 0, five = 0, four = 0, maxPity = 0, curPity = 0, sumPity = 0, lastFive = 0;
+                let fiveList = [], fourList = [];
+                lines.forEach((line, idx) => {
+                    total++;
+                    if (/五星|5星|★5|\[5]/.test(line)) {
+                        five++;
+                        fiveList.push({idx: total, line});
+                        maxPity = Math.max(maxPity, curPity+1);
+                        sumPity += curPity+1;
+                        curPity = 0;
+                        lastFive = total;
+                    } else if (/四星|4星|★4|\[4]/.test(line)) {
+                        four++;
+                        fourList.push({idx: total, line});
+                        curPity++;
+                    } else {
+                        curPity++;
+                    }
+                });
+                let avgPity = five ? (sumPity / five).toFixed(2) : '-';
+                let lastPity = total - lastFive;
+                resultDiv.innerHTML = `总抽数：<b>${total}</b><br>五星数：<b>${five}</b><br>四星数：<b>${four}</b><br>最大垫刀：<b>${maxPity}</b><br>平均垫刀：<b>${avgPity}</b><br>距离上次出金：<b>${lastPity}</b><br><hr>五星出货：<br>${fiveList.map(f=>`第${f.idx}抽：${f.line}`).join('<br>')}`;
+            } else if (typeof data === 'object' && Array.isArray(data.list)) {
+                // json格式，米游社导出
+                const list = data.list;
+                let total = list.length, five = 0, four = 0, maxPity = 0, curPity = 0, sumPity = 0, lastFive = 0;
+                let fiveList = [], fourList = [];
+                list.forEach((item, idx) => {
+                    total++;
+                    if (item.rank_type == '5') {
+                        five++;
+                        fiveList.push({idx: total, name: item.name, time: item.time});
+                        maxPity = Math.max(maxPity, curPity+1);
+                        sumPity += curPity+1;
+                        curPity = 0;
+                        lastFive = total;
+                    } else if (item.rank_type == '4') {
+                        four++;
+                        fourList.push({idx: total, name: item.name, time: item.time});
+                        curPity++;
+                    } else {
+                        curPity++;
+                    }
+                });
+                let avgPity = five ? (sumPity / five).toFixed(2) : '-';
+                let lastPity = total - lastFive;
+                resultDiv.innerHTML = `总抽数：<b>${total}</b><br>五星数：<b>${five}</b><br>四星数：<b>${four}</b><br>最大垫刀：<b>${maxPity}</b><br>平均垫刀：<b>${avgPity}</b><br>距离上次出金：<b>${lastPity}</b><br><hr>五星出货：<br>${fiveList.map(f=>`第${f.idx}抽：${f.name}（${f.time}）`).join('<br>')}`;
+            } else {
+                resultDiv.innerHTML = '无法识别的抽卡数据格式。';
+            }
+        } catch (e) {
+            resultDiv.innerHTML = '解析失败：' + e.message;
+        }
+    }
+    </script>
+</body>
+</html> 
