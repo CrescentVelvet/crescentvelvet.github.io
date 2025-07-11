@@ -79,79 +79,105 @@ title: "原神抽卡分析"
 <body>
     <div class="container">
         <h1>原神抽卡链接分析</h1>
-        <textarea id="wishLink" rows="3" placeholder="请粘贴以 wish_ 开头的原神抽卡链接"></textarea>
+        <textarea id="wishLink" rows="3" placeholder="请粘贴以 wish_ 开头的原神抽卡链接，或官方抽卡API链接"></textarea>
         <button onclick="analyzeWish()">分析抽卡</button>
         <div class="result" id="result"></div>
     </div>
     <script>
-    // 仅支持 wish_ 开头的链接，直接解码分析
-    function analyzeWish() {
+    // 支持 wish_ 链接和官方API链接
+    async function analyzeWish() {
         const input = document.getElementById('wishLink').value.trim();
         const resultDiv = document.getElementById('result');
-        if (!input.startsWith('wish_')) {
-            resultDiv.innerHTML = '请输入以 wish_ 开头的原神抽卡链接！';
-            return;
-        }
-        try {
-            // wish_ 后为 base64（部分可能有 URL 安全字符）
-            let base64 = input.slice(5)
-                .replace(/-/g, '+')
-                .replace(/_/g, '/')
-                .replace(/\s/g, '');
-            // 补齐 =
-            while (base64.length % 4 !== 0) base64 += '=';
-            let decoded = atob(base64);
-            // 兼容部分工具加密，尝试解码为 json
-            let data;
+        if (input.startsWith('wish_')) {
             try {
-                data = JSON.parse(decoded);
-            } catch {
-                // 不是 json，尝试分割字段
-                data = decoded;
+                let base64 = input.slice(5)
+                    .replace(/-/g, '+')
+                    .replace(/_/g, '/')
+                    .replace(/\s/g, '');
+                while (base64.length % 4 !== 0) base64 += '=';
+                let decoded = atob(base64);
+                let data;
+                try {
+                    data = JSON.parse(decoded);
+                } catch {
+                    data = decoded;
+                }
+                if (typeof data === 'string') {
+                    const lines = data.split(/\r?\n/).filter(Boolean);
+                    let total = 0, five = 0, four = 0, maxPity = 0, curPity = 0, sumPity = 0, lastFive = 0;
+                    let fiveList = [], fourList = [];
+                    lines.forEach((line, idx) => {
+                        total++;
+                        if (/五星|5星|★5|\[5]/.test(line)) {
+                            five++;
+                            fiveList.push({idx: total, line});
+                            maxPity = Math.max(maxPity, curPity+1);
+                            sumPity += curPity+1;
+                            curPity = 0;
+                            lastFive = total;
+                        } else if (/四星|4星|★4|\[4]/.test(line)) {
+                            four++;
+                            fourList.push({idx: total, line});
+                            curPity++;
+                        } else {
+                            curPity++;
+                        }
+                    });
+                    let avgPity = five ? (sumPity / five).toFixed(2) : '-';
+                    let lastPity = total - lastFive;
+                    resultDiv.innerHTML = `总抽数：<b>${total}</b><br>五星数：<b>${five}</b><br>四星数：<b>${four}</b><br>最大垫刀：<b>${maxPity}</b><br>平均垫刀：<b>${avgPity}</b><br>距离上次出金：<b>${lastPity}</b><br><hr>五星出货：<br>${fiveList.map(f=>`第${f.idx}抽：${f.line}`).join('<br>')}`;
+                } else if (typeof data === 'object' && Array.isArray(data.list)) {
+                    const list = data.list;
+                    let total = list.length, five = 0, four = 0, maxPity = 0, curPity = 0, sumPity = 0, lastFive = 0;
+                    let fiveList = [], fourList = [];
+                    list.forEach((item, idx) => {
+                        total++;
+                        if (item.rank_type == '5') {
+                            five++;
+                            fiveList.push({idx: total, name: item.name, time: item.time});
+                            maxPity = Math.max(maxPity, curPity+1);
+                            sumPity += curPity+1;
+                            curPity = 0;
+                            lastFive = total;
+                        } else if (item.rank_type == '4') {
+                            four++;
+                            fourList.push({idx: total, name: item.name, time: item.time});
+                            curPity++;
+                        } else {
+                            curPity++;
+                        }
+                    });
+                    let avgPity = five ? (sumPity / five).toFixed(2) : '-';
+                    let lastPity = total - lastFive;
+                    resultDiv.innerHTML = `总抽数：<b>${total}</b><br>五星数：<b>${five}</b><br>四星数：<b>${four}</b><br>最大垫刀：<b>${maxPity}</b><br>平均垫刀：<b>${avgPity}</b><br>距离上次出金：<b>${lastPity}</b><br><hr>五星出货：<br>${fiveList.map(f=>`第${f.idx}抽：${f.name}（${f.time}）`).join('<br>')}`;
+                } else {
+                    resultDiv.innerHTML = '无法识别的抽卡数据格式。';
+                }
+            } catch (e) {
+                resultDiv.innerHTML = '解析失败：' + e.message;
             }
-            // 兼容两种格式
-            if (typeof data === 'string') {
-                // 纯文本格式，按行分割
-                const lines = data.split(/\r?\n/).filter(Boolean);
-                let total = 0, five = 0, four = 0, maxPity = 0, curPity = 0, sumPity = 0, lastFive = 0;
-                let fiveList = [], fourList = [];
-                lines.forEach((line, idx) => {
-                    total++;
-                    if (/五星|5星|★5|\[5]/.test(line)) {
-                        five++;
-                        fiveList.push({idx: total, line});
-                        maxPity = Math.max(maxPity, curPity+1);
-                        sumPity += curPity+1;
-                        curPity = 0;
-                        lastFive = total;
-                    } else if (/四星|4星|★4|\[4]/.test(line)) {
-                        four++;
-                        fourList.push({idx: total, line});
-                        curPity++;
-                    } else {
-                        curPity++;
-                    }
-                });
-                let avgPity = five ? (sumPity / five).toFixed(2) : '-';
-                let lastPity = total - lastFive;
-                resultDiv.innerHTML = `总抽数：<b>${total}</b><br>五星数：<b>${five}</b><br>四星数：<b>${four}</b><br>最大垫刀：<b>${maxPity}</b><br>平均垫刀：<b>${avgPity}</b><br>距离上次出金：<b>${lastPity}</b><br><hr>五星出货：<br>${fiveList.map(f=>`第${f.idx}抽：${f.line}`).join('<br>')}`;
-            } else if (typeof data === 'object' && Array.isArray(data.list)) {
-                // json格式，米游社导出
-                const list = data.list;
+        } else if (/gachaLog/.test(input)) {
+            resultDiv.innerHTML = '正在获取数据...';
+            try {
+                const resp = await fetch(input);
+                const data = await resp.json();
+                if (!data.data || !Array.isArray(data.data.list)) {
+                    resultDiv.innerHTML = '未获取到有效抽卡数据。';
+                    return;
+                }
+                const list = data.data.list;
                 let total = list.length, five = 0, four = 0, maxPity = 0, curPity = 0, sumPity = 0, lastFive = 0;
-                let fiveList = [], fourList = [];
+                let fiveList = [];
                 list.forEach((item, idx) => {
-                    total++;
                     if (item.rank_type == '5') {
                         five++;
-                        fiveList.push({idx: total, name: item.name, time: item.time});
+                        fiveList.push({idx: idx+1, name: item.name, time: item.time});
                         maxPity = Math.max(maxPity, curPity+1);
                         sumPity += curPity+1;
                         curPity = 0;
-                        lastFive = total;
+                        lastFive = idx+1;
                     } else if (item.rank_type == '4') {
                         four++;
-                        fourList.push({idx: total, name: item.name, time: item.time});
                         curPity++;
                     } else {
                         curPity++;
@@ -160,11 +186,11 @@ title: "原神抽卡分析"
                 let avgPity = five ? (sumPity / five).toFixed(2) : '-';
                 let lastPity = total - lastFive;
                 resultDiv.innerHTML = `总抽数：<b>${total}</b><br>五星数：<b>${five}</b><br>四星数：<b>${four}</b><br>最大垫刀：<b>${maxPity}</b><br>平均垫刀：<b>${avgPity}</b><br>距离上次出金：<b>${lastPity}</b><br><hr>五星出货：<br>${fiveList.map(f=>`第${f.idx}抽：${f.name}（${f.time}）`).join('<br>')}`;
-            } else {
-                resultDiv.innerHTML = '无法识别的抽卡数据格式。';
+            } catch (e) {
+                resultDiv.innerHTML = '获取或解析失败：' + e.message;
             }
-        } catch (e) {
-            resultDiv.innerHTML = '解析失败：' + e.message;
+        } else {
+            resultDiv.innerHTML = '请输入以 wish_ 开头的链接，或官方抽卡API链接（含gachaLog）！';
         }
     }
     </script>
