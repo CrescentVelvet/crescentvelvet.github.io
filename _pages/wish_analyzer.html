@@ -225,11 +225,19 @@ title: "原神抽卡分析"
             <span class="tag">抽卡坟场</span>
         </div>
         <div class="input-area">
+            <div style="display:flex;gap:0.5em;align-items:center;margin-bottom:0.7em;">
+                <select id="serverJsonSelect" style="flex:2;padding:0.5em 0.7em;border-radius:8px;border:1px solid #bfcfff;font-size:1em;">
+                    <option value="">选择服务器json文件</option>
+                    {% for file in site.static_files %}
+                        {% if file.path contains '/assets/data/' and file.extname == '.json' %}
+                            <option value="{{ file.path }}">{{ file.name }}</option>
+                        {% endif %}
+                    {% endfor %}
+                </select>
+                <button style="flex:1;min-width:90px;" onclick="analyzeServerJson()">分析服务器json</button>
+            </div>
             <textarea id="wishLink" rows="3" placeholder="请粘贴官方抽卡API链接"></textarea>
             <button onclick="analyzeWish()">分析抽卡</button>
-            <input type="file" id="jsonFile" accept=".json" style="margin-top:0.5em;width:100%;" />
-            <button onclick="analyzeJsonFile()" style="margin-bottom:1em;">分析json文件</button>
-            <button onclick="loadDefaultJson()" style="margin-bottom:1em;">加载默认json</button>
         </div>
         <div class="tab-group" style="display:flex;gap:0.5em;margin-bottom:1em;">
             <button class="tab-btn" onclick="switchPoolTab('character')" id="tab-character">角色池</button>
@@ -489,66 +497,17 @@ title: "原神抽卡分析"
         });
     }
 
-    // 新增：分析json文件
-    function analyzeJsonFile() {
-        const fileInput = document.getElementById('jsonFile');
+    // 新增：分析服务器json文件
+    function analyzeServerJson() {
+        const select = document.getElementById('serverJsonSelect');
+        const path = select.value;
         const resultDiv = document.getElementById('result');
         document.getElementById('charts').innerHTML = '';
-        if (!fileInput.files.length) {
-            resultDiv.innerHTML = '请先选择json文件！';
+        if (!path) {
+            resultDiv.innerHTML = '请选择服务器上的json文件！';
             return;
         }
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            try {
-                const data = JSON.parse(e.target.result);
-                // 兼容米游社/喵喵等格式
-                let list = data.list || (data.data && data.data.list) || data;
-                if (!Array.isArray(list)) {
-                    resultDiv.innerHTML = '未识别到有效抽卡数据。';
-                    return;
-                }
-                // 统计分析
-                let total = list.length, five = 0, four = 0, three = 0, maxPity = 0, curPity = 0, sumPity = 0, lastFive = 0;
-                let fiveList = [], starMap = {5:0,4:0,3:0}, fivePityArr = [];
-                list.forEach((item, idx) => {
-                    if (item.rank_type == '5') {
-                        five++;
-                        fiveList.push({idx: idx+1, name: item.name, time: item.time});
-                        maxPity = Math.max(maxPity, curPity+1);
-                        sumPity += curPity+1;
-                        fivePityArr.push(curPity+1);
-                        curPity = 0;
-                        lastFive = idx+1;
-                        starMap[5]++;
-                    } else if (item.rank_type == '4') {
-                        four++;
-                        curPity++;
-                        starMap[4]++;
-                    } else {
-                        three++;
-                        curPity++;
-                        starMap[3]++;
-                    }
-                });
-                let avgPity = five ? (sumPity / five).toFixed(2) : '-';
-                let lastPity = total - lastFive;
-                resultDiv.innerHTML = `总抽数：<b>${total}</b><br>五星数：<b>${five}</b><br>四星数：<b>${four}</b><br>三星数：<b>${three}</b><br>最大垫刀：<b>${maxPity}</b><br>平均垫刀：<b>${avgPity}</b><br>距离上次出金：<b>${lastPity}</b><br><hr>五星出货：<br>${fiveList.map(f=>`第${f.idx}抽：${f.name}（${f.time}）`).join('<br>')}`;
-                showWishCharts(starMap, fivePityArr, fiveList);
-                classifyPool(list); // 分类数据
-                switchPoolTab(currentPool); // 切换到当前池子
-            } catch (err) {
-                resultDiv.innerHTML = '解析json失败：' + err.message;
-            }
-        };
-        reader.readAsText(fileInput.files[0]);
-    }
-
-    // 新增：加载默认json文件
-    function loadDefaultJson() {
-        const resultDiv = document.getElementById('result');
-        document.getElementById('charts').innerHTML = '';
-        fetch('/assets/data/115417212原神抽卡记录.json')
+        fetch(path)
             .then(res => res.json())
             .then(data => {
                 let list = data.list || (data.data && data.data.list) || data;
@@ -581,12 +540,11 @@ title: "原神抽卡分析"
                 let avgPity = five ? (sumPity / five).toFixed(2) : '-';
                 let lastPity = total - lastFive;
                 resultDiv.innerHTML = `总抽数：<b>${total}</b><br>五星数：<b>${five}</b><br>四星数：<b>${four}</b><br>三星数：<b>${three}</b><br>最大垫刀：<b>${maxPity}</b><br>平均垫刀：<b>${avgPity}</b><br>距离上次出金：<b>${lastPity}</b><br><hr>五星出货：<br>${fiveList.map(f=>`第${f.idx}抽：${f.name}（${f.time}）`).join('<br>')}`;
-                showWishCharts(starMap, fivePityArr, fiveList);
-                classifyPool(list); // 分类数据
-                switchPoolTab(currentPool); // 切换到当前池子
+                classifyPool(list);
+                switchPoolTab(currentPool);
             })
             .catch(err => {
-                resultDiv.innerHTML = '加载默认json失败：' + err.message;
+                resultDiv.innerHTML = '加载服务器json失败：' + err.message;
             });
     }
     </script>
