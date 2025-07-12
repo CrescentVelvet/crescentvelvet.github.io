@@ -11,7 +11,7 @@ title: "原神抽卡分析"
     <title>原神抽卡分析</title>
     <style>
         body {
-            background: linear-gradient(120deg, #e0c3fc 0%, #8ec5fc 100%);
+            background: linear-gradient(120deg, #3a5fa8 0%, #6a8edb 100%);
             min-height: 100vh;
             margin: 0;
             font-family: 'Segoe UI', 'Arial', sans-serif;
@@ -19,32 +19,124 @@ title: "原神抽卡分析"
             flex-direction: column;
             align-items: center;
         }
-        .container {
-            background: rgba(255,255,255,0.95);
-            border-radius: 16px;
-            box-shadow: 0 4px 24px rgba(0,0,0,0.08);
-            padding: 2em 1.5em;
-            margin-top: 2em;
-            max-width: 420px;
+        .main-card {
+            background: rgba(255,255,255,0.98);
+            border-radius: 18px;
+            box-shadow: 0 6px 32px rgba(60,60,120,0.13);
+            padding: 2.2em 1.7em 2em 1.7em;
+            margin-top: 2.5em;
+            max-width: 480px;
             width: 100%;
+            position: relative;
         }
-        h1 {
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 1em;
+            margin-bottom: 1.2em;
+        }
+        .user-avatar {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: #e0e7ff;
+            border: 2px solid #6a8edb;
+            object-fit: cover;
+        }
+        .uid {
+            font-size: 1.1em;
+            color: #3a5fa8;
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+        .cloud-btn {
+            margin-left: auto;
+            background: none;
+            border: none;
+            color: #6a8edb;
+            font-size: 1.1em;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.2em;
+        }
+        .analyze-title {
             text-align: center;
-            color: #6a4bc6;
+            color: #3a5fa8;
+            font-size: 1.5em;
+            font-weight: bold;
+            margin-bottom: 0.5em;
+        }
+        .analyze-result {
+            text-align: center;
+            font-size: 2.1em;
+            font-weight: bold;
+            color: #e6b800;
+            margin-bottom: 0.2em;
+            letter-spacing: 2px;
+        }
+        .analyze-prob {
+            text-align: center;
+            color: #3a5fa8;
+            font-size: 1.1em;
+            margin-bottom: 1.2em;
+        }
+        .stat-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1.2em 1.5em;
+            justify-content: center;
+            margin-bottom: 1.2em;
+        }
+        .stat-item {
+            background: #f7faff;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(60,60,120,0.06);
+            padding: 0.7em 1.2em;
+            min-width: 110px;
+            text-align: center;
+        }
+        .stat-label {
+            color: #6a8edb;
+            font-size: 0.98em;
+        }
+        .stat-value {
+            font-size: 1.25em;
+            font-weight: bold;
+            color: #3a5fa8;
+        }
+        .tag-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5em;
+            margin-bottom: 1.2em;
+        }
+        .tag {
+            background: #ffe066;
+            color: #b38600;
+            border-radius: 16px;
+            padding: 0.2em 1em;
+            font-size: 0.98em;
+            font-weight: 500;
+            box-shadow: 0 1px 4px rgba(200,180,60,0.08);
+        }
+        .input-area {
+            margin-bottom: 1.2em;
         }
         textarea, input[type=text] {
             width: 100%;
             padding: 0.7em;
             border-radius: 8px;
-            border: 1px solid #ccc;
+            border: 1px solid #bfcfff;
             margin-bottom: 1em;
             font-size: 1em;
             box-sizing: border-box;
+            background: #f7faff;
         }
         button {
             width: 100%;
             padding: 0.8em;
-            background: #6a4bc6;
+            background: #3a5fa8;
             color: #fff;
             border: none;
             border-radius: 8px;
@@ -54,7 +146,7 @@ title: "原神抽卡分析"
             transition: background 0.2s;
         }
         button:hover {
-            background: #4b2fa6;
+            background: #2a4a7b;
         }
         .result {
             margin-top: 1.5em;
@@ -64,26 +156,59 @@ title: "原神抽卡分析"
             font-size: 1em;
             color: #333;
             word-break: break-all;
+            box-shadow: 0 2px 8px rgba(60,60,120,0.06);
         }
         @media (max-width: 600px) {
-            .container {
+            .main-card {
                 margin-top: 0.5em;
                 padding: 1em 0.5em;
             }
-            h1 {
+            .analyze-title {
+                font-size: 1.1em;
+            }
+            .analyze-result {
                 font-size: 1.3em;
             }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>原神抽卡链接分析</h1>
-        <textarea id="wishLink" rows="3" placeholder="请粘贴官方抽卡API链接"></textarea>
-        <button onclick="analyzeWish()">分析抽卡</button>
-        <input type="file" id="jsonFile" accept=".json" style="margin-top:0.5em;width:100%;" />
-        <button onclick="analyzeJsonFile()" style="margin-bottom:1em;">分析json文件</button>
-        <button onclick="loadDefaultJson()" style="margin-bottom:1em;">加载默认json</button>
+    <div class="main-card">
+        <div class="user-info">
+            <img class="user-avatar" src="/images/site-logo.png" alt="avatar">
+            <span class="uid">UID: 11541****2</span>
+            <button class="cloud-btn" title="同步云端"><span>☁️</span>同步云端</button>
+        </div>
+        <div class="analyze-title">经分析，你的抽卡欧皇度为：</div>
+        <div class="analyze-result" id="analyzeResult">老非酋</div>
+        <div class="analyze-prob" id="analyzeProb">小保底不歪概率：33.3%</div>
+        <div class="stat-group">
+            <div class="stat-item"><div class="stat-label">总计抽数</div><div class="stat-value" id="statTotal">5167抽</div></div>
+            <div class="stat-item"><div class="stat-label">总计消耗</div><div class="stat-value" id="statCost">826720原石</div></div>
+            <div class="stat-item"><div class="stat-label">最幸运卡池</div><div class="stat-value" id="statLuck">八重神子卡池</div></div>
+        </div>
+        <div class="tag-list" id="tagList">
+            <span class="tag">4连歪</span>
+            <span class="tag">十连双黄</span>
+            <span class="tag">3命七七</span>
+            <span class="tag">6命琴</span>
+            <span class="tag">1命迪希雅</span>
+            <span class="tag">4命迪卢克</span>
+            <span class="tag">1命提纳里</span>
+            <span class="tag">6命刻晴</span>
+            <span class="tag">5命莫娜</span>
+            <span class="tag">1命那维莱特</span>
+            <span class="tag">1命八重神子</span>
+            <span class="tag">小保底常歪</span>
+            <span class="tag">抽卡坟场</span>
+        </div>
+        <div class="input-area">
+            <textarea id="wishLink" rows="3" placeholder="请粘贴官方抽卡API链接"></textarea>
+            <button onclick="analyzeWish()">分析抽卡</button>
+            <input type="file" id="jsonFile" accept=".json" style="margin-top:0.5em;width:100%;" />
+            <button onclick="analyzeJsonFile()" style="margin-bottom:1em;">分析json文件</button>
+            <button onclick="loadDefaultJson()" style="margin-bottom:1em;">加载默认json</button>
+        </div>
         <div class="result" id="result"></div>
         <div id="charts" style="margin-top:1.5em;"></div>
     </div>
