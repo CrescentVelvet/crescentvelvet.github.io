@@ -198,31 +198,18 @@ title: "原神抽卡分析"
     <div class="main-card">
         <div class="user-info">
             <img class="user-avatar" src="/images/site-logo.png" alt="avatar">
-            <span class="uid">UID: 11541****2</span>
-            <button class="cloud-btn" title="同步云端"><span>☁️</span>同步云端</button>
+            <span class="uid" id="uidDisplay"></span>
         </div>
-        <div class="analyze-title">经分析，你的抽卡欧皇度为：</div>
-        <div class="analyze-result" id="analyzeResult">老非酋</div>
-        <div class="analyze-prob" id="analyzeProb">小保底不歪概率：33.3%</div>
-        <div class="stat-group">
-            <div class="stat-item"><div class="stat-label">总计抽数</div><div class="stat-value" id="statTotal">5167抽</div></div>
-            <div class="stat-item"><div class="stat-label">总计消耗</div><div class="stat-value" id="statCost">826720原石</div></div>
-            <div class="stat-item"><div class="stat-label">最幸运卡池</div><div class="stat-value" id="statLuck">八重神子卡池</div></div>
-        </div>
-        <div class="tag-list" id="tagList">
-            <span class="tag">4连歪</span>
-            <span class="tag">十连双黄</span>
-            <span class="tag">3命七七</span>
-            <span class="tag">6命琴</span>
-            <span class="tag">1命迪希雅</span>
-            <span class="tag">4命迪卢克</span>
-            <span class="tag">1命提纳里</span>
-            <span class="tag">6命刻晴</span>
-            <span class="tag">5命莫娜</span>
-            <span class="tag">1命那维莱特</span>
-            <span class="tag">1命八重神子</span>
-            <span class="tag">小保底常歪</span>
-            <span class="tag">抽卡坟场</span>
+        <div id="analyzeArea" style="display:none;">
+            <div class="analyze-title">经分析，你的抽卡欧皇度为：</div>
+            <div class="analyze-result" id="analyzeResult"></div>
+            <div class="analyze-prob" id="analyzeProb"></div>
+            <div class="stat-group">
+                <div class="stat-item"><div class="stat-label">总计抽数</div><div class="stat-value" id="statTotal"></div></div>
+                <div class="stat-item"><div class="stat-label">总计消耗</div><div class="stat-value" id="statCost"></div></div>
+                <div class="stat-item"><div class="stat-label">最幸运卡池</div><div class="stat-value" id="statLuck"></div></div>
+            </div>
+            <div class="tag-list" id="tagList"></div>
         </div>
         <div class="input-area">
             <div style="display:flex;gap:0.5em;align-items:center;margin-bottom:0.7em;">
@@ -462,10 +449,12 @@ title: "原神抽卡分析"
         // 统计分析（与原有分析逻辑一致）
         let total = list.length, five = 0, four = 0, three = 0, maxPity = 0, curPity = 0, sumPity = 0, lastFive = 0;
         let fiveList = [], starMap = {5:0,4:0,3:0}, fivePityArr = [];
+        let fiveIndices = [];
         list.forEach((item, idx) => {
             if (item.rank_type == '5') {
                 five++;
                 fiveList.push({idx: idx+1, name: item.name, time: item.time});
+                fiveIndices.push(idx+1);
                 maxPity = Math.max(maxPity, curPity+1);
                 sumPity += curPity+1;
                 fivePityArr.push(curPity+1);
@@ -484,7 +473,14 @@ title: "原神抽卡分析"
         });
         let avgPity = five ? (sumPity / five).toFixed(2) : '-';
         let lastPity = total - lastFive;
-        resultDiv.innerHTML = `总抽数：<b>${total}</b><br>五星数：<b>${five}</b><br>四星数：<b>${four}</b><br>三星数：<b>${three}</b><br>最大垫刀：<b>${maxPity}</b><br>平均垫刀：<b>${avgPity}</b><br>距离上次出金：<b>${lastPity}</b><br><hr>五星出货：<br>${fiveList.map(f=>`第${f.idx}抽：${f.name}（${f.time}）`).join('<br>')}`;
+        // 计算每个五星的出货用抽数（倒序）
+        let fiveDraws = [];
+        for (let i = 0; i < fiveIndices.length; i++) {
+            let start = fiveIndices[i];
+            let end = fiveIndices[i+1] ? fiveIndices[i+1] : (total+1);
+            fiveDraws.push(end - start);
+        }
+        resultDiv.innerHTML = `总抽数：<b>${total}</b><br>五星数：<b>${five}</b><br>四星数：<b>${four}</b><br>三星数：<b>${three}</b><br>最大垫刀：<b>${maxPity}</b><br>平均垫刀：<b>${avgPity}</b><br>距离上次出金：<b>${lastPity}</b><br><hr>五星出货：<br>${fiveList.map((f,i)=>`第${f.idx}抽：${f.name}（${f.time}，用${fiveDraws[i]}抽）`).join('<br>')}`;
         showWishCharts(starMap, fivePityArr, fiveList);
     }
 
@@ -517,10 +513,12 @@ title: "原神抽卡分析"
                 }
                 let total = list.length, five = 0, four = 0, three = 0, maxPity = 0, curPity = 0, sumPity = 0, lastFive = 0;
                 let fiveList = [], starMap = {5:0,4:0,3:0}, fivePityArr = [];
+                let fiveIndices = [];
                 list.forEach((item, idx) => {
                     if (item.rank_type == '5') {
                         five++;
                         fiveList.push({idx: idx+1, name: item.name, time: item.time});
+                        fiveIndices.push(idx+1);
                         maxPity = Math.max(maxPity, curPity+1);
                         sumPity += curPity+1;
                         fivePityArr.push(curPity+1);
@@ -539,9 +537,45 @@ title: "原神抽卡分析"
                 });
                 let avgPity = five ? (sumPity / five).toFixed(2) : '-';
                 let lastPity = total - lastFive;
-                resultDiv.innerHTML = `总抽数：<b>${total}</b><br>五星数：<b>${five}</b><br>四星数：<b>${four}</b><br>三星数：<b>${three}</b><br>最大垫刀：<b>${maxPity}</b><br>平均垫刀：<b>${avgPity}</b><br>距离上次出金：<b>${lastPity}</b><br><hr>五星出货：<br>${fiveList.map(f=>`第${f.idx}抽：${f.name}（${f.time}）`).join('<br>')}`;
+                // 计算每个五星的出货用抽数（倒序）
+                let fiveDraws = [];
+                for (let i = 0; i < fiveIndices.length; i++) {
+                    let start = fiveIndices[i];
+                    let end = fiveIndices[i+1] ? fiveIndices[i+1] : (total+1);
+                    fiveDraws.push(end - start);
+                }
+                resultDiv.innerHTML = `总抽数：<b>${total}</b><br>五星数：<b>${five}</b><br>四星数：<b>${four}</b><br>三星数：<b>${three}</b><br>最大垫刀：<b>${maxPity}</b><br>平均垫刀：<b>${avgPity}</b><br>距离上次出金：<b>${lastPity}</b><br><hr>五星出货：<br>${fiveList.map((f,i)=>`第${f.idx}抽：${f.name}（${f.time}，用${fiveDraws[i]}抽）`).join('<br>')}`;
                 classifyPool(list);
                 switchPoolTab(currentPool);
+                // 在分析json和API后，动态填充analyzeArea相关内容，并显示analyzeArea
+                document.getElementById('analyzeArea').style.display = 'block';
+                document.getElementById('analyzeResult').innerHTML = `总抽数：<b>${total}</b><br>五星数：<b>${five}</b><br>四星数：<b>${four}</b><br>最大垫刀：<b>${maxPity}</b><br>平均垫刀：<b>${avgPity}</b><br>距离上次出金：<b>${lastPity}</b>`;
+                document.getElementById('analyzeProb').innerHTML = `小保底不歪概率：${(1 - (1 / (curPity + 1))).toFixed(2) * 100}%`;
+                document.getElementById('statTotal').innerHTML = `${total}抽`;
+                document.getElementById('statCost').innerHTML = `${sumPity * 160}原石`; // 假设160原石/抽
+                document.getElementById('tagList').innerHTML = ''; // 清空旧标签
+                const uniqueTags = new Set();
+                list.forEach(item => {
+                    if (item.rank_type === '5') {
+                        uniqueTags.add('五星出货');
+                    } else if (item.rank_type === '4') {
+                        uniqueTags.add('四星出货');
+                    } else if (item.rank_type === '3') {
+                        uniqueTags.add('三星出货');
+                    }
+                    if (item.rank_type === '5' && item.name.includes('保底')) {
+                        uniqueTags.add('小保底常歪');
+                    }
+                    if (item.rank_type === '5' && item.name.includes('抽卡坟场')) {
+                        uniqueTags.add('抽卡坟场');
+                    }
+                });
+                uniqueTags.forEach(tag => {
+                    const span = document.createElement('span');
+                    span.className = 'tag';
+                    span.textContent = tag;
+                    document.getElementById('tagList').appendChild(span);
+                });
             })
             .catch(err => {
                 resultDiv.innerHTML = '加载服务器json失败：' + err.message;
