@@ -158,6 +158,28 @@ title: "原神抽卡分析"
             word-break: break-all;
             box-shadow: 0 2px 8px rgba(60,60,120,0.06);
         }
+        .tab-group {
+            display: flex;
+            gap: 0.5em;
+            margin-bottom: 1em;
+        }
+        .tab-btn {
+            flex: 1;
+            background: #f7faff;
+            color: #3a5fa8;
+            border: 1px solid #bfcfff;
+            border-radius: 8px 8px 0 0;
+            font-size: 1em;
+            font-weight: bold;
+            padding: 0.6em 0;
+            cursor: pointer;
+            transition: background 0.2s, color 0.2s;
+        }
+        .tab-btn.active, .tab-btn:focus {
+            background: #3a5fa8;
+            color: #fff;
+            border-bottom: 2px solid #ffe066;
+        }
         @media (max-width: 600px) {
             .main-card {
                 margin-top: 0.5em;
@@ -208,6 +230,12 @@ title: "原神抽卡分析"
             <input type="file" id="jsonFile" accept=".json" style="margin-top:0.5em;width:100%;" />
             <button onclick="analyzeJsonFile()" style="margin-bottom:1em;">分析json文件</button>
             <button onclick="loadDefaultJson()" style="margin-bottom:1em;">加载默认json</button>
+        </div>
+        <div class="tab-group" style="display:flex;gap:0.5em;margin-bottom:1em;">
+            <button class="tab-btn" onclick="switchPoolTab('character')" id="tab-character">角色池</button>
+            <button class="tab-btn" onclick="switchPoolTab('weapon')" id="tab-weapon">武器池</button>
+            <button class="tab-btn" onclick="switchPoolTab('permanent')" id="tab-permanent">常驻池</button>
+            <button class="tab-btn" onclick="switchPoolTab('mixed')" id="tab-mixed">混池</button>
         </div>
         <div class="result" id="result"></div>
         <div id="charts" style="margin-top:1.5em;"></div>
@@ -391,6 +419,76 @@ title: "原神抽卡分析"
         });
     }
 
+    // 池子类型映射
+    const POOL_MAP = {
+        '301': 'character', // 角色池
+        '400': 'character', // 新角色池
+        '302': 'weapon',    // 武器池
+        '200': 'permanent', // 常驻池
+        '100': 'mixed'      // 混池
+    };
+    let poolData = {
+        character: [],
+        weapon: [],
+        permanent: [],
+        mixed: []
+    };
+    let currentPool = 'character';
+
+    function switchPoolTab(pool) {
+        currentPool = pool;
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        document.getElementById('tab-' + pool).classList.add('active');
+        showPoolResult(pool);
+    }
+
+    function showPoolResult(pool) {
+        const resultDiv = document.getElementById('result');
+        const chartsDiv = document.getElementById('charts');
+        const list = poolData[pool] || [];
+        if (!list.length) {
+            resultDiv.innerHTML = '该池暂无数据';
+            chartsDiv.innerHTML = '';
+            return;
+        }
+        // 统计分析（与原有分析逻辑一致）
+        let total = list.length, five = 0, four = 0, three = 0, maxPity = 0, curPity = 0, sumPity = 0, lastFive = 0;
+        let fiveList = [], starMap = {5:0,4:0,3:0}, fivePityArr = [];
+        list.forEach((item, idx) => {
+            if (item.rank_type == '5') {
+                five++;
+                fiveList.push({idx: idx+1, name: item.name, time: item.time});
+                maxPity = Math.max(maxPity, curPity+1);
+                sumPity += curPity+1;
+                fivePityArr.push(curPity+1);
+                curPity = 0;
+                lastFive = idx+1;
+                starMap[5]++;
+            } else if (item.rank_type == '4') {
+                four++;
+                curPity++;
+                starMap[4]++;
+            } else {
+                three++;
+                curPity++;
+                starMap[3]++;
+            }
+        });
+        let avgPity = five ? (sumPity / five).toFixed(2) : '-';
+        let lastPity = total - lastFive;
+        resultDiv.innerHTML = `总抽数：<b>${total}</b><br>五星数：<b>${five}</b><br>四星数：<b>${four}</b><br>三星数：<b>${three}</b><br>最大垫刀：<b>${maxPity}</b><br>平均垫刀：<b>${avgPity}</b><br>距离上次出金：<b>${lastPity}</b><br><hr>五星出货：<br>${fiveList.map(f=>`第${f.idx}抽：${f.name}（${f.time}）`).join('<br>')}`;
+        showWishCharts(starMap, fivePityArr, fiveList);
+    }
+
+    // 修改分析json和API等函数，将数据分池归类
+    function classifyPool(list) {
+        poolData = {character:[], weapon:[], permanent:[], mixed:[]};
+        list.forEach(item => {
+            const pool = POOL_MAP[item.gacha_type || item.uigf_gacha_type] || 'character';
+            poolData[pool].push(item);
+        });
+    }
+
     // 新增：分析json文件
     function analyzeJsonFile() {
         const fileInput = document.getElementById('jsonFile');
@@ -437,6 +535,8 @@ title: "原神抽卡分析"
                 let lastPity = total - lastFive;
                 resultDiv.innerHTML = `总抽数：<b>${total}</b><br>五星数：<b>${five}</b><br>四星数：<b>${four}</b><br>三星数：<b>${three}</b><br>最大垫刀：<b>${maxPity}</b><br>平均垫刀：<b>${avgPity}</b><br>距离上次出金：<b>${lastPity}</b><br><hr>五星出货：<br>${fiveList.map(f=>`第${f.idx}抽：${f.name}（${f.time}）`).join('<br>')}`;
                 showWishCharts(starMap, fivePityArr, fiveList);
+                classifyPool(list); // 分类数据
+                switchPoolTab(currentPool); // 切换到当前池子
             } catch (err) {
                 resultDiv.innerHTML = '解析json失败：' + err.message;
             }
@@ -482,6 +582,8 @@ title: "原神抽卡分析"
                 let lastPity = total - lastFive;
                 resultDiv.innerHTML = `总抽数：<b>${total}</b><br>五星数：<b>${five}</b><br>四星数：<b>${four}</b><br>三星数：<b>${three}</b><br>最大垫刀：<b>${maxPity}</b><br>平均垫刀：<b>${avgPity}</b><br>距离上次出金：<b>${lastPity}</b><br><hr>五星出货：<br>${fiveList.map(f=>`第${f.idx}抽：${f.name}（${f.time}）`).join('<br>')}`;
                 showWishCharts(starMap, fivePityArr, fiveList);
+                classifyPool(list); // 分类数据
+                switchPoolTab(currentPool); // 切换到当前池子
             })
             .catch(err => {
                 resultDiv.innerHTML = '加载默认json失败：' + err.message;
