@@ -152,8 +152,8 @@ redirect_from:
         <a href="/course_recorder.html" class="link-button">进度记录</a>
         <a href="/game_plane.html" class="link-button">飞机大战</a>
         <a href="/db_viewer.html" class="link-button">数据库解析</a>
-        <a href="/text_processor.html" class="link-button">文本处理</a>
-        <a href="/enc_reader.html" class="link-button">加密日志阅读</a>
+        <a href="/text_processor.html" class="link-button">文本加密</a>
+        <a href="/enc_reader.html" class="link-button">文本解密</a>
         <a href="/receipt_scanner.html" class="link-button">票据识别</a>
         <a href="/paper_retrieval.html" class="link-button">论文搜索</a>
         <a href="/hot_trends.html" class="link-button">每日热榜</a>

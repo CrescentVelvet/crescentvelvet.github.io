@@ -194,8 +194,8 @@ title: "加密日志阅读器"
         .btn-normal { background:#f4f8fb; color:#222; }
         .btn-leisure { background:#fffbe6; color:#d35f05; }
         .btn-dream { background:#f3e6ff; color:#8A2BE2; }
-        .btn-review { background:#ffe9b3; color:#e67e22; border-left:4px solid #e67e22; }
         .btn-video { background:#e6f0ff; color:#0056b3; }
+        .btn-review { background:#ffe9b3; color:#e67e22; border-left:4px solid #e67e22; }
         .format-btn:hover { filter:brightness(0.95); }
     </style>
 </head>
@@ -224,6 +224,7 @@ title: "加密日志阅读器"
             <button type="button" class="format-btn btn-dream" onclick="formatSelection('dream-highlight')">梦幻空花</button>
             <button type="button" class="format-btn btn-review" onclick="formatSelection('review-highlight')">未来回顾</button>
             <button type="button" class="format-btn btn-video" onclick="formatSelection('video-highlight')">做视频想法</button>
+            <button type="button" class="format-btn btn-normal" onclick="oneKeyFormat()">一键格式化</button>
         </div>
         <div class="output" id="output" contenteditable="true" spellcheck="false"></div>
     </div>
@@ -451,6 +452,46 @@ title: "加密日志阅读器"
         span.textContent = range.toString();
         range.deleteContents();
         range.insertNode(span);
+    }
+    </script>
+    <script>
+    // 一键格式化按钮逻辑，参考 text_processor.html
+    function oneKeyFormat() {
+        const output = document.getElementById('output');
+        let html = output.innerHTML;
+        // 1. 去除多余标签，仅保留文本和换行
+        let tempDiv = document.createElement('div');
+        tempDiv.innerHTML = html;
+        let text = tempDiv.innerText;
+        // 2. 按行分割，处理段落
+        let lines = text.split(/\r?\n/);
+        let formatted = lines.map(line => {
+            if (!line.trim()) return '';
+            // 日期高亮
+            if (/^\d{4}[-/]\d{1,2}[-/]\d{1,2}$/.test(line.trim())) {
+                return `<span class="date-highlight">${line.trim()}</span><br>`;
+            }
+            // 未来回顾
+            if (/^（\d{4}\.\d{2}\.\d{2}回顾：/.test(line.trim())) {
+                return `<span class="review-highlight">${line.trim()}</span><br>`;
+            }
+            // 闲情逸致
+            if (/^今天都做了些什么/.test(line.trim()) || /^闲情逸致：/.test(line.trim())) {
+                return `<span class="leisure-highlight">${line.trim()}</span><br>`;
+            }
+            // 梦幻空花
+            if (/^梦幻空花：/.test(line.trim())) {
+                return `<span class="dream-highlight">${line.trim()}</span><br>`;
+            }
+            // 做视频想法
+            if (/^做视频想法：/.test(line.trim())) {
+                return `<span class="video-highlight">${line.trim()}</span><br>`;
+            }
+            return `${line.trim()}<br>`;
+        }).join('');
+        // 3. 去除多余空行
+        formatted = formatted.replace(/(<br>\s*){2,}/g, '<br>');
+        output.innerHTML = formatted;
     }
     </script>
 </body>
