@@ -205,12 +205,13 @@ title: "加密日志阅读器"
             <input type="password" id="password" placeholder="请输入解密密码">
         </div>
         <button id="decryptBtn">解密并显示</button>
+        <button id="exportBtn" style="margin-top:12px;">导出加密日志</button>
         <div class="search-bar">
             <input type="text" id="searchInput" placeholder="搜索日志内容..." />
             <button id="searchBtn">搜索</button>
         </div>
         <div id="status"></div>
-        <div class="output" id="output"></div>
+        <div class="output" id="output" contenteditable="true" spellcheck="false"></div>
     </div>
     <script src="/assets/js/crypto-js.min.js"></script>
     <script>
@@ -380,6 +381,42 @@ title: "加密日志阅读器"
             parent.normalize();
         });
     }
+    </script>
+    <script>
+    // 导出加密日志
+    document.getElementById('exportBtn').onclick = function() {
+        const file = document.getElementById('fileSelect').value;
+        const password = document.getElementById('password').value;
+        const status = document.getElementById('status');
+        const output = document.getElementById('output');
+        if (!file) {
+            status.textContent = '请选择文件';
+            status.className = 'error';
+            return;
+        }
+        if (!password) {
+            status.textContent = '请输入密码';
+            status.className = 'error';
+            return;
+        }
+        // 获取富文本内容
+        const htmlContent = output.innerHTML;
+        try {
+            const ciphertext = CryptoJS.AES.encrypt(htmlContent, password).toString();
+            const blob = new Blob([ciphertext], {type: 'text/plain'});
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = file;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            status.textContent = '加密导出成功';
+            status.className = 'success';
+        } catch (e) {
+            status.textContent = '加密导出失败：' + e.message;
+            status.className = 'error';
+        }
+    };
     </script>
 </body>
 </html> 
