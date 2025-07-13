@@ -223,8 +223,10 @@ title: "原神抽卡分析"
                 </select>
                 <button style="flex:1;min-width:90px;" onclick="analyzeServerJson()">分析服务器json</button>
             </div>
-            <textarea id="wishLink" rows="3" placeholder="请粘贴官方抽卡API链接"></textarea>
-            <button onclick="analyzeWish()">分析抽卡</button>
+            <div style="display:flex;gap:0.5em;align-items:center;margin-bottom:0.7em;">
+                <textarea id="wishLink" rows="3" placeholder="请粘贴官方抽卡API链接" style="flex:2;"></textarea>
+                <button style="flex:1;min-width:90px;" onclick="analyzeWish()">分析抽卡API</button>
+            </div>
         </div>
         <div class="tab-group" style="display:flex;gap:0.5em;margin-bottom:1em;">
             <button class="tab-btn" onclick="switchPoolTab('character')" id="tab-character">角色池</button>
@@ -365,7 +367,7 @@ title: "原神抽卡分析"
                 });
                 let avgPity = five ? (sumPity / five).toFixed(2) : '-';
                 let lastPity = total - lastFive;
-                resultDiv.innerHTML = `总抽数：<b>${total}</b><br>五星数：<b>${five}</b><br>四星数：<b>${four}</b><br>三星数：<b>${three}</b><br>最大垫刀：<b>${maxPity}</b><br>平均垫刀：<b>${avgPity}</b><br>距离上次出金：<b>${lastPity}</b><br><hr>五星出货：<br>${fiveList.map(f=>`第${f.idx}抽：${f.name}（${f.time}）`).join('<br>')}`;
+                resultDiv.innerHTML = `总抽数：<b>${total}</b><br>五星数：<b>${five}</b><br>四星数：<b>${four}</b><br>最大垫刀：<b>${maxPity}</b><br>平均垫刀：<b>${avgPity}</b><br>距离上次出金：<b>${lastPity}</b><br><hr>五星出货：<br>${fiveList.map(f=>`第${f.idx}抽：${f.name}（${f.time}）`).join('<br>')}`;
                 // 图表展示
                 showWishCharts(starMap, fivePityArr, fiveList);
             } catch (e) {
@@ -548,34 +550,29 @@ title: "原神抽卡分析"
                 classifyPool(list);
                 switchPoolTab(currentPool);
                 // 在分析json和API后，动态填充analyzeArea相关内容，并显示analyzeArea
-                document.getElementById('analyzeArea').style.display = 'block';
-                document.getElementById('analyzeResult').innerHTML = `总抽数：<b>${total}</b><br>五星数：<b>${five}</b><br>四星数：<b>${four}</b><br>最大垫刀：<b>${maxPity}</b><br>平均垫刀：<b>${avgPity}</b><br>距离上次出金：<b>${lastPity}</b>`;
-                document.getElementById('analyzeProb').innerHTML = `小保底不歪概率：${(1 - (1 / (curPity + 1))).toFixed(2) * 100}%`;
-                document.getElementById('statTotal').innerHTML = `${total}抽`;
-                document.getElementById('statCost').innerHTML = `${sumPity * 160}原石`; // 假设160原石/抽
-                document.getElementById('tagList').innerHTML = ''; // 清空旧标签
-                const uniqueTags = new Set();
-                list.forEach(item => {
-                    if (item.rank_type === '5') {
-                        uniqueTags.add('五星出货');
-                    } else if (item.rank_type === '4') {
-                        uniqueTags.add('四星出货');
-                    } else if (item.rank_type === '3') {
-                        uniqueTags.add('三星出货');
-                    }
-                    if (item.rank_type === '5' && item.name.includes('保底')) {
-                        uniqueTags.add('小保底常歪');
-                    }
-                    if (item.rank_type === '5' && item.name.includes('抽卡坟场')) {
-                        uniqueTags.add('抽卡坟场');
-                    }
-                });
-                uniqueTags.forEach(tag => {
-                    const span = document.createElement('span');
-                    span.className = 'tag';
-                    span.textContent = tag;
-                    document.getElementById('tagList').appendChild(span);
-                });
+                // document.getElementById('analyzeArea').style.display = 'block';
+                // document.getElementById('analyzeResult').innerHTML = `总抽数：<b>${total}</b><br>五星数：<b>${five}</b><br>四星数：<b>${four}</b><br>最大垫刀：<b>${maxPity}</b><br>平均垫刀：<b>${avgPity}</b><br>距离上次出金：<b>${lastPity}</b>`;
+                // document.getElementById('analyzeProb').innerHTML = `小保底不歪概率：${(1 - (1 / (curPity + 1))).toFixed(2) * 100}%`;
+                // document.getElementById('statTotal').innerHTML = `${total}抽`;
+                // document.getElementById('statCost').innerHTML = `${sumPity * 160}原石`; // 假设160原石/抽
+                // document.getElementById('tagList').innerHTML = ''; // 清空旧标签
+                // const uniqueTags = new Set();
+                // list.forEach(item => {
+                //     // 只保留真正有意义的分析标签，不添加“三星出货”“四星出货”“五星出货”
+                //     if (item.rank_type === '5' && item.name.includes('保底')) {
+                //         uniqueTags.add('小保底常歪');
+                //     }
+                //     if (item.rank_type === '5' && item.name.includes('抽卡坟场')) {
+                //         uniqueTags.add('抽卡坟场');
+                //     }
+                //     // 你可以在这里添加其它自定义标签逻辑
+                // });
+                // uniqueTags.forEach(tag => {
+                //     const span = document.createElement('span');
+                //     span.className = 'tag';
+                //     span.textContent = tag;
+                //     document.getElementById('tagList').appendChild(span);
+                // });
             })
             .catch(err => {
                 resultDiv.innerHTML = '加载服务器json失败：' + err.message;
