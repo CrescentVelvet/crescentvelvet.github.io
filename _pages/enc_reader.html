@@ -197,13 +197,24 @@ title: "加密日志阅读器"
         .btn-video { background:#e6f0ff; color:#0056b3; }
         .btn-review { background:#ffe9b3; color:#e67e22; border-left:4px solid #e67e22; }
         .format-btn:hover { filter:brightness(0.95); }
+        .sticky-toolbar {
+            position: sticky;
+            top: 0;
+            background: #fff;
+            z-index: 10;
+            padding-top: 8px;
+            padding-bottom: 8px;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>加密日志阅读器</h1>
         <div id="word-count" class="word-count"></div>
-        <div id="toc" class="toc"></div>
+        <div id="toc-container" style="margin-bottom:10px;">
+            <button id="toggleTocBtn" style="margin-bottom:4px;">展开目录</button>
+            <div id="toc" class="toc" style="display:none;"></div>
+        </div>
         <div class="file-list">
             <label for="fileSelect">选择日志文件：</label>
             <select id="fileSelect"></select>
@@ -217,8 +228,7 @@ title: "加密日志阅读器"
             <input type="text" id="searchInput" placeholder="搜索日志内容..." />
             <button id="searchBtn">搜索</button>
         </div>
-        <div id="status"></div>
-        <div style="margin-bottom:8px;display:flex;gap:8px;">
+        <div class="sticky-toolbar">
             <button type="button" class="format-btn btn-normal" onclick="formatSelection('normal')">原始文本</button>
             <button type="button" class="format-btn btn-leisure" onclick="formatSelection('leisure-highlight')">闲情逸致</button>
             <button type="button" class="format-btn btn-dream" onclick="formatSelection('dream-highlight')">梦幻空花</button>
@@ -226,6 +236,7 @@ title: "加密日志阅读器"
             <button type="button" class="format-btn btn-video" onclick="formatSelection('video-highlight')">做视频想法</button>
             <button type="button" class="format-btn btn-normal" onclick="oneKeyFormat()">一键格式化</button>
         </div>
+        <div id="status"></div>
         <div class="output" id="output" contenteditable="true" spellcheck="false"></div>
     </div>
     <script src="/assets/js/crypto-js.min.js"></script>
@@ -337,6 +348,10 @@ title: "加密日志阅读器"
                 }
             };
         });
+        // 强制目录收起
+        toc.style.display = 'none';
+        var btn = document.getElementById('toggleTocBtn');
+        if(btn) btn.textContent = '展开目录';
     }
     </script>
     <script>
@@ -493,6 +508,20 @@ title: "加密日志阅读器"
         formatted = formatted.replace(/(<br>\s*){2,}/g, '<br>');
         output.innerHTML = formatted;
     }
+    </script>
+    <script>
+    // 目录折叠/展开逻辑
+    const tocDiv = document.getElementById('toc');
+    const toggleTocBtn = document.getElementById('toggleTocBtn');
+    toggleTocBtn.onclick = function() {
+        if (tocDiv.style.display === 'none') {
+            tocDiv.style.display = '';
+            toggleTocBtn.textContent = '收起目录';
+        } else {
+            tocDiv.style.display = 'none';
+            toggleTocBtn.textContent = '展开目录';
+        }
+    };
     </script>
 </body>
 </html> 

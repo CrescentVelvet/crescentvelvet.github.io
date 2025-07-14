@@ -9,9 +9,6 @@ layout: null
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>我的航旅足迹</title>
-    <!-- 设置基础URL，解决CORS问题 -->
-    <!-- <base href="http://localhost:4000/" /> -->
-    <base href="http://127.0.0.1:4000/" />
     <!-- 引入 Leaflet 样式 -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
     <!-- 引入 Leaflet 脚本 -->
@@ -636,7 +633,7 @@ layout: null
                         }
                         
                         // 从JSON文件加载初始航线数据
-                        fetch('/assets/data/initial_flight_paths.json')
+                        fetch('assets/data/initial_flight_paths.json')
                             .then(response => response.json())
                             .then(data => {
                                 flightInfo = data || [];
