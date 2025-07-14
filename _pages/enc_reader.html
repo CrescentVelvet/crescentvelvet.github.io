@@ -196,6 +196,7 @@ title: "加密日志阅读器"
         .btn-dream { background:#f3e6ff; color:#8A2BE2; }
         .btn-video { background:#e6f0ff; color:#0056b3; }
         .btn-review { background:#ffe9b3; color:#e67e22; border-left:4px solid #e67e22; }
+        .btn-date { background:#e7f3ff; color:#0056b3; }
         .format-btn:hover { filter:brightness(0.95); }
         .sticky-toolbar {
             position: sticky;
@@ -228,12 +229,13 @@ title: "加密日志阅读器"
             <input type="text" id="searchInput" placeholder="搜索日志内容..." />
             <button id="searchBtn">搜索</button>
         </div>
-        <div class="sticky-toolbar">
+        <div class="sticky-toolbar" style="margin-bottom:8px;display:flex;gap:8px;">
             <button type="button" class="format-btn btn-normal" onclick="formatSelection('normal')">原始文本</button>
             <button type="button" class="format-btn btn-leisure" onclick="formatSelection('leisure-highlight')">闲情逸致</button>
             <button type="button" class="format-btn btn-dream" onclick="formatSelection('dream-highlight')">梦幻空花</button>
             <button type="button" class="format-btn btn-review" onclick="formatSelection('review-highlight')">未来回顾</button>
             <button type="button" class="format-btn btn-video" onclick="formatSelection('video-highlight')">做视频想法</button>
+            <button type="button" class="format-btn btn-date" onclick="formatSelection('date-highlight')">日期格式</button>
             <button type="button" class="format-btn btn-normal" onclick="oneKeyFormat()">一键格式化</button>
         </div>
         <div id="status"></div>
@@ -455,14 +457,24 @@ title: "加密日志阅读器"
         if (!sel.rangeCount) return;
         const range = sel.getRangeAt(0);
         if (!output.contains(range.commonAncestorContainer)) return;
-        let span = document.createElement('span');
+
         if (type === 'normal') {
-            // 还原为普通文本
-            const text = range.toString();
-            range.deleteContents();
-            range.insertNode(document.createTextNode(text));
+            // 只移除高亮class，不改变其它样式
+            let contents = range.cloneContents();
+            let changed = false;
+            // 遍历所有span，移除高亮class
+            contents.querySelectorAll('span').forEach(span => {
+                span.className = '';
+                changed = true;
+            });
+            if (changed) {
+                range.deleteContents();
+                range.insertNode(contents);
+            }
             return;
         }
+        // 其它格式化逻辑不变
+        let span = document.createElement('span');
         span.className = type;
         span.textContent = range.toString();
         range.deleteContents();
