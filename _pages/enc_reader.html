@@ -163,6 +163,13 @@ title: "加密日志阅读器"
             display: flex;
             gap: 8px;
             margin-bottom: 12px;
+            position: sticky;
+            top: 0;
+            z-index: 11;
+            background: #fff;
+            padding-top: 8px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #f0f0f0;
         }
         #searchInput {
             flex: 1;
@@ -200,7 +207,7 @@ title: "加密日志阅读器"
         .format-btn:hover { filter:brightness(0.95); }
         .sticky-toolbar {
             position: sticky;
-            top: 0;
+            top: 56px;
             background: #fff;
             z-index: 10;
             padding-top: 8px;
@@ -225,9 +232,15 @@ title: "加密日志阅读器"
         </div>
         <button id="decryptBtn">解密并显示</button>
         <button id="exportBtn" style="margin-top:12px;">导出加密日志</button>
-        <div class="search-bar">
-            <input type="text" id="searchInput" placeholder="搜索日志内容..." />
-            <button id="searchBtn">搜索</button>
+        <div class="search-bar" style="align-items:center;gap:8px;">
+            <input type="text" id="searchInput" placeholder="查找内容..." style="flex:2;" />
+            <input type="text" id="replaceInput" placeholder="替换为..." style="flex:2;" />
+            <label style="font-size:14px;display:flex;align-items:center;gap:2px;">
+                <input type="checkbox" id="caseSensitive" style="margin:0 4px 0 0;">区分大小写
+            </label>
+            <button id="findNextBtn">查找下一个</button>
+            <button id="replaceBtn">替换</button>
+            <button id="replaceAllBtn">全部替换</button>
         </div>
         <div class="sticky-toolbar" style="margin-bottom:8px;display:flex;gap:8px;">
             <button type="button" class="format-btn btn-normal" onclick="formatSelection('normal')">原始文本</button>
@@ -369,41 +382,10 @@ title: "加密日志阅读器"
     }
     </script>
     <script>
-    // 文字搜索功能
-    document.getElementById('searchBtn').onclick = function() {
-        const keyword = document.getElementById('searchInput').value.trim();
-        const output = document.getElementById('output');
-        clearSearchHighlight(output);
-        if (!keyword) return;
-        highlightKeyword(output, keyword);
-    };
-
-    function highlightKeyword(container, keyword) {
-        if (!keyword) return;
-        // 遍历所有文本节点，进行高亮
-        const treeWalker = document.createTreeWalker(
-            container,
-            NodeFilter.SHOW_TEXT,
-            null,
-            false
-        );
-        const nodes = [];
-        while (treeWalker.nextNode()) {
-            nodes.push(treeWalker.currentNode);
-        }
-        nodes.forEach(node => {
-            const idx = node.nodeValue.toLowerCase().indexOf(keyword.toLowerCase());
-            if (idx > -1 && node.nodeValue.trim() !== '') {
-                const span = document.createElement('span');
-                const before = node.nodeValue.slice(0, idx);
-                const match = node.nodeValue.slice(idx, idx + keyword.length);
-                const after = node.nodeValue.slice(idx + keyword.length);
-                span.innerHTML = `${before}<span class="search-highlight">${match}</span>${after}`;
-                node.parentNode.replaceChild(span, node);
-            }
-        });
-    }
-
+    // 查找替换功能
+    let lastSearchIndex = 0;
+    let lastKeyword = '';
+    let lastMatches = [];
     function clearSearchHighlight(container) {
         // 移除所有高亮
         const highlights = container.querySelectorAll('.search-highlight');
@@ -413,41 +395,93 @@ title: "加密日志阅读器"
             parent.normalize();
         });
     }
-    </script>
-    <script>
-    // 导出加密日志
-    document.getElementById('exportBtn').onclick = function() {
-        const file = document.getElementById('fileSelect').value;
-        const password = document.getElementById('password').value;
-        const status = document.getElementById('status');
+    function highlightAll(container, keyword, caseSensitive) {
+        if (!keyword) return [];
+        clearSearchHighlight(container);
+        const treeWalker = document.createTreeWalker(
+            container,
+            NodeFilter.SHOW_TEXT,
+            null,
+            false
+        );
+        let nodes = [];
+        while (treeWalker.nextNode()) {
+            nodes.push(treeWalker.currentNode);
+        }
+        let matches = [];
+        nodes.forEach(node => {
+            let text = node.nodeValue;
+            let searchText = caseSensitive ? text : text.toLowerCase();
+            let searchKeyword = caseSensitive ? keyword : keyword.toLowerCase();
+            let idx = 0, offset = 0;
+            while ((idx = searchText.indexOf(searchKeyword, offset)) > -1) {
+                // 拆分并高亮
+                const before = text.slice(0, idx);
+                const match = text.slice(idx, idx + keyword.length);
+                const after = text.slice(idx + keyword.length);
+                const span = document.createElement('span');
+                span.className = 'search-highlight';
+                span.textContent = match;
+                node.parentNode.insertBefore(document.createTextNode(before), node);
+                node.parentNode.insertBefore(span, node);
+                text = after;
+                searchText = caseSensitive ? text : text.toLowerCase();
+                offset = 0;
+                matches.push(span);
+            }
+            if (text.length > 0) {
+                node.parentNode.insertBefore(document.createTextNode(text), node);
+            }
+            node.parentNode.removeChild(node);
+        });
+        return matches;
+    }
+    document.getElementById('findNextBtn').onclick = function() {
+        const keyword = document.getElementById('searchInput').value;
         const output = document.getElementById('output');
-        if (!file) {
-            status.textContent = '请选择文件';
-            status.className = 'error';
-            return;
+        const caseSensitive = document.getElementById('caseSensitive').checked;
+        if (!keyword) return;
+        if (lastKeyword !== keyword || lastMatches.length === 0) {
+            lastMatches = highlightAll(output, keyword, caseSensitive);
+            lastSearchIndex = 0;
+            lastKeyword = keyword;
         }
-        if (!password) {
-            status.textContent = '请输入密码';
-            status.className = 'error';
-            return;
+        if (lastMatches.length === 0) return;
+        lastMatches.forEach(span => span.style.background = '');
+        const cur = lastMatches[lastSearchIndex % lastMatches.length];
+        cur.scrollIntoView({behavior:'smooth', block:'center'});
+        cur.style.background = '#ffe066';
+        lastSearchIndex++;
+    };
+    document.getElementById('replaceBtn').onclick = function() {
+        const keyword = document.getElementById('searchInput').value;
+        const replaceText = document.getElementById('replaceInput').value;
+        const output = document.getElementById('output');
+        const caseSensitive = document.getElementById('caseSensitive').checked;
+        if (!keyword) return;
+        if (lastKeyword !== keyword || lastMatches.length === 0) {
+            lastMatches = highlightAll(output, keyword, caseSensitive);
+            lastSearchIndex = 0;
+            lastKeyword = keyword;
         }
-        // 获取富文本内容
-        const htmlContent = output.innerHTML;
-        try {
-            const ciphertext = CryptoJS.AES.encrypt(htmlContent, password).toString();
-            const blob = new Blob([ciphertext], {type: 'text/plain'});
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = file;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            status.textContent = '加密导出成功';
-            status.className = 'success';
-        } catch (e) {
-            status.textContent = '加密导出失败：' + e.message;
-            status.className = 'error';
-        }
+        if (lastMatches.length === 0) return;
+        const cur = lastMatches[(lastSearchIndex-1+lastMatches.length)%lastMatches.length];
+        cur.textContent = replaceText;
+        cur.classList.remove('search-highlight');
+        lastMatches = highlightAll(output, keyword, caseSensitive);
+    };
+    document.getElementById('replaceAllBtn').onclick = function() {
+        const keyword = document.getElementById('searchInput').value;
+        const replaceText = document.getElementById('replaceInput').value;
+        const output = document.getElementById('output');
+        const caseSensitive = document.getElementById('caseSensitive').checked;
+        if (!keyword) return;
+        lastMatches = highlightAll(output, keyword, caseSensitive);
+        lastMatches.forEach(span => {
+            span.textContent = replaceText;
+            span.classList.remove('search-highlight');
+        });
+        lastMatches = [];
     };
     </script>
     <script>
