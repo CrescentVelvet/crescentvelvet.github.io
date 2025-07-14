@@ -458,11 +458,10 @@ title: "加密日志阅读器"
         const range = sel.getRangeAt(0);
         if (!output.contains(range.commonAncestorContainer)) return;
 
+        // 只移除高亮class，不改变其它样式
         if (type === 'normal') {
-            // 只移除高亮class，不改变其它样式
             let contents = range.cloneContents();
             let changed = false;
-            // 遍历所有span，移除高亮class
             contents.querySelectorAll('span').forEach(span => {
                 span.className = '';
                 changed = true;
@@ -473,6 +472,65 @@ title: "加密日志阅读器"
             }
             return;
         }
+
+        // 只改变颜色的class
+        const onlyColorTypes = ['leisure-highlight', 'dream-highlight', 'video-highlight', 'date-highlight'];
+        if (onlyColorTypes.includes(type)) {
+            // 多段落选区处理
+            if (!range.collapsed) {
+                // 遍历选区内所有文本节点
+                let treeWalker = document.createTreeWalker(
+                    range.commonAncestorContainer,
+                    NodeFilter.SHOW_TEXT,
+                    null,
+                    false
+                );
+                let nodes = [];
+                while (treeWalker.nextNode()) {
+                    // 只处理在选区内的文本节点
+                    const node = treeWalker.currentNode;
+                    const nodeRange = document.createRange();
+                    nodeRange.selectNodeContents(node);
+                    if (range.intersectsNode(node)) {
+                        nodes.push(node);
+                    }
+                }
+                nodes.forEach(node => {
+                    // 跳过空白
+                    if (!node.nodeValue.trim()) return;
+                    // 如果已被span包裹，改class，否则包一层
+                    if (node.parentNode.nodeName === 'SPAN') {
+                        node.parentNode.className = type;
+                    } else {
+                        const span = document.createElement('span');
+                        span.className = type;
+                        span.textContent = node.nodeValue;
+                        node.parentNode.replaceChild(span, node);
+                    }
+                });
+                return;
+            }
+            // 单段落逻辑
+            let contents = range.cloneContents();
+            let changed = false;
+            contents.querySelectorAll('span').forEach(span => {
+                span.className = type;
+                changed = true;
+            });
+            if (changed) {
+                range.deleteContents();
+                range.insertNode(contents);
+                return;
+            }
+            // 没有span则包一层
+            let span = document.createElement('span');
+            span.className = type;
+            span.textContent = range.toString();
+            range.deleteContents();
+            range.insertNode(span);
+            return;
+        }
+
         // 其它格式化逻辑不变
         let span = document.createElement('span');
         span.className = type;
@@ -490,35 +548,119 @@ title: "加密日志阅读器"
         let tempDiv = document.createElement('div');
         tempDiv.innerHTML = html;
         let text = tempDiv.innerText;
-        // 2. 按行分割，处理段落
+
+        // 2. 字体设置（可选，编辑区已是富文本，略过）
+
+        // 3. 段落格式：每行包裹p标签
         let lines = text.split(/\r?\n/);
-        let formatted = lines.map(line => {
-            if (!line.trim()) return '';
-            // 日期高亮
-            if (/^\d{4}[-/]\d{1,2}[-/]\d{1,2}$/.test(line.trim())) {
-                return `<span class="date-highlight">${line.trim()}</span><br>`;
+        let formattedLines = lines.map(line => {
+            if (line.trim()) {
+                return `<p class="preview-content">${line.trim()}</p>`;
+            } else {
+                return '';
             }
-            // 未来回顾
-            if (/^（\d{4}\.\d{2}\.\d{2}回顾：/.test(line.trim())) {
-                return `<span class="review-highlight">${line.trim()}</span><br>`;
+        }).filter(line => line !== '').join('\n');
+
+        // 4. 日期处理
+        // 匹配形如 "YYYY-MM-DD" 或 "YYYY/MM/DD" 的日期行
+        const dateTimeUserRegex = /.*?(\d{4}[-/]\d{1,2}[-/]\d{1,2})\s+\d{1,2}:\d{2}:\d{2}.*/g;
+        // 新增：匹配“（YYYY.MM.DD回顾：”格式
+        const reviewDateRegex = /^（\d{4}\.\d{2}\.\d{2}回顾：/.test(line.trim());
+        // 将 YYYY/MM/DD 格式的日期转换为 YYYY-MM-DD
+        formattedLines = formattedLines.replace(/(\d{4})\/(\d{1,2})\/(\d{1,2})/g, '$1-$2-$3');
+        // 替换日期时间用户ID行，只保留日期部分
+        formattedLines = formattedLines.replace(dateTimeUserRegex, (match, date) => {
+            return date;
+        });
+        // 对日期中的月和日进行补零处理
+        formattedLines = formattedLines.replace(/(\d{4})[-/](\d{1,2})[-/](\d{1,2})/g, (match, year, month, day) => {
+            const paddedMonth = month.padStart(2, '0');
+            const paddedDay = day.padStart(2, '0');
+            return `${year}-${paddedMonth}-${paddedDay}`;
+        });
+        // 匹配其他日期格式 YYYY-MM-DD
+        const dateRegex = /\b\d{4}[-/]\d{1,2}[-/]\d{1,2}\b/g;
+        // 移除重复日期
+        let tempDiv2 = document.createElement('div');
+        tempDiv2.innerHTML = formattedLines;
+        let lines2 = tempDiv2.innerText.split(/\r?\n/);
+        let processedLines = new Set();
+        let resultLines = [];
+        for (const line of lines2) {
+            if (reviewDateRegex.test(line)) {
+                resultLines.push({ line, isReview: true });
+            } else if (dateRegex.test(line)) {
+                if (!processedLines.has(line)) {
+                    processedLines.add(line);
+                    resultLines.push({ line, isDate: true });
+                }
+            } else {
+                resultLines.push({ line });
             }
-            // 闲情逸致
-            if (/^今天都做了些什么/.test(line.trim()) || /^闲情逸致：/.test(line.trim())) {
-                return `<span class="leisure-highlight">${line.trim()}</span><br>`;
+        }
+        // 重新包裹成 <p> 标签，日期行添加高亮类，回顾行用新颜色
+        let formattedContent = resultLines.map(obj => {
+            if (obj.line.trim()) {
+                if (obj.isReview) {
+                    return `<p class="preview-content review-highlight">${obj.line}</p>`;
+                } else if (obj.isDate) {
+                    return `<p class="preview-content date-highlight">${obj.line}</p>`;
+                } else {
+                    return `<p class="preview-content">${obj.line}</p>`;
+                }
+            } else {
+                return '';
             }
-            // 梦幻空花
-            if (/^梦幻空花：/.test(line.trim())) {
-                return `<span class="dream-highlight">${line.trim()}</span><br>`;
+        }).filter(line => line !== '').join('\n');
+
+        // 5. 去除多余换行和撤回
+        let tempDiv3 = document.createElement('div');
+        tempDiv3.innerHTML = formattedContent;
+        let paragraphs = tempDiv3.querySelectorAll('p.preview-content');
+        let processedParagraphs = [];
+        paragraphs.forEach(p => {
+            let text = p.textContent;
+            let originalClasses = p.className;
+            // 移除包含“撤回了一条消息”的行
+            text = text.replace(/^.*撤回了一条消息.*$/gm, '');
+            // 将连续的两个及以上换行符替换为单个换行
+            text = text.replace(/\n{2,}/g, '\n');
+            // 移除行尾空格
+            text = text.split('\n').map(line => line.trimEnd()).join('\n');
+            // 再次处理可能存在的连续换行，确保只剩一个
+            text = text.replace(/\n{2,}/g, '\n');
+            if (text.trim()) {
+                const newP = document.createElement('p');
+                newP.className = originalClasses;
+                newP.style.lineHeight = '1.0';
+                newP.style.marginTop = '0.5em';
+                newP.style.marginBottom = '0.5em';
+                newP.textContent = text;
+                processedParagraphs.push(newP.outerHTML);
             }
-            // 做视频想法
-            if (/^做视频想法：/.test(line.trim())) {
-                return `<span class="video-highlight">${line.trim()}</span><br>`;
-            }
-            return `${line.trim()}<br>`;
-        }).join('');
-        // 3. 去除多余空行
-        formatted = formatted.replace(/(<br>\s*){2,}/g, '<br>');
-        output.innerHTML = formatted;
+        });
+        formattedContent = processedParagraphs.join('');
+
+        // 6. 添加前缀高亮
+        // 闲情逸致
+        formattedContent = formattedContent.replace(
+          /(<p[^>]*>)(?!<span class=\"leisure-highlight\">)(今天都做了些什么.*?)(<\/p>)/g,
+          '$1<span class="leisure-highlight">闲情逸致：$2</span>$3'
+        );
+        // 梦幻空花
+        formattedContent = formattedContent.replace(
+            /(<p[^>]*>)(梦幻空花：)(.*?)(<\/p>)/g, '$1<span class="dream-highlight">$2$3</span>$4'
+        );
+        // 闲情逸致
+        formattedContent = formattedContent.replace(
+            /(<p[^>]*>)(闲情逸致：)(.*?)(<\/p>)/g, '$1<span class="leisure-highlight">$2$3</span>$4'
+        );
+        // 做视频想法
+        formattedContent = formattedContent.replace(
+            /(<p[^>]*>)(做视频想法：)(.*?)(<\/p>)/g, '$1<span class="video-highlight">$2$3</span>$4'
+        );
+
+        output.innerHTML = formattedContent;
     }
     </script>
     <script>
