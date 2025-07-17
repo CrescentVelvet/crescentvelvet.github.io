@@ -223,10 +223,7 @@ title: "原神抽卡分析"
                 </select>
                 <button style="flex:1;min-width:90px;" onclick="analyzeServerJson()">分析服务器json</button>
             </div>
-            <div style="display:flex;gap:0.5em;align-items:center;margin-bottom:0.7em;">
-                <textarea id="wishLink" rows="3" placeholder="请粘贴官方抽卡API链接" style="flex:2;"></textarea>
-                <button style="flex:1;min-width:90px;" onclick="analyzeWish()">分析抽卡API</button>
-            </div>
+            <div style="color:#3a5fa8;font-size:0.98em;text-align:center;margin-bottom:0.7em;">支持原神、星铁、绝区零抽卡记录json分析</div>
         </div>
         <div class="tab-group" style="display:flex;gap:0.5em;margin-bottom:1em;">
             <button class="tab-btn" onclick="switchPoolTab('character')" id="tab-character">角色池</button>
@@ -239,6 +236,11 @@ title: "原神抽卡分析"
     </div>
     <script src="/assets/js/echarts.min.js"></script>
     <script>
+    // 常驻池五星角色名单（全局唯一）
+    const permanentFiveStarList = [
+        '迪卢克','莫娜','七七','刻晴','琴','提纳里','迪希雅','梦见月瑞希'
+        // 可根据后续常驻池补充
+    ];
     // 支持 wish_ 链接和官方API链接，API自动翻页，ECharts图表展示
     async function analyzeWish() {
         const input = document.getElementById('wishLink').value.trim();
@@ -345,10 +347,14 @@ title: "原神抽卡分析"
                 const list = allList;
                 let total = list.length, five = 0, four = 0, three = 0, maxPity = 0, curPity = 0, sumPity = 0, lastFive = 0;
                 let fiveList = [], starMap = {5:0,4:0,3:0}, fivePityArr = [];
+                let fiveIndices = [];
                 list.forEach((item, idx) => {
                     if (item.rank_type == '5') {
                         five++;
-                        fiveList.push({idx: idx+1, name: item.name, time: item.time});
+                        // 歪判定：常驻池角色为歪，否则未歪
+                        let isWai = permanentFiveStarList.some(name => item.name && item.name.includes(name));
+                        fiveList.push({idx: idx+1, name: item.name, time: item.time, isWai});
+                        fiveIndices.push(idx+1);
                         maxPity = Math.max(maxPity, curPity+1);
                         sumPity += curPity+1;
                         fivePityArr.push(curPity+1);
@@ -455,7 +461,9 @@ title: "原神抽卡分析"
         list.forEach((item, idx) => {
             if (item.rank_type == '5') {
                 five++;
-                fiveList.push({idx: idx+1, name: item.name, time: item.time});
+                // 歪判定：常驻池角色为歪，否则未歪
+                let isWai = permanentFiveStarList.some(name => item.name && item.name.includes(name));
+                fiveList.push({idx: idx+1, name: item.name, time: item.time, isWai});
                 fiveIndices.push(idx+1);
                 maxPity = Math.max(maxPity, curPity+1);
                 sumPity += curPity+1;
@@ -482,7 +490,7 @@ title: "原神抽卡分析"
             let end = fiveIndices[i+1] ? fiveIndices[i+1] : (total+1);
             fiveDraws.push(end - start);
         }
-        resultDiv.innerHTML = `总抽数：<b>${total}</b><br>五星数：<b>${five}</b><br>四星数：<b>${four}</b><br>三星数：<b>${three}</b><br>最大垫刀：<b>${maxPity}</b><br>平均垫刀：<b>${avgPity}</b><br>距离上次出金：<b>${lastPity}</b><br><hr>五星出货：<br>${fiveList.map((f,i)=>`第${f.idx}抽：${f.name}（${f.time}，用${fiveDraws[i]}抽）`).join('<br>')}`;
+        resultDiv.innerHTML = `总抽数：<b>${total}</b><br>五星数：<b>${five}</b><br>四星数：<b>${four}</b><br>三星数：<b>${three}</b><br>最大垫刀：<b>${maxPity}</b><br>平均垫刀：<b>${avgPity}</b><br>距离上次出金：<b>${lastPity}</b><br><hr>五星出货：<br>${fiveList.map((f,i)=>`<span style="font-size:0.92em;color:#888">#${f.idx}</span>：${f.name}（${f.time}，用${fiveDraws[i]}抽${f.isWai ? '，<span style="color:#e67e22">歪</span>' : '，<span style="color:#20b2aa">没歪</span>'}）`).join('<br>')}`;
         showWishCharts(starMap, fivePityArr, fiveList);
     }
 
