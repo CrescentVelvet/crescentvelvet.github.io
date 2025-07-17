@@ -180,6 +180,18 @@ title: "原神抽卡分析"
             color: #fff;
             border-bottom: 2px solid #ffe066;
         }
+        .char-name {
+            display: inline-block;
+            width: 10em;
+            text-align: center;
+            border-radius: 0.5em;
+            color: #fff;
+            font-weight: bold;
+            margin: 0 0.2em;
+            font-size: 1.08em;
+            letter-spacing: 0.1em;
+            transition: background 0.3s;
+        }
         @media (max-width: 600px) {
             .main-card {
                 margin-top: 0.5em;
@@ -490,7 +502,16 @@ title: "原神抽卡分析"
             let end = fiveIndices[i+1] ? fiveIndices[i+1] : (total+1);
             fiveDraws.push(end - start);
         }
-        resultDiv.innerHTML = `总抽数：<b>${total}</b><br>五星数：<b>${five}</b><br>四星数：<b>${four}</b><br>三星数：<b>${three}</b><br>最大垫刀：<b>${maxPity}</b><br>平均垫刀：<b>${avgPity}</b><br>距离上次出金：<b>${lastPity}</b><br><hr>五星出货：<br>${fiveList.map((f,i)=>`<span style="font-size:0.92em;color:#888">#${f.idx}</span>：${f.name}（${f.time}，用${fiveDraws[i]}抽${f.isWai ? '，<span style="color:#e67e22">歪</span>' : '，<span style="color:#20b2aa">没歪</span>'}）`).join('<br>')}`;
+        resultDiv.innerHTML = `总抽数：<b>${total}</b><br>五星数：<b>${five}</b><br>四星数：<b>${four}</b><br>三星数：<b>${three}</b><br>最大垫刀：<b>${maxPity}</b><br>平均垫刀：<b>${avgPity}</b><br>距离上次出金：<b>${lastPity}</b><br><hr>五星出货：<br>${fiveList.map((f,i)=>{
+            let date = f.time ? f.time.split(' ')[0] : '';
+            // 渐变色：10抽为绿，50抽为黄，90抽为红
+            let min = 10, max = 90, n = fiveDraws[i];
+            n = Math.max(min, Math.min(max, n));
+            // 10抽=120°(绿)，50抽=60°(黄)，90抽=0°(红)
+            let hue = 120 - ((n - min) / (max - min)) * 120;
+            let bg = `hsl(${hue}, 70%, 55%)`;
+            return ` <span style=\"font-size:0.92em;color:#888\">${date}</span>：<span class=\"char-name\" style=\"background:${bg}\">${f.name}</span>（${fiveDraws[i]}抽${f.isWai ? '，<span style=\\"color:#e67e22\\">歪</span>' : '，<span style=\\"color:#20b2aa\\">没歪</span>'}）`;
+        }).join('<br>')}`;
         showWishCharts(starMap, fivePityArr, fiveList);
     }
 
@@ -557,30 +578,6 @@ title: "原神抽卡分析"
                 resultDiv.innerHTML = `总抽数：<b>${total}</b><br>五星数：<b>${five}</b><br>四星数：<b>${four}</b><br>三星数：<b>${three}</b><br>最大垫刀：<b>${maxPity}</b><br>平均垫刀：<b>${avgPity}</b><br>距离上次出金：<b>${lastPity}</b><br><hr>五星出货：<br>${fiveList.map((f,i)=>`第${f.idx}抽：${f.name}（${f.time}，用${fiveDraws[i]}抽）`).join('<br>')}`;
                 classifyPool(list);
                 switchPoolTab(currentPool);
-                // 在分析json和API后，动态填充analyzeArea相关内容，并显示analyzeArea
-                // document.getElementById('analyzeArea').style.display = 'block';
-                // document.getElementById('analyzeResult').innerHTML = `总抽数：<b>${total}</b><br>五星数：<b>${five}</b><br>四星数：<b>${four}</b><br>最大垫刀：<b>${maxPity}</b><br>平均垫刀：<b>${avgPity}</b><br>距离上次出金：<b>${lastPity}</b>`;
-                // document.getElementById('analyzeProb').innerHTML = `小保底不歪概率：${(1 - (1 / (curPity + 1))).toFixed(2) * 100}%`;
-                // document.getElementById('statTotal').innerHTML = `${total}抽`;
-                // document.getElementById('statCost').innerHTML = `${sumPity * 160}原石`; // 假设160原石/抽
-                // document.getElementById('tagList').innerHTML = ''; // 清空旧标签
-                // const uniqueTags = new Set();
-                // list.forEach(item => {
-                //     // 只保留真正有意义的分析标签，不添加“三星出货”“四星出货”“五星出货”
-                //     if (item.rank_type === '5' && item.name.includes('保底')) {
-                //         uniqueTags.add('小保底常歪');
-                //     }
-                //     if (item.rank_type === '5' && item.name.includes('抽卡坟场')) {
-                //         uniqueTags.add('抽卡坟场');
-                //     }
-                //     // 你可以在这里添加其它自定义标签逻辑
-                // });
-                // uniqueTags.forEach(tag => {
-                //     const span = document.createElement('span');
-                //     span.className = 'tag';
-                //     span.textContent = tag;
-                //     document.getElementById('tagList').appendChild(span);
-                // });
             })
             .catch(err => {
                 resultDiv.innerHTML = '加载服务器json失败：' + err.message;
