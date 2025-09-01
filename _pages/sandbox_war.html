@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>沙盘战争</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: white;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .controls {
+            background: rgba(255,255,255,0.1);
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            backdrop-filter: blur(10px);
+        }
+
+        .control-group {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        .control-group label {
+            font-weight: bold;
+            min-width: 80px;
+        }
+
+        .control-group select,
+        .control-group input,
+        .control-group button {
+            padding: 8px 12px;
+            border: none;
+            border-radius: 5px;
+            background: rgba(255,255,255,0.9);
+            color: #333;
+        }
+
+        .control-group button {
+            background: #4CAF50;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .control-group button:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+        }
+
+        .battlefield {
+            background: rgba(255,255,255,0.1);
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 10px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+            position: relative;
+            min-height: 500px;
+        }
+
+        .unit {
+            position: absolute;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+
+        .unit:hover {
+            transform: scale(1.1);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+        }
+
+        .unit.selected {
+            border: 3px solid #ffeb3b;
+            box-shadow: 0 0 20px #ffeb3b;
+        }
+
+        .unit.tank {
+            background: linear-gradient(45deg, #8B4513, #A0522D);
+            border: 2px solid #654321;
+        }
+
+        .unit.soldier {
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+            border: 2px solid #2E7D32;
+        }
+
+        .unit.enemy {
+            background: linear-gradient(45deg, #f44336, #d32f2f);
+            border: 2px solid #b71c1c;
+        }
+
+        .unit.ally {
+            background: linear-gradient(45deg, #2196F3, #1976D2);
+            border: 2px solid #0D47A1;
+        }
+
+        .unit-info {
+            position: absolute;
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 12px;
+            pointer-events: none;
+            z-index: 1000;
+            display: none;
+        }
+
+        .battle-log {
+            background: rgba(0,0,0,0.7);
+            color: #00ff00;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            font-family: 'Courier New', monospace;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .battle-log h3 {
+            margin-top: 0;
+            color: #ffeb3b;
+        }
+
+        .log-entry {
+            margin: 5px 0;
+            padding: 2px 0;
+        }
+
+        .log-entry.attack {
+            color: #ff6b6b;
+        }
+
+        .log-entry.move {
+            color: #4ecdc4;
+        }
+
+        .log-entry.info {
+            color: #45b7d1;
+        }
+
+        .back-button {
+            display: inline-block;
+            color: white;
+            background-color: #6c757d;
+            text-decoration: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            transition: all 0.3s ease;
+            margin-bottom: 20px;
+        }
+
+        .back-button:hover {
+            background-color: #5a6268;
+            transform: translateY(-2px);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/" class="back-button">← 返回首页</a>
+        <h1>🏰 沙盘战争</h1>
+        
+        <div class="controls">
+            <div class="control-group">
+                <label>单位类型:</label>
+                <select id="unitType">
+                    <option value="tank">坦克</option>
+                    <option value="soldier">士兵</option>
+                </select>
+                
+                <label>阵营:</label>
+                <select id="unitTeam">
+                    <option value="ally">友军</option>
+                    <option value="enemy">敌军</option>
+                </select>
+                
+                <label>生命值:</label>
+                <input type="number" id="unitHealth" value="100" min="1" max="200">
+                
+                <button onclick="addUnit()">添加单位</button>
+                <button onclick="startBattle()">开始战斗</button>
+                <button onclick="clearBattlefield()">清空战场</button>
+            </div>
+        </div>
+
+        <div class="battlefield" id="battlefield">
+            <div style="text-align: center; padding: 100px; color: rgba(255,255,255,0.5);">
+                点击"添加单位"来放置作战单位，然后点击"开始战斗"进行模拟作战
+            </div>
+        </div>
+
+        <div class="battle-log" id="battleLog">
+            <h3>战斗日志</h3>
+            <div id="logContent"></div>
+        </div>
+    </div>
+
+    <div class="unit-info" id="unitInfo"></div>
+
+    <script>
+        // 组合模式：游戏对象基类
+        class GameObject {
+            constructor(x, y, type, team, health) {
+                this.x = x;
+                this.y = y;
+                this.type = type;
+                this.team = team;
+                this.health = health;
+                this.maxHealth = health;
+                this.element = null;
+                this.selected = false;
+            }
+
+            // 模板方法
+            createElement() {
+                this.element = document.createElement('div');
+                this.element.className = `unit ${this.type} ${this.team}`;
+                this.element.style.left = this.x + 'px';
+                this.element.style.top = this.y + 'px';
+                this.element.style.width = this.getSize() + 'px';
+                this.element.style.height = this.getSize() + 'px';
+                
+                this.element.innerHTML = this.getDisplayText();
+                this.element.onclick = () => this.select();
+                this.element.onmouseover = (e) => this.showInfo(e);
+                this.element.onmouseout = () => this.hideInfo();
+                
+                return this.element;
+            }
+
+            getSize() {
+                return this.type === 'tank' ? 60 : 40;
+            }
+
+            getDisplayText() {
+                return `${this.type === 'tank' ? 'T' : 'S'}<br>${this.health}`;
+            }
+
+            select() {
+                // 取消其他单位的选择
+                document.querySelectorAll('.unit.selected').forEach(unit => {
+                    unit.classList.remove('selected');
+                });
+                
+                this.selected = true;
+                this.element.classList.add('selected');
+            }
+
+            showInfo(event) {
+                const info = document.getElementById('unitInfo');
+                info.innerHTML = `
+                    <strong>${this.type === 'tank' ? '坦克' : '士兵'}</strong><br>
+                    阵营: ${this.team === 'ally' ? '友军' : '敌军'}<br>
+                    生命值: ${this.health}/${this.maxHealth}<br>
+                    位置: (${this.x}, ${this.y})
+                `;
+                info.style.display = 'block';
+                info.style.left = event.pageX + 10 + 'px';
+                info.style.top = event.pageY - 10 + 'px';
+            }
+
+            hideInfo() {
+                document.getElementById('unitInfo').style.display = 'none';
+            }
+
+            // 抽象方法，子类必须实现
+            attack(target) {
+                throw new Error('子类必须实现attack方法');
+            }
+
+            move(dx, dy) {
+                this.x += dx;
+                this.y += dy;
+                if (this.element) {
+                    this.element.style.left = this.x + 'px';
+                    this.element.style.top = this.y + 'px';
+                }
+            }
+
+            takeDamage(damage) {
+                this.health = Math.max(0, this.health - damage);
+                if (this.element) {
+                    this.element.innerHTML = this.getDisplayText();
+                }
+                return this.health <= 0;
+            }
+
+            isDead() {
+                return this.health <= 0;
+            }
+        }
+
+        // 坦克类
+        class Tank extends GameObject {
+            constructor(x, y, team, health) {
+                super(x, y, 'tank', team, health);
+                this.attackRange = 120;
+                this.attackPower = 30;
+                this.movementRange = 40;
+            }
+
+            attack(target) {
+                const distance = Math.sqrt((this.x - target.x) ** 2 + (this.y - target.y) ** 2);
+                if (distance <= this.attackRange && target.team !== this.team) {
+                    const damage = this.attackPower + Math.floor(Math.random() * 10);
+                    const killed = target.takeDamage(damage);
+                    logBattle(`${this.team === 'ally' ? '友军' : '敌军'}坦克攻击${target.team === 'ally' ? '友军' : '敌军'}${target.type === 'tank' ? '坦克' : '士兵'}，造成${damage}点伤害${killed ? '，目标被摧毁！' : ''}`, 'attack');
+                    return true;
+                }
+                return false;
+            }
+
+            moveRandomly() {
+                const dx = (Math.random() - 0.5) * this.movementRange;
+                const dy = (Math.random() - 0.5) * this.movementRange;
+                this.move(dx, dy);
+                logBattle(`${this.team === 'ally' ? '友军' : '敌军'}坦克移动到新位置`, 'move');
+            }
+        }
+
+        // 士兵类
+        class Soldier extends GameObject {
+            constructor(x, y, team, health) {
+                super(x, y, 'soldier', team, health);
+                this.attackRange = 80;
+                this.attackPower = 20;
+                this.movementRange = 60;
+            }
+
+            attack(target) {
+                const distance = Math.sqrt((this.x - target.x) ** 2 + (this.y - target.y) ** 2);
+                if (distance <= this.attackRange && target.team !== this.team) {
+                    const damage = this.attackPower + Math.floor(Math.random() * 8);
+                    const killed = target.takeDamage(damage);
+                    logBattle(`${this.team === 'ally' ? '友军' : '敌军'}士兵攻击${target.team === 'ally' ? '友军' : '敌军'}${target.type === 'tank' ? '坦克' : '士兵'}，造成${damage}点伤害${killed ? '，目标被摧毁！' : ''}`, 'attack');
+                    return true;
+                }
+                return false;
+            }
+
+            moveRandomly() {
+                const dx = (Math.random() - 0.5) * this.movementRange;
+                const dy = (Math.random() - 0.5) * this.movementRange;
+                this.move(dx, dy);
+                logBattle(`${this.team === 'ally' ? '友军' : '敌军'}士兵移动到新位置`, 'move');
+            }
+        }
+
+        // 战场管理器（组合模式的核心）
+        class BattlefieldManager {
+            constructor() {
+                this.units = [];
+                this.battlefield = document.getElementById('battlefield');
+                this.isBattleActive = false;
+            }
+
+            addUnit(unit) {
+                this.units.push(unit);
+                const element = unit.createElement();
+                this.battlefield.appendChild(element);
+                logBattle(`添加了${unit.team === 'ally' ? '友军' : '敌军'}${unit.type === 'tank' ? '坦克' : '士兵'}`, 'info');
+            }
+
+            removeUnit(unit) {
+                const index = this.units.indexOf(unit);
+                if (index > -1) {
+                    this.units.splice(index, 1);
+                    if (unit.element) {
+                        unit.element.remove();
+                    }
+                }
+            }
+
+            clearAll() {
+                this.units.forEach(unit => {
+                    if (unit.element) {
+                        unit.element.remove();
+                    }
+                });
+                this.units = [];
+                this.battlefield.innerHTML = '<div style="text-align: center; padding: 100px; color: rgba(255,255,255,0.5);">点击"添加单位"来放置作战单位，然后点击"开始战斗"进行模拟作战</div>';
+                logBattle('战场已清空', 'info');
+            }
+
+            startBattle() {
+                if (this.units.length < 2) {
+                    alert('至少需要2个单位才能开始战斗！');
+                    return;
+                }
+
+                this.isBattleActive = true;
+                logBattle('战斗开始！', 'info');
+                
+                const battleInterval = setInterval(() => {
+                    if (!this.isBattleActive || this.units.length < 2) {
+                        clearInterval(battleInterval);
+                        this.endBattle();
+                        return;
+                    }
+
+                    this.executeBattleRound();
+                }, 1000);
+            }
+
+            executeBattleRound() {
+                // 随机选择单位进行攻击
+                const aliveUnits = this.units.filter(unit => !unit.isDead());
+                if (aliveUnits.length < 2) return;
+
+                const attacker = aliveUnits[Math.floor(Math.random() * aliveUnits.length)];
+                const targets = aliveUnits.filter(unit => unit !== attacker && unit.team !== attacker.team);
+                
+                if (targets.length > 0) {
+                    const target = targets[Math.floor(Math.random() * targets.length)];
+                    attacker.attack(target);
+                    
+                    // 如果目标死亡，移除它
+                    if (target.isDead()) {
+                        this.removeUnit(target);
+                        logBattle(`${target.team === 'ally' ? '友军' : '敌军'}${target.type === 'tank' ? '坦克' : '士兵'}被摧毁！`, 'attack');
+                    }
+                }
+
+                // 随机移动
+                aliveUnits.forEach(unit => {
+                    if (Math.random() < 0.3) { // 30%概率移动
+                        unit.moveRandomly();
+                    }
+                });
+            }
+
+            endBattle() {
+                this.isBattleActive = false;
+                const allyUnits = this.units.filter(unit => unit.team === 'ally' && !unit.isDead());
+                const enemyUnits = this.units.filter(unit => unit.team === 'enemy' && !unit.isDead());
+                
+                if (allyUnits.length === 0 && enemyUnits.length === 0) {
+                    logBattle('战斗结束！双方同归于尽', 'info');
+                } else if (allyUnits.length === 0) {
+                    logBattle('战斗结束！敌军获胜！', 'info');
+                } else if (enemyUnits.length === 0) {
+                    logBattle('战斗结束！友军获胜！', 'info');
+                } else {
+                    logBattle('战斗结束！仍有单位存活', 'info');
+                }
+            }
+        }
+
+        // 全局变量
+        const battlefieldManager = new BattlefieldManager();
+
+        // 工具函数
+        function logBattle(message, type = 'info') {
+            const logContent = document.getElementById('logContent');
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry ${type}`;
+            logEntry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logContent.appendChild(logEntry);
+            logContent.scrollTop = logContent.scrollHeight;
+        }
+
+        function addUnit() {
+            const type = document.getElementById('unitType').value;
+            const team = document.getElementById('unitTeam').value;
+            const health = parseInt(document.getElementById('unitHealth').value);
+            
+            // 随机位置
+            const x = Math.random() * (document.getElementById('battlefield').offsetWidth - 100) + 50;
+            const y = Math.random() * (document.getElementById('battlefield').offsetHeight - 100) + 50;
+            
+            let unit;
+            if (type === 'tank') {
+                unit = new Tank(x, y, team, health);
+            } else {
+                unit = new Soldier(x, y, team, health);
+            }
+            
+            battlefieldManager.addUnit(unit);
+        }
+
+        function startBattle() {
+            battlefieldManager.startBattle();
+        }
+
+        function clearBattlefield() {
+            battlefieldManager.clearAll();
+        }
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            logBattle('沙盘战争系统已启动', 'info');
+        });
+    </script>
+</body>
+</html> 
