@@ -158,7 +158,7 @@ redirect_from:
         <a href="/paper_retrieval.html" class="link-button">论文搜索</a>
         <a href="/hot_trends.html" class="link-button">每日热榜</a>
         <a href="/wish_analyzer.html" class="link-button">抽卡分析</a>
-        <a href="/sandbox_war.html" class="link-button">沙盘战争</a>
+        <a href="/sandbox_war/" class="link-button">沙盘战争</a>
     </div>
     <hr>
     <p>强调一下<strong>几个单词</strong></p>
