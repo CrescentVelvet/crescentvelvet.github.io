@@ -201,16 +201,11 @@ permalink: /sandbox_war_game.html
                     <option value="soldier">士兵</option>
                 </select>
                 
-                <label>阵营:</label>
-                <select id="unitTeam">
-                    <option value="ally">友军</option>
-                    <option value="enemy">敌军</option>
-                </select>
-                
                 <label>生命值:</label>
                 <input type="number" id="unitHealth" value="100" min="1" max="200">
                 
-                <button onclick="addUnit()">添加单位</button>
+                <button onclick="addAllyUnit()" style="background: #2196F3;">添加友军</button>
+                <button onclick="addEnemyUnit()" style="background: #f44336;">添加敌军</button>
                 <button onclick="startBattle()">开始战斗</button>
                 <button onclick="clearBattlefield()">清空战场</button>
             </div>
@@ -218,7 +213,7 @@ permalink: /sandbox_war_game.html
 
         <div class="battlefield" id="battlefield">
             <div style="text-align: center; padding: 100px; color: rgba(255,255,255,0.5);">
-                点击"添加单位"来放置作战单位，然后点击"开始战斗"进行模拟作战
+                选择单位类型和生命值，然后点击"添加友军"或"添加敌军"来放置作战单位，最后点击"开始战斗"进行模拟作战
             </div>
         </div>
 
@@ -492,9 +487,16 @@ permalink: /sandbox_war_game.html
             logContent.scrollTop = logContent.scrollHeight;
         }
 
-        function addUnit() {
+        function addAllyUnit() {
+            addUnitWithTeam('ally');
+        }
+
+        function addEnemyUnit() {
+            addUnitWithTeam('enemy');
+        }
+
+        function addUnitWithTeam(team) {
             const type = document.getElementById('unitType').value;
-            const team = document.getElementById('unitTeam').value;
             const health = parseInt(document.getElementById('unitHealth').value);
             
             // 随机位置
