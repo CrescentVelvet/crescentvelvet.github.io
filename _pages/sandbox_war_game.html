@@ -19,8 +19,19 @@ permalink: /sandbox_war_game.html
         }
 
         .container {
-            max-width: 1200px;
+            max-width: 1400px;
             margin: 0 auto;
+            display: flex;
+            gap: 20px;
+        }
+
+        .main-content {
+            flex: 1;
+        }
+
+        .sidebar {
+            width: 350px;
+            flex-shrink: 0;
         }
 
         h1 {
@@ -143,10 +154,11 @@ permalink: /sandbox_war_game.html
             color: #00ff00;
             padding: 15px;
             border-radius: 10px;
-            margin-top: 20px;
             font-family: 'Courier New', monospace;
-            max-height: 200px;
+            height: 600px;
             overflow-y: auto;
+            position: sticky;
+            top: 20px;
         }
 
         .battle-log h3 {
@@ -171,6 +183,32 @@ permalink: /sandbox_war_game.html
             color: #45b7d1;
         }
 
+        .log-entry.ally {
+            color: #2196F3;
+            font-weight: bold;
+        }
+
+        .log-entry.enemy {
+            color: #f44336;
+            font-weight: bold;
+        }
+
+        .log-entry.ally.attack {
+            color: #64B5F6;
+        }
+
+        .log-entry.enemy.attack {
+            color: #FF8A80;
+        }
+
+        .log-entry.ally.move {
+            color: #81C784;
+        }
+
+        .log-entry.enemy.move {
+            color: #FFB74D;
+        }
+
         .back-button {
             display: inline-block;
             color: white;
@@ -186,40 +224,62 @@ permalink: /sandbox_war_game.html
             background-color: #5a6268;
             transform: translateY(-2px);
         }
+
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+            }
+            
+            .sidebar {
+                width: 100%;
+                margin-top: 20px;
+            }
+            
+            .battle-log {
+                height: 300px;
+                position: static;
+            }
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <a href="/sandbox_war/" class="back-button">← 返回介绍页</a>
-        <h1>🏰 沙盘战争 - 战场</h1>
-        
-        <div class="controls">
-            <div class="control-group">
-                <label>单位类型:</label>
-                <select id="unitType">
-                    <option value="tank">坦克</option>
-                    <option value="soldier">士兵</option>
-                </select>
-                
-                <label>生命值:</label>
-                <input type="number" id="unitHealth" value="100" min="1" max="200">
-                
-                <button onclick="addAllyUnit()" style="background: #2196F3;">添加友军</button>
-                <button onclick="addEnemyUnit()" style="background: #f44336;">添加敌军</button>
-                <button onclick="startBattle()">开始战斗</button>
-                <button onclick="clearBattlefield()">清空战场</button>
+        <div class="main-content">
+            <a href="/sandbox_war/" class="back-button">← 返回介绍页</a>
+            <h1>🏰 沙盘战争 - 战场</h1>
+            
+            <div class="controls">
+                <div class="control-group">
+                    <label>单位类型:</label>
+                    <select id="unitType">
+                        <option value="tank">坦克</option>
+                        <option value="soldier">士兵</option>
+                    </select>
+                    
+                    <label>生命值:</label>
+                    <input type="number" id="unitHealth" value="100" min="1" max="200">
+                    
+                    <button onclick="addAllyUnit()" style="background: #2196F3;">添加友军</button>
+                    <button onclick="addEnemyUnit()" style="background: #f44336;">添加敌军</button>
+                    <button onclick="startBattle()">开始战斗</button>
+                    <button onclick="pauseBattle()" id="pauseBtn" style="background: #ff9800;">暂停战斗</button>
+                    <button onclick="clearBattlefield()">清空战场</button>
+                </div>
+            </div>
+
+            <div class="battlefield" id="battlefield">
+                <div style="text-align: center; padding: 100px; color: rgba(255,255,255,0.5);">
+                    选择单位类型和生命值，然后点击"添加友军"或"添加敌军"来放置作战单位，最后点击"开始战斗"进行模拟作战
+                </div>
             </div>
         </div>
 
-        <div class="battlefield" id="battlefield">
-            <div style="text-align: center; padding: 100px; color: rgba(255,255,255,0.5);">
-                选择单位类型和生命值，然后点击"添加友军"或"添加敌军"来放置作战单位，最后点击"开始战斗"进行模拟作战
+        <div class="sidebar">
+            <div class="battle-log" id="battleLog">
+                <h3>战斗日志</h3>
+                <div id="logContent"></div>
             </div>
-        </div>
-
-        <div class="battle-log" id="battleLog">
-            <h3>战斗日志</h3>
-            <div id="logContent"></div>
         </div>
     </div>
 
@@ -332,7 +392,7 @@ permalink: /sandbox_war_game.html
                 if (distance <= this.attackRange && target.team !== this.team) {
                     const damage = this.attackPower + Math.floor(Math.random() * 10);
                     const killed = target.takeDamage(damage);
-                    logBattle(`${this.team === 'ally' ? '友军' : '敌军'}坦克攻击${target.team === 'ally' ? '友军' : '敌军'}${target.type === 'tank' ? '坦克' : '士兵'}，造成${damage}点伤害${killed ? '，目标被摧毁！' : ''}`, 'attack');
+                    logBattle(`${this.team === 'ally' ? '友军' : '敌军'}坦克攻击${target.team === 'ally' ? '友军' : '敌军'}${target.type === 'tank' ? '坦克' : '士兵'}，造成${damage}点伤害${killed ? '，目标被摧毁！' : ''}`, `${this.team} attack`);
                     return true;
                 }
                 return false;
@@ -342,7 +402,7 @@ permalink: /sandbox_war_game.html
                 const dx = (Math.random() - 0.5) * this.movementRange;
                 const dy = (Math.random() - 0.5) * this.movementRange;
                 this.move(dx, dy);
-                logBattle(`${this.team === 'ally' ? '友军' : '敌军'}坦克移动到新位置`, 'move');
+                logBattle(`${this.team === 'ally' ? '友军' : '敌军'}坦克移动到新位置`, `${this.team} move`);
             }
         }
 
@@ -360,7 +420,7 @@ permalink: /sandbox_war_game.html
                 if (distance <= this.attackRange && target.team !== this.team) {
                     const damage = this.attackPower + Math.floor(Math.random() * 8);
                     const killed = target.takeDamage(damage);
-                    logBattle(`${this.team === 'ally' ? '友军' : '敌军'}士兵攻击${target.team === 'ally' ? '友军' : '敌军'}${target.type === 'tank' ? '坦克' : '士兵'}，造成${damage}点伤害${killed ? '，目标被摧毁！' : ''}`, 'attack');
+                    logBattle(`${this.team === 'ally' ? '友军' : '敌军'}士兵攻击${target.team === 'ally' ? '友军' : '敌军'}${target.type === 'tank' ? '坦克' : '士兵'}，造成${damage}点伤害${killed ? '，目标被摧毁！' : ''}`, `${this.team} attack`);
                     return true;
                 }
                 return false;
@@ -370,7 +430,7 @@ permalink: /sandbox_war_game.html
                 const dx = (Math.random() - 0.5) * this.movementRange;
                 const dy = (Math.random() - 0.5) * this.movementRange;
                 this.move(dx, dy);
-                logBattle(`${this.team === 'ally' ? '友军' : '敌军'}士兵移动到新位置`, 'move');
+                logBattle(`${this.team === 'ally' ? '友军' : '敌军'}士兵移动到新位置`, `${this.team} move`);
             }
         }
 
@@ -380,13 +440,15 @@ permalink: /sandbox_war_game.html
                 this.units = [];
                 this.battlefield = document.getElementById('battlefield');
                 this.isBattleActive = false;
+                this.isPaused = false;
+                this.battleInterval = null;
             }
 
             addUnit(unit) {
                 this.units.push(unit);
                 const element = unit.createElement();
                 this.battlefield.appendChild(element);
-                logBattle(`添加了${unit.team === 'ally' ? '友军' : '敌军'}${unit.type === 'tank' ? '坦克' : '士兵'}`, 'info');
+                logBattle(`添加了${unit.team === 'ally' ? '友军' : '敌军'}${unit.type === 'tank' ? '坦克' : '士兵'}`, unit.team);
             }
 
             removeUnit(unit) {
@@ -417,17 +479,37 @@ permalink: /sandbox_war_game.html
                 }
 
                 this.isBattleActive = true;
+                this.isPaused = false;
                 logBattle('战斗开始！', 'info');
                 
-                const battleInterval = setInterval(() => {
-                    if (!this.isBattleActive || this.units.length < 2) {
-                        clearInterval(battleInterval);
-                        this.endBattle();
+                this.battleInterval = setInterval(() => {
+                    if (!this.isBattleActive || this.units.length < 2 || this.isPaused) {
+                        if (!this.isBattleActive || this.units.length < 2) {
+                            clearInterval(this.battleInterval);
+                            this.endBattle();
+                        }
                         return;
                     }
 
                     this.executeBattleRound();
                 }, 1000);
+            }
+
+            pauseBattle() {
+                if (!this.isBattleActive) return;
+                
+                this.isPaused = !this.isPaused;
+                const pauseBtn = document.getElementById('pauseBtn');
+                
+                if (this.isPaused) {
+                    pauseBtn.textContent = '继续战斗';
+                    pauseBtn.style.background = '#4CAF50';
+                    logBattle('战斗已暂停', 'info');
+                } else {
+                    pauseBtn.textContent = '暂停战斗';
+                    pauseBtn.style.background = '#ff9800';
+                    logBattle('战斗继续', 'info');
+                }
             }
 
             executeBattleRound() {
@@ -445,7 +527,7 @@ permalink: /sandbox_war_game.html
                     // 如果目标死亡，移除它
                     if (target.isDead()) {
                         this.removeUnit(target);
-                        logBattle(`${target.team === 'ally' ? '友军' : '敌军'}${target.type === 'tank' ? '坦克' : '士兵'}被摧毁！`, 'attack');
+                        logBattle(`${target.team === 'ally' ? '友军' : '敌军'}${target.type === 'tank' ? '坦克' : '士兵'}被摧毁！`, `${target.team} attack`);
                     }
                 }
 
@@ -515,6 +597,10 @@ permalink: /sandbox_war_game.html
 
         function startBattle() {
             battlefieldManager.startBattle();
+        }
+
+        function pauseBattle() {
+            battlefieldManager.pauseBattle();
         }
 
         function clearBattlefield() {
