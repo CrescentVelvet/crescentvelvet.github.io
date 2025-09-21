@@ -103,13 +103,24 @@ permalink: /sandbox_war_game.html
             font-weight: bold;
             font-size: 12px;
             cursor: pointer;
-            transition: all 0.3s;
+            transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
             box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            will-change: transform, left, top;
         }
 
         .unit:hover {
             transform: scale(1.1);
             box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+        }
+
+        .unit.moving {
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+            animation: pulse 0.5s ease-in-out infinite alternate;
+        }
+
+        @keyframes pulse {
+            from { transform: scale(1); }
+            to { transform: scale(1.05); }
         }
 
         .unit.selected {
@@ -280,6 +291,19 @@ permalink: /sandbox_war_game.html
                 <h3>战斗日志</h3>
                 <div id="logContent"></div>
             </div>
+            <div class="fps-display" id="fpsDisplay" style="
+                background: rgba(0,0,0,0.7);
+                color: #00ff00;
+                padding: 10px;
+                border-radius: 5px;
+                margin-top: 10px;
+                font-family: 'Courier New', monospace;
+                font-size: 12px;
+                text-align: center;
+            ">
+                <div>FPS: <span id="fpsValue">0</span></div>
+                <div>设备: <span id="deviceType">PC</span></div>
+            </div>
         </div>
     </div>
 
@@ -297,6 +321,17 @@ permalink: /sandbox_war_game.html
                 this.maxHealth = health;
                 this.element = null;
                 this.selected = false;
+                
+                // 实时移动和攻击系统
+                this.targetX = x;
+                this.targetY = y;
+                this.isMoving = false;
+                this.lastAttackTime = 0;
+                this.attackCooldown = 1000; // 1秒攻击冷却
+                this.lastMoveTime = 0;
+                this.moveCooldown = 2000; // 2秒移动冷却
+                this.velocity = { x: 0, y: 0 };
+                this.maxSpeed = 30; // 像素/秒
             }
 
             // 模板方法
@@ -365,6 +400,171 @@ permalink: /sandbox_war_game.html
                 }
             }
 
+            smoothMove(targetX, targetY, duration = 1000) {
+                if (!this.element) return;
+                
+                // 添加移动状态
+                this.element.classList.add('moving');
+                
+                const startX = this.x;
+                const startY = this.y;
+                const deltaX = targetX - startX;
+                const deltaY = targetY - startY;
+                const startTime = performance.now();
+                
+                const animate = (currentTime) => {
+                    const elapsed = currentTime - startTime;
+                    const progress = Math.min(elapsed / duration, 1);
+                    
+                    // 使用缓动函数
+                    const easeProgress = this.easeInOutCubic(progress);
+                    
+                    this.x = startX + deltaX * easeProgress;
+                    this.y = startY + deltaY * easeProgress;
+                    
+                    this.element.style.left = this.x + 'px';
+                    this.element.style.top = this.y + 'px';
+                    
+                    if (progress < 1) {
+                        requestAnimationFrame(animate);
+                    } else {
+                        // 移动完成，移除移动状态
+                        this.element.classList.remove('moving');
+                    }
+                };
+                
+                requestAnimationFrame(animate);
+            }
+
+            easeInOutCubic(t) {
+                return t < 0.5 ? 4 * t * t * t : (t - 1) * (2 * t - 2) * (2 * t - 2) + 1;
+            }
+
+            // 实时更新方法
+            update(deltaTime, allUnits) {
+                if (this.isDead()) return;
+
+                // 寻找最近的敌人
+                const nearestEnemy = this.findNearestEnemy(allUnits);
+                
+                if (nearestEnemy) {
+                    const distance = this.getDistance(nearestEnemy);
+                    
+                    // 如果在攻击范围内，尝试攻击
+                    if (distance <= this.attackRange) {
+                        this.tryAttack(nearestEnemy);
+                    } else {
+                        // 否则移动到敌人附近
+                        this.moveTowards(nearestEnemy, deltaTime);
+                    }
+                } else {
+                    // 没有敌人时随机移动
+                    this.randomMove(deltaTime);
+                }
+
+                // 更新位置
+                this.updatePosition(deltaTime);
+            }
+
+            findNearestEnemy(allUnits) {
+                let nearestEnemy = null;
+                let nearestDistance = Infinity;
+
+                for (const unit of allUnits) {
+                    if (unit !== this && unit.team !== this.team && !unit.isDead()) {
+                        const distance = this.getDistance(unit);
+                        if (distance < nearestDistance) {
+                            nearestDistance = distance;
+                            nearestEnemy = unit;
+                        }
+                    }
+                }
+
+                return nearestEnemy;
+            }
+
+            getDistance(target) {
+                const dx = target.x - this.x;
+                const dy = target.y - this.y;
+                return Math.sqrt(dx * dx + dy * dy);
+            }
+
+            tryAttack(target) {
+                const now = Date.now();
+                if (now - this.lastAttackTime >= this.attackCooldown) {
+                    this.attack(target);
+                    this.lastAttackTime = now;
+                }
+            }
+
+            moveTowards(target, deltaTime) {
+                const now = Date.now();
+                if (this.lastMoveTime > 0 && now - this.lastMoveTime < this.moveCooldown) return;
+
+                const dx = target.x - this.x;
+                const dy = target.y - this.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (distance > 0) {
+                    // 计算移动方向，deltaTime已经是秒为单位
+                    const moveX = (dx / distance) * this.maxSpeed * deltaTime;
+                    const moveY = (dy / distance) * this.maxSpeed * deltaTime;
+
+                    this.targetX = this.x + moveX;
+                    this.targetY = this.y + moveY;
+                    this.isMoving = true;
+                    this.lastMoveTime = now;
+                }
+            }
+
+            randomMove(deltaTime) {
+                const now = Date.now();
+                if (this.lastMoveTime > 0 && now - this.lastMoveTime < this.moveCooldown) return;
+
+                const battlefield = document.getElementById('battlefield');
+                const maxX = battlefield.offsetWidth - this.getSize();
+                const maxY = battlefield.offsetHeight - this.getSize();
+
+                // 随机移动方向，deltaTime已经是秒为单位
+                const angle = Math.random() * Math.PI * 2;
+                const moveDistance = this.maxSpeed * deltaTime;
+                
+                this.targetX = Math.max(0, Math.min(maxX, this.x + Math.cos(angle) * moveDistance));
+                this.targetY = Math.max(0, Math.min(maxY, this.y + Math.sin(angle) * moveDistance));
+                this.isMoving = true;
+                this.lastMoveTime = now;
+            }
+
+            updatePosition(deltaTime) {
+                if (!this.isMoving) return;
+
+                const dx = this.targetX - this.x;
+                const dy = this.targetY - this.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (distance < 2) {
+                    // 到达目标位置
+                    this.x = this.targetX;
+                    this.y = this.targetY;
+                    this.isMoving = false;
+                    this.element.classList.remove('moving');
+                } else {
+                    // 平滑移动到目标位置，deltaTime已经是秒为单位
+                    const moveSpeed = this.maxSpeed * deltaTime;
+                    const moveX = (dx / distance) * moveSpeed;
+                    const moveY = (dy / distance) * moveSpeed;
+
+                    this.x += moveX;
+                    this.y += moveY;
+
+                    if (this.element) {
+                        this.element.style.left = this.x + 'px';
+                        this.element.style.top = this.y + 'px';
+                        this.element.classList.add('moving');
+                    }
+                }
+            }
+
             takeDamage(damage) {
                 this.health = Math.max(0, this.health - damage);
                 if (this.element) {
@@ -384,7 +584,9 @@ permalink: /sandbox_war_game.html
                 super(x, y, 'tank', team, health);
                 this.attackRange = 120;
                 this.attackPower = 30;
-                this.movementRange = 40;
+                this.maxSpeed = 50; // 坦克移动速度
+                this.attackCooldown = 2000; // 2秒攻击冷却
+                this.moveCooldown = 500; // 0.5秒移动冷却
             }
 
             attack(target) {
@@ -399,9 +601,14 @@ permalink: /sandbox_war_game.html
             }
 
             moveRandomly() {
-                const dx = (Math.random() - 0.5) * this.movementRange;
-                const dy = (Math.random() - 0.5) * this.movementRange;
-                this.move(dx, dy);
+                const battlefield = document.getElementById('battlefield');
+                const maxX = battlefield.offsetWidth - this.getSize();
+                const maxY = battlefield.offsetHeight - this.getSize();
+                
+                const targetX = Math.max(0, Math.min(maxX, this.x + (Math.random() - 0.5) * this.movementRange));
+                const targetY = Math.max(0, Math.min(maxY, this.y + (Math.random() - 0.5) * this.movementRange));
+                
+                this.smoothMove(targetX, targetY, 800);
                 logBattle(`${this.team === 'ally' ? '友军' : '敌军'}坦克移动到新位置`, `${this.team} move`);
             }
         }
@@ -412,7 +619,9 @@ permalink: /sandbox_war_game.html
                 super(x, y, 'soldier', team, health);
                 this.attackRange = 80;
                 this.attackPower = 20;
-                this.movementRange = 60;
+                this.maxSpeed = 80; // 士兵移动较快
+                this.attackCooldown = 1500; // 1.5秒攻击冷却
+                this.moveCooldown = 300; // 0.3秒移动冷却
             }
 
             attack(target) {
@@ -427,9 +636,14 @@ permalink: /sandbox_war_game.html
             }
 
             moveRandomly() {
-                const dx = (Math.random() - 0.5) * this.movementRange;
-                const dy = (Math.random() - 0.5) * this.movementRange;
-                this.move(dx, dy);
+                const battlefield = document.getElementById('battlefield');
+                const maxX = battlefield.offsetWidth - this.getSize();
+                const maxY = battlefield.offsetHeight - this.getSize();
+                
+                const targetX = Math.max(0, Math.min(maxX, this.x + (Math.random() - 0.5) * this.movementRange));
+                const targetY = Math.max(0, Math.min(maxY, this.y + (Math.random() - 0.5) * this.movementRange));
+                
+                this.smoothMove(targetX, targetY, 600);
                 logBattle(`${this.team === 'ally' ? '友军' : '敌军'}士兵移动到新位置`, `${this.team} move`);
             }
         }
@@ -441,7 +655,26 @@ permalink: /sandbox_war_game.html
                 this.battlefield = document.getElementById('battlefield');
                 this.isBattleActive = false;
                 this.isPaused = false;
-                this.battleInterval = null;
+                this.gameLoop = null;
+                this.lastUpdateTime = 0;
+                this.deltaTime = 0;
+                this.animationId = null;
+                
+                // 帧率控制相关
+                this.lastFrameTime = 0;
+                this.fps = 0;
+                this.framesThisSecond = 0;
+                this.lastFpsUpdate = 0;
+                this.targetFPS = 60;
+                this.isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                
+                // 移动端优化
+                if (this.isMobile) {
+                    this.targetFPS = 30; // 移动端目标30fps
+                    this.maxDeltaTime = 1/20; // 最大deltaTime限制为20fps
+                } else {
+                    this.maxDeltaTime = 1/30; // PC端最大deltaTime限制为30fps
+                }
             }
 
             addUnit(unit) {
@@ -480,19 +713,85 @@ permalink: /sandbox_war_game.html
 
                 this.isBattleActive = true;
                 this.isPaused = false;
-                logBattle('战斗开始！', 'info');
+                this.lastUpdateTime = performance.now();
+                this.lastFrameTime = 0; // 重置帧时间
+                this.framesThisSecond = 0; // 重置帧计数
+                logBattle('实时战斗开始！', 'info');
                 
-                this.battleInterval = setInterval(() => {
-                    if (!this.isBattleActive || this.units.length < 2 || this.isPaused) {
-                        if (!this.isBattleActive || this.units.length < 2) {
-                            clearInterval(this.battleInterval);
-                            this.endBattle();
-                        }
-                        return;
-                    }
+                this.animationId = requestAnimationFrame((timestamp) => this.gameLoop(timestamp));
+            }
 
-                    this.executeBattleRound();
-                }, 1000);
+            gameLoop(timestamp) {
+                if (!this.isBattleActive) return;
+
+                // 初始化帧时间
+                if (!this.lastFrameTime) {
+                    this.lastFrameTime = timestamp;
+                    this.animationId = requestAnimationFrame((ts) => this.gameLoop(ts));
+                    return;
+                }
+
+                // 计算deltaTime
+                this.deltaTime = (timestamp - this.lastFrameTime) / 1000; // 转换为秒
+                this.lastFrameTime = timestamp;
+
+                // 安全校验：限制deltaTime避免异常情况
+                if (this.deltaTime <= 0 || this.deltaTime > this.maxDeltaTime) {
+                    this.animationId = requestAnimationFrame((ts) => this.gameLoop(ts));
+                    return;
+                }
+
+                // 更新FPS计算
+                this.framesThisSecond++;
+                if (timestamp > this.lastFpsUpdate + 1000) {
+                    this.fps = this.framesThisSecond;
+                    this.framesThisSecond = 0;
+                    this.lastFpsUpdate = timestamp;
+                    
+                    // 更新FPS显示
+                    const fpsElement = document.getElementById('fpsValue');
+                    const deviceElement = document.getElementById('deviceType');
+                    if (fpsElement) {
+                        fpsElement.textContent = this.fps;
+                    }
+                    if (deviceElement) {
+                        deviceElement.textContent = this.isMobile ? '移动端' : 'PC端';
+                    }
+                }
+
+                if (!this.isPaused) {
+                    this.updateAllUnits();
+                    this.checkBattleEnd();
+                }
+
+                this.animationId = requestAnimationFrame((ts) => this.gameLoop(ts));
+            }
+
+            updateAllUnits() {
+                // 更新所有单位
+                for (const unit of this.units) {
+                    if (!unit.isDead()) {
+                        unit.update(this.deltaTime, this.units);
+                    }
+                }
+
+                // 移除死亡的单位
+                this.units = this.units.filter(unit => {
+                    if (unit.isDead() && unit.element) {
+                        unit.element.remove();
+                        return false;
+                    }
+                    return true;
+                });
+            }
+
+            checkBattleEnd() {
+                const allyUnits = this.units.filter(unit => unit.team === 'ally' && !unit.isDead());
+                const enemyUnits = this.units.filter(unit => unit.team === 'enemy' && !unit.isDead());
+                
+                if (allyUnits.length === 0 || enemyUnits.length === 0) {
+                    this.endBattle();
+                }
             }
 
             pauseBattle() {
@@ -512,35 +811,13 @@ permalink: /sandbox_war_game.html
                 }
             }
 
-            executeBattleRound() {
-                // 随机选择单位进行攻击
-                const aliveUnits = this.units.filter(unit => !unit.isDead());
-                if (aliveUnits.length < 2) return;
-
-                const attacker = aliveUnits[Math.floor(Math.random() * aliveUnits.length)];
-                const targets = aliveUnits.filter(unit => unit !== attacker && unit.team !== attacker.team);
-                
-                if (targets.length > 0) {
-                    const target = targets[Math.floor(Math.random() * targets.length)];
-                    attacker.attack(target);
-                    
-                    // 如果目标死亡，移除它
-                    if (target.isDead()) {
-                        this.removeUnit(target);
-                        logBattle(`${target.team === 'ally' ? '友军' : '敌军'}${target.type === 'tank' ? '坦克' : '士兵'}被摧毁！`, `${target.team} attack`);
-                    }
-                }
-
-                // 随机移动
-                aliveUnits.forEach(unit => {
-                    if (Math.random() < 0.3) { // 30%概率移动
-                        unit.moveRandomly();
-                    }
-                });
-            }
 
             endBattle() {
                 this.isBattleActive = false;
+                if (this.animationId) {
+                    cancelAnimationFrame(this.animationId);
+                }
+                
                 const allyUnits = this.units.filter(unit => unit.team === 'ally' && !unit.isDead());
                 const enemyUnits = this.units.filter(unit => unit.team === 'enemy' && !unit.isDead());
                 
@@ -607,9 +884,77 @@ permalink: /sandbox_war_game.html
             battlefieldManager.clearAll();
         }
 
+        // 移动端触摸优化
+        function addMobileOptimizations() {
+            if (battlefieldManager.isMobile) {
+                // 禁用双击缩放
+                document.addEventListener('touchstart', function(e) {
+                    if (e.touches.length > 1) {
+                        e.preventDefault();
+                    }
+                }, { passive: false });
+
+                // 禁用页面滚动
+                document.addEventListener('touchmove', function(e) {
+                    e.preventDefault();
+                }, { passive: false });
+
+                // 优化触摸响应
+                document.addEventListener('touchstart', function(e) {
+                    e.preventDefault();
+                }, { passive: false });
+
+                // 添加触摸反馈
+                const battlefield = document.getElementById('battlefield');
+                battlefield.addEventListener('touchstart', function(e) {
+                    const touch = e.touches[0];
+                    const rect = battlefield.getBoundingClientRect();
+                    const x = touch.clientX - rect.left;
+                    const y = touch.clientY - rect.top;
+                    
+                    // 创建触摸反馈效果
+                    const feedback = document.createElement('div');
+                    feedback.style.cssText = `
+                        position: absolute;
+                        left: ${x - 10}px;
+                        top: ${y - 10}px;
+                        width: 20px;
+                        height: 20px;
+                        background: rgba(255, 255, 255, 0.5);
+                        border-radius: 50%;
+                        pointer-events: none;
+                        animation: touchFeedback 0.3s ease-out forwards;
+                    `;
+                    
+                    battlefield.appendChild(feedback);
+                    
+                    setTimeout(() => {
+                        feedback.remove();
+                    }, 300);
+                });
+            }
+        }
+
+        // 添加触摸反馈动画
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes touchFeedback {
+                0% {
+                    transform: scale(0);
+                    opacity: 1;
+                }
+                100% {
+                    transform: scale(2);
+                    opacity: 0;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+
         // 初始化
         document.addEventListener('DOMContentLoaded', function() {
             logBattle('沙盘战争系统已启动', 'info');
+            addMobileOptimizations();
         });
     </script>
 </body>
