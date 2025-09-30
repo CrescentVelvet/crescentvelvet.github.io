@@ -1,0 +1,85 @@
+---
+layout: default
+title: 动画追踪
+permalink: /anime-tracker/
+---
+
+<div class="anime-tracker">
+  <h1>动画追踪表</h1>
+  <div class="anime-grid" id="animeGrid">
+    <!-- 动画格子将通过JavaScript动态生成 -->
+  </div>
+</div>
+
+<style>
+.anime-tracker {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.anime-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 15px;
+  margin-top: 20px;
+}
+
+.anime-cell {
+  background-color: #f0f0f0;
+  border: 1px solid #ddd;
+  padding: 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+  text-align: center;
+}
+
+.anime-cell.watched {
+  background-color: #90EE90;
+}
+
+.anime-cell:hover {
+  transform: scale(1.05);
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const animes = [
+    "进击的巨人", "鬼灭之刃", "间谍过家家", "咒术回战",
+    "排球少年", "进击的巨人 最终季", "辉夜大小姐想让我告白",
+    "约定的梦幻岛", "紫罗兰永恒花园", "青春猪头少年",
+    "工作细胞", "鬼灭之刃 无限列车篇", "86-不存在的战区",
+    "致不灭的你", "国王排名", "间谍教室", "死神 千年血战篇",
+    "链锯人", "赛博朋克：边缘行者", "莉可丽丝"
+  ];
+
+  const grid = document.getElementById('animeGrid');
+  const watched = JSON.parse(localStorage.getItem('watchedAnimes') || '[]');
+
+  animes.forEach(anime => {
+    const cell = document.createElement('div');
+    cell.className = `anime-cell ${watched.includes(anime) ? 'watched' : ''}`;
+    cell.textContent = anime;
+    
+    cell.addEventListener('click', function() {
+      this.classList.toggle('watched');
+      const currentWatched = JSON.parse(localStorage.getItem('watchedAnimes') || '[]');
+      if (this.classList.contains('watched')) {
+        if (!currentWatched.includes(anime)) {
+          currentWatched.push(anime);
+        }
+      } else {
+        const index = currentWatched.indexOf(anime);
+        if (index > -1) {
+          currentWatched.splice(index, 1);
+        }
+      }
+      localStorage.setItem('watchedAnimes', JSON.stringify(currentWatched));
+    });
+
+    grid.appendChild(cell);
+  });
+});
+</script>

@@ -302,7 +302,7 @@ permalink: /sandbox_war_game.html
                 text-align: center;
             ">
                 <div>FPS: <span id="fpsValue">0</span></div>
-                <div>设备: <span id="deviceType">PC</span></div>
+                <div>单位数: <span id="unitCount">0</span></div>
             </div>
         </div>
     </div>
@@ -506,7 +506,7 @@ permalink: /sandbox_war_game.html
                 const distance = Math.sqrt(dx * dx + dy * dy);
 
                 if (distance > 0) {
-                    // 计算移动方向，deltaTime已经是秒为单位
+                    // 简单直接的移动计算
                     const moveX = (dx / distance) * this.maxSpeed * deltaTime;
                     const moveY = (dy / distance) * this.maxSpeed * deltaTime;
 
@@ -525,7 +525,7 @@ permalink: /sandbox_war_game.html
                 const maxX = battlefield.offsetWidth - this.getSize();
                 const maxY = battlefield.offsetHeight - this.getSize();
 
-                // 随机移动方向，deltaTime已经是秒为单位
+                // 简单随机移动
                 const angle = Math.random() * Math.PI * 2;
                 const moveDistance = this.maxSpeed * deltaTime;
                 
@@ -549,7 +549,7 @@ permalink: /sandbox_war_game.html
                     this.isMoving = false;
                     this.element.classList.remove('moving');
                 } else {
-                    // 平滑移动到目标位置，deltaTime已经是秒为单位
+                    // 简单平滑移动
                     const moveSpeed = this.maxSpeed * deltaTime;
                     const moveX = (dx / distance) * moveSpeed;
                     const moveY = (dy / distance) * moveSpeed;
@@ -675,6 +675,7 @@ permalink: /sandbox_war_game.html
                 } else {
                     this.maxDeltaTime = 1/30; // PC端最大deltaTime限制为30fps
                 }
+                
             }
 
             addUnit(unit) {
@@ -727,6 +728,7 @@ permalink: /sandbox_war_game.html
                 // 初始化帧时间
                 if (!this.lastFrameTime) {
                     this.lastFrameTime = timestamp;
+                    this.lastFpsUpdate = timestamp; // 初始化FPS计算时间
                     this.animationId = requestAnimationFrame((ts) => this.gameLoop(ts));
                     return;
                 }
@@ -748,14 +750,15 @@ permalink: /sandbox_war_game.html
                     this.framesThisSecond = 0;
                     this.lastFpsUpdate = timestamp;
                     
-                    // 更新FPS显示
+                    // 更新显示
                     const fpsElement = document.getElementById('fpsValue');
-                    const deviceElement = document.getElementById('deviceType');
+                    const unitCountElement = document.getElementById('unitCount');
+                    
                     if (fpsElement) {
                         fpsElement.textContent = this.fps;
                     }
-                    if (deviceElement) {
-                        deviceElement.textContent = this.isMobile ? '移动端' : 'PC端';
+                    if (unitCountElement) {
+                        unitCountElement.textContent = this.units.length;
                     }
                 }
 
