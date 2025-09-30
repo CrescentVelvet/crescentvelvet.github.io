@@ -5,9 +5,9 @@ permalink: /anime-tracker/
 ---
 
 <div class="anime-tracker">
-  <h1>动画追踪表</h1>
-  <div class="anime-grid" id="animeGrid">
-    <!-- 动画格子将通过JavaScript动态生成 -->
+  <h1>动画世代</h1>
+  <div class="anime-table" id="animeTable">
+    <!-- 动画表格将通过JavaScript动态生成 -->
   </div>
 </div>
 
@@ -18,68 +18,144 @@ permalink: /anime-tracker/
   padding: 20px;
 }
 
-.anime-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 15px;
+.anime-table {
+  width: 100%;
+  border-collapse: collapse;
   margin-top: 20px;
+}
+
+.year-row {
+  background-color: #ff0000;
+  color: white;
+}
+
+.year-cell {
+  padding: 8px;
+  font-weight: bold;
+  width: 80px;
+}
+
+.anime-row {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 2px;
+  margin-bottom: 2px;
+}
+
+.year-cell {
+  background-color: #8e44ad;
+  color: white;
+  font-weight: bold;
+  border: 1px solid #000;
+  padding: 8px;
+  text-align: center;
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  width: 100%;
+  height: 100%;
 }
 
 .anime-cell {
   background-color: #f0f0f0;
-  border: 1px solid #ddd;
-  padding: 10px;
-  border-radius: 5px;
-  cursor: pointer;
-  transition: background-color 0.3s;
+  border: 1px solid #000;
+  padding: 8px;
   text-align: center;
+  cursor: pointer;
+  font-size: 14px;
+  color: #000;
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  word-break: break-all;
+  overflow: hidden;
+  width: 100%;
+  height: 100%;
 }
 
 .anime-cell.watched {
   background-color: #90EE90;
+  color: #000;
 }
 
-.anime-cell:hover {
-  transform: scale(1.05);
+@media (max-width: 768px) {
+  .anime-row {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  
+  .anime-cell, .year-cell {
+    font-size: 12px;
+    padding: 4px;
+  }
 }
 </style>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-  const animes = [
-    "进击的巨人", "鬼灭之刃", "间谍过家家", "咒术回战",
-    "排球少年", "进击的巨人 最终季", "辉夜大小姐想让我告白",
-    "约定的梦幻岛", "紫罗兰永恒花园", "青春猪头少年",
-    "工作细胞", "鬼灭之刃 无限列车篇", "86-不存在的战区",
-    "致不灭的你", "国王排名", "间谍教室", "死神 千年血战篇",
-    "链锯人", "赛博朋克：边缘行者", "莉可丽丝"
-  ];
+  const animeData = {
+    "2024": ["东京女子大学!", "GIRLS BAND CRY", "那个大叔", "又是生活", "谜之彼", "致我的独角兽", "小市民系列", "梦想成为声优!", "青之螺", "2.5次元的誘惑", "鬼，一次不够就再来一次!", "失忆煽情"],
+    "2023": ["野生的夏天", "新石纪灵长类", "BanG Dream! It's MyGO!!!!!", "我心里危险的东西", "想谈一场甜甜的恋爱结果却被包养了100个女朋友!", "别当欧尼酱了!", "致我的星星", "生可梦", "系统重启", "无神世界的神明活动", "转生就是美少女", "天国大魔境"],
+    "2022": ["里亚德录", "异世界药局", "想要成为影之实力者!", "夏日重现", "继母的拷问", "更衣人偶坠入爱河", "明日同学", "厨神小当家", "仙魔大战", "不会拿捏距离的阿波连同学", "情热传说", "明日同学的水手服"],
+    "2021": ["86-不存在的战区", "无职转生", "回复术士的重来人生", "奇蛋物语", "打了300年的史莱姆不知不觉就练到了满级", "漂流少年", "偶像荣耀", "漂流少年", "古见同学有交流障碍症", "前辈有够烦", "转生成为了只有乙女游戏破灭Flag的邪恶大小姐", "摇曳露营"],
+    "2020": ["魔女之旅", "安达与岛村", "咒术回战", "总之就是非常可爱", "无能力者娜娜", "在魔王城说晚安", "魔女之旅", "虚构推理", "宝石商人理查德的谜鉴定", "你好世界", "你好世界", "辉夜大小姐想让我告白"],
+    "2019": ["冰海战记", "路人超能100", "街角魔族", "鬼灭之刃", "多罗罗", "女高中生的虚度日常", "天气之子", "不吉波普不笑", "某科学的一方通行", "五等分的新娘", "约定的梦幻岛", "约定的梦幻岛"],
+    "2018": ["紫罗兰永恒花园", "刀剑神域", "魔卡少女樱", "莉兹与青鸟", "强风吹拂", "Fate/EXTRA Last Encore", "魔法禁书目录", "比宇宙更远的地方", "SSSS.GRIDMAN", "青春笨蛋少年不做兔女郎学姐的梦", "终将成为你", "终将成为你"],
+    "2017": ["少女终末旅行", "来自深渊", "小林家的龙女仆", "狂赌之渊", "来自风平浪静的明天", "月色真美", "重启咲良田", "BanG Dream!", "幼女战记", "小魔女学园", "Just Because!", "埃罗芒阿老师"],
+    "2016": ["为美好的世界献上祝福!", "月曜日的妹妹", "Re:LIFE", "乔乔的奇妙冒险", "Re：从零开始的异世界生活", "在下坂本，有何贵干", "魔法少女育成计划", "这个美术社大有问题", "轻音少女", "NEW GAME!", "NEW GAME!", "NEW GAME!"],
+    "2015": ["黑子的篮球", "新番警察", "一拳超人", "终结的炽天使", "夏洛特", "OVERLORD", "监狱学园", "可塑性记忆", "在地下城寻求邂逅是否搞错了什么", "干物妹小埋", "小埋", "终物语"],
+    "2014": ["白箱", "月刊少女野崎君", "Fate/stay night Unlimited", "漫画家生活", "乒乓", "甘城光辉游乐园", "寄生兽", "虫师", "刀剑神域", "请问您今天要来点兔子吗", "新妹魔王的契约者", "大图书馆的牧羊人"],
+    "2013": ["生命的巨人", "罪恶王冠", "我的青春恋爱物语果然有问题", "伪恋", "王者天下", "向山进发", "兵长大战巨人", "进击的巨人", "我的青春恋爱物语果然有问题", "我的脑内选项正在全力妨碍学院恋爱喜剧", "魔法战争", "魔法战争"],
+    "2012": ["冰果", "JOJO的奇妙冒险", "男子高中生的日常", "中二病也要谈恋爱", "来自新世界", "伪物语", "Another", "黑子的篮球", "少女与战车", "刀剑神域", "力动漫场", "人类衰退之后"],
+    "2011": ["命运石之门", "日常", "Fate/Zero", "魔法少女小圆", "回转企鹅罐", "摇曳百合", "未来日记", "花开物语", "偶像大师", "GOSICK", "我的妹妹不可能那么可爱", "我的妹妹不可能那么可爱"],
+    "2010": ["荒川爆笑团", "四叶游戏", "会长是女仆", "轻音少女", "天降之物", "天使心", "无法逃离的背叛", "我的朋友很少", "金色琴弦", "我的妹妹不可能那么可爱", "女仆咖啡厅", "萝莉的时间"],
+    "2009": ["钢之炼金术", "破刃之剑", "轻音部", "守护甜心", "学生会的一己之见", "天降之物", "天才麻将少女", "白色相簿", "钢之炼金术师", "好想告诉你", "好想告诉你", "好想告诉你"],
+    "2008": ["出包王女", "龙与虎", "魔法禁书目录", "龙与虎", "黑执事", "神枪", "枪与剑", "魔法禁书目录", "黑执事", "伯爵与妖精", "魔法禁书目录", "魔法禁书目录"],
+    "2007": ["幸运星", "CLANNAD", "天元突破红莲螺岩", "地狱少女", "灼眼的夏娜", "传说中勇者的传说", "幸运星", "秒速五厘米", "南瓜剪子心", "日在校园", "传说中勇者的传说", "传说中勇者的传说"],
+    "2006": ["死亡笔记", "银魂", "黑之契约者", "Code Geass 反叛的鲁路修", "欢迎来到NHK!", "Fate/stay night", "凉宫春日的忧郁", "零之使魔", "凉宫", "Kanon", "传说", "xxxHOLiC"]
+  };
 
-  const grid = document.getElementById('animeGrid');
+  const table = document.getElementById('animeTable');
   const watched = JSON.parse(localStorage.getItem('watchedAnimes') || '[]');
 
-  animes.forEach(anime => {
-    const cell = document.createElement('div');
-    cell.className = `anime-cell ${watched.includes(anime) ? 'watched' : ''}`;
-    cell.textContent = anime;
+  Object.entries(animeData).reverse().forEach(([year, animes]) => {
+    // 创建年份行
+    const yearRow = document.createElement('div');
+    yearRow.className = 'anime-row';
     
-    cell.addEventListener('click', function() {
-      this.classList.toggle('watched');
-      const currentWatched = JSON.parse(localStorage.getItem('watchedAnimes') || '[]');
-      if (this.classList.contains('watched')) {
-        if (!currentWatched.includes(anime)) {
-          currentWatched.push(anime);
-        }
+    // 创建动画单元格
+    animes.forEach((anime, index) => {
+      const cell = document.createElement('div');
+      // 第一个格子显示年份
+      if (index === 0) {
+        cell.className = 'year-cell';
+        cell.textContent = year;
       } else {
-        const index = currentWatched.indexOf(anime);
-        if (index > -1) {
-          currentWatched.splice(index, 1);
-        }
+        cell.className = `anime-cell ${watched.includes(anime) ? 'watched' : ''}`;
+        cell.textContent = anime;
+        
+        cell.addEventListener('click', function() {
+          this.classList.toggle('watched');
+          const currentWatched = JSON.parse(localStorage.getItem('watchedAnimes') || '[]');
+          if (this.classList.contains('watched')) {
+            if (!currentWatched.includes(anime)) {
+              currentWatched.push(anime);
+            }
+          } else {
+            const index = currentWatched.indexOf(anime);
+            if (index > -1) {
+              currentWatched.splice(index, 1);
+            }
+          }
+          localStorage.setItem('watchedAnimes', JSON.stringify(currentWatched));
+        });
       }
-      localStorage.setItem('watchedAnimes', JSON.stringify(currentWatched));
+      yearRow.appendChild(cell);
     });
 
-    grid.appendChild(cell);
+    table.appendChild(yearRow);
   });
 });
 </script>
