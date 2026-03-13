@@ -7,90 +7,125 @@ permalink: /sandbox_war_game.html
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>沙盘战争 - 战场</title>
+    <title>沙盘战争 - 像素战场</title>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --pixel-bg: #2c3e50;
+            --pixel-primary: #3498db;
+            --pixel-secondary: #e74c3c;
+            --pixel-accent: #f1c40f;
+            --pixel-text: #ecf0f1;
+            --pixel-border: 4px;
+        }
+
         body {
             margin: 0;
             padding: 20px;
-            font-family: 'Arial', sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Press Start 2P', cursive;
+            background-color: #2c3e50;
+            background-image: 
+                linear-gradient(30deg, #34495e 12%, transparent 12.5%, transparent 87%, #34495e 87.5%, #34495e),
+                linear-gradient(150deg, #34495e 12%, transparent 12.5%, transparent 87%, #34495e 87.5%, #34495e),
+                linear-gradient(30deg, #34495e 12%, transparent 12.5%, transparent 87%, #34495e 87.5%, #34495e),
+                linear-gradient(150deg, #34495e 12%, transparent 12.5%, transparent 87%, #34495e 87.5%, #34495e),
+                linear-gradient(60deg, #2c3e5077 25%, transparent 25.5%, transparent 75%, #2c3e5077 75%, #2c3e5077),
+                linear-gradient(60deg, #2c3e5077 25%, transparent 25.5%, transparent 75%, #2c3e5077 75%, #2c3e5077);
+            background-size: 80px 140px;
+            background-position: 0 0, 0 0, 40px 70px, 40px 70px, 0 0, 40px 70px;
             min-height: 100vh;
-            color: white;
+            color: var(--pixel-text);
+            image-rendering: pixelated;
         }
 
         .container {
-            max-width: 1400px;
+            max-width: 1200px;
             margin: 0 auto;
             display: flex;
+            flex-direction: column;
             gap: 20px;
-        }
-
-        .main-content {
-            flex: 1;
-        }
-
-        .sidebar {
-            width: 350px;
-            flex-shrink: 0;
         }
 
         h1 {
             text-align: center;
             margin-bottom: 30px;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            text-shadow: 4px 4px 0px #000;
+            font-size: 2em;
+            color: var(--pixel-accent);
+            line-height: 1.5;
         }
 
-        .controls {
-            background: rgba(255,255,255,0.1);
-            padding: 20px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-            backdrop-filter: blur(10px);
-        }
-
-        .control-group {
+        .game-ui {
             display: flex;
-            gap: 15px;
-            align-items: center;
-            margin-bottom: 15px;
+            gap: 20px;
             flex-wrap: wrap;
         }
 
-        .control-group label {
-            font-weight: bold;
-            min-width: 80px;
+        .controls-panel {
+            flex: 1;
+            min-width: 300px;
+            background: #000;
+            border: 4px solid var(--pixel-text);
+            padding: 20px;
+            box-shadow: 8px 8px 0px rgba(0,0,0,0.5);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
         }
 
-        .control-group select,
-        .control-group input,
-        .control-group button {
-            padding: 8px 12px;
-            border: none;
-            border-radius: 5px;
-            background: rgba(255,255,255,0.9);
-            color: #333;
+        .control-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
         }
 
-        .control-group button {
-            background: #4CAF50;
-            color: white;
+        .pixel-btn {
+            font-family: 'Press Start 2P', cursive;
+            padding: 10px 15px;
+            border: 4px solid;
+            background: transparent;
+            color: var(--pixel-text);
             cursor: pointer;
-            transition: all 0.3s;
+            text-transform: uppercase;
+            font-size: 10px;
+            position: relative;
+            transition: transform 0.1s;
+            box-shadow: 4px 4px 0px rgba(0,0,0,0.5);
         }
 
-        .control-group button:hover {
-            background: #45a049;
-            transform: translateY(-2px);
+        .pixel-btn:active {
+            transform: translate(2px, 2px);
+            box-shadow: 2px 2px 0px rgba(0,0,0,0.5);
+        }
+
+        .btn-ally { border-color: var(--pixel-primary); color: var(--pixel-primary); }
+        .btn-enemy { border-color: var(--pixel-secondary); color: var(--pixel-secondary); }
+        .btn-action { border-color: var(--pixel-accent); color: var(--pixel-accent); }
+        .btn-danger { border-color: #95a5a6; color: #95a5a6; }
+
+        .pixel-input, .pixel-select {
+            font-family: 'Press Start 2P', cursive;
+            background: #000;
+            border: 2px solid var(--pixel-text);
+            color: var(--pixel-text);
+            padding: 8px;
+            font-size: 10px;
         }
 
         .battlefield {
-            background: rgba(255,255,255,0.1);
-            border: 2px solid rgba(255,255,255,0.3);
-            border-radius: 10px;
-            padding: 20px;
-            backdrop-filter: blur(10px);
+            width: 100%;
+            height: 600px;
+            background: #1a1a1a;
+            border: 4px solid var(--pixel-text);
             position: relative;
-            min-height: 500px;
+            box-shadow: 8px 8px 0px rgba(0,0,0,0.5);
+            overflow: hidden;
+            /* 网格背景 */
+            background-image: 
+                linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+            background-size: 40px 40px;
         }
 
         .unit {
@@ -98,241 +133,145 @@ permalink: /sandbox_war_game.html
             display: flex;
             align-items: center;
             justify-content: center;
-            color: white;
-            font-weight: bold;
-            font-size: 12px;
+            font-size: 0; /* 隐藏文字 */
             cursor: pointer;
-            transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-            will-change: transform, left, top;
+            transition: transform 0.2s;
+            image-rendering: pixelated;
         }
 
-        .unit.moving {
-            box-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
-            animation: pulse 0.5s ease-in-out infinite alternate;
+        /* 像素坦克 */
+        .unit.tank {
+            width: 40px !important;
+            height: 40px !important;
+            box-shadow: 
+                /* 履带 */
+                4px 0 0 0 #000, 36px 0 0 0 #000,
+                4px 4px 0 0 #333, 36px 4px 0 0 #333,
+                4px 36px 0 0 #000, 36px 36px 0 0 #000,
+                /* 车身 */
+                12px 8px 0 0 var(--color), 28px 8px 0 0 var(--color),
+                12px 32px 0 0 var(--color), 28px 32px 0 0 var(--color);
+            background: var(--color-dark);
+        }
+        
+        .unit.tank::after {
+            content: '';
+            position: absolute;
+            width: 16px;
+            height: 24px;
+            background: var(--color-light);
+            top: -8px; /* 炮管 */
+            left: 12px;
+            box-shadow: 0 8px 0 0 var(--color); /* 炮塔 */
         }
 
-        @keyframes pulse {
-            from { transform: scale(1); }
-            to { transform: scale(1.05); }
+        /* 像素士兵 */
+        .unit.soldier {
+            width: 24px !important;
+            height: 24px !important;
+            background: transparent;
+            box-shadow: 
+                8px 0 0 0 var(--color), /* 头 */
+                12px 0 0 0 var(--color),
+                4px 4px 0 0 var(--color), /* 身体 */
+                8px 4px 0 0 var(--color),
+                12px 4px 0 0 var(--color),
+                16px 4px 0 0 var(--color),
+                8px 8px 0 0 var(--color), /* 腿 */
+                12px 8px 0 0 var(--color),
+                4px 12px 0 0 #000, /* 脚 */
+                16px 12px 0 0 #000;
         }
+
+        .unit.ally { --color: #3498db; --color-dark: #2980b9; --color-light: #5dade2; }
+        .unit.enemy { --color: #e74c3c; --color-dark: #c0392b; --color-light: #ec7063; }
 
         .unit.selected {
-            border: 3px solid #ffeb3b;
-            box-shadow: 0 0 20px #ffeb3b;
-        }
-
-        .unit:hover {
-            transform: scale(1.1);
-            box-shadow: 0 4px 16px rgba(0,0,0,0.5);
-        }
-
-        .unit.attacking {
-            animation: flash 0.2s ease-in-out;
-        }
-
-        @keyframes flash {
-            0% { filter: brightness(1); }
-            50% { filter: brightness(2); transform: scale(1.1); }
-            100% { filter: brightness(1); }
-        }
-
-        /* 攻击连线样式 */
-        .attack-line {
-            position: absolute;
-            height: 2px;
-            background: rgba(255, 255, 255, 0.6);
-            pointer-events: none;
-            z-index: 5;
-            transform-origin: left center;
-        }
-
-        .unit.tank {
-            border-radius: 4px; /* 坦克设为方形（带微小圆角） */
-            background: linear-gradient(45deg, #8B4513, #A0522D);
-            border: 2px solid #654321;
-        }
-
-        .unit.soldier {
-            border-radius: 50%; /* 士兵保持圆形 */
-            background: linear-gradient(45deg, #4CAF50, #45a049);
-            border: 2px solid #2E7D32;
-        }
-
-        .unit.enemy {
-            background: linear-gradient(45deg, #f44336, #d32f2f);
-            border: 2px solid #b71c1c;
-        }
-
-        .unit.ally {
-            background: linear-gradient(45deg, #2196F3, #1976D2);
-            border: 2px solid #0D47A1;
-        }
-
-        .unit-info {
-            position: absolute;
-            background: rgba(0,0,0,0.8);
-            color: white;
-            padding: 10px;
-            border-radius: 5px;
-            font-size: 12px;
-            pointer-events: none;
-            z-index: 1000;
-            display: none;
+            filter: drop-shadow(0 0 4px #f1c40f);
+            z-index: 100;
         }
 
         .battle-log {
-            background: rgba(0,0,0,0.7);
-            color: #00ff00;
-            padding: 15px;
-            border-radius: 10px;
+            height: 150px;
+            background: #000;
+            border: 4px solid var(--pixel-text);
+            padding: 10px;
             font-family: 'Courier New', monospace;
-            height: 600px;
+            font-size: 12px;
             overflow-y: auto;
-            position: sticky;
-            top: 20px;
+            color: #2ecc71;
+            box-shadow: 8px 8px 0px rgba(0,0,0,0.5);
+            margin-top: 20px;
         }
 
-        .battle-log h3 {
-            margin-top: 0;
-            color: #ffeb3b;
+        .log-entry { margin: 2px 0; line-height: 1.4; }
+        .log-entry.ally { color: #3498db; }
+        .log-entry.enemy { color: #e74c3c; }
+
+        /* 状态栏 */
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px;
+            background: #000;
+            border: 4px solid var(--pixel-text);
+            font-size: 10px;
+            color: var(--pixel-accent);
+            margin-top: 10px;
         }
 
-        .log-entry {
-            margin: 5px 0;
-            padding: 2px 0;
-        }
-
-        .log-entry.attack {
-            color: #ff6b6b;
-        }
-
-        .log-entry.move {
-            color: #4ecdc4;
-        }
-
-        .log-entry.info {
-            color: #45b7d1;
-        }
-
-        .log-entry.ally {
-            color: #2196F3;
-            font-weight: bold;
-        }
-
-        .log-entry.enemy {
-            color: #f44336;
-            font-weight: bold;
-        }
-
-        .log-entry.ally.attack {
-            color: #64B5F6;
-        }
-
-        .log-entry.enemy.attack {
-            color: #FF8A80;
-        }
-
-        .log-entry.ally.move {
-            color: #81C784;
-        }
-
-        .log-entry.enemy.move {
-            color: #FFB74D;
-        }
-
-        .back-button {
-            display: inline-block;
-            color: white;
-            background-color: #6c757d;
-            text-decoration: none;
-            padding: 10px 20px;
-            border-radius: 5px;
-            transition: all 0.3s ease;
-            margin-bottom: 20px;
-        }
-
-        .back-button:hover {
-            background-color: #5a6268;
-            transform: translateY(-2px);
-        }
-
-        /* 响应式设计 */
-        @media (max-width: 768px) {
-            .container {
-                flex-direction: column;
-            }
-            
-            .sidebar {
-                width: 100%;
-                margin-top: 20px;
-            }
-            
-            .battle-log {
-                height: 300px;
-                position: static;
-            }
-        }
+        /* 移除旧样式干扰 */
+        .back-button, .sidebar, .main-content { display: none; }
+        .container { display: block; }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="main-content">
-            <a href="/sandbox_war/" class="back-button">← 返回介绍页</a>
-            <h1>🏰 沙盘战争 - 战场</h1>
-            
-            <div class="controls">
-                <div class="control-group">
-                    <label>单位类型:</label>
-                    <select id="unitType">
-                        <option value="tank">坦克</option>
-                        <option value="soldier">士兵</option>
+        <h1>👾 PIXEL WAR 👾</h1>
+        
+        <div class="game-ui">
+            <div class="controls-panel">
+                <div class="control-row">
+                    <label>UNIT:</label>
+                    <select id="unitType" class="pixel-select">
+                        <option value="tank">TANK</option>
+                        <option value="soldier">SOLDIER</option>
                     </select>
                     
-                    <label>生命值:</label>
-                    <input type="number" id="unitHealth" value="100" min="1" max="200">
-                    
-                    <button onclick="addAllyUnit()" style="background: #2196F3;">添加友军</button>
-                    <button onclick="addEnemyUnit()" style="background: #f44336;">添加敌军</button>
-                    <button onclick="startBattle()">开始战斗</button>
-                    <button onclick="pauseBattle()" id="pauseBtn" style="background: #ff9800;">暂停战斗</button>
-                    <button onclick="clearBattlefield()">清空战场</button>
+                    <label>HP:</label>
+                    <input type="number" id="unitHealth" value="100" min="1" max="200" class="pixel-input" style="width: 60px;">
                 </div>
-            </div>
-
-            <div class="battlefield" id="battlefield">
-                <div style="text-align: center; padding: 100px; color: rgba(255,255,255,0.5);">
-                    选择单位类型和生命值，然后点击"添加友军"或"添加敌军"来放置作战单位，最后点击"开始战斗"进行模拟作战
+                
+                <div class="control-row">
+                    <button onclick="addAllyUnit()" class="pixel-btn btn-ally">+ ALLY</button>
+                    <button onclick="addEnemyUnit()" class="pixel-btn btn-enemy">+ ENEMY</button>
+                    <button onclick="toggleBattle()" id="battleBtn" class="pixel-btn btn-action">START</button>
+                    <button onclick="clearBattlefield()" class="pixel-btn btn-danger">CLEAR</button>
                 </div>
             </div>
         </div>
 
-        <div class="sidebar">
-            <div class="battle-log" id="battleLog">
-                <h3>战斗日志</h3>
-                <div id="logContent"></div>
-            </div>
-            <div class="fps-display" id="fpsDisplay" style="
-                background: rgba(0,0,0,0.7);
-                color: #00ff00;
-                padding: 10px;
-                border-radius: 5px;
-                margin-top: 10px;
-                font-family: 'Courier New', monospace;
-                font-size: 12px;
-                text-align: center;
-            ">
-                <div>FPS: <span id="fpsValue">0</span></div>
-                <div>单位数: <span id="unitCount">0</span></div>
-                <div>最后更新: <span id="lastModified"></span></div>
+        <div class="battlefield" id="battlefield">
+            <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; opacity: 0.5; pointer-events: none;">
+                <p>DEPLOY UNITS TO START</p>
+                <p style="font-size: 0.8em; margin-top: 10px;">CLICK TO ADD • DRAG TO MOVE (WIP)</p>
             </div>
         </div>
+
+        <div class="status-bar">
+            <span>FPS: <span id="fpsValue">0</span></span>
+            <span>UNITS: <span id="unitCount">0</span></span>
+            <span>UPDATED: <span id="lastModified"></span></span>
+        </div>
+
+        <div class="battle-log" id="battleLog"></div>
     </div>
 
     <div class="unit-info" id="unitInfo"></div>
 
     <script>
-        // 组合模式：游戏对象基类
+        // ... (保持原有逻辑，只需调整部分 UI 交互) ...
+
         class GameObject {
             constructor(x, y, type, team, health) {
                 this.x = x;
@@ -444,14 +383,16 @@ permalink: /sandbox_war_game.html
                     this.x = startX + deltaX * easeProgress;
                     this.y = startY + deltaY * easeProgress;
                     
-                    this.element.style.left = this.x + 'px';
-                    this.element.style.top = this.y + 'px';
+                    if (this.element) {
+                        this.element.style.left = this.x + 'px';
+                        this.element.style.top = this.y + 'px';
+                    }
                     
                     if (progress < 1) {
                         requestAnimationFrame(animate);
                     } else {
                         // 移动完成，移除移动状态
-                        this.element.classList.remove('moving');
+                        if (this.element) this.element.classList.remove('moving');
                     }
                 };
                 
@@ -473,19 +414,22 @@ permalink: /sandbox_war_game.html
                     const distance = this.getDistance(nearestEnemy);
                     
                     // 如果在攻击范围内，尝试攻击
-                    if (distance <= this.attackRange * 0.9) { // 稍微靠近一点再攻击
+                    if (distance <= this.attackRange * 0.9) { 
+                        // 进入射程，停止移动并攻击
                         this.isMoving = false; 
                         this.tryAttack(nearestEnemy);
                     } else {
-                        // 否则移动到敌人附近
+                        // 射程外，追击
+                        this.isMoving = true;
                         this.moveTowards(nearestEnemy, deltaTime);
                     }
                 } else {
-                    // 没有敌人时随机移动
+                    // 无敌人，随机巡逻
+                    this.isMoving = true;
                     this.randomMove(deltaTime);
                 }
 
-                // 更新位置（包含碰撞分离和移动）
+                // 强制刷新位置，防止状态不一致
                 this.updatePosition(deltaTime, allUnits);
             }
 
@@ -628,15 +572,20 @@ permalink: /sandbox_war_game.html
                     }
                 }
 
-                // 3. 更新 DOM
+                // 3. 更新 DOM - 修复位置刷新逻辑
                 if (this.element) {
+                    // 使用 transform 代替 left/top 以获得更好的性能和子像素精度
+                    // 但这里为了兼容性，我们确保 left/top 更新
                     this.element.style.left = this.x + 'px';
                     this.element.style.top = this.y + 'px';
+                    
                     if (this.isMoving) {
                         this.element.classList.add('moving');
                     } else {
                         this.element.classList.remove('moving');
                     }
+                } else {
+                    console.warn('Unit element missing for updatePosition');
                 }
             }
 
@@ -720,7 +669,7 @@ permalink: /sandbox_war_game.html
                 if (distance <= this.attackRange && target.team !== this.team) {
                     const damage = this.attackPower + Math.floor(Math.random() * 10);
                     const killed = target.takeDamage(damage);
-                    logBattle(`${this.team === 'ally' ? '友军' : '敌军'}坦克攻击${target.team === 'ally' ? '友军' : '敌军'}${target.type === 'tank' ? '坦克' : '士兵'}，造成${damage}点伤害${killed ? '，目标被摧毁！' : ''}`, `${this.team} attack`);
+                    logBattle(`${this.team === 'ally' ? 'ALLY' : 'ENEMY'} TANK HIT ${target.team === 'ally' ? 'ALLY' : 'ENEMY'} ${target.type === 'tank' ? 'TANK' : 'SOLDIER'} (-${damage})${killed ? ' - DESTROYED!' : ''}`, `${this.team} attack`);
                     return true;
                 }
                 return false;
@@ -735,7 +684,7 @@ permalink: /sandbox_war_game.html
                 const targetY = Math.max(0, Math.min(maxY, this.y + (Math.random() - 0.5) * this.movementRange));
                 
                 this.smoothMove(targetX, targetY, 800);
-                logBattle(`${this.team === 'ally' ? '友军' : '敌军'}坦克移动到新位置`, `${this.team} move`);
+                logBattle(`${this.team === 'ally' ? 'ALLY' : 'ENEMY'} TANK MOVING`, `${this.team} move`);
             }
         }
 
@@ -755,7 +704,7 @@ permalink: /sandbox_war_game.html
                 if (distance <= this.attackRange && target.team !== this.team) {
                     const damage = this.attackPower + Math.floor(Math.random() * 8);
                     const killed = target.takeDamage(damage);
-                    logBattle(`${this.team === 'ally' ? '友军' : '敌军'}士兵攻击${target.team === 'ally' ? '友军' : '敌军'}${target.type === 'tank' ? '坦克' : '士兵'}，造成${damage}点伤害${killed ? '，目标被摧毁！' : ''}`, `${this.team} attack`);
+                    logBattle(`${this.team === 'ally' ? 'ALLY' : 'ENEMY'} SOLDIER HIT ${target.team === 'ally' ? 'ALLY' : 'ENEMY'} ${target.type === 'tank' ? 'TANK' : 'SOLDIER'} (-${damage})${killed ? ' - DESTROYED!' : ''}`, `${this.team} attack`);
                     return true;
                 }
                 return false;
@@ -770,7 +719,7 @@ permalink: /sandbox_war_game.html
                 const targetY = Math.max(0, Math.min(maxY, this.y + (Math.random() - 0.5) * this.movementRange));
                 
                 this.smoothMove(targetX, targetY, 600);
-                logBattle(`${this.team === 'ally' ? '友军' : '敌军'}士兵移动到新位置`, `${this.team} move`);
+                logBattle(`${this.team === 'ally' ? 'ALLY' : 'ENEMY'} SOLDIER MOVING`, `${this.team} move`);
             }
         }
 
@@ -808,7 +757,7 @@ permalink: /sandbox_war_game.html
                 this.units.push(unit);
                 const element = unit.createElement();
                 this.battlefield.appendChild(element);
-                logBattle(`添加了${unit.team === 'ally' ? '友军' : '敌军'}${unit.type === 'tank' ? '坦克' : '士兵'}`, unit.team);
+                logBattle(`DEPLOYED ${unit.team === 'ally' ? 'ALLY' : 'ENEMY'} ${unit.type === 'tank' ? 'TANK' : 'SOLDIER'}`, unit.team);
             }
 
             removeUnit(unit) {
@@ -828,13 +777,13 @@ permalink: /sandbox_war_game.html
                     }
                 });
                 this.units = [];
-                this.battlefield.innerHTML = '<div style="text-align: center; padding: 100px; color: rgba(255,255,255,0.5);">点击"添加单位"来放置作战单位，然后点击"开始战斗"进行模拟作战</div>';
-                logBattle('战场已清空', 'info');
+                this.battlefield.innerHTML = '<div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; opacity: 0.5; pointer-events: none;"><p>DEPLOY UNITS TO START</p><p style="font-size: 0.8em; margin-top: 10px;">CLICK TO ADD • DRAG TO MOVE (WIP)</p></div>';
+                logBattle('BATTLEFIELD CLEARED', 'info');
             }
 
             startBattle() {
                 if (this.units.length < 2) {
-                    alert('至少需要2个单位才能开始战斗！');
+                    alert('DEPLOY AT LEAST 2 UNITS!');
                     return;
                 }
 
@@ -843,7 +792,7 @@ permalink: /sandbox_war_game.html
                 this.lastUpdateTime = performance.now();
                 this.lastFrameTime = 0; // 重置帧时间
                 this.framesThisSecond = 0; // 重置帧计数
-                logBattle('实时战斗开始！', 'info');
+                logBattle('BATTLE STARTED!', 'info');
                 
                 this.animationId = requestAnimationFrame((timestamp) => this.gameLoop(timestamp));
             }
@@ -927,16 +876,11 @@ permalink: /sandbox_war_game.html
                 if (!this.isBattleActive) return;
                 
                 this.isPaused = !this.isPaused;
-                const pauseBtn = document.getElementById('pauseBtn');
                 
                 if (this.isPaused) {
-                    pauseBtn.textContent = '继续战斗';
-                    pauseBtn.style.background = '#4CAF50';
-                    logBattle('战斗已暂停', 'info');
+                    logBattle('BATTLE PAUSED', 'info');
                 } else {
-                    pauseBtn.textContent = '暂停战斗';
-                    pauseBtn.style.background = '#ff9800';
-                    logBattle('战斗继续', 'info');
+                    logBattle('BATTLE RESUMED', 'info');
                 }
             }
 
@@ -951,13 +895,13 @@ permalink: /sandbox_war_game.html
                 const enemyUnits = this.units.filter(unit => unit.team === 'enemy' && !unit.isDead());
                 
                 if (allyUnits.length === 0 && enemyUnits.length === 0) {
-                    logBattle('战斗结束！双方同归于尽', 'info');
+                    logBattle('GAME OVER: DRAW', 'info');
                 } else if (allyUnits.length === 0) {
-                    logBattle('战斗结束！敌军获胜！', 'info');
+                    logBattle('GAME OVER: ENEMY WINS!', 'info');
                 } else if (enemyUnits.length === 0) {
-                    logBattle('战斗结束！友军获胜！', 'info');
+                    logBattle('GAME OVER: ALLY WINS!', 'info');
                 } else {
-                    logBattle('战斗结束！仍有单位存活', 'info');
+                    logBattle('GAME STOPPED', 'info');
                 }
             }
         }
@@ -967,7 +911,7 @@ permalink: /sandbox_war_game.html
 
         // 工具函数
         function logBattle(message, type = 'info') {
-            const logContent = document.getElementById('logContent');
+            const logContent = document.getElementById('battleLog'); // 修改了ID
             const logEntry = document.createElement('div');
             logEntry.className = `log-entry ${type}`;
             logEntry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
@@ -1001,12 +945,34 @@ permalink: /sandbox_war_game.html
             battlefieldManager.addUnit(unit);
         }
 
-        function startBattle() {
-            battlefieldManager.startBattle();
-        }
-
-        function pauseBattle() {
-            battlefieldManager.pauseBattle();
+        function toggleBattle() {
+            const battleBtn = document.getElementById('battleBtn');
+            
+            if (!battlefieldManager.isBattleActive) {
+                // 开始战斗
+                if (battlefieldManager.units.length < 2) {
+                    alert('DEPLOY AT LEAST 2 UNITS!'); // 英文提示
+                    return;
+                }
+                
+                battlefieldManager.startBattle();
+                battleBtn.textContent = 'PAUSE'; // 英文按钮
+                battleBtn.style.color = '#f1c40f';
+                battleBtn.style.borderColor = '#f1c40f';
+            } else {
+                // 暂停/继续战斗
+                battlefieldManager.pauseBattle();
+                
+                if (battlefieldManager.isPaused) {
+                    battleBtn.textContent = 'RESUME'; // 英文按钮
+                    battleBtn.style.color = '#2ecc71';
+                    battleBtn.style.borderColor = '#2ecc71';
+                } else {
+                    battleBtn.textContent = 'PAUSE'; // 英文按钮
+                    battleBtn.style.color = '#f1c40f';
+                    battleBtn.style.borderColor = '#f1c40f';
+                }
+            }
         }
 
         function clearBattlefield() {
@@ -1082,7 +1048,7 @@ permalink: /sandbox_war_game.html
 
         // 初始化
         document.addEventListener('DOMContentLoaded', function() {
-            logBattle('沙盘战争系统已启动', 'info');
+            logBattle('SYSTEM READY', 'info');
             addMobileOptimizations();
             const lastModifiedSpan = document.getElementById('lastModified');
             if (lastModifiedSpan) {
