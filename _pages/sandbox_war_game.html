@@ -102,6 +102,7 @@ permalink: /sandbox_war_game.html
         .btn-ally { border-color: var(--pixel-primary); color: var(--pixel-primary); }
         .btn-enemy { border-color: var(--pixel-secondary); color: var(--pixel-secondary); }
         .btn-action { border-color: var(--pixel-accent); color: var(--pixel-accent); }
+        .btn-obstacle { border-color: #9b8f6a; color: #d8c98b; }
         .btn-danger { border-color: #95a5a6; color: #95a5a6; }
 
         .pixel-input, .pixel-select {
@@ -253,6 +254,37 @@ permalink: /sandbox_war_game.html
             z-index: 6;
         }
 
+        .obstacle {
+            position: absolute;
+            background: #6f664f;
+            border: 4px solid #2f2b22;
+            box-shadow:
+                inset 0 0 0 4px rgba(255,255,255,0.08),
+                6px 6px 0 rgba(0,0,0,0.35);
+            z-index: 4;
+        }
+
+        .obstacle::before,
+        .obstacle::after {
+            content: '';
+            position: absolute;
+            background: rgba(0,0,0,0.22);
+        }
+
+        .obstacle::before {
+            width: 45%;
+            height: 6px;
+            left: 12%;
+            top: 28%;
+        }
+
+        .obstacle::after {
+            width: 34%;
+            height: 6px;
+            right: 10%;
+            bottom: 24%;
+        }
+
         .impact {
             position: absolute;
             width: 22px;
@@ -325,6 +357,7 @@ permalink: /sandbox_war_game.html
                 <div class="control-row">
                     <button onclick="addAllyUnit()" class="pixel-btn btn-ally">+ ALLY</button>
                     <button onclick="addEnemyUnit()" class="pixel-btn btn-enemy">+ ENEMY</button>
+                    <button onclick="addObstacle()" class="pixel-btn btn-obstacle">+ COVER</button>
                     <button onclick="toggleBattle()" id="battleBtn" class="pixel-btn btn-action">START</button>
                     <button onclick="clearBattlefield()" class="pixel-btn btn-danger">CLEAR</button>
                 </div>
@@ -371,13 +404,18 @@ permalink: /sandbox_war_game.html
                 // 实时移动和攻击系统
                 this.targetX = x;
                 this.targetY = y;
+                this.path = [];
+                this.pathTargetX = x;
+                this.pathTargetY = y;
+                this.lastPathTime = 0;
+                this.pathCooldown = 450;
                 this.isMoving = false;
                 this.lastAttackTime = 0;
                 this.attackCooldown = 1000; // 1秒攻击冷却
                 this.lastMoveTime = 0;
                 this.moveCooldown = 2000; // 2秒移动冷却
                 this.velocity = { x: 0, y: 0 };
-                this.maxSpeed = 30; // 像素/秒
+                this.maxSpeed = 22; // 像素/秒
                 this.strafeDirection = Math.random() > 0.5 ? 1 : -1;
                 this.lastStrafeSwitch = Date.now();
             }
@@ -463,6 +501,20 @@ permalink: /sandbox_war_game.html
 
             isFacing(target, tolerance = 14) {
                 return Math.abs(this.shortestAngleDelta(this.angle, this.getAngleTo(target))) <= tolerance;
+            }
+
+            angleToPoint(x, y) {
+                const dx = x - this.x;
+                const dy = y - this.y;
+                return this.normalizeAngle(Math.atan2(dy, dx) * 180 / Math.PI + 90);
+            }
+
+            forwardVector() {
+                const radians = (this.angle - 90) * Math.PI / 180;
+                return {
+                    x: Math.cos(radians),
+                    y: Math.sin(radians)
+                };
             }
 
             select() {
@@ -643,7 +695,55 @@ permalink: /sandbox_war_game.html
 
                 this.targetX = Math.max(0, Math.min(maxX, this.targetX));
                 this.targetY = Math.max(0, Math.min(maxY, this.targetY));
+                this.updatePathToTarget();
                 this.isMoving = true;
+            }
+
+            updatePathToTarget(force = false) {
+                if (!battlefieldManager || battlefieldManager.obstacles.length === 0) {
+                    this.path = [];
+                    return;
+                }
+
+                const now = Date.now();
+                const targetMoved = Math.abs(this.targetX - this.pathTargetX) > 24 || Math.abs(this.targetY - this.pathTargetY) > 24;
+                const lineBlocked = battlefieldManager.pathBlockedByObstacle(this.x, this.y, this.targetX, this.targetY, this.getSize());
+
+                if (!lineBlocked) {
+                    this.path = [];
+                    this.pathTargetX = this.targetX;
+                    this.pathTargetY = this.targetY;
+                    return;
+                }
+
+                if (!force && !targetMoved && this.path.length > 0 && now - this.lastPathTime < this.pathCooldown) {
+                    return;
+                }
+
+                if (!force && now - this.lastPathTime < this.pathCooldown) {
+                    return;
+                }
+
+                this.path = battlefieldManager.findPath(this.x, this.y, this.targetX, this.targetY, this.getSize());
+                this.pathTargetX = this.targetX;
+                this.pathTargetY = this.targetY;
+                this.lastPathTime = now;
+            }
+
+            getMoveTarget() {
+                if (this.path.length === 0) {
+                    return { x: this.targetX, y: this.targetY, isWaypoint: false };
+                }
+
+                const waypoint = this.path[0];
+                const dx = waypoint.x - this.x;
+                const dy = waypoint.y - this.y;
+                if (Math.sqrt(dx * dx + dy * dy) < 8) {
+                    this.path.shift();
+                    return this.getMoveTarget();
+                }
+
+                return { x: waypoint.x, y: waypoint.y, isWaypoint: true };
             }
 
             moveTowards(target) {
@@ -707,7 +807,7 @@ permalink: /sandbox_war_game.html
                 const maxY = battlefield.offsetHeight - this.getSize();
 
                 const angle = Math.random() * Math.PI * 2;
-                const moveDistance = 100 + Math.random() * 100;
+                const moveDistance = 55 + Math.random() * 65;
                 
                 this.targetX = Math.max(0, Math.min(maxX, this.x + Math.cos(angle) * moveDistance));
                 this.targetY = Math.max(0, Math.min(maxY, this.y + Math.sin(angle) * moveDistance));
@@ -717,40 +817,16 @@ permalink: /sandbox_war_game.html
             }
 
             updatePosition(deltaTime, allUnits) {
-                this.updateRotation(deltaTime);
+                if (this.type !== 'tank') {
+                    this.updateRotation(deltaTime);
+                }
 
                 // 1. 处理分离（防止重叠）
                 this.handleSeparation(allUnits);
 
                 // 2. 处理主动移动
                 if (this.isMoving) {
-                    const dx = this.targetX - this.x;
-                    const dy = this.targetY - this.y;
-                    const distance = Math.sqrt(dx * dx + dy * dy);
-
-                    if (distance < 3) {
-                        this.x = this.targetX;
-                        this.y = this.targetY;
-                        this.isMoving = false;
-                        if (this.element) this.element.classList.remove('moving');
-                    } else {
-                        const moveSpeed = this.maxSpeed * deltaTime;
-                        // 尝试移动，如果会碰撞则尝试绕行
-                        const nextX = this.x + (dx / distance) * moveSpeed;
-                        const nextY = this.y + (dy / distance) * moveSpeed;
-
-                        if (!this.checkCollision(nextX, nextY, allUnits)) {
-                            this.x = nextX;
-                            this.y = nextY;
-                        } else {
-                            // 简单绕行逻辑：尝试只改 X 或只改 Y
-                            if (!this.checkCollision(nextX, this.y, allUnits)) {
-                                this.x = nextX;
-                            } else if (!this.checkCollision(this.x, nextY, allUnits)) {
-                                this.y = nextY;
-                            }
-                        }
-                    }
+                    this.moveTowardTarget(deltaTime, allUnits);
                 }
 
                 // 3. 更新 DOM - 修复位置刷新逻辑
@@ -758,6 +834,40 @@ permalink: /sandbox_war_game.html
                     this.updateVisual();
                 } else {
                     console.warn('Unit element missing for updatePosition');
+                }
+            }
+
+            moveTowardTarget(deltaTime, allUnits) {
+                const moveTarget = this.getMoveTarget();
+                const dx = moveTarget.x - this.x;
+                const dy = moveTarget.y - this.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (distance < 3) {
+                    if (moveTarget.isWaypoint) {
+                        this.path.shift();
+                    } else {
+                        this.x = this.targetX;
+                        this.y = this.targetY;
+                        this.isMoving = false;
+                    }
+                    if (this.element) this.element.classList.remove('moving');
+                    return;
+                }
+
+                const moveSpeed = this.maxSpeed * deltaTime;
+                const nextX = this.x + (dx / distance) * moveSpeed;
+                const nextY = this.y + (dy / distance) * moveSpeed;
+
+                if (!this.checkCollision(nextX, nextY, allUnits)) {
+                    this.x = nextX;
+                    this.y = nextY;
+                } else if (!this.checkCollision(nextX, this.y, allUnits)) {
+                    this.x = nextX;
+                } else if (!this.checkCollision(this.x, nextY, allUnits)) {
+                    this.y = nextY;
+                } else {
+                    this.updatePathToTarget(true);
                 }
             }
 
@@ -797,6 +907,10 @@ permalink: /sandbox_war_game.html
                 const myCenterX = nextX + mySize / 2;
                 const myCenterY = nextY + mySize / 2;
 
+                if (battlefieldManager && battlefieldManager.collidesWithObstacle(nextX, nextY, mySize, mySize)) {
+                    return true;
+                }
+
                 for (const other of allUnits) {
                     if (other === this || other.isDead()) continue;
 
@@ -829,14 +943,69 @@ permalink: /sandbox_war_game.html
                 super(x, y, 'tank', team, health);
                 this.attackRange = 230;
                 this.attackPower = 30;
-                this.maxSpeed = 50; // 坦克移动速度
-                this.maxTurnSpeed = 95; // 坦克炮塔转向更沉稳
+                this.maxSpeed = 28; // 坦克移动速度
+                this.reverseSpeedRatio = 0.45;
+                this.maxTurnSpeed = 95; // 坦克车体转向更沉稳
                 this.attackCooldown = 2000; // 2秒攻击冷却
                 this.moveCooldown = 500; // 0.5秒移动冷却
             }
 
             getAttackDamage() {
                 return this.attackPower + Math.floor(Math.random() * 10);
+            }
+
+            turnToward(target) {
+                this.setDesiredAngle(this.getAngleTo(target));
+            }
+
+            moveTowardTarget(deltaTime, allUnits) {
+                const moveTarget = this.getMoveTarget();
+                const dx = moveTarget.x - this.x;
+                const dy = moveTarget.y - this.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (distance < 6) {
+                    if (moveTarget.isWaypoint) {
+                        this.path.shift();
+                    } else {
+                        this.isMoving = false;
+                    }
+                    if (this.element) this.element.classList.remove('moving');
+                    return;
+                }
+
+                const targetAngle = this.angleToPoint(moveTarget.x, moveTarget.y);
+                let angleDelta = this.shortestAngleDelta(this.angle, targetAngle);
+                let direction = 1;
+
+                if (Math.abs(angleDelta) > 105) {
+                    direction = -1;
+                    angleDelta = this.shortestAngleDelta(this.angle, this.normalizeAngle(targetAngle + 180));
+                }
+
+                this.setDesiredAngle(this.normalizeAngle(this.angle + angleDelta));
+                this.updateRotation(deltaTime);
+
+                const alignment = Math.cos(Math.abs(angleDelta) * Math.PI / 180);
+                const throttle = Math.max(0, alignment);
+                const speed = this.maxSpeed * (direction === -1 ? this.reverseSpeedRatio : 1) * throttle * deltaTime;
+
+                if (speed < 0.1) return;
+
+                const forward = this.forwardVector();
+                const nextX = this.x + forward.x * speed * direction;
+                const nextY = this.y + forward.y * speed * direction;
+
+                if (!this.checkCollision(nextX, nextY, allUnits)) {
+                    this.x = nextX;
+                    this.y = nextY;
+                } else {
+                    this.updatePathToTarget(true);
+                    if (this.path.length === 0) {
+                        this.strafeDirection *= -1;
+                        this.setDesiredAngle(this.normalizeAngle(this.desiredAngle + 45 * this.strafeDirection));
+                    }
+                }
             }
 
         }
@@ -847,7 +1016,7 @@ permalink: /sandbox_war_game.html
                 super(x, y, 'soldier', team, health);
                 this.attackRange = 105;
                 this.attackPower = 20;
-                this.maxSpeed = 80; // 士兵移动较快
+                this.maxSpeed = 42; // 士兵移动较快
                 this.maxTurnSpeed = 210;
                 this.attackCooldown = 1500; // 1.5秒攻击冷却
                 this.moveCooldown = 300; // 0.3秒移动冷却
@@ -879,6 +1048,11 @@ permalink: /sandbox_war_game.html
             update(deltaTime) {
                 if (!this.target || this.target.isDead()) return false;
 
+                if (battlefieldManager.collidesWithObstacle(this.x, this.y, 8, 8)) {
+                    this.createImpact(this.x, this.y);
+                    return false;
+                }
+
                 const targetX = this.target.x + this.target.getSize() / 2;
                 const targetY = this.target.y + this.target.getSize() / 2;
                 const dx = targetX - this.x;
@@ -895,6 +1069,10 @@ permalink: /sandbox_war_game.html
                 const step = Math.min(dist, this.speed * deltaTime);
                 this.x += (dx / dist) * step;
                 this.y += (dy / dist) * step;
+                if (battlefieldManager.collidesWithObstacle(this.x, this.y, 8, 8)) {
+                    this.createImpact(this.x, this.y);
+                    return false;
+                }
                 this.updateVisual();
                 return true;
             }
@@ -918,11 +1096,35 @@ permalink: /sandbox_war_game.html
             }
         }
 
+        class Obstacle {
+            constructor(x, y, width, height) {
+                this.x = x;
+                this.y = y;
+                this.width = width;
+                this.height = height;
+                this.element = document.createElement('div');
+                this.element.className = 'obstacle';
+                this.updateVisual();
+            }
+
+            updateVisual() {
+                this.element.style.left = this.x + 'px';
+                this.element.style.top = this.y + 'px';
+                this.element.style.width = this.width + 'px';
+                this.element.style.height = this.height + 'px';
+            }
+
+            remove() {
+                this.element.remove();
+            }
+        }
+
         // 战场管理器（组合模式的核心）
         class BattlefieldManager {
             constructor() {
                 this.units = [];
                 this.projectiles = [];
+                this.obstacles = [];
                 this.battlefield = document.getElementById('battlefield');
                 this.isBattleActive = false;
                 this.isPaused = false;
@@ -958,6 +1160,160 @@ permalink: /sandbox_war_game.html
                 logBattle(`DEPLOYED ${unit.team === 'ally' ? 'ALLY' : 'ENEMY'} ${unit.type === 'tank' ? 'TANK' : 'SOLDIER'}`, unit.team);
             }
 
+            addObstacle(obstacle) {
+                const emptyState = this.battlefield.querySelector('.empty-state');
+                if (emptyState) emptyState.remove();
+
+                this.obstacles.push(obstacle);
+                this.battlefield.appendChild(obstacle.element);
+                logBattle('COVER PLACED', 'info');
+            }
+
+            collidesWithObstacle(x, y, width, height, padding = 2) {
+                return this.obstacles.some(obstacle => {
+                    return !(
+                        x + width < obstacle.x - padding ||
+                        x > obstacle.x + obstacle.width + padding ||
+                        y + height < obstacle.y - padding ||
+                        y > obstacle.y + obstacle.height + padding
+                    );
+                });
+            }
+
+            collidesWithUnit(x, y, width, height) {
+                const centerX = x + width / 2;
+                const centerY = y + height / 2;
+
+                return this.units.some(unit => {
+                    if (unit.isDead()) return false;
+
+                    const unitSize = unit.getSize();
+                    const unitCenterX = unit.x + unitSize / 2;
+                    const unitCenterY = unit.y + unitSize / 2;
+                    const minDist = (Math.max(width, height) + unitSize) / 2;
+                    const dist = Math.sqrt((centerX - unitCenterX) ** 2 + (centerY - unitCenterY) ** 2);
+
+                    return dist < minDist;
+                });
+            }
+
+            pathBlockedByObstacle(startX, startY, endX, endY, size) {
+                const dx = endX - startX;
+                const dy = endY - startY;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                const steps = Math.max(1, Math.ceil(distance / 18));
+
+                for (let i = 0; i <= steps; i++) {
+                    const t = i / steps;
+                    const x = startX + dx * t;
+                    const y = startY + dy * t;
+                    if (this.collidesWithObstacle(x, y, size, size, 4)) {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+
+            findPath(startX, startY, endX, endY, size) {
+                const cellSize = 32;
+                const cols = Math.max(1, Math.ceil(this.battlefield.offsetWidth / cellSize));
+                const rows = Math.max(1, Math.ceil(this.battlefield.offsetHeight / cellSize));
+                const toCell = (x, y) => ({
+                    x: Math.max(0, Math.min(cols - 1, Math.floor((x + size / 2) / cellSize))),
+                    y: Math.max(0, Math.min(rows - 1, Math.floor((y + size / 2) / cellSize)))
+                });
+                const toPoint = (cell) => ({
+                    x: Math.max(0, Math.min(this.battlefield.offsetWidth - size, cell.x * cellSize + cellSize / 2 - size / 2)),
+                    y: Math.max(0, Math.min(this.battlefield.offsetHeight - size, cell.y * cellSize + cellSize / 2 - size / 2))
+                });
+                const key = (cell) => `${cell.x},${cell.y}`;
+                const walkable = (cell) => {
+                    if (cell.x < 0 || cell.y < 0 || cell.x >= cols || cell.y >= rows) return false;
+
+                    const point = toPoint(cell);
+                    return !this.collidesWithObstacle(point.x, point.y, size, size, 6);
+                };
+                const nearestWalkable = (cell) => {
+                    if (walkable(cell)) return cell;
+
+                    for (let radius = 1; radius < 8; radius++) {
+                        for (let y = cell.y - radius; y <= cell.y + radius; y++) {
+                            for (let x = cell.x - radius; x <= cell.x + radius; x++) {
+                                const candidate = { x, y };
+                                if (walkable(candidate)) return candidate;
+                            }
+                        }
+                    }
+
+                    return null;
+                };
+
+                const start = nearestWalkable(toCell(startX, startY));
+                const goal = nearestWalkable(toCell(endX, endY));
+                if (!start || !goal) return [];
+
+                const open = [start];
+                const cameFrom = new Map();
+                const gScore = new Map([[key(start), 0]]);
+                const fScore = new Map([[key(start), Math.hypot(goal.x - start.x, goal.y - start.y)]]);
+                const closed = new Set();
+                const directions = [
+                    { x: 1, y: 0, cost: 1 }, { x: -1, y: 0, cost: 1 },
+                    { x: 0, y: 1, cost: 1 }, { x: 0, y: -1, cost: 1 },
+                    { x: 1, y: 1, cost: 1.4 }, { x: 1, y: -1, cost: 1.4 },
+                    { x: -1, y: 1, cost: 1.4 }, { x: -1, y: -1, cost: 1.4 }
+                ];
+
+                let iterations = 0;
+                while (open.length && iterations++ < 700) {
+                    open.sort((a, b) => (fScore.get(key(a)) ?? Infinity) - (fScore.get(key(b)) ?? Infinity));
+                    const current = open.shift();
+                    const currentKey = key(current);
+
+                    if (current.x === goal.x && current.y === goal.y) {
+                        const cells = [current];
+                        let traceKey = currentKey;
+                        while (cameFrom.has(traceKey)) {
+                            const previous = cameFrom.get(traceKey);
+                            cells.unshift(previous);
+                            traceKey = key(previous);
+                        }
+
+                        return cells
+                            .slice(1)
+                            .filter((cell, index) => index % 2 === 0 || cell.x === goal.x && cell.y === goal.y)
+                            .map(toPoint);
+                    }
+
+                    closed.add(currentKey);
+
+                    for (const direction of directions) {
+                        const neighbor = { x: current.x + direction.x, y: current.y + direction.y };
+                        const neighborKey = key(neighbor);
+                        if (closed.has(neighborKey) || !walkable(neighbor)) continue;
+
+                        if (direction.x !== 0 && direction.y !== 0) {
+                            if (!walkable({ x: current.x + direction.x, y: current.y }) || !walkable({ x: current.x, y: current.y + direction.y })) {
+                                continue;
+                            }
+                        }
+
+                        const tentative = (gScore.get(currentKey) ?? Infinity) + direction.cost;
+                        if (tentative < (gScore.get(neighborKey) ?? Infinity)) {
+                            cameFrom.set(neighborKey, current);
+                            gScore.set(neighborKey, tentative);
+                            fScore.set(neighborKey, tentative + Math.hypot(goal.x - neighbor.x, goal.y - neighbor.y));
+                            if (!open.some(cell => cell.x === neighbor.x && cell.y === neighbor.y)) {
+                                open.push(neighbor);
+                            }
+                        }
+                    }
+                }
+
+                return [];
+            }
+
             removeUnit(unit) {
                 const index = this.units.indexOf(unit);
                 if (index > -1) {
@@ -975,8 +1331,10 @@ permalink: /sandbox_war_game.html
                     }
                 });
                 this.projectiles.forEach(projectile => projectile.remove());
+                this.obstacles.forEach(obstacle => obstacle.remove());
                 this.units = [];
                 this.projectiles = [];
+                this.obstacles = [];
                 this.isBattleActive = false;
                 this.isPaused = false;
                 if (this.animationId) {
@@ -1155,16 +1513,61 @@ permalink: /sandbox_war_game.html
             addUnitWithTeam('enemy');
         }
 
+        function addObstacle() {
+            const battlefield = document.getElementById('battlefield');
+            const sizes = [
+                { width: 86, height: 46 },
+                { width: 64, height: 64 },
+                { width: 118, height: 34 }
+            ];
+            const size = sizes[Math.floor(Math.random() * sizes.length)];
+            const margin = 32;
+
+            for (let attempt = 0; attempt < 60; attempt++) {
+                const x = margin + Math.random() * (battlefield.offsetWidth - size.width - margin * 2);
+                const y = margin + Math.random() * (battlefield.offsetHeight - size.height - margin * 2);
+
+                if (
+                    !battlefieldManager.collidesWithObstacle(x, y, size.width, size.height, 18) &&
+                    !battlefieldManager.collidesWithUnit(x, y, size.width, size.height)
+                ) {
+                    battlefieldManager.addObstacle(new Obstacle(x, y, size.width, size.height));
+                    return;
+                }
+            }
+
+            logBattle('NO ROOM FOR COVER', 'info');
+        }
+
         function addUnitWithTeam(team) {
             const type = document.getElementById('unitType').value;
             const health = parseInt(document.getElementById('unitHealth').value);
             const battlefield = document.getElementById('battlefield');
             const unitSize = type === 'tank' ? 56 : 34;
             const deploymentDepth = Math.min(260, battlefield.offsetWidth * 0.32);
-            const x = team === 'ally'
-                ? 30 + Math.random() * deploymentDepth
-                : battlefield.offsetWidth - deploymentDepth - unitSize - 30 + Math.random() * deploymentDepth;
-            const y = 40 + Math.random() * (battlefield.offsetHeight - unitSize - 80);
+            let x = 0;
+            let y = 0;
+            let placed = false;
+
+            for (let attempt = 0; attempt < 60; attempt++) {
+                x = team === 'ally'
+                    ? 30 + Math.random() * deploymentDepth
+                    : battlefield.offsetWidth - deploymentDepth - unitSize - 30 + Math.random() * deploymentDepth;
+                y = 40 + Math.random() * (battlefield.offsetHeight - unitSize - 80);
+
+                if (
+                    !battlefieldManager.collidesWithObstacle(x, y, unitSize, unitSize, 8) &&
+                    !battlefieldManager.collidesWithUnit(x, y, unitSize, unitSize)
+                ) {
+                    placed = true;
+                    break;
+                }
+            }
+
+            if (!placed) {
+                logBattle('NO ROOM TO DEPLOY UNIT', 'info');
+                return;
+            }
             
             let unit;
             if (type === 'tank') {
