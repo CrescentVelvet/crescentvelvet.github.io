@@ -160,6 +160,7 @@ redirect_from:
         <a href="/wish_analyzer.html" class="link-button">抽卡分析</a>
         <a href="/sandbox_war/" class="link-button">沙盘战争</a>
         <a href="/anime-tracker/" class="link-button">动画世代</a>
+        <a href="/exam_notes/" class="link-button">信创考试</a>
     </div>
     <hr>
     <p>强调一下<strong>几个单词</strong></p>
