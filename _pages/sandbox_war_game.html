@@ -1978,13 +1978,8 @@ permalink: /sandbox_war_game.html
                     }
                 }, { passive: false });
 
-                // 禁用页面滚动
-                document.addEventListener('touchmove', function(e) {
-                    e.preventDefault();
-                }, { passive: false });
-
-                // 优化触摸响应
-                document.addEventListener('touchstart', function(e) {
+                // 禁用页面滚动（仅限战场区域，避免影响日志滚动）
+                document.getElementById('battlefield').addEventListener('touchmove', function(e) {
                     e.preventDefault();
                 }, { passive: false });
 
