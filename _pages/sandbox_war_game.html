@@ -136,10 +136,16 @@ permalink: /sandbox_war_game.html
             width: var(--unit-size);
             height: var(--unit-size);
             cursor: pointer;
-            transform: rotate(var(--angle, 0deg));
-            transform-origin: center;
             image-rendering: pixelated;
             z-index: 10;
+        }
+
+        .unit-body {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            transform: rotate(var(--angle, 0deg));
+            transform-origin: center;
         }
 
         .unit.tank {
@@ -234,7 +240,7 @@ permalink: /sandbox_war_game.html
             bottom: -9px;
             height: 4px;
             background: rgba(0,0,0,0.8);
-            transform: rotate(calc(-1 * var(--angle, 0deg)));
+            z-index: 1;
         }
 
         .hp-fill {
@@ -335,6 +341,101 @@ permalink: /sandbox_war_game.html
         /* 移除旧样式干扰 */
         .back-button, .sidebar, .main-content { display: none; }
         .container { display: block; }
+
+        /* ===== 移动端适配 ===== */
+        @media (max-width: 768px) {
+            body {
+                padding: 8px;
+            }
+
+            h1 {
+                font-size: 1.1em;
+                text-shadow: 2px 2px 0px #000;
+                margin-bottom: 12px;
+            }
+
+            .game-ui {
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .controls-panel {
+                min-width: unset;
+                padding: 12px;
+                border-width: 3px;
+                box-shadow: 4px 4px 0px rgba(0,0,0,0.5);
+                gap: 8px;
+            }
+
+            .control-row {
+                gap: 6px;
+            }
+
+            .pixel-btn {
+                font-size: 8px;
+                padding: 8px 10px;
+                border-width: 3px;
+                box-shadow: 3px 3px 0px rgba(0,0,0,0.5);
+            }
+
+            .pixel-select, .pixel-input {
+                font-size: 8px;
+                padding: 6px;
+            }
+
+            .battlefield {
+                height: 360px;
+                border-width: 3px;
+                box-shadow: 4px 4px 0px rgba(0,0,0,0.5);
+            }
+
+            .battle-log {
+                height: 100px;
+                font-size: 10px;
+                padding: 6px;
+                margin-top: 10px;
+            }
+
+            .status-bar {
+                font-size: 8px;
+                padding: 6px;
+                flex-wrap: wrap;
+                gap: 4px;
+            }
+
+            .container {
+                gap: 10px;
+            }
+        }
+
+        @media (max-width: 400px) {
+            h1 {
+                font-size: 0.9em;
+            }
+
+            .pixel-btn {
+                font-size: 7px;
+                padding: 6px 8px;
+            }
+
+            .pixel-select, .pixel-input {
+                font-size: 7px;
+                padding: 4px;
+            }
+
+            .battlefield {
+                height: 280px;
+            }
+
+            .battle-log {
+                height: 80px;
+                font-size: 9px;
+            }
+
+            .control-row label {
+                font-size: 7px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -428,13 +529,13 @@ permalink: /sandbox_war_game.html
                 this.element.style.top = this.y + 'px';
                 this.element.style.width = this.getSize() + 'px';
                 this.element.style.height = this.getSize() + 'px';
-                this.element.style.setProperty('--angle', `${this.angle}deg`);
-                
+
                 this.element.innerHTML = this.getDisplayMarkup();
+                this.bodyElement = this.element.querySelector('.unit-body');
                 this.element.onclick = () => this.select();
                 this.element.onmouseover = (e) => this.showInfo(e);
                 this.element.onmouseout = () => this.hideInfo();
-                
+
                 return this.element;
             }
 
@@ -447,7 +548,7 @@ permalink: /sandbox_war_game.html
                     ? '<div class="tank-track left"></div><div class="tank-track right"></div><div class="tank-body"></div><div class="tank-turret"></div><div class="tank-barrel"></div>'
                     : '<div class="soldier-head"></div><div class="soldier-body"></div>';
 
-                return `${body}<div class="hp-bar"><div class="hp-fill" style="width: ${this.getHealthPercent()}%"></div></div>`;
+                return `<div class="unit-body">${body}</div><div class="hp-bar"><div class="hp-fill" style="width: ${this.getHealthPercent()}%"></div></div>`;
             }
 
             getHealthPercent() {
@@ -459,7 +560,10 @@ permalink: /sandbox_war_game.html
 
                 this.element.style.left = this.x + 'px';
                 this.element.style.top = this.y + 'px';
-                this.element.style.setProperty('--angle', `${this.angle}deg`);
+
+                if (this.bodyElement) {
+                    this.bodyElement.style.setProperty('--angle', `${this.angle}deg`);
+                }
 
                 const hpFill = this.element.querySelector('.hp-fill');
                 if (hpFill) {
@@ -829,7 +933,13 @@ permalink: /sandbox_war_game.html
                     this.moveTowardTarget(deltaTime, allUnits);
                 }
 
-                // 3. 更新 DOM - 修复位置刷新逻辑
+                // 3. 战斗中始终保持炮管指向目标，不被倒车逻辑覆盖朝向
+                if (this.type === 'tank' && this.currentTarget && !this.currentTarget.isDead() && this.state !== 'retreat' && this.state !== 'backoff') {
+                    this.setDesiredAngle(this.getAngleTo(this.currentTarget));
+                    this.updateRotation(deltaTime);
+                }
+
+                // 4. 更新 DOM
                 if (this.element) {
                     this.updateVisual();
                 } else {

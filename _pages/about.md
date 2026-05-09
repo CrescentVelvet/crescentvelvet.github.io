@@ -158,7 +158,7 @@ redirect_from:
         <a href="/paper_retrieval.html" class="link-button">论文搜索</a>
         <a href="/hot_trends.html" class="link-button">每日热榜</a>
         <a href="/wish_analyzer.html" class="link-button">抽卡分析</a>
-        <a href="/sandbox_war/" class="link-button">沙盘战争</a>
+        <a href="/sandbox_war_game.html" class="link-button">沙盘战争</a>
         <a href="/anime-tracker/" class="link-button">动画世代</a>
         <a href="/exam_notes/" class="link-button">信创考试</a>
     </div>
