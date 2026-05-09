@@ -116,7 +116,7 @@ permalink: /sandbox_war_game.html
 
         .battlefield {
             width: 100%;
-            height: 600px;
+            height: 750px;
             background: #26362c;
             border: 4px solid var(--pixel-text);
             position: relative;
@@ -149,7 +149,7 @@ permalink: /sandbox_war_game.html
         }
 
         .unit.tank {
-            --unit-size: 56px;
+            --unit-size: 36px;
         }
 
         .tank-track,
@@ -162,67 +162,160 @@ permalink: /sandbox_war_game.html
         }
 
         .tank-track {
-            width: 12px;
-            height: 42px;
-            top: 7px;
+            width: 8px;
+            height: 27px;
+            top: 5px;
             background: #15191b;
-            box-shadow: inset 0 0 0 3px #30383b;
+            box-shadow: inset 0 0 0 2px #30383b;
         }
 
-        .tank-track.left { left: 4px; }
-        .tank-track.right { right: 4px; }
+        .tank-track.left { left: 3px; }
+        .tank-track.right { right: 3px; }
 
         .tank-body {
-            width: 34px;
-            height: 38px;
-            left: 11px;
-            top: 9px;
+            width: 22px;
+            height: 24px;
+            left: 7px;
+            top: 6px;
             background: var(--color-dark);
-            box-shadow: inset 0 0 0 4px var(--color), 0 4px 0 rgba(0,0,0,0.45);
+            box-shadow: inset 0 0 0 3px var(--color), 0 3px 0 rgba(0,0,0,0.45);
         }
 
         .tank-turret {
-            width: 24px;
-            height: 24px;
-            left: 16px;
-            top: 16px;
+            width: 15px;
+            height: 15px;
+            left: 10px;
+            top: 10px;
             background: var(--color-light);
-            box-shadow: inset 0 0 0 4px var(--color);
+            box-shadow: inset 0 0 0 3px var(--color);
         }
 
         .tank-barrel {
-            width: 8px;
-            height: 30px;
-            left: 24px;
-            top: -8px;
+            width: 5px;
+            height: 19px;
+            left: 15px;
+            top: -5px;
             background: var(--color-light);
             box-shadow: inset 0 0 0 2px var(--color);
         }
 
         .unit.soldier {
-            --unit-size: 34px;
+            --unit-size: 22px;
         }
 
         .soldier-body {
-            width: 18px;
-            height: 20px;
-            left: 8px;
-            top: 10px;
+            width: 12px;
+            height: 13px;
+            left: 5px;
+            top: 6px;
             background: var(--color);
-            box-shadow: inset 0 0 0 3px var(--color-dark), 0 3px 0 rgba(0,0,0,0.45);
+            box-shadow: inset 0 0 0 2px var(--color-dark), 0 2px 0 rgba(0,0,0,0.45);
         }
 
         .soldier-head {
-            width: 14px;
-            height: 12px;
-            left: 10px;
-            top: 2px;
+            width: 9px;
+            height: 8px;
+            left: 6px;
+            top: 1px;
             background: var(--color-light);
-            box-shadow: inset 0 0 0 3px var(--color);
+            box-shadow: inset 0 0 0 2px var(--color);
         }
 
         .unit.ally { --color: #3498db; --color-dark: #2980b9; --color-light: #5dade2; }
         .unit.enemy { --color: #e74c3c; --color-dark: #c0392b; --color-light: #ec7063; }
+
+        /* ---- 火炮 (32px) ---- */
+        .unit.artillery {
+            --unit-size: 32px;
+        }
+
+        .artillery-wheel {
+            position: absolute;
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #1a1a1a;
+            box-shadow: inset 0 0 0 1px #444;
+            top: 21px;
+        }
+        .artillery-wheel.left  { left: 2px; }
+        .artillery-wheel.right { right: 2px; }
+
+        .artillery-chassis {
+            position: absolute;
+            width: 20px;
+            height: 8px;
+            left: 6px;
+            top: 20px;
+            background: var(--color-dark);
+            box-shadow: inset 0 0 0 2px var(--color);
+        }
+
+        .artillery-trail {
+            position: absolute;
+            width: 4px;
+            height: 9px;
+            left: 14px;
+            top: 25px;
+            background: var(--color-dark);
+            box-shadow: inset 0 0 0 1px var(--color);
+        }
+
+        .artillery-barrel {
+            position: absolute;
+            width: 3px;
+            height: 22px;
+            left: 14px;
+            top: -2px;
+            background: var(--color-light);
+            box-shadow: inset 0 0 0 1px var(--color);
+        }
+
+        .artillery-shield {
+            position: absolute;
+            width: 14px;
+            height: 4px;
+            left: 9px;
+            top: 17px;
+            background: var(--color);
+            box-shadow: inset 0 0 0 1px var(--color-dark);
+        }
+
+        .unit.artillery .artillery-stabilizer { display: none; }
+        .unit.artillery.deployed .artillery-stabilizer { display: block; }
+        .artillery-stabilizer {
+            position: absolute;
+            width: 5px;
+            height: 12px;
+            background: var(--color-dark);
+            box-shadow: inset 0 0 0 1px var(--color);
+            top: 18px;
+        }
+        .artillery-stabilizer.left  { left: -2px;  transform: rotate(-20deg); }
+        .artillery-stabilizer.right { right: -2px; transform: rotate(20deg); }
+
+        .unit.artillery .deploy-dot {
+            display: none;
+            position: absolute;
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: #f1c40f;
+            left: 50%;
+            margin-left: -2px;
+            bottom: -7px;
+            z-index: 2;
+        }
+        .unit.artillery.deployed .deploy-dot { display: block; }
+        .unit.artillery.deploying .deploy-dot {
+            display: block;
+            background: #e67e22;
+            animation: deployPulse 0.5s ease-in-out infinite alternate;
+        }
+        @keyframes deployPulse {
+            from { opacity: 0.3; }
+            to   { opacity: 1; }
+        }
 
         .unit.selected {
             filter: drop-shadow(0 0 4px #f1c40f);
@@ -235,10 +328,10 @@ permalink: /sandbox_war_game.html
 
         .hp-bar {
             position: absolute;
-            left: 4px;
-            right: 4px;
-            bottom: -9px;
-            height: 4px;
+            left: 2px;
+            right: 2px;
+            bottom: -6px;
+            height: 3px;
             background: rgba(0,0,0,0.8);
             z-index: 1;
         }
@@ -384,7 +477,7 @@ permalink: /sandbox_war_game.html
             }
 
             .battlefield {
-                height: 360px;
+                height: 450px;
                 border-width: 3px;
                 box-shadow: 4px 4px 0px rgba(0,0,0,0.5);
             }
@@ -424,7 +517,7 @@ permalink: /sandbox_war_game.html
             }
 
             .battlefield {
-                height: 280px;
+                height: 340px;
             }
 
             .battle-log {
@@ -449,6 +542,7 @@ permalink: /sandbox_war_game.html
                     <select id="unitType" class="pixel-select">
                         <option value="tank">TANK</option>
                         <option value="soldier">SOLDIER</option>
+                        <option value="artillery">ARTILLERY</option>
                     </select>
                     
                     <label>HP:</label>
@@ -540,7 +634,9 @@ permalink: /sandbox_war_game.html
             }
 
             getSize() {
-                return this.type === 'tank' ? 56 : 34;
+                if (this.type === 'tank') return 36;
+                if (this.type === 'artillery') return 32;
+                return 22;
             }
 
             getDisplayMarkup() {
@@ -633,11 +729,16 @@ permalink: /sandbox_war_game.html
 
             showInfo(event) {
                 const info = document.getElementById('unitInfo');
+                const typeName = this.type === 'tank' ? '坦克' : (this.type === 'artillery' ? '火炮' : '士兵');
+                let extra = '';
+                if (this.type === 'artillery' && this.deployed !== undefined) {
+                    extra = `<br>状态: ${this.deployed ? '已部署' : (this.deploying ? '部署中...' : '移动中')}`;
+                }
                 info.innerHTML = `
-                    <strong>${this.type === 'tank' ? '坦克' : '士兵'}</strong><br>
+                    <strong>${typeName}</strong><br>
                     阵营: ${this.team === 'ally' ? '友军' : '敌军'}<br>
-                    生命值: ${this.health}/${this.maxHealth}<br>
-                    位置: (${this.x}, ${this.y})
+                    生命值: ${this.health}/${this.maxHealth}${extra}<br>
+                    位置: (${Math.round(this.x)}, ${Math.round(this.y)})
                 `;
                 info.style.display = 'block';
                 info.style.left = event.pageX + 10 + 'px';
@@ -733,13 +834,15 @@ permalink: /sandbox_war_game.html
 
             findNearestEnemy(allUnits) {
                 let nearestEnemy = null;
-                let nearestDistance = Infinity;
+                let nearestScore = Infinity;
 
                 for (const unit of allUnits) {
                     if (unit !== this && unit.team !== this.team && !unit.isDead()) {
                         const distance = this.getDistance(unit);
-                        if (distance < nearestDistance) {
-                            nearestDistance = distance;
+                        const penalty = unit.type === 'artillery' ? 100 : 0;
+                        const score = distance + penalty;
+                        if (score < nearestScore) {
+                            nearestScore = score;
                             nearestEnemy = unit;
                         }
                     }
@@ -768,7 +871,7 @@ permalink: /sandbox_war_game.html
                 const myCenterY = this.y + this.getSize() / 2;
                 const targetCenterX = target.x + target.getSize() / 2;
                 const targetCenterY = target.y + target.getSize() / 2;
-                
+
                 const dx = targetCenterX - myCenterX;
                 const dy = targetCenterY - myCenterY;
                 return Math.sqrt(dx * dx + dy * dy);
@@ -1138,14 +1241,141 @@ permalink: /sandbox_war_game.html
 
         }
 
+        // 火炮类（牵引火炮：需架设才能开火，有最小射程盲区）
+        class Artillery extends GameObject {
+            constructor(x, y, team, health) {
+                super(x, y, 'artillery', team, health);
+                this.attackRange = 420;
+                this.minRange = 120;
+                this.attackPower = 45;
+                this.maxSpeed = 18;
+                this.maxTurnSpeed = 70;
+                this.attackCooldown = 3000;
+                this.moveCooldown = 600;
+                this.deployed = false;
+                this.deploying = false;
+                this.deployStartTime = 0;
+                this.deployDuration = 2000;
+            }
+
+            getSize() { return 32; }
+
+            getAttackDamage() {
+                return this.attackPower + Math.floor(Math.random() * 10);
+            }
+
+            getDisplayMarkup() {
+                const body = '<div class="artillery-wheel left"></div><div class="artillery-wheel right"></div><div class="artillery-chassis"></div><div class="artillery-trail"></div><div class="artillery-barrel"></div><div class="artillery-shield"></div><div class="artillery-stabilizer left"></div><div class="artillery-stabilizer right"></div><div class="deploy-dot"></div>';
+                return `<div class="unit-body">${body}</div><div class="hp-bar"><div class="hp-fill" style="width:${this.getHealthPercent()}%"></div></div>`;
+            }
+
+            updateVisual() {
+                super.updateVisual();
+                if (!this.element) return;
+                this.element.classList.toggle('deployed', this.deployed);
+                this.element.classList.toggle('deploying', this.deploying && !this.deployed);
+            }
+
+            update(deltaTime, allUnits) {
+                if (this.isDead()) return;
+                const nearestEnemy = this.acquireTarget(allUnits);
+
+                if (nearestEnemy) {
+                    const distance = this.getDistance(nearestEnemy);
+
+                    if (this.deploying) {
+                        const elapsed = Date.now() - this.deployStartTime;
+                        if (elapsed >= this.deployDuration) {
+                            this.deployed = true;
+                            this.deploying = false;
+                            this.state = 'firing';
+                        } else if (this.isMoving || distance < this.minRange * 1.3) {
+                            this.deploying = false;
+                            this.state = 'fallback';
+                            if (distance < this.minRange * 1.3) this.moveAwayFrom(nearestEnemy, 200);
+                        }
+                    } else if (this.deployed) {
+                        if (distance < this.minRange * 1.3) {
+                            this.deployed = false;
+                            this.state = 'fallback';
+                            this.moveAwayFrom(nearestEnemy, 220);
+                        } else if (distance <= this.attackRange && distance >= this.minRange) {
+                            this.state = 'firing';
+                            this.turnToward(nearestEnemy);
+                            if (this.isFacing(nearestEnemy)) this.tryAttack(nearestEnemy);
+                        } else if (distance > this.attackRange) {
+                            this.deployed = false;
+                            this.state = 'maneuver';
+                            this.moveTowards(nearestEnemy);
+                        }
+                    } else {
+                        if (distance < this.minRange * 1.6) {
+                            this.state = 'fallback';
+                            this.moveAwayFrom(nearestEnemy, 220);
+                        } else if (distance >= this.minRange * 1.2 && distance <= this.attackRange * 0.8) {
+                            this.isMoving = false;
+                            this.deploying = true;
+                            this.deployStartTime = Date.now();
+                            this.state = 'deploying';
+                            this.turnToward(nearestEnemy);
+                        } else if (distance > this.attackRange * 0.8) {
+                            this.state = 'maneuver';
+                            this.moveTowards(nearestEnemy);
+                        } else {
+                            this.state = 'maneuver';
+                            this.moveAwayFrom(nearestEnemy, 100);
+                        }
+                    }
+                } else {
+                    this.state = 'patrol';
+                    this.deployed = false;
+                    this.deploying = false;
+                    this.randomMove(deltaTime);
+                }
+
+                this.updatePosition(deltaTime, allUnits);
+            }
+
+            tryAttack(target) {
+                if (!this.deployed) return;
+                const distance = this.getDistance(target);
+                if (distance < this.minRange) return;
+                super.tryAttack(target);
+            }
+
+            moveTowards(target) {
+                this.deployed = false;
+                this.deploying = false;
+                super.moveTowards(target);
+            }
+
+            moveAwayFrom(target, dist) {
+                this.deployed = false;
+                this.deploying = false;
+                super.moveAwayFrom(target, dist);
+            }
+
+            strafeAround(target) {
+                this.deployed = false;
+                this.deploying = false;
+                super.strafeAround(target);
+            }
+
+            randomMove(deltaTime) {
+                this.deployed = false;
+                this.deploying = false;
+                super.randomMove(deltaTime);
+            }
+        }
+
         class Projectile {
             constructor(source, target, damage) {
                 this.source = source;
                 this.target = target;
                 this.team = source.team;
                 this.damage = damage;
-                this.speed = source.type === 'tank' ? 520 : 340;
-                this.radius = source.type === 'tank' ? 12 : 9;
+                this.speed = source.type === 'tank' ? 520 : (source.type === 'artillery' ? 280 : 340);
+                this.radius = source.type === 'tank' ? 12 : (source.type === 'artillery' ? 10 : 9);
                 this.x = source.x + source.getSize() / 2;
                 this.y = source.y + source.getSize() / 2;
                 this.element = document.createElement('div');
@@ -1267,7 +1497,8 @@ permalink: /sandbox_war_game.html
                 this.units.push(unit);
                 const element = unit.createElement();
                 this.battlefield.appendChild(element);
-                logBattle(`DEPLOYED ${unit.team === 'ally' ? 'ALLY' : 'ENEMY'} ${unit.type === 'tank' ? 'TANK' : 'SOLDIER'}`, unit.team);
+                const typeLabel = unit.type === 'tank' ? 'TANK' : (unit.type === 'artillery' ? 'ARTILLERY' : 'SOLDIER');
+                logBattle(`DEPLOYED ${unit.team === 'ally' ? 'ALLY' : 'ENEMY'} ${typeLabel}`, unit.team);
             }
 
             addObstacle(obstacle) {
@@ -1653,8 +1884,11 @@ permalink: /sandbox_war_game.html
             const type = document.getElementById('unitType').value;
             const health = parseInt(document.getElementById('unitHealth').value);
             const battlefield = document.getElementById('battlefield');
-            const unitSize = type === 'tank' ? 56 : 34;
-            const deploymentDepth = Math.min(260, battlefield.offsetWidth * 0.32);
+            let unitSize;
+            if (type === 'tank') unitSize = 36;
+            else if (type === 'artillery') unitSize = 32;
+            else unitSize = 22;
+            const deploymentDepth = Math.min(280, battlefield.offsetWidth * 0.28);
             let x = 0;
             let y = 0;
             let placed = false;
@@ -1678,14 +1912,16 @@ permalink: /sandbox_war_game.html
                 logBattle('NO ROOM TO DEPLOY UNIT', 'info');
                 return;
             }
-            
+
             let unit;
             if (type === 'tank') {
                 unit = new Tank(x, y, team, health);
+            } else if (type === 'artillery') {
+                unit = new Artillery(x, y, team, health);
             } else {
                 unit = new Soldier(x, y, team, health);
             }
-            
+
             battlefieldManager.addUnit(unit);
         }
 
