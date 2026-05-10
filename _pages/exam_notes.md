@@ -1,6 +1,6 @@
 ---
 permalink: /exam_notes/
-title: "可信考试知识点"
+title: "信创考试知识点"
 excerpt: "C++ STL速记与编程考题模板"
 author_profile: false
 ---
@@ -11,7 +11,7 @@ author_profile: false
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>可信考试知识点</title>
+    <title>信创考试知识点</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -75,6 +75,10 @@ author_profile: false
             font-weight: 600;
         }
         tr:nth-child(even) { background: #f9f9f9; }
+        td code {
+            font-size: 1.05em;
+            line-height: 2;
+        }
         .note {
             background: #fff3cd;
             border-left: 4px solid #ffc107;
@@ -135,13 +139,13 @@ author_profile: false
 
 <table>
 <tr><th>操作</th><th>代码</th><th>说明</th></tr>
-<tr><td>初始化</td><td><code>vector&lt;int&gt; v; vector&lt;int&gt; v(n, 0); vector&lt;int&gt; v{1,2,3};</code></td><td>空 / n个0 / 列表初始化</td></tr>
-<tr><td>尾部增删</td><td><code>v.push_back(x); v.pop_back();</code></td><td>O(1) 均摊</td></tr>
-<tr><td>随机访问</td><td><code>v[i]; v.at(i); v.front(); v.back();</code></td><td>at() 会抛异常</td></tr>
-<tr><td>大小</td><td><code>v.size(); v.empty(); v.capacity();</code></td><td></td></tr>
-<tr><td>插入删除</td><td><code>v.insert(pos, x); v.erase(pos); v.erase(l, r);</code></td><td>O(n)</td></tr>
+<tr><td>初始化</td><td><code>vector&lt;int&gt; v;<br>vector&lt;int&gt; v{1,2,3};</code></td><td>空 / 列表初始化</td></tr>
+<tr><td>尾部增删</td><td><code>v.push_back(x);</code></td><td>O(1) 均摊</td></tr>
+<tr><td>随机访问</td><td><code>v[i];</code></td><td>下标访问</td></tr>
+<tr><td>大小</td><td><code>v.size();<br>v.empty();</code></td><td></td></tr>
+<tr><td>删除</td><td><code>v.erase(pos);</code></td><td>O(n)</td></tr>
 <tr><td>清空</td><td><code>v.clear();</code></td><td></td></tr>
-<tr><td>排序</td><td><code>sort(v.begin(), v.end()); sort(v.rbegin(), v.rend());</code></td><td>升序 / 降序</td></tr>
+<tr><td>排序</td><td><code>sort(v.begin(), v.end());</code></td><td>升序</td></tr>
 <tr><td>二分查找</td><td><code>auto it = lower_bound(v.begin(), v.end(), x);</code></td><td>需有序，返回 &ge;x 的首个位置</td></tr>
 </table>
 
@@ -164,13 +168,13 @@ v.erase(unique(v.begin(), v.end()), v.end());
 <table>
 <tr><th>操作</th><th>代码</th><th>说明</th></tr>
 <tr><td>子串</td><td><code>s.substr(pos, len);</code></td><td>O(len)，不写len取到末尾</td></tr>
-<tr><td>查找</td><td><code>s.find(t); s.rfind(t); s.find_first_of(t);</code></td><td>返回下标或 string::npos</td></tr>
+<tr><td>查找</td><td><code>s.find(t);</code></td><td>返回下标或 string::npos</td></tr>
 <tr><td>替换</td><td><code>s.replace(pos, len, t);</code></td><td></td></tr>
-<tr><td>插入/删除</td><td><code>s.insert(pos, t); s.erase(pos, len);</code></td><td></td></tr>
-<tr><td>数值转换</td><td><code>stoi(s); stoll(s); stod(s); to_string(x);</code></td><td>string↔数值</td></tr>
+<tr><td>删除</td><td><code>s.erase(pos, len);</code></td><td></td></tr>
+<tr><td>数值转换</td><td><code>stoi(s);<br>to_string(x);</code></td><td>string ↔ 数值</td></tr>
 <tr><td>C串</td><td><code>s.c_str();</code></td><td>返回 const char*</td></tr>
-<tr><td>连接</td><td><code>s += t; s.append(t);</code></td><td>+ 也可，+= 更高效</td></tr>
-<tr><td>比较</td><td><code>s == t; s.compare(t);</code></td><td>按字典序</td></tr>
+<tr><td>连接</td><td><code>s += t;</code></td><td></td></tr>
+<tr><td>比较</td><td><code>s == t;</code></td><td>按字典序</td></tr>
 </table>
 
 <pre><code>// 常用：按分隔符拆分字符串
@@ -198,10 +202,10 @@ int x = stoi("1A", nullptr, 16);  // x = 26
 
 <table>
 <tr><th>操作</th><th>代码</th><th>说明</th></tr>
-<tr><td>插入/更新</td><td><code>m[k] = v; m.insert({k,v}); m.emplace(k,v);</code></td><td>[] 不存在则插入默认值</td></tr>
-<tr><td>删除</td><td><code>m.erase(k); m.erase(it);</code></td><td></td></tr>
-<tr><td>查找</td><td><code>auto it = m.find(k);</code> 或 <code>m.count(k);</code></td><td>find返回迭代器，不存在返回end()</td></tr>
-<tr><td>二分</td><td><code>m.lower_bound(k); m.upper_bound(k);</code></td><td>仅 map 支持</td></tr>
+<tr><td>插入/更新</td><td><code>m[k] = v;</code></td><td>不存在则插入默认值</td></tr>
+<tr><td>删除</td><td><code>m.erase(k);</code></td><td></td></tr>
+<tr><td>查找</td><td><code>m.find(k);<br>m.count(k);</code></td><td>find返回迭代器 / count返回0或1</td></tr>
+<tr><td>二分</td><td><code>m.lower_bound(k);</code></td><td>仅 map 支持</td></tr>
 <tr><td>遍历</td><td><code>for (auto& [k,v] : m) { }</code></td><td>按键升序遍历</td></tr>
 </table>
 
@@ -251,7 +255,7 @@ unordered_map&lt;pair&lt;int,int&gt;, int, pair_hash&gt; um;
 <tr><td>压入</td><td><code>pq.push(x);</code></td><td>O(log n)</td></tr>
 <tr><td>弹出</td><td><code>pq.pop();</code></td><td>O(log n)，无返回值</td></tr>
 <tr><td>堆顶</td><td><code>pq.top();</code></td><td>O(1)</td></tr>
-<tr><td>大小</td><td><code>pq.size(); pq.empty();</code></td><td></td></tr>
+<tr><td>大小</td><td><code>pq.size();</code></td><td></td></tr>
 </table>
 
 <pre><code>// 默认：最大堆（大顶堆）
@@ -390,6 +394,23 @@ int from_base(const string&amp; s, int base) {
     }
     return num;
 }
+
+// ====== 十六进制字符串 ↔ 字节数组 ======
+// hex → bytes: "0A1F" → {0x0A, 0x1F}
+vector&lt;uint8_t&gt; hex_to_bytes(const string&amp; hex) {
+    vector&lt;uint8_t&gt; bytes;
+    for (size_t i = 0; i + 1 &lt; hex.length(); i += 2)
+        bytes.push_back((uint8_t)stoi(hex.substr(i, 2), nullptr, 16));
+    return bytes;
+}
+
+// bytes → hex: {0x0A, 0x1F} → "0a1f"
+string bytes_to_hex(const vector&lt;uint8_t&gt;&amp; bytes) {
+    stringstream ss;
+    for (uint8_t b : bytes)
+        ss &lt;&lt; hex &lt;&lt; setw(2) &lt;&lt; setfill('0') &lt;&lt; (int)b;
+    return ss.str();
+}
 </code></pre>
 
 <!-- ---------- 2.2 滑动窗口 ---------- -->
@@ -455,10 +476,59 @@ bool ratelimit(vector&lt;int&gt;&amp; requests, int max_req_per_sec) {
     }
     return true;
 }
+
+// ====== 滑动窗口统计频次 ======
+// 统计每个长度为k的窗口中不同字符数 / 某字符出现次数
+vector&lt;int&gt; window_freq_count(const string&amp; s, int k) {
+    int cnt[26] = {};
+    vector&lt;int&gt; ans;
+    for (int i = 0; i &lt; s.size(); ++i) {
+        cnt[s[i] - 'a']++;
+        if (i &gt;= k) cnt[s[i - k] - 'a']--;
+        if (i &gt;= k - 1) {
+            int uniq = 0;
+            for (int c : cnt) if (c &gt; 0) uniq++;
+            ans.push_back(uniq);
+        }
+    }
+    return ans;
+}
+
+// 用 unordered_map 统计任意字符（非小写字母）
+vector&lt;int&gt; window_freq_generic(const string&amp; s, int k) {
+    unordered_map&lt;char, int&gt; cnt;
+    vector&lt;int&gt; ans;
+    for (int i = 0; i &lt; s.size(); ++i) {
+        cnt[s[i]]++;
+        if (i &gt;= k &amp;&amp; --cnt[s[i - k]] == 0)
+            cnt.erase(s[i - k]);
+        if (i &gt;= k - 1) ans.push_back(cnt.size());
+    }
+    return ans;
+}
+
+// 定宽窗口中统计频次是否满足某条件（如窗口内某字符频次≥T）
+bool window_freq_over_T(const string&amp; s, int k, char target, int T) {
+    int cnt = 0;
+    for (int i = 0; i &lt; s.size(); ++i) {
+        if (s[i] == target) cnt++;
+        if (i &gt;= k &amp;&amp; s[i - k] == target) cnt--;
+        if (i &gt;= k - 1 &amp;&amp; cnt &gt;= T) return true;
+    }
+    return false;
+}
 </code></pre>
 
 <!-- ---------- 2.3 Top K ---------- -->
 <h3>2.3 Top K 高频词统计</h3>
+
+<div class="tip"><strong>priority_queue TopK 思路：</strong>
+1. 先用 <code>unordered_map</code> 统计每个元素的频次<br>
+2. 维护一个大小为 <code>k</code> 的<strong>小顶堆</strong>（堆顶是第k大，堆内是当前top k）<br>
+3. 遍历频次表：前 k 个直接入堆；之后若当前频次 > 堆顶频次，则 pop 堆顶再 push 当前<br>
+4. 最后堆中 k 个元素即答案（出堆顺序是升序，需反转）<br>
+—— 复杂度 O(n log k)，适合 k 远小于 n 的场景
+</div>
 
 <pre><code>// ====== 方法1：unordered_map + 最小堆（O(n log k)） ======
 vector&lt;string&gt; top_k_frequent(vector&lt;string&gt;&amp; words, int k) {
@@ -1106,6 +1176,371 @@ void mergesort(vector&lt;int&gt;&amp; v, int l, int r, vector&lt;int&gt;&amp; tm
 void heapsort(vector&lt;int&gt;&amp; v) {
     make_heap(v.begin(), v.end());        // 建堆
     sort_heap(v.begin(), v.end());        // 堆排序
+}
+</code></pre>
+
+<!-- ---------- 2.16 表达式解析 ---------- -->
+<h3>2.16 表达式解析（中缀求值）</h3>
+
+<pre><code>// ====== 中缀表达式求值（+ - * /，含括号） ======
+int calculate(const string&amp; s) {
+    stack&lt;int&gt; nums;
+    stack&lt;char&gt; ops;
+    unordered_map&lt;char, int&gt; prio{{'+',1},{'-',1},{'*',2},{'/',2}};
+
+    auto apply = [&amp;]() {
+        int b = nums.top(); nums.pop();
+        int a = nums.top(); nums.pop();
+        char op = ops.top(); ops.pop();
+        if (op == '+') nums.push(a + b);
+        else if (op == '-') nums.push(a - b);
+        else if (op == '*') nums.push(a * b);
+        else nums.push(a / b);           // 向零取整
+    };
+
+    for (int i = 0; i &lt; s.size(); ++i) {
+        if (isspace(s[i])) continue;
+        if (isdigit(s[i])) {
+            int num = 0;
+            while (i &lt; s.size() &amp;&amp; isdigit(s[i]))
+                num = num * 10 + (s[i++] - '0');
+            nums.push(num);
+            --i;
+        } else if (s[i] == '(') {
+            ops.push('(');
+        } else if (s[i] == ')') {
+            while (ops.top() != '(') apply();
+            ops.pop();                   // 弹出 '('
+        } else {
+            while (!ops.empty() &amp;&amp; ops.top() != '('
+                   &amp;&amp; prio[ops.top()] &gt;= prio[s[i]])
+                apply();
+            ops.push(s[i]);
+        }
+    }
+    while (!ops.empty()) apply();
+    return nums.top();
+}
+
+// ====== 中缀表达式 → 逆波兰（后缀） ======
+vector&lt;string&gt; infix_to_rpn(const string&amp; s) {
+    vector&lt;string&gt; out;
+    stack&lt;char&gt; ops;
+    unordered_map&lt;char, int&gt; prio{{'+',1},{'-',1},{'*',2},{'/',2}};
+
+    for (int i = 0; i &lt; s.size(); ++i) {
+        if (isspace(s[i])) continue;
+        if (isdigit(s[i])) {
+            string num;
+            while (i &lt; s.size() &amp;&amp; isdigit(s[i])) num += s[i++];
+            out.push_back(num);
+            --i;
+        } else if (s[i] == '(') {
+            ops.push('(');
+        } else if (s[i] == ')') {
+            while (ops.top() != '(') {
+                out.push_back(string(1, ops.top()));
+                ops.pop();
+            }
+            ops.pop();
+        } else {
+            while (!ops.empty() &amp;&amp; ops.top() != '('
+                   &amp;&amp; prio[ops.top()] &gt;= prio[s[i]]) {
+                out.push_back(string(1, ops.top()));
+                ops.pop();
+            }
+            ops.push(s[i]);
+        }
+    }
+    while (!ops.empty()) {
+        out.push_back(string(1, ops.top()));
+        ops.pop();
+    }
+    return out;
+}
+
+// ====== 逆波兰求值 ======
+int eval_rpn(const vector&lt;string&gt;&amp; tokens) {
+    stack&lt;int&gt; st;
+    for (auto&amp; t : tokens) {
+        if (isdigit(t[0]) || (t.size() &gt; 1 &amp;&amp; t[0] == '-'))
+            st.push(stoi(t));
+        else {
+            int b = st.top(); st.pop();
+            int a = st.top(); st.pop();
+            if (t == "+") st.push(a + b);
+            else if (t == "-") st.push(a - b);
+            else if (t == "*") st.push(a * b);
+            else st.push(a / b);
+        }
+    }
+    return st.top();
+}
+</code></pre>
+
+<!-- ---------- 2.17 括号匹配 ---------- -->
+<h3>2.17 各种括号匹配</h3>
+
+<pre><code>// ====== 基础：多种括号匹配校验 ======
+bool is_valid_brackets(const string&amp; s) {
+    unordered_map&lt;char, char&gt; pair{
+        {')','('}, {']','['}, {'}','{'}
+    };
+    stack&lt;char&gt; st;
+    for (char c : s) {
+        if (pair.count(c)) {                     // 是右括号
+            if (st.empty() || st.top() != pair[c])
+                return false;
+            st.pop();
+        } else {                                 // 是左括号
+            st.push(c);
+        }
+    }
+    return st.empty();
+}
+
+// ====== 最长有效括号子串（仅小括号） ======
+int longest_valid_parentheses(const string&amp; s) {
+    stack&lt;int&gt; st;
+    st.push(-1);  // 哨兵下标
+    int ans = 0;
+    for (int i = 0; i &lt; s.size(); ++i) {
+        if (s[i] == '(') {
+            st.push(i);
+        } else {
+            st.pop();
+            if (st.empty())
+                st.push(i);  // 新的「最后一个未匹配右括号」
+            else
+                ans = max(ans, i - st.top());
+        }
+    }
+    return ans;
+}
+
+// ====== 最少插入次数使括号平衡 ======
+int min_insertions_to_balance(const string&amp; s) {
+    int need = 0;   // 还需多少右括号
+    int ans = 0;
+    for (char c : s) {
+        if (c == '(') {
+            need += 2;                   // 每个 '(' 需要 2 个 ')'
+            if (need % 2 == 1) {         // 奇数 → 补一个右括号
+                ans++;
+                need--;
+            }
+        } else {
+            need--;
+            if (need &lt; 0) {             // 右括号多了
+                ans++;                   // 补一个左括号
+                need = 1;                // 还需一个右括号
+            }
+        }
+    }
+    return ans + need;
+}
+
+// ====== 生成所有合法括号组合 ======
+vector&lt;string&gt; generate_parentheses(int n) {
+    vector&lt;string&gt; ans;
+    string path;
+
+    function&lt;void(int,int)&gt; dfs = [&amp;](int l, int r) {
+        if (l == n &amp;&amp; r == n) { ans.push_back(path); return; }
+        if (l &lt; n) { path.push_back('('); dfs(l + 1, r); path.pop_back(); }
+        if (r &lt; l) { path.push_back(')'); dfs(l, r + 1); path.pop_back(); }
+    };
+
+    dfs(0, 0);
+    return ans;
+}
+
+// ====== 括号嵌套深度 ======
+int max_depth(const string&amp; s) {
+    int d = 0, ans = 0;
+    for (char c : s) {
+        if (c == '(') ans = max(ans, ++d);
+        else if (c == ')') d--;
+    }
+    return ans;
+}
+</code></pre>
+
+<!-- ---------- 2.18 字符串重复字符压缩计数 ---------- -->
+<h3>2.18 字符串压缩（游程编码 RLE）</h3>
+
+<pre><code>// ====== 基础游程编码：aabbbcc → a2b3c2 ======
+string rle_encode(const string&amp; s) {
+    string res;
+    for (int i = 0; i &lt; s.size(); ) {
+        int j = i;
+        while (j &lt; s.size() &amp;&amp; s[j] == s[i]) ++j;
+        res += s[i];
+        res += to_string(j - i);
+        i = j;
+    }
+    return res;
+}
+
+// ====== 压缩后长度更短才返回，否则返回原串 ======
+string compress_if_shorter(const string&amp; s) {
+    string res;
+    for (int i = 0; i &lt; s.size(); ) {
+        int j = i;
+        while (j &lt; s.size() &amp;&amp; s[j] == s[i]) ++j;
+        res += s[i];
+        res += to_string(j - i);
+        i = j;
+    }
+    return res.size() &lt; s.size() ? res : s;
+}
+
+// ====== 游程解码：a2b3c2 → aabbbcc ======
+string rle_decode(const string&amp; s) {
+    string res;
+    for (int i = 0; i &lt; s.size(); ) {
+        char ch = s[i++];
+        int cnt = 0;
+        while (i &lt; s.size() &amp;&amp; isdigit(s[i]))
+            cnt = cnt * 10 + (s[i++] - '0');
+        res.append(cnt, ch);
+    }
+    return res;
+}
+
+// ====== 统计连续重复段数 ======
+int count_consecutive_groups(const string&amp; s) {
+    if (s.empty()) return 0;
+    int groups = 1;
+    for (int i = 1; i &lt; s.size(); ++i)
+        if (s[i] != s[i - 1]) groups++;
+    return groups;
+}
+// 或利用 unique：
+// int groups = unique(s.begin(), s.end()) - s.begin();
+</code></pre>
+
+<!-- ---------- 2.19 差值为1的最大索引距离 ---------- -->
+<h3>2.19 数组中差值为1的最大索引距离</h3>
+
+<pre><code>// ====== |arr[i] - arr[j]| == 1，求 |i - j| 的最大值 ======
+int max_dist_diff_one(const vector&lt;int&gt;&amp; arr) {
+    unordered_map&lt;int, int&gt; first;  // value → 首次出现的索引
+    int ans = -1;                    // 不存在返回 -1
+    for (int i = 0; i &lt; arr.size(); ++i) {
+        // 只记录首次出现（最小下标），用当前i作为最大下标求距离
+        if (!first.count(arr[i]))
+            first[arr[i]] = i;
+
+        if (first.count(arr[i] + 1))
+            ans = max(ans, i - first[arr[i] + 1]);
+        if (first.count(arr[i] - 1))
+            ans = max(ans, i - first[arr[i] - 1]);
+    }
+    return ans;
+}
+
+// ====== 双指针（定差滑动）：找和为target的两数最大索引距离 ======
+int max_dist_two_sum(const vector&lt;int&gt;&amp; arr, int target) {
+    unordered_map&lt;int, int&gt; first;
+    int ans = -1;
+    for (int i = 0; i &lt; arr.size(); ++i) {
+        if (!first.count(arr[i]))
+            first[arr[i]] = i;
+        if (first.count(target - arr[i]))
+            ans = max(ans, i - first[target - arr[i]]);
+    }
+    return ans;
+}
+
+// ====== 数组中有两个数差值为1的最大索引距离（遍历所有对） ======
+// 更通用的写法：记录每个值的最左和最右位置
+int max_dist_diff_one_v2(const vector&lt;int&gt;&amp; arr) {
+    unordered_map&lt;int, int&gt; left, right;
+    for (int i = 0; i &lt; arr.size(); ++i) {
+        if (!left.count(arr[i])) left[arr[i]] = i;
+        right[arr[i]] = i;
+    }
+    int ans = -1;
+    for (auto&amp; [val, l] : left) {
+        if (right.count(val + 1))
+            ans = max(ans, abs(l - right[val + 1]));
+        // 也检查 right[val+1] 在 l 之前的情况：
+        if (right.count(val + 1))
+            ans = max(ans, abs(right[val] - left[val + 1]));
+    }
+    return ans;
+}
+</code></pre>
+
+<!-- ---------- 2.20 IP地址表达式展开 ---------- -->
+<h3>2.20 IP地址表达式展开</h3>
+
+<pre><code>// ====== 含 * 和 范围 的IP表达式展开为具体IP列表 ======
+// 支持：192.168.*.*  192.168.1-3.*  10.0.0.1-5
+vector&lt;string&gt; expand_ip(const string&amp; pattern) {
+    vector&lt;string&gt; parts = split(pattern, '.');
+
+    vector&lt;string&gt; cur{""};
+    for (auto&amp; part : parts) {
+        vector&lt;string&gt; next;
+        // '*' → 0~255
+        if (part == "*") {
+            for (auto&amp; pre : cur)
+                for (int i = 0; i &lt;= 255; ++i)
+                    next.push_back(
+                        pre + (pre.empty() ? "" : ".") + to_string(i));
+        }
+        // 'lo-hi' → 范围
+        else if (part.find('-') != string::npos) {
+            int dash = part.find('-');
+            int lo = stoi(part.substr(0, dash));
+            int hi = stoi(part.substr(dash + 1));
+            for (auto&amp; pre : cur)
+                for (int i = lo; i &lt;= hi; ++i)
+                    next.push_back(
+                        pre + (pre.empty() ? "" : ".") + to_string(i));
+        }
+        // 固定值
+        else {
+            for (auto&amp; pre : cur)
+                next.push_back(
+                    pre + (pre.empty() ? "" : ".") + part);
+        }
+        cur.swap(next);
+    }
+    return cur;
+}
+
+// ====== IP地址与整数的相互转换 ======
+uint32_t ip_to_int(const string&amp; ip) {
+    vector&lt;string&gt; parts = split(ip, '.');
+    uint32_t res = 0;
+    for (auto&amp; p : parts)
+        res = (res &lt;&lt; 8) | stoi(p);
+    return res;
+}
+
+string int_to_ip(uint32_t n) {
+    return to_string((n &gt;&gt; 24) &amp; 0xFF) + "." +
+           to_string((n &gt;&gt; 16) &amp; 0xFF) + "." +
+           to_string((n &gt;&gt; 8)  &amp; 0xFF) + "." +
+           to_string(n &amp; 0xFF);
+}
+
+// CIDR 展开：192.168.1.0/24 → 所有IP
+vector&lt;string&gt; expand_cidr(const string&amp; cidr) {
+    int slash = cidr.find('/');
+    string ip = cidr.substr(0, slash);
+    int bits = stoi(cidr.substr(slash + 1));
+    uint32_t base = ip_to_int(ip);
+    uint32_t mask = (bits == 0) ? 0 : (~0u &lt;&lt; (32 - bits));
+    uint32_t start = base &amp; mask;
+    uint32_t count = 1u &lt;&lt; (32 - bits);
+    vector&lt;string&gt; ans;
+    for (uint32_t i = 0; i &lt; count; ++i)
+        ans.push_back(int_to_ip(start + i));
+    return ans;
 }
 </code></pre>
 
