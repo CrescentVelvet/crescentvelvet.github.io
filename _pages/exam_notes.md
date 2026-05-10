@@ -41,12 +41,10 @@ author_profile: false
             font-size: 1.05em;
         }
         pre {
-            background: #1e1e1e;
-            color: #d4d4d4;
             padding: 16px 20px;
             border-radius: 8px;
             overflow-x: auto;
-            font-size: 14px;
+            font-size: 15px;
             line-height: 1.6;
         }
         code {
@@ -54,21 +52,21 @@ author_profile: false
             background: #f0f0f0;
             padding: 2px 6px;
             border-radius: 3px;
-            font-size: 0.92em;
+            font-size: 0.95em;
         }
         pre code {
             background: none;
             padding: 0;
-            color: #d4d4d4;
         }
         table {
             width: 100%;
             border-collapse: collapse;
             margin: 15px 0;
+            font-size: 0.95em;
         }
         th, td {
             border: 1px solid #ddd;
-            padding: 10px 14px;
+            padding: 8px 12px;
             text-align: left;
         }
         th {
@@ -118,6 +116,7 @@ author_profile: false
             margin: 2px 4px;
         }
     </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/atom-one-dark.min.css">
 </head>
 <body>
 
@@ -1118,6 +1117,14 @@ void heapsort(vector&lt;int&gt;&amp; v) {
 <p style="text-align:center;color:#999;">
     C++ STL 速记 &amp; 编程考题模板 — 持续更新中
 </p>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+<script>
+document.querySelectorAll('pre code').forEach(function(block) {
+    block.classList.add('language-cpp');
+});
+hljs.highlightAll();
+</script>
 
 </body>
 </html>
