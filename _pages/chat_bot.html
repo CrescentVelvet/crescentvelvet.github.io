@@ -39,6 +39,7 @@ title: "大模型对话页面"
           <option value="gemini-2.5-pro-preview-05-06-chatanywhere">Gemini 2.5 Pro (ChatAnywhere)</option>
         </select>
         <a href="/" class="back-button">返回首页</a>
+        <button id="apikey-settings-btn" title="API Key 设置">🔑</button>
       </div>
       <!-- 对话消息显示区域 -->
       <div id="chat-messages"></div>
@@ -63,23 +64,57 @@ title: "大模型对话页面"
   </div>
 </div>
 
+<!-- API Key 设置对话框 -->
+<div id="apikey-dialog" class="dialog-overlay" style="display:none;">
+  <div class="dialog-box apikey-dialog-box">
+    <h3 style="margin:0 0 16px;">API Key 设置</h3>
+    <p style="font-size:12px;color:#999;margin-bottom:12px;">密钥仅保存在本地浏览器中</p>
+    <div class="apikey-field">
+      <label>SiliconFlow Key:</label>
+      <input type="password" id="apikey-siliconflow" placeholder="sk-...">
+    </div>
+    <div class="apikey-field">
+      <label>XiaoAi Key:</label>
+      <input type="password" id="apikey-xiaoai" placeholder="sk-...">
+    </div>
+    <div class="apikey-field">
+      <label>ChatAnywhere Key:</label>
+      <input type="password" id="apikey-chatanywhere" placeholder="sk-...">
+    </div>
+    <div class="dialog-buttons" style="margin-top:16px;">
+      <button id="apikey-save">保存</button>
+      <button id="apikey-cancel">取消</button>
+    </div>
+  </div>
+</div>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
   // ============ API 配置 ============
   const API_CONFIGS = {
     siliconflow: {
       url: 'https://api.siliconflow.cn/v1/chat/completions',
-      key: ''
     },
     xiaoai: {
       url: 'https://jf9s4sip6s.apifox.cn/',
-      key: ''
     },
     chatanywhere: {
       url: 'https://api.chatanywhere.tech/v1',
-      key: ''
     }
   };
+
+  // 从 localStorage 加载 API Keys
+  function loadApiKeys() {
+    try {
+      const saved = JSON.parse(localStorage.getItem('apiKeys'));
+      if (saved) Object.assign(API_CONFIGS, saved);
+    } catch(e) {}
+  }
+  loadApiKeys();
+
+  function getApiKey(service) {
+    return API_CONFIGS[service]?.key || '';
+  }
 
   // ============ DOM 元素 ============
   const els = {
@@ -120,9 +155,10 @@ document.addEventListener('DOMContentLoaded', function() {
     for (const [suffix, config] of Object.entries(API_CONFIGS)) {
       if (modelValue.endsWith('-' + suffix)) {
         const model = modelValue.replace('-' + suffix, '');
-        // 对于 siliconflow 的 Pro/xxx 格式，提取最后的模型名
         const modelName = model.includes('/') ? model.split('/').pop() : model;
-        return { ...config, model: modelName };
+        const key = getApiKey(suffix);
+        if (!key) return null;
+        return { ...config, key, model: modelName };
       }
     }
     return null;
@@ -220,7 +256,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const apiConfig = getApiConfig(els.modelSelect.value);
     if (!apiConfig) {
-      appendMessage('bot', '抱歉，当前模型选项配置有误，请联系管理员。');
+      appendMessage('bot', '请先点击右上角 🔑 按钮设置对应服务的 API Key。');
       finishSend();
       return;
     }
@@ -431,6 +467,44 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
 
+  // ============ API Key 设置 ============
+  const apikeyDialog = document.getElementById('apikey-dialog');
+  const apikeyInputs = {
+    siliconflow: document.getElementById('apikey-siliconflow'),
+    xiaoai: document.getElementById('apikey-xiaoai'),
+    chatanywhere: document.getElementById('apikey-chatanywhere')
+  };
+
+  // 回填已保存的 key
+  Object.entries(apikeyInputs).forEach(([srv, input]) => {
+    input.value = getApiKey(srv);
+  });
+
+  document.getElementById('apikey-settings-btn').addEventListener('click', () => {
+    Object.entries(apikeyInputs).forEach(([srv, input]) => {
+      input.value = getApiKey(srv);
+    });
+    apikeyDialog.style.display = 'flex';
+  });
+
+  document.getElementById('apikey-save').addEventListener('click', () => {
+    const keys = {};
+    Object.entries(apikeyInputs).forEach(([srv, input]) => {
+      keys[srv] = { key: input.value.trim() };
+    });
+    localStorage.setItem('apiKeys', JSON.stringify(keys));
+    Object.assign(API_CONFIGS, keys);
+    apikeyDialog.style.display = 'none';
+  });
+
+  document.getElementById('apikey-cancel').addEventListener('click', () => {
+    apikeyDialog.style.display = 'none';
+  });
+
+  apikeyDialog.addEventListener('click', (e) => {
+    if (e.target === apikeyDialog) apikeyDialog.style.display = 'none';
+  });
+
   // ============ 工具函数 ============
   function escapeHtml(text) {
     const div = document.createElement('div');
@@ -518,6 +592,12 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helv
   transition: background 0.2s;
 }
 .back-button:hover { background: #5a6fd6; }
+#apikey-settings-btn {
+  background: none; border: 1px solid #ddd; border-radius: 8px;
+  font-size: 18px; cursor: pointer; padding: 8px 10px;
+  transition: background 0.2s;
+}
+#apikey-settings-btn:hover { background: #f0f0f0; }
 
 /* ============ 消息区域 ============ */
 #chat-messages {
@@ -643,6 +723,37 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helv
 #confirm-yes:hover { background: #ee5a5a; }
 #confirm-no { background: #e0e0e0; color: #333; }
 #confirm-no:hover { background: #d0d0d0; }
+
+/* ============ API Key 对话框 ============ */
+.apikey-dialog-box {
+  max-width: 480px; text-align: left;
+}
+.apikey-field {
+  margin-bottom: 10px;
+}
+.apikey-field label {
+  display: block; font-size: 13px; font-weight: 500;
+  margin-bottom: 4px; color: #555;
+}
+.apikey-field input {
+  width: 100%; padding: 10px 12px;
+  border: 1px solid #ddd; border-radius: 8px;
+  font-size: 13px; outline: none; font-family: monospace;
+  transition: border-color 0.2s;
+}
+.apikey-field input:focus { border-color: #667eea; }
+#apikey-save {
+  background: #667eea; color: #fff;
+  padding: 10px 28px; border: none; border-radius: 8px;
+  font-size: 14px; cursor: pointer; transition: background 0.2s;
+}
+#apikey-save:hover { background: #5a6fd6; }
+#apikey-cancel {
+  background: #e0e0e0; color: #333;
+  padding: 10px 28px; border: none; border-radius: 8px;
+  font-size: 14px; cursor: pointer; transition: background 0.2s;
+}
+#apikey-cancel:hover { background: #d0d0d0; }
 
 /* ============ 移动端 ============ */
 @media (max-width: 768px) {
