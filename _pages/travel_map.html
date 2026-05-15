@@ -16,183 +16,349 @@ layout: null
     <!-- 引入 Leaflet.curve 插件，用于绘制曲线 -->
     <script src="https://unpkg.com/leaflet-curve@2.0.0/leaflet.curve.js"></script>
     <style>
+        *, *::before, *::after { box-sizing: border-box; }
+
         html, body {
-            font-family: Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
             margin: 0;
             padding: 0;
             height: 100%;
             width: 100%;
             overflow: hidden;
+            -webkit-font-smoothing: antialiased;
         }
-        
+
         body {
             display: flex;
             flex-direction: column;
         }
 
         .header {
-            background-color: #1E90FF;
+            background: linear-gradient(135deg, #1E90FF, #187bcd);
             color: white;
-            padding: 15px;
+            padding: 12px 20px;
             text-align: center;
-            height: 30px;
-            line-height: 30px;
-            z-index: 2;
+            z-index: 100;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
         }
-        
+
         .header h1 {
             margin: 0;
-            font-size: 24px;
+            font-size: 22px;
+            font-weight: 600;
+            letter-spacing: 2px;
         }
 
         .content {
             display: flex;
             flex: 1;
-            height: calc(100% - 60px); /* 减去header的高度 */
+            min-height: 0;
             overflow: hidden;
             position: relative;
         }
-        
-        /* 加载指示器样式 */
+
         .map-loading {
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            background-color: rgba(255, 255, 255, 0.8);
-            padding: 15px 20px;
-            border-radius: 5px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-            z-index: 1000;
+            background-color: rgba(255, 255, 255, 0.95);
+            padding: 20px 28px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            z-index: 2000;
             display: flex;
             flex-direction: column;
             align-items: center;
             font-size: 14px;
+            color: #333;
+            pointer-events: none;
         }
-        
+
         .loading-spinner {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #1E90FF;
+            border: 3px solid #e0e0e0;
+            border-top: 3px solid #1E90FF;
             border-radius: 50%;
-            width: 30px;
-            height: 30px;
-            animation: spin 1s linear infinite;
-            margin-bottom: 10px;
+            width: 32px;
+            height: 32px;
+            animation: spin 0.8s linear infinite;
+            margin-bottom: 12px;
         }
-        
+
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
 
         .sidebar {
-            width: 300px;
-            background-color: #f4f4f4;
-            padding: 20px;
+            width: 320px;
+            min-width: 320px;
+            background-color: #f8f9fa;
+            padding: 16px;
             overflow-y: auto;
-            z-index: 2;
-            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
-            height: 100%;
-            transition: max-height 0.3s;
+            z-index: 200;
+            box-shadow: 2px 0 12px rgba(0,0,0,0.08);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
         }
+
+        .sidebar::-webkit-scrollbar { width: 6px; }
+        .sidebar::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
 
         #map {
             flex: 1;
-            height: 100% !important; /* 确保地图容器有高度 */
-            width: 100% !important;
-            position: relative !important;
             z-index: 1;
+            position: relative;
+            min-width: 0;
         }
 
         .form-container {
-            margin-bottom: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 0;
         }
 
-        input, button {
-            margin: 5px;
-            padding: 8px;
-            width: calc(100% - 10px);
+        .form-container label {
+            font-size: 12px;
+            color: #666;
+            font-weight: 600;
+            margin: 8px 0 2px 2px;
         }
 
-        button {
-            background-color: #1E90FF;
-            color: white;
-            border: none;
+        .form-container input,
+        .form-container select,
+        .form-container button {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .form-container input:focus,
+        .form-container select:focus {
+            outline: none;
+            border-color: #1E90FF;
+            box-shadow: 0 0 0 3px rgba(30,144,255,0.15);
+        }
+
+        .form-container input {
+            margin-bottom: 8px;
+        }
+
+        .form-container select {
+            margin-bottom: 8px;
+            background: white;
             cursor: pointer;
-            border-radius: 4px;
         }
 
-        button:hover {
-            background-color: #187bcd;
+        .form-container button {
+            border: none;
+            color: white;
+            cursor: pointer;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s;
         }
+
+        .form-container button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+
+        .form-container button:active {
+            transform: translateY(0);
+        }
+
+        .btn-add { background-color: #1E90FF; }
+        .btn-add:hover { background-color: #187bcd; }
+
+        .btn-clear { background-color: #008B8B; }
+        .btn-clear:hover { background-color: #007070; }
+
+        .btn-animate { background-color: #FF6347; }
+        .btn-animate:hover { background-color: #e55a40; }
+        .btn-animate.btn-pause { background-color: #FF8C00; }
+
+        .btn-export { background-color: #77c306; }
+        .btn-export:hover { background-color: #68a805; }
+
+        .btn-home { background-color: #FF4500; }
+        .btn-home:hover { background-color: #e03e00; }
 
         .location-item {
             background-color: white;
-            padding: 10px;
-            margin-bottom: 10px;
-            border-radius: 5px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            padding: 12px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+            border-left: 4px solid #1E90FF;
+            transition: box-shadow 0.2s;
+        }
+
+        .location-item:hover,
+        .location-item-hover {
+            box-shadow: 0 4px 14px rgba(0,0,0,0.1);
+            border-left-color: #FF6347;
+            background-color: #fff5f5;
+        }
+
+        .location-item h4 {
+            margin: 0 0 6px 0;
+            font-size: 15px;
+            color: #333;
+        }
+
+        .location-item p {
+            margin: 3px 0;
+            font-size: 13px;
+            color: #666;
+        }
+
+        .location-item button {
+            margin-top: 8px;
+            padding: 6px 14px;
+            background-color: #e74c3c;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: background-color 0.2s;
+        }
+
+        .location-item button:hover {
+            background-color: #c0392b;
+        }
+
+        .airport-marker-dep {
+            background-color: #1E90FF;
+            color: white;
+            border-radius: 50%;
+            width: 28px;
+            height: 28px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            font-size: 11px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            border: 2px solid white;
+        }
+
+        .airport-marker-arr {
+            background-color: #FF6347;
+            color: white;
+            border-radius: 50%;
+            width: 28px;
+            height: 28px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            font-size: 11px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            border: 2px solid white;
+        }
+
+        .plane-icon {
+            font-size: 22px;
+            filter: drop-shadow(0 1px 3px rgba(0,0,0,0.3));
+        }
+
+        .animated-plane {
+            font-size: 32px;
+            filter: drop-shadow(0 2px 6px rgba(0,0,0,0.4));
+        }
+
+        .autocomplete-wrapper {
+            position: relative;
         }
 
         .autocomplete-suggestions {
-            border: 1px solid #ddd;
-            max-height: 150px;
-            overflow-y: auto;
             position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            border: 1px solid #ddd;
+            border-top: none;
+            max-height: 180px;
+            overflow-y: auto;
             background-color: white;
-            z-index: 1000;
-            width: calc(100% - 10px);
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            z-index: 3000;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            border-radius: 0 0 8px 8px;
         }
 
         .suggestion-item {
-            padding: 8px;
+            padding: 10px 12px;
             cursor: pointer;
+            font-size: 13px;
+            transition: background-color 0.15s;
         }
 
         .suggestion-item:hover {
-            background-color: #f0f0f0;
+            background-color: #e8f4fd;
         }
 
-        /* 响应式：移动端下侧栏折叠，地图最大化 */
+        .sidebar-toggle-btn {
+            display: none;
+            width: 100%;
+            background: #1E90FF;
+            color: #fff;
+            border: none;
+            padding: 12px;
+            font-size: 16px;
+            cursor: pointer;
+            font-weight: 600;
+            letter-spacing: 1px;
+        }
+
+        .sidebar-toggle-btn:hover {
+            background: #187bcd;
+        }
+
         @media (max-width: 768px) {
             .content {
                 flex-direction: column;
             }
+
             .sidebar {
                 width: 100%;
-                height: auto;
-                box-shadow: none;
-                padding: 10px;
-                position: relative;
-                z-index: 10;
-                max-height: 60vh;
+                min-width: 0;
+                max-height: 55vh;
                 overflow-y: auto;
-                transition: max-height 0.3s;
+                box-shadow: 0 -2px 12px rgba(0,0,0,0.08);
+                border-radius: 16px 16px 0 0;
+                padding: 12px 14px;
+                transition: max-height 0.35s ease, padding 0.35s ease, opacity 0.35s ease;
             }
-            #map {
-                width: 100% !important;
-                height: calc(100vh - 60px) !important;
-                min-height: 300px;
-            }
+
             .sidebar.collapsed {
                 max-height: 0;
-                padding: 0;
+                padding-top: 0;
+                padding-bottom: 0;
                 overflow: hidden;
+                opacity: 0;
             }
+
+            #map {
+                flex: 1;
+                min-height: 40vh;
+            }
+
             .sidebar-toggle-btn {
                 display: block;
-                width: 100%;
-                background: #1E90FF;
-                color: #fff;
-                border: none;
-                padding: 10px;
-                font-size: 16px;
-                cursor: pointer;
                 border-radius: 0;
-                margin-bottom: 0;
+            }
+
+            .header h1 {
+                font-size: 18px;
             }
         }
+
         @media (min-width: 769px) {
             .sidebar-toggle-btn {
                 display: none;
@@ -208,20 +374,24 @@ layout: null
         <button class="sidebar-toggle-btn" onclick="toggleSidebar()">☰ 显示/隐藏航线操作区</button>
         <div class="sidebar">
             <div class="form-container">
-                <input type="text" id="departure" placeholder="出发机场 (如: PEK, 北京首都)">
-                <div id="departure-suggestions" class="autocomplete-suggestions"></div>
-                <input type="text" id="arrival" placeholder="到达机场 (如: SHA, 上海虹桥)">
-                <div id="arrival-suggestions" class="autocomplete-suggestions"></div>
+                <div class="autocomplete-wrapper">
+                    <input type="text" id="departure" placeholder="出发机场 (如: PEK, 北京首都)">
+                    <div id="departure-suggestions" class="autocomplete-suggestions"></div>
+                </div>
+                <div class="autocomplete-wrapper">
+                    <input type="text" id="arrival" placeholder="到达机场 (如: SHA, 上海虹桥)">
+                    <div id="arrival-suggestions" class="autocomplete-suggestions"></div>
+                </div>
                 <input type="datetime-local" id="flight-time">
-                <select id="flight-type" style="margin: 5px; padding: 8px; width: calc(100% - 10px);">
+                <select id="flight-type">
                     <option value="direct">直飞航线</option>
                     <option value="curved">弧线航线</option>
                 </select>
-                <button onclick="addFlight()">添加航线</button>
-                <button onclick="clearFlights()" style="background-color: #008B8B;">清除所有航线</button>
-                <button id="toggleAnimationBtn" onclick="toggleAnimation()" style="background-color: #FF6347;">播放航线动画</button>
-                <button onclick="exportFlightPaths()" style="background-color: #77c306;">导出航线</button>
-                <button id="backHomeBtn" class="action-button" onclick="window.location.href='index.html'" style="background-color: #FF4500;">返回首页</button>
+                <button class="btn-add" onclick="addFlight()">添加航线</button>
+                <button class="btn-clear" onclick="clearFlights()">清除所有航线</button>
+                <button id="toggleAnimationBtn" class="btn-animate" onclick="toggleAnimation()">播放航线动画</button>
+                <button class="btn-export" onclick="exportFlightPaths()">导出航线</button>
+                <button class="btn-home" onclick="window.location.href='index.html'">返回首页</button>
             </div>
             <div id="flight-list"></div>
         </div>
@@ -241,162 +411,56 @@ layout: null
         // 全局变量，用于跟踪地图瓦片加载状态
         var tileLoadErrors = 0;
         var tileLoadSuccess = 0;
-        
-        // 添加全局错误处理函数，用于捕获地图瓦片加载错误
+        var activeLayerIndex = 0; // 0=主图层, 1=第二, 2=第三, 3=第四
+
+        // 备用图层配置
+        var fallbackLayers = [];
+        var layerNames = ['高德地图', 'CartoDB', 'Stadia Maps', 'Mapbox'];
+
+        function switchToFallbackLayer(map, newIndex) {
+            if (newIndex >= fallbackLayers.length || !map) return;
+            var prevLayer = fallbackLayers[activeLayerIndex];
+            if (prevLayer) map.removeLayer(prevLayer);
+            fallbackLayers[newIndex].addTo(map);
+            activeLayerIndex = newIndex;
+            tileLoadErrors = 0;
+            tileLoadSuccess = 0;
+            fallbackLayers[newIndex].on('tileerror', handleTileError);
+            fallbackLayers[newIndex].on('tileload', handleTileLoad);
+            console.log('已切换到' + layerNames[newIndex] + '图层');
+        }
+
         function handleTileError(event) {
             tileLoadErrors++;
-            
-            // 获取当前活动图层名称
-            var currentLayerName = '未知';
-            if (window.fourthLayerAdded) {
-                currentLayerName = '第四备用图层(Mapbox)';
-            } else if (window.fallbackLayerAdded) {
-                currentLayerName = '第二备用图层(CartoDB)';
-            } else if (window.thirdLayerAdded) {
-                currentLayerName = '第三备用图层(Stadia Maps)';
-            } else {
-                currentLayerName = '主图层(高德地图)';
-            }
-            
-            // 详细记录错误信息
-            var errorSource = event.target && (event.target.src || event.target.href) ? (event.target.src || event.target.href) : '未知源';
-            var errorType = event.type || '未知错误类型';
-            var errorMessage = event.message || '无错误消息';
-            var errorStatus = event.target && event.target.status ? event.target.status : '未知状态';
-            
-            console.warn(`地图瓦片加载失败(${currentLayerName}):`, {
-                错误源: errorSource,
-                错误类型: errorType,
-                错误消息: errorMessage,
-                错误状态: errorStatus,
-                错误计数: tileLoadErrors,
-                完整事件: event
-            });
-            
-            // 更新加载指示器消息
+            var name = layerNames[activeLayerIndex] || '当前';
             var loadingText = document.getElementById('loading-text');
             if (loadingText) {
-                loadingText.textContent = `${currentLayerName}加载中...遇到 ${tileLoadErrors} 个错误，正在尝试恢复`;
+                loadingText.textContent = name + '加载中...遇到 ' + tileLoadErrors + ' 个错误，正在尝试恢复';
             }
-            
-            // 如果错误太多，尝试切换到备用图层
-            if (tileLoadErrors > 5 && window.travelMap && window.fallbackLayerAdded === false) {
-                console.warn('检测到多个瓦片加载错误，尝试切换到第二备用图层(CartoDB)');
-                showMapLoading('主地图服务不可用，正在切换到第二备用地图...');
-                try {
-                    // 移除主图层，减少错误
-                    if (window.mainLayer && window.travelMap) {
-                        window.travelMap.removeLayer(window.mainLayer);
-                    }
-                    
-                    window.fallbackLayer.addTo(window.travelMap);
-                    window.fallbackLayerAdded = true;
-                    console.log('已切换到第二备用地图图层(CartoDB)');
-                    // 重置计数器，给新图层一个机会
-                    tileLoadErrors = 0;
-                    tileLoadSuccess = 0;
-                    
-                    // 添加第二备用图层的错误监听
-                    window.fallbackLayer.on('tileerror', function(event) {
-                        handleTileError(event);
-                    });
-                    
-                    window.fallbackLayer.on('tileload', function() {
-                        handleTileLoad();
-                    });
-                } catch (error) {
-                    console.error('切换到第二备用图层(CartoDB)失败:', error);
+
+            // 逐步降级到备用图层
+            var thresholds = [5, 15, 25];
+            for (var i = 0; i < thresholds.length; i++) {
+                if (tileLoadErrors > thresholds[i] && window.travelMap && activeLayerIndex === i && i + 1 < fallbackLayers.length) {
+                    showMapLoading(layerNames[i] + '不可用，正在切换到' + layerNames[i + 1] + '...');
+                    switchToFallbackLayer(window.travelMap, i + 1);
+                    break;
                 }
-            } else if (tileLoadErrors > 15 && window.travelMap && window.thirdLayerAdded === false) {
-                console.warn('检测到过多瓦片加载错误，尝试切换到第三备用图层(Stadia Maps)');
-                showMapLoading('第二备用地图服务不可用，正在切换到第三备用地图...');
-                try {
-                    // 移除之前的图层
-                    if (window.fallbackLayerAdded && window.fallbackLayer && window.travelMap) {
-                        window.travelMap.removeLayer(window.fallbackLayer);
-                    }
-                    
-                    window.thirdLayer.addTo(window.travelMap);
-                    window.thirdLayerAdded = true;
-                    console.log('已切换到第三备用地图图层(Stadia Maps)');
-                    // 重置计数器
-                    tileLoadErrors = 0;
-                    tileLoadSuccess = 0;
-                    
-                    // 添加第三备用图层的错误监听
-                    window.thirdLayer.on('tileerror', function(event) {
-                        handleTileError(event);
-                    });
-                    
-                    window.thirdLayer.on('tileload', function() {
-                        handleTileLoad();
-                    });
-                } catch (error) {
-                    console.error('切换到第三备用图层(Stadia Maps)失败:', error);
-                }
-            } else if (tileLoadErrors > 25 && window.travelMap && window.fourthLayerAdded === false) {
-                console.warn('检测到严重瓦片加载错误，尝试切换到第四备用图层(Mapbox)');
-                showMapLoading('第三备用地图服务不可用，正在切换到第四备用地图...');
-                try {
-                    // 移除之前的图层
-                    if (window.thirdLayerAdded && window.thirdLayer && window.travelMap) {
-                        window.travelMap.removeLayer(window.thirdLayer);
-                    }
-                    
-                    window.fourthLayer.addTo(window.travelMap);
-                    window.fourthLayerAdded = true;
-                    console.log('已切换到第四备用地图图层(Mapbox)');
-                    // 重置计数器
-                    tileLoadErrors = 0;
-                    tileLoadSuccess = 0;
-                    
-                    // 添加第四备用图层的错误监听
-                    window.fourthLayer.on('tileerror', function(event) {
-                        handleTileError(event);
-                    });
-                    
-                    window.fourthLayer.on('tileload', function() {
-                        handleTileLoad();
-                    });
-                } catch (error) {
-                    console.error('切换到第四备用图层(Mapbox)失败:', error);
-                }
-            } else if (tileLoadErrors > 35) {
-                // 所有图层都失败
+            }
+            if (tileLoadErrors > 35) {
                 showMapLoading('所有地图服务均不可用，请检查网络连接或稍后再试');
             }
         }
         
-        // 添加全局函数，用于处理地图瓦片加载成功
         function handleTileLoad() {
             tileLoadSuccess++;
-            
-            // 获取当前活动图层名称
-            var currentLayerName = '未知';
-            if (window.fourthLayerAdded) {
-                currentLayerName = '第四备用图层(Mapbox)';
-            } else if (window.fallbackLayerAdded) {
-                currentLayerName = '第二备用图层(CartoDB)';
-            } else if (window.thirdLayerAdded) {
-                currentLayerName = '第三备用图层(Stadia Maps)';
-            } else {
-                currentLayerName = '主图层(高德地图)';
-            }
-            
-            // 每50个瓦片记录一次加载进度
-            if (tileLoadSuccess % 50 === 0) {
-                console.log(`${currentLayerName}已成功加载 ${tileLoadSuccess} 个瓦片`);
-            }
-            
-            // 更新加载进度
+            var name = layerNames[activeLayerIndex] || '当前';
             var loadingText = document.getElementById('loading-text');
             if (loadingText) {
-                // 如果加载了足够多的瓦片，隐藏加载指示器
                 if (tileLoadSuccess > 15) {
                     hideMapLoading();
-                    // console.log(`${currentLayerName}加载完成，已加载 ${tileLoadSuccess} 个瓦片`);
                 } else {
-                    loadingText.textContent = `正在加载${currentLayerName}...已加载 ${tileLoadSuccess} 个瓦片`;
+                    loadingText.textContent = '正在加载' + name + '...已加载 ' + tileLoadSuccess + ' 个瓦片';
                 }
             }
         }
@@ -457,15 +521,6 @@ layout: null
             }
         }, true); // 使用捕获阶段
         
-        // 添加全局图片错误处理
-        document.addEventListener('error', function(event) {
-            if (event.target && event.target.tagName === 'IMG' && event.target.classList.contains('leaflet-tile')) {
-                console.log('捕获到地图瓦片图片加载错误:', event.target.src);
-                handleTileError(event);
-                return true;
-            }
-        }, true);
-        
         function initMap() {
             try {
                 // 初始化地图
@@ -489,118 +544,44 @@ layout: null
                     attributionControl: true
                 });
 
-                // 添加地图图层 - 使用更可靠的地图源
-                // 创建主图层并存储到全局变量 - 使用高德地图作为主图层
-                window.mainLayer = L.tileLayer('https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}', {
-                    attribution: '© 高德地图',
-                    subdomains: "1234",
-                    maxZoom: 19,
-                    // 添加错误处理选项
-                    errorTileUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', // 透明图片
-                    crossOrigin: true
-                });
-                
-                // 创建备用图层并存储到全局变量 - 使用CartoDB作为备用
-                window.fallbackLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-                    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions">CARTO</a>',
-                    subdomains: 'abcd',
-                    maxZoom: 19,
-                    errorTileUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
-                    crossOrigin: true
-                });
-                
-                // 第三备用图层 - 使用Stadia Maps作为第三备用
-                window.thirdLayer = L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}{r}.png', {
-                    attribution: '&copy; <a href="https://stadiamaps.com/">Stadia Maps</a>, &copy; <a href="https://openmaptiles.org/">OpenMapTiles</a> &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors',
-                    subdomains: 'abcd',
-                    maxZoom: 19,
-                    errorTileUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
-                    crossOrigin: true
-                });
-                
-                // 第四备用图层 - 使用Mapbox
-                window.fourthLayer =;
-                
-                // 初始化图层状态标志
-                window.fallbackLayerAdded = false;
-                window.thirdLayerAdded = false;
-                window.fourthLayerAdded = false;
-                
-                // 添加瓦片加载事件监听
-                window.mainLayer.on('tileerror', function(event) {
-                    handleTileError(event);
-                });
-                
-                window.mainLayer.on('tileload', function() {
-                    handleTileLoad();
-                });
-                
-                // 尝试添加主图层，如果失败则使用备用图层
-                try {
-                    window.mainLayer.addTo(map);
-                    console.log('主地图图层(高德地图)加载成功');
-                } catch (error) {
-                    console.error('主地图图层加载失败，尝试备用图层:', error);
-                    showMapLoading('主地图服务不可用，正在切换到备用地图...');
-                    
+                // 空白占位瓦片（透明）
+                var blankTile = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+
+                // 构建备用图层列表
+                fallbackLayers = [
+                    L.tileLayer('https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}', {
+                        attribution: '© 高德地图', subdomains: '1234', maxZoom: 19, errorTileUrl: blankTile, crossOrigin: true
+                    }),
+                    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+                        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions">CARTO</a>',
+                        subdomains: 'abcd', maxZoom: 19, errorTileUrl: blankTile, crossOrigin: true
+                    }),
+                    L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}{r}.png', {
+                        attribution: '&copy; <a href="https://stadiamaps.com/">Stadia Maps</a>, &copy; <a href="https://openmaptiles.org/">OpenMapTiles</a> &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors',
+                        subdomains: 'abcd', maxZoom: 19, errorTileUrl: blankTile, crossOrigin: true
+                    })
+                ];
+
+                // 尝试依次加载图层
+                activeLayerIndex = 0;
+                for (var i = 0; i < fallbackLayers.length; i++) {
                     try {
-                        window.fallbackLayer.addTo(map);
-                        window.fallbackLayerAdded = true;
-                        console.log('第二备用地图图层(CartoDB)加载成功');
-                        
-                        // 添加第二备用图层的错误监听
-                        window.fallbackLayer.on('tileerror', function(event) {
-                            handleTileError(event);
-                        });
-                        
-                        window.fallbackLayer.on('tileload', function() {
-                            handleTileLoad();
-                        });
-                    } catch (fallbackError) {
-                        console.error('第二备用地图图层(CartoDB)加载失败，尝试第三备用图层:', fallbackError);
-                        showMapLoading('第二备用地图服务不可用，正在切换到第三备用地图...');
-                        
-                        try {
-                            window.thirdLayer.addTo(map);
-                            window.thirdLayerAdded = true;
-                            console.log('第三备用地图图层(Stadia Maps)加载成功');
-                            
-                            // 添加第三备用图层的错误监听
-                            window.thirdLayer.on('tileerror', function(event) {
-                                handleTileError(event);
-                            });
-                            
-                            window.thirdLayer.on('tileload', function() {
-                                handleTileLoad();
-                            });
-                        } catch (thirdError) {
-                            console.error('第三备用地图图层(Stadia Maps)加载失败，尝试第四备用图层:', thirdError);
-                            showMapLoading('第三备用地图服务不可用，正在切换到第四备用地图...');
-                            
-                            try {
-                                window.fourthLayer.addTo(map);
-                                window.fourthLayerAdded = true;
-                                console.log('第四备用地图图层(Mapbox)加载成功');
-                                
-                                // 添加第四备用图层的错误监听
-                                window.fourthLayer.on('tileerror', function(event) {
-                                    handleTileError(event);
-                                });
-                                
-                                window.fourthLayer.on('tileload', function() {
-                                    handleTileLoad();
-                                });
-                            } catch (fourthError) {
-                                console.error('所有地图图层加载失败:', fourthError);
-                                showMapLoading('所有地图服务均不可用，请检查网络连接或稍后再试');
-                                
-                                setTimeout(function() {
-                                    alert('地图图层加载失败，请检查网络连接');
-                                }, 500);
-                            }
+                        fallbackLayers[i].addTo(map);
+                        activeLayerIndex = i;
+                        console.log(layerNames[i] + '图层加载成功');
+                        break;
+                    } catch (e) {
+                        console.error(layerNames[i] + '图层加载失败:', e);
+                        if (i === fallbackLayers.length - 1) {
+                            showMapLoading('所有地图服务均不可用，请检查网络连接或稍后再试');
+                            setTimeout(function() { alert('地图图层加载失败，请检查网络连接'); }, 500);
+                        } else {
+                            showMapLoading(layerNames[i] + '不可用，正在切换到' + layerNames[i + 1] + '...');
                         }
                     }
                 }
+                fallbackLayers[activeLayerIndex].on('tileerror', handleTileError);
+                fallbackLayers[activeLayerIndex].on('tileload', handleTileLoad);
 
                 console.log('地图初始化完成');
                 
@@ -624,20 +605,33 @@ layout: null
                             console.log('检测到瓦片加载错误，保持加载指示器显示');
                         }
                         
-                        // 从JSON文件加载初始航线数据
-                        fetch('assets/data/initial_flight_paths.json')
-                            .then(response => response.json())
-                            .then(data => {
-                                flightInfo = data || [];
-                                console.log('初始航线数据加载成功:', flightInfo);
-                                // 确保在数据加载完成后初始化航线
+                        // 先从localStorage恢复用户添加的航线
+                        var savedFlights = localStorage.getItem('flightInfo');
+                        if (savedFlights) {
+                            try {
+                                flightInfo = JSON.parse(savedFlights);
+                                console.log('从本地存储恢复航线:', flightInfo.length, '条');
                                 initFlightPaths();
-                            })
-                            .catch(error => {
-                                console.error('加载初始航线数据失败:', error);
-                                // 如果加载失败，仍然尝试初始化航线，但数据为空
-                                initFlightPaths();
-                            });
+                            } catch (e) {
+                                console.error('本地存储航线解析失败:', e);
+                                flightInfo = [];
+                            }
+                        }
+
+                        // 从JSON文件加载初始航线数据（仅在没有本地数据时）
+                        if (flightInfo.length === 0) {
+                            fetch('assets/data/initial_flight_paths.json')
+                                .then(function(response) { return response.json(); })
+                                .then(function(data) {
+                                    flightInfo = data || [];
+                                    console.log('初始航线数据加载成功:', flightInfo.length, '条');
+                                    initFlightPaths();
+                                })
+                                .catch(function(error) {
+                                    console.error('加载初始航线数据失败:', error);
+                                    initFlightPaths();
+                                });
+                        }
 
                     }, 1000); // 增加延迟，确保瓦片有足够时间加载
                 });
@@ -656,7 +650,6 @@ layout: null
         var flightInfo = [];
         var flightPaths = [];
         var animationMarker;
-        var animationPath;
         var animationInterval;
         
         // 常用机场数据 - 包含IATA代码、名称、经纬度
@@ -688,7 +681,6 @@ layout: null
             "XMN": { name: "厦门高崎国际机场", lat: 24.544, lng: 118.127 },
             "KHN": { name: "南昌昌北国际机场", lat: 28.867, lng: 115.908 },
             "URC": { name: "乌鲁木齐地窝堡国际机场", lat: 43.907, lng: 87.475 },
-            "HGH": { name: "杭州萧山国际机场", lat: 30.2294, lng: 120.4412 },
             "HAK": { name: "海口美兰国际机场", lat: 19.9349, lng: 110.4590 },
             
             // 国际主要机场
@@ -707,33 +699,33 @@ layout: null
             "FRA": { name: "法兰克福国际机场", lat: 50.0379, lng: 8.5622 },
             "SYD": { name: "悉尼金斯福德·史密斯国际机场", lat: -33.9399, lng: 151.1753 },
             "KIX": { name: "大阪关西国际机场", lat: 34.4272, lng: 135.2447 },
-            "KUL": { name: "吉隆坡国际机场", lat: 2.7456, lng: 101.7099 },
             "BKI": { name: "哥打京那巴鲁国际机场", lat: 5.9378, lng: 116.0511 }
         };
         
         // 搜索机场函数
         function searchAirport(query) {
-            query = query.trim().toUpperCase();
-            
+            var trimmed = query.trim();
+            var upperQuery = trimmed.toUpperCase();
+
             // 直接匹配IATA代码
-            if (airports[query]) {
+            if (airports[upperQuery]) {
                 return [{
-                    code: query,
-                    ...airports[query]
+                    code: upperQuery,
+                    ...airports[upperQuery]
                 }];
             }
-            
-            // 搜索机场名称
+
+            // 搜索机场名称（支持中文）和IATA代码
             var results = [];
             for (var code in airports) {
-                if (airports[code].name.includes(query) || code.includes(query)) {
+                if (airports[code].name.includes(trimmed) || code.includes(upperQuery)) {
                     results.push({
                         code: code,
                         ...airports[code]
                     });
                 }
             }
-            
+
             return results;
         }
         
@@ -790,17 +782,17 @@ layout: null
                 // 创建出发和到达机场的标记
                 var departureMarker = L.marker([from.lat, from.lng], {
                     icon: L.divIcon({
-                        className: 'airport-marker',
-                        html: `<div style="background-color: #1E90FF; color: white; border-radius: 50%; width: 24px; height: 24px; display: flex; justify-content: center; align-items: center; font-weight: bold;">${from.code}</div>`,
-                        iconSize: [24, 24]
+                        className: 'airport-marker-dep',
+                        html: from.code,
+                        iconSize: [28, 28]
                     })
                 }).addTo(window.travelMap).bindPopup(`<b>${from.name}</b><br>${from.code}`);
                 
                 var arrivalMarker = L.marker([to.lat, to.lng], {
                     icon: L.divIcon({
-                        className: 'airport-marker',
-                        html: `<div style="background-color: #FF6347; color: white; border-radius: 50%; width: 24px; height: 24px; display: flex; justify-content: center; align-items: center; font-weight: bold;">${to.code}</div>`,
-                        iconSize: [24, 24]
+                        className: 'airport-marker-arr',
+                        html: to.code,
+                        iconSize: [28, 28]
                     })
                 }).addTo(window.travelMap).bindPopup(`<b>${to.name}</b><br>${to.code}`);
                 
@@ -825,8 +817,8 @@ layout: null
                 var midPoint = getMidPoint(from, to, type === 'curved');
                 var planeIcon = L.divIcon({
                     className: 'plane-icon',
-                    html: '<div style="font-size: 20px; transform: rotate(45deg);">✈️</div>',
-                    iconSize: [20, 20]
+                    html: '✈️',
+                    iconSize: [24, 24]
                 });
                 
                 var planeMarker = L.marker(midPoint, { icon: planeIcon }).addTo(window.travelMap);
@@ -923,28 +915,57 @@ layout: null
             window.travelMap.fitBounds(bounds, { padding: [50, 50] });
         }
         
-        // 保存原始的window.onload函数
-        var originalOnload = window.onload;
-        window.onload = function() {
-            if (originalOnload) originalOnload();
-            // 注意：initFlightPaths会在地图初始化完成后自动调用
-            // 不需要在这里再次调用
-        };
 
         // 更新航班列表
         function updateFlightList() {
             var flightList = document.getElementById('flight-list');
             flightList.innerHTML = '';
-            flightInfo.forEach((info, index) => {
+
+            // 按时间排序显示（未设置时间的排在后面）
+            var sortedIndices = flightInfo.map(function(_, i) { return i; });
+            sortedIndices.sort(function(a, b) {
+                var ta = flightInfo[a].time || '';
+                var tb = flightInfo[b].time || '';
+                if (!ta && !tb) return 0;
+                if (!ta) return 1;
+                if (!tb) return -1;
+                return ta.localeCompare(tb);
+            });
+
+            sortedIndices.forEach(function(originalIndex) {
+                var info = flightInfo[originalIndex];
                 var item = document.createElement('div');
                 item.className = 'location-item';
                 item.innerHTML = `
                     <h4>${info.from.code} → ${info.to.code}</h4>
                     <p>${info.from.name} → ${info.to.name}</p>
                     <p>${info.time || '未设置时间'}</p>
-                    <p>航线类型: ${info.type === 'curved' ? '弧线' : '直线'}</p>
-                    <button onclick="removeFlight(${index})">删除</button>
                 `;
+
+                // 鼠标悬停时高亮地图上对应航线
+                item.addEventListener('mouseenter', function() {
+                    item.classList.add('location-item-hover');
+                    if (flightPaths[originalIndex] && flightPaths[originalIndex].path) {
+                        var p = flightPaths[originalIndex].path;
+                        p._origWeight = p.options.weight;
+                        p._origOpacity = p.options.opacity;
+                        p._origDashArray = p.options.dashArray;
+                        p.setStyle({ weight: 6, opacity: 1, dashArray: null });
+                        p.bringToFront();
+                    }
+                });
+                item.addEventListener('mouseleave', function() {
+                    item.classList.remove('location-item-hover');
+                    if (flightPaths[originalIndex] && flightPaths[originalIndex].path) {
+                        var p = flightPaths[originalIndex].path;
+                        p.setStyle({
+                            weight: p._origWeight || 3,
+                            opacity: p._origOpacity || 0.8,
+                            dashArray: p._origDashArray || '5, 5'
+                        });
+                    }
+                });
+
                 flightList.appendChild(item);
             });
         }
@@ -1049,15 +1070,16 @@ layout: null
         var isPlaying = false; // 新增：是否正在播放动画
 
         function toggleAnimation() {
+            var btn = document.getElementById('toggleAnimationBtn');
             if (isPlaying) {
                 stopAnimation();
-                document.getElementById('toggleAnimationBtn').textContent = '播放航线动画';
-                document.getElementById('toggleAnimationBtn').style.backgroundColor = '#FF6347';
+                btn.textContent = '播放航线动画';
+                btn.classList.remove('btn-pause');
                 isPlaying = false;
             } else {
                 playAnimation();
-                document.getElementById('toggleAnimationBtn').textContent = '暂停航线动画';
-                document.getElementById('toggleAnimationBtn').style.backgroundColor = '#FF8C00';
+                btn.textContent = '暂停航线动画';
+                btn.classList.add('btn-pause');
                 isPlaying = true;
             }
         }
@@ -1092,8 +1114,8 @@ layout: null
             // 创建飞机图标
             var planeIcon = L.divIcon({
                 className: 'animated-plane',
-                html: '<div style="font-size: 30px; transform: rotate(45deg); filter: drop-shadow(0 0 5px white);">✈️</div>',
-                iconSize: [30, 30]
+                html: '✈️',
+                iconSize: [34, 34]
             });
 
             // 获取航线路径点
@@ -1162,8 +1184,9 @@ layout: null
             }
             
             if (!isPlaying) return;
-            document.getElementById('toggleAnimationBtn').textContent = '播放航线动画';
-            document.getElementById('toggleAnimationBtn').style.backgroundColor = '#FF6347';
+            var btn = document.getElementById('toggleAnimationBtn');
+            btn.textContent = '播放航线动画';
+            btn.classList.remove('btn-pause');
             isPlaying = false;
         }
 
@@ -1183,11 +1206,25 @@ layout: null
             }
         });
         
-        // 添加窗口大小变化监听，确保地图正确调整大小
+        // 添加窗口大小变化监听（防抖），确保地图正确调整大小
+        var resizeTimer;
         window.addEventListener('resize', function() {
-            if (window.travelMap) {
-                console.log('窗口大小变化，刷新地图大小');
-                window.travelMap.invalidateSize();
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(function() {
+                if (window.travelMap) {
+                    window.travelMap.invalidateSize();
+                }
+            }, 200);
+        });
+
+        // 页面隐藏时停止动画，避免后台消耗资源
+        window.addEventListener('pagehide', function() {
+            if (isPlaying) {
+                stopAnimation();
+                var btn = document.getElementById('toggleAnimationBtn');
+                btn.textContent = '播放航线动画';
+                btn.classList.remove('btn-pause');
+                isPlaying = false;
             }
         });
 
