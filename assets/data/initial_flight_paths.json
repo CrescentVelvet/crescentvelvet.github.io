@@ -478,5 +478,192 @@
         },
         "time": "2025-04-22T07:55",
         "type": "curved"
+    },
+    {
+        "from": {
+            "code": "SHH",
+            "name": "上海虹桥站",
+            "lat": 31.1957,
+            "lng": 121.3170,
+            "mode": "train"
+        },
+        "to": {
+            "code": "NND",
+            "name": "南宁东站",
+            "lat": 22.8425,
+            "lng": 108.4134,
+            "mode": "train"
+        },
+        "time": "2026-05-01T11:25",
+        "type": "direct",
+        "mode": "train"
+    },
+    {
+        "from": {
+            "code": "SHH",
+            "name": "上海虹桥站",
+            "lat": 31.1957,
+            "lng": 121.3170,
+            "mode": "train"
+        },
+        "to": {
+            "code": "JJG",
+            "name": "九江站",
+            "lat": 29.7048,
+            "lng": 116.0021,
+            "mode": "train"
+        },
+        "time": "2026-02-15T17:43",
+        "type": "direct",
+        "mode": "train"
+    },
+    {
+        "from": {
+            "code": "GBN",
+            "name": "桂林北站",
+            "lat": 25.3344,
+            "lng": 110.2996,
+            "mode": "train"
+        },
+        "to": {
+            "code": "SHH",
+            "name": "上海虹桥站",
+            "lat": 31.1957,
+            "lng": 121.3170,
+            "mode": "train"
+        },
+        "time": "2026-05-05T13:31",
+        "type": "direct",
+        "mode": "train"
+    },
+    {
+        "from": {
+            "code": "SHH",
+            "name": "上海虹桥站",
+            "lat": 31.1957,
+            "lng": 121.3170,
+            "mode": "train"
+        },
+        "to": {
+            "code": "NJN",
+            "name": "南京南站",
+            "lat": 31.9710,
+            "lng": 118.7980,
+            "mode": "train"
+        },
+        "time": "2026-03-22T16:09",
+        "type": "direct",
+        "mode": "train"
+    },
+    {
+        "from": {
+            "code": "NJN",
+            "name": "南京南站",
+            "lat": 31.9710,
+            "lng": 118.7980,
+            "mode": "train"
+        },
+        "to": {
+            "code": "SHH",
+            "name": "上海虹桥站",
+            "lat": 31.1957,
+            "lng": 121.3170,
+            "mode": "train"
+        },
+        "time": "2026-04-04T19:45",
+        "type": "direct",
+        "mode": "train"
+    },
+    {
+        "from": {
+            "code": "KWE",
+            "name": "贵阳龙洞堡国际机场",
+            "lat": 26.5385,
+            "lng": 106.8010
+        },
+        "to": {
+            "code": "SHA",
+            "name": "上海虹桥国际机场",
+            "lat": 31.1979,
+            "lng": 121.3363
+        },
+        "time": "2026-02-22T21:25",
+        "type": "curved"
+    },
+    {
+        "from": {
+            "code": "SZB",
+            "name": "深圳北站",
+            "lat": 22.6112,
+            "lng": 114.0299,
+            "mode": "train"
+        },
+        "to": {
+            "code": "CSN",
+            "name": "长沙南站",
+            "lat": 28.1498,
+            "lng": 113.0310,
+            "mode": "train"
+        },
+        "time": "2025-05-01",
+        "type": "direct",
+        "mode": "train"
+    },
+    {
+        "from": {
+            "code": "SZB",
+            "name": "深圳北站",
+            "lat": 22.6112,
+            "lng": 114.0299,
+            "mode": "train"
+        },
+        "to": {
+            "code": "ZJX",
+            "name": "湛江西站",
+            "lat": 21.2422,
+            "lng": 110.3255,
+            "mode": "train"
+        },
+        "time": "2025-05-20T12:01",
+        "type": "direct",
+        "mode": "train"
+    },
+    {
+        "from": {
+            "code": "SZB",
+            "name": "深圳北站",
+            "lat": 22.6112,
+            "lng": 114.0299,
+            "mode": "train"
+        },
+        "to": {
+            "code": "GZN",
+            "name": "广州南站",
+            "lat": 22.9917,
+            "lng": 113.2668,
+            "mode": "train"
+        },
+        "time": "2025-10-03T13:32",
+        "type": "direct",
+        "mode": "train"
+    },
+    {
+        "from": {
+            "code": "HSB",
+            "name": "黄石北站",
+            "lat": 30.2084,
+            "lng": 114.9963,
+            "mode": "train"
+        },
+        "to": {
+            "code": "GYB",
+            "name": "贵阳北站",
+            "lat": 26.6198,
+            "lng": 106.6695,
+            "mode": "train"
+        },
+        "time": "2026-02-19T11:05",
+        "type": "direct",
+        "mode": "train"
     }
 ]

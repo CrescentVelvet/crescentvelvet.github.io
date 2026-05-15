@@ -268,7 +268,43 @@ layout: null
             filter: drop-shadow(0 1px 3px rgba(0,0,0,0.3));
         }
 
-        .animated-plane {
+        .train-icon {
+            font-size: 22px;
+            filter: drop-shadow(0 1px 3px rgba(0,0,0,0.3));
+        }
+
+        .station-marker-dep {
+            background-color: #2E8B57;
+            color: white;
+            border-radius: 6px;
+            width: 28px;
+            height: 28px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            font-size: 10px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            border: 2px solid white;
+        }
+
+        .station-marker-arr {
+            background-color: #CD853F;
+            color: white;
+            border-radius: 6px;
+            width: 28px;
+            height: 28px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            font-size: 10px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            border: 2px solid white;
+        }
+
+        .animated-plane,
+        .animated-train {
             font-size: 32px;
             filter: drop-shadow(0 2px 6px rgba(0,0,0,0.4));
         }
@@ -383,11 +419,15 @@ layout: null
                     <div id="arrival-suggestions" class="autocomplete-suggestions"></div>
                 </div>
                 <input type="datetime-local" id="flight-time">
-                <select id="flight-type">
-                    <option value="direct">直飞航线</option>
-                    <option value="curved">弧线航线</option>
+                <select id="travel-mode">
+                    <option value="flight">✈️ 飞机</option>
+                    <option value="train">🚄 火车</option>
                 </select>
-                <button class="btn-add" onclick="addFlight()">添加航线</button>
+                <select id="flight-type">
+                    <option value="direct">直线</option>
+                    <option value="curved">弧线</option>
+                </select>
+                <button class="btn-add" onclick="addFlight()">添加行程</button>
                 <button class="btn-clear" onclick="clearFlights()">清除所有航线</button>
                 <button id="toggleAnimationBtn" class="btn-animate" onclick="toggleAnimation()">播放航线动画</button>
                 <button class="btn-export" onclick="exportFlightPaths()">导出航线</button>
@@ -699,30 +739,115 @@ layout: null
             "FRA": { name: "法兰克福国际机场", lat: 50.0379, lng: 8.5622 },
             "SYD": { name: "悉尼金斯福德·史密斯国际机场", lat: -33.9399, lng: 151.1753 },
             "KIX": { name: "大阪关西国际机场", lat: 34.4272, lng: 135.2447 },
-            "BKI": { name: "哥打京那巴鲁国际机场", lat: 5.9378, lng: 116.0511 }
+            "BKI": { name: "哥打京那巴鲁国际机场", lat: 5.9378, lng: 116.0511 },
+            "KWE": { name: "贵阳龙洞堡国际机场", lat: 26.5385, lng: 106.8010 }
+        };
+
+        // 火车站数据
+        var trainStations = {
+            "SHH": { name: "上海虹桥站", lat: 31.1957, lng: 121.3170 },
+            "JJG": { name: "九江站", lat: 29.7048, lng: 116.0021 },
+            "GBN": { name: "桂林北站", lat: 25.3344, lng: 110.2996 },
+            "NND": { name: "南宁东站", lat: 22.8425, lng: 108.4134 },
+            "NJN": { name: "南京南站", lat: 31.9710, lng: 118.7980 },
+            "HSB": { name: "黄石北站", lat: 30.2084, lng: 114.9963 },
+            "SZB": { name: "深圳北站", lat: 22.6112, lng: 114.0299 },
+            "GZN": { name: "广州南站", lat: 22.9917, lng: 113.2668 },
+            "ZJX": { name: "湛江西站", lat: 21.2422, lng: 110.3255 },
+            "CSN": { name: "长沙南站", lat: 28.1498, lng: 113.0310 },
+            "GYB": { name: "贵阳北站", lat: 26.6198, lng: 106.6695 }
+        };
+
+        // 火车线路途经城市坐标（近似高铁走廊）
+        var trainRouteWaypoints = {
+            "SHH-NJN": [
+                [31.1957, 121.3170],
+                [31.2990, 120.5853],
+                [31.4912, 120.3119],
+                [31.8101, 119.9741],
+                [32.1992, 119.4342],
+                [31.9710, 118.7980]
+            ],
+            "NJN-SHH": [
+                [31.9710, 118.7980],
+                [32.1992, 119.4342],
+                [31.8101, 119.9741],
+                [31.4912, 120.3119],
+                [31.2990, 120.5853],
+                [31.1957, 121.3170]
+            ],
+            "SHH-JJG": [
+                [31.1957, 121.3170],
+                [30.2741, 120.1551],
+                [28.6820, 115.8582],
+                [29.7048, 116.0021]
+            ],
+            "SHH-NND": [
+                [31.1957, 121.3170],
+                [30.2741, 120.1551],
+                [28.6820, 115.8582],
+                [28.2282, 112.9388],
+                [25.2736, 110.2901],
+                [22.8425, 108.4134]
+            ],
+            "GBN-SHH": [
+                [25.3344, 110.2996],
+                [28.2282, 112.9388],
+                [28.6820, 115.8582],
+                [30.2741, 120.1551],
+                [31.1957, 121.3170]
+            ],
+            "SZB-GZN": [
+                [22.6112, 114.0299],
+                [23.0208, 113.7518],
+                [22.9917, 113.2668]
+            ],
+            "SZB-ZJX": [
+                [22.6112, 114.0299],
+                [22.9917, 113.2668],
+                [21.6630, 110.9253],
+                [21.2422, 110.3255]
+            ],
+            "SZB-CSN": [
+                [22.6112, 114.0299],
+                [22.9917, 113.2668],
+                [24.8019, 113.5932],
+                [26.8932, 112.5718],
+                [28.1498, 113.0310]
+            ],
+            "HSB-GYB": [
+                [30.2084, 114.9963],
+                [30.5928, 114.3055],
+                [28.1498, 113.0310],
+                [27.5697, 109.9966],
+                [26.6198, 106.6695]
+            ]
         };
         
-        // 搜索机场函数
+        // 搜索机场/火车站函数
         function searchAirport(query) {
             var trimmed = query.trim();
             var upperQuery = trimmed.toUpperCase();
 
             // 直接匹配IATA代码
             if (airports[upperQuery]) {
-                return [{
-                    code: upperQuery,
-                    ...airports[upperQuery]
-                }];
+                return [{ code: upperQuery, ...airports[upperQuery], mode: 'flight' }];
+            }
+            // 直接匹配火车站代码
+            if (trainStations[upperQuery]) {
+                return [{ code: upperQuery, ...trainStations[upperQuery], mode: 'train' }];
             }
 
-            // 搜索机场名称（支持中文）和IATA代码
+            // 搜索机场和火车站名称
             var results = [];
             for (var code in airports) {
                 if (airports[code].name.includes(trimmed) || code.includes(upperQuery)) {
-                    results.push({
-                        code: code,
-                        ...airports[code]
-                    });
+                    results.push({ code: code, ...airports[code], mode: 'flight' });
+                }
+            }
+            for (var code in trainStations) {
+                if (trainStations[code].name.includes(trimmed) || code.includes(upperQuery)) {
+                    results.push({ code: code, ...trainStations[code], mode: 'train' });
                 }
             }
 
@@ -774,15 +899,18 @@ layout: null
             flightPaths = [];
         }
         
-        // 绘制单个航线
+        // 绘制行程（飞机/火车）
         function drawFlight(from, to, type, index) {
             if (!window.travelMap) return;
-            
+            var isTrain = (from.mode === 'train' || to.mode === 'train');
+
             try {
-                // 创建出发和到达机场的标记
+                var depClass = isTrain ? 'station-marker-dep' : 'airport-marker-dep';
+                var arrClass = isTrain ? 'station-marker-arr' : 'airport-marker-arr';
+
                 var departureMarker = L.marker([from.lat, from.lng], {
                     icon: L.divIcon({
-                        className: 'airport-marker-dep',
+                        className: depClass,
                         html: from.code,
                         iconSize: [28, 28]
                     })
@@ -790,7 +918,7 @@ layout: null
                 
                 var arrivalMarker = L.marker([to.lat, to.lng], {
                     icon: L.divIcon({
-                        className: 'airport-marker-arr',
+                        className: arrClass,
                         html: to.code,
                         iconSize: [28, 28]
                     })
@@ -798,35 +926,32 @@ layout: null
                 
                 var flightPath;
                 var flightPathOptions = {
-                    color: getFlightColor(index),
-                    weight: 3,
-                    opacity: 0.8,
-                    dashArray: '5, 5'
+                    color: isTrain ? getTrainColor(index) : getFlightColor(index),
+                    weight: isTrain ? 2 : 3,
+                    opacity: 0.85,
+                    dashArray: isTrain ? null : '8, 6'
                 };
                 
-                if (type === 'curved') {
-                    // 创建弧线航线
+                if (type === 'curved' && !isTrain) {
                     var latlngs = calculateCurvedPath(from, to);
                     flightPath = L.polyline(latlngs, flightPathOptions).addTo(window.travelMap);
+                } else if (isTrain) {
+                    // 火车线路：优先使用途经点数据，无数据则用直线
+                    var routeKey = from.code + '-' + to.code;
+                    var waypoints = trainRouteWaypoints[routeKey];
+                    if (waypoints) {
+                        flightPath = L.polyline(waypoints, flightPathOptions).addTo(window.travelMap);
+                    } else {
+                        flightPath = L.polyline([[from.lat, from.lng], [to.lat, to.lng]], flightPathOptions).addTo(window.travelMap);
+                    }
                 } else {
-                    // 创建直线航线
                     flightPath = L.polyline([[from.lat, from.lng], [to.lat, to.lng]], flightPathOptions).addTo(window.travelMap);
                 }
-                
-                // 添加飞机图标在航线中间
-                var midPoint = getMidPoint(from, to, type === 'curved');
-                var planeIcon = L.divIcon({
-                    className: 'plane-icon',
-                    html: '✈️',
-                    iconSize: [24, 24]
-                });
-                
-                var planeMarker = L.marker(midPoint, { icon: planeIcon }).addTo(window.travelMap);
                 
                 // 存储航线信息
                 flightPaths.push({
                     path: flightPath,
-                    markers: [departureMarker, arrivalMarker, planeMarker],
+                    markers: [departureMarker, arrivalMarker],
                     from: from,
                     to: to,
                     type: type
@@ -896,9 +1021,13 @@ layout: null
             }
         }
         
-        // 根据索引获取不同颜色
         function getFlightColor(index) {
             var colors = ['#1E90FF', '#FF6347', '#32CD32', '#FFD700', '#9370DB', '#FF69B4', '#20B2AA', '#FF8C00', '#4682B4', '#8A2BE2'];
+            return colors[index % colors.length];
+        }
+
+        function getTrainColor(index) {
+            var colors = ['#228B22', '#006400', '#2E8B57', '#3CB371', '#556B2F', '#6B8E23', '#8FBC8F', '#20B2AA', '#008B8B', '#00CED1'];
             return colors[index % colors.length];
         }
         
@@ -936,8 +1065,9 @@ layout: null
                 var info = flightInfo[originalIndex];
                 var item = document.createElement('div');
                 item.className = 'location-item';
+                var modeIcon = info.mode === 'train' ? '🚄' : '✈️';
                 item.innerHTML = `
-                    <h4>${info.from.code} → ${info.to.code}</h4>
+                    <h4>${modeIcon} ${info.from.code} → ${info.to.code}</h4>
                     <p>${info.from.name} → ${info.to.name}</p>
                     <p>${info.time || '未设置时间'}</p>
                 `;
@@ -981,45 +1111,47 @@ layout: null
             var departureInput = document.getElementById('departure');
             var arrivalInput = document.getElementById('arrival');
             var timeInput = document.getElementById('flight-time');
+            var modeSelect = document.getElementById('travel-mode');
             var typeSelect = document.getElementById('flight-type');
 
             var departure = departureInput.value.trim();
             var arrival = arrivalInput.value.trim();
             var time = timeInput.value;
+            var mode = modeSelect.value;
             var type = typeSelect.value;
 
             if (!departure || !arrival) {
-                alert('请输入出发和到达机场');
+                alert('请输入出发和到达地点');
                 return;
             }
-            
-            // 搜索出发机场
+
+            // 搜索出发地点
             var departureResults = searchAirport(departure);
             if (departureResults.length === 0) {
-                alert('未找到出发机场，请检查输入或尝试使用IATA代码（如PEK、SHA等）');
+                alert('未找到出发地点，请检查输入或尝试使用代码（如PEK、SHH等）');
                 return;
             }
-            
-            // 搜索到达机场
+
+            // 搜索到达地点
             var arrivalResults = searchAirport(arrival);
             if (arrivalResults.length === 0) {
-                alert('未找到到达机场，请检查输入或尝试使用IATA代码（如PEK、SHA等）');
+                alert('未找到到达地点，请检查输入或尝试使用代码（如PEK、SHH等）');
                 return;
             }
-            
+
             var from = departureResults[0];
             var to = arrivalResults[0];
-            
-            // 检查是否为相同机场
+
+            // 检查是否为相同地点
             if (from.code === to.code) {
-                alert('出发和到达机场不能相同');
+                alert('出发和到达地点不能相同');
                 return;
             }
-            
-            console.log('添加航线:', from.code, '→', to.code, '类型:', type);
-            
+
+            console.log('添加行程:', from.code, '→', to.code, '出行方式:', mode);
+
             // 保存航线信息
-            flightInfo.push({ from, to, time, type });
+            flightInfo.push({ from, to, time, mode: mode, type: type });
             localStorage.setItem('flightInfo', JSON.stringify(flightInfo));
             
             // 绘制航线
@@ -1111,23 +1243,28 @@ layout: null
             var flight = flightInfo[currentFlightIndex];
             console.log('播放航线动画:', flight.from.code, '→', flight.to.code, '时间:', flight.time);
 
-            // 创建飞机图标
-            var planeIcon = L.divIcon({
-                className: 'animated-plane',
-                html: '✈️',
+            // 创建动画图标
+            var isTrainAnim = flight.mode === 'train';
+            var animIcon = L.divIcon({
+                className: isTrainAnim ? 'animated-train' : 'animated-plane',
+                html: isTrainAnim ? '🚄' : '✈️',
                 iconSize: [34, 34]
             });
 
-            // 获取航线路径点
+            // 获取路径点（火车优先使用途经点）
             var pathPoints;
-            if (flight.type === 'curved') {
+            if (flight.type === 'curved' && !isTrainAnim) {
                 pathPoints = calculateCurvedPath(flight.from, flight.to);
+            } else if (isTrainAnim) {
+                var routeKey = flight.from.code + '-' + flight.to.code;
+                var waypoints = trainRouteWaypoints[routeKey];
+                pathPoints = waypoints || [[flight.from.lat, flight.from.lng], [flight.to.lat, flight.to.lng]];
             } else {
                 pathPoints = [[flight.from.lat, flight.from.lng], [flight.to.lat, flight.to.lng]];
             }
 
             // 创建动画标记
-            animationMarker = L.marker(pathPoints[0], { icon: planeIcon }).addTo(window.travelMap);
+            animationMarker = L.marker(pathPoints[0], { icon: animIcon }).addTo(window.travelMap);
 
             // 调整地图视图以显示当前航线
             if (window.travelMap) {
@@ -1137,9 +1274,30 @@ layout: null
 
             // 动画参数
             var step = 0;
-            var totalSteps = flight.type === 'curved' ? pathPoints.length : 100;
-            var animationDuration = 3000; // 每条航线动画持续时间（毫秒）
-            var intervalTime = animationDuration / totalSteps; // 计算每步的时间间隔
+            var totalSteps;
+            var animPoints;
+
+            if (isTrainAnim && pathPoints.length > 2) {
+                // 火车线路：在途经点之间插值生成平滑路径
+                animPoints = [];
+                for (var i = 0; i < pathPoints.length - 1; i++) {
+                    var segSteps = 30;
+                    for (var j = 0; j < segSteps; j++) {
+                        var t = j / segSteps;
+                        animPoints.push([
+                            pathPoints[i][0] + (pathPoints[i + 1][0] - pathPoints[i][0]) * t,
+                            pathPoints[i][1] + (pathPoints[i + 1][1] - pathPoints[i][1]) * t
+                        ]);
+                    }
+                }
+                animPoints.push(pathPoints[pathPoints.length - 1]);
+                totalSteps = animPoints.length;
+            } else {
+                animPoints = pathPoints;
+                totalSteps = flight.type === 'curved' ? pathPoints.length : 100;
+            }
+            var animationDuration = 3000;
+            var intervalTime = animationDuration / totalSteps;
 
             // 开始动画
             animationInterval = setInterval(function() {
@@ -1153,9 +1311,9 @@ layout: null
                 }
 
                 var position;
-                if (flight.type === 'curved') {
-                    // 弧线路径直接使用预计算的点
-                    position = pathPoints[step];
+                if (flight.type === 'curved' || (isTrainAnim && animPoints !== pathPoints)) {
+                    // 预计算路径（弧线或火车途经点插值）
+                    position = animPoints[step];
                 } else {
                     // 直线路径插值计算
                     var t = step / totalSteps;
