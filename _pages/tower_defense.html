@@ -168,23 +168,18 @@ title: "塔防战争"
         #upgrade-btn { background: var(--btn-blue); }
         #upgrade-btn:disabled { background: #555; opacity: 0.5; cursor: not-allowed; }
         #sell-btn { background: var(--btn-red); }
-        #evolve-btns { display: flex; gap: 6px; margin-bottom: 6px; }
+        #evolve-btns { display: flex; gap: 6px; margin-bottom: 6px; flex-wrap: wrap; }
         .evolve-btn {
-            flex: 1; padding: 7px 10px; border: none; border-radius: 6px;
-            color: #fff; font-size: 13px; font-weight: bold; cursor: pointer;
+            flex: 1; padding: 7px 8px; border: none; border-radius: 6px;
+            color: #fff; font-size: 12px; font-weight: bold; cursor: pointer;
             transition: transform 0.15s; white-space: nowrap;
+            background: linear-gradient(135deg, #555, #777);
+            box-shadow: 0 0 6px rgba(255,255,255,0.15);
+            min-width: 0;
         }
         .evolve-btn:hover { transform: scale(1.04); }
-        .evolve-btn:disabled { background: #555; opacity: 0.5; cursor: not-allowed; transform: none; }
-        .evolve-btn.crit-btn {
-            background: linear-gradient(135deg, #8B6914, #DAA520);
-            box-shadow: 0 0 8px rgba(218,165,32,0.4);
-        }
-        .evolve-btn.multi-btn {
-            background: linear-gradient(135deg, #2E7D32, #43A047);
-            box-shadow: 0 0 8px rgba(67,160,71,0.4);
-        }
-        .evolve-cost { opacity: 0.8; font-size: 11px; }
+        .evolve-btn:disabled { background: #444; opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
+        .evolve-cost { opacity: 0.8; font-size: 10px; }
 
         /* -- Overlay -- */
         #overlay {
@@ -302,11 +297,11 @@ title: "塔防战争"
     <h3 id="tip-tower-name"></h3>
     <div id="tip-stats"></div>
     <div id="evolve-btns" style="display:none;">
-        <button class="evolve-btn crit-btn" onclick="evolveSelectedTower('archer_crit')">
-            <span>🎯</span> 致命一击 <span class="evolve-cost">200💰</span>
+        <button id="evolve-btn-0" class="evolve-btn" onclick="evolveSelectedIndex(0)">
         </button>
-        <button class="evolve-btn multi-btn" onclick="evolveSelectedTower('archer_multi')">
-            <span>🏹</span> 多重射击 <span class="evolve-cost">200💰</span>
+        <button id="evolve-btn-1" class="evolve-btn" onclick="evolveSelectedIndex(1)">
+        </button>
+        <button id="evolve-btn-2" class="evolve-btn" onclick="evolveSelectedIndex(2)" style="display:none;">
         </button>
     </div>
     <button id="upgrade-btn" onclick="upgradeSelectedTower()">升级</button>
@@ -364,6 +359,30 @@ const TOWER_DEFS = {
         color: '#8B4513', bulletColor: '#333', bulletSpeed: 250,
         splash: [55, 65, 75], slowFactor: 0, slowDuration: 0, chainCount: 0, splashDmgPct: 0.5
     },
+    artillery_blast: {
+        name: '焦土重炮', icon: '💥',
+        cost: null, upgradeCost: [200, 400], evolveCost: 250,
+        damage: [70, 120, 190], range: [120, 130, 145], cooldown: [2400, 2100, 1800],
+        color: '#8B2500', bulletColor: '#FF4400', bulletSpeed: 220,
+        splash: [75, 90, 105], slowFactor: 0, slowDuration: 0, chainCount: 0, splashDmgPct: 0.65,
+        flameRadius: [40, 50, 60], flameDuration: [1800, 2200, 2800], flameTickInterval: 400
+    },
+    artillery_shrapnel: {
+        name: '破片风暴', icon: '💠',
+        cost: null, upgradeCost: [180, 350], evolveCost: 250,
+        damage: [50, 85, 130], range: [110, 120, 130], cooldown: [1600, 1350, 1100],
+        color: '#B8860B', bulletColor: '#DAA520', bulletSpeed: 300,
+        splash: [45, 55, 65], slowFactor: 0, slowDuration: 0, chainCount: 0, splashDmgPct: 0.45,
+        shrapnelCount: [4, 5, 6], shrapnelRange: 80, shrapnelDmg: 0.35
+    },
+    artillery_concuss: {
+        name: '震撼弹幕', icon: '💫',
+        cost: null, upgradeCost: [180, 350], evolveCost: 250,
+        damage: [35, 60, 95], range: [115, 125, 140], cooldown: [1800, 1550, 1300],
+        color: '#4A6FA5', bulletColor: '#88CCFF', bulletSpeed: 280,
+        splash: [60, 70, 80], slowFactor: 0, slowDuration: 0, chainCount: 0, splashDmgPct: 0.5,
+        stunFactor: 0.2, stunDuration: [1200, 1800, 2500]
+    },
     ice: {
         name: '冰塔', icon: '❄️',
         cost: 120, upgradeCost: [100, 200],
@@ -418,6 +437,19 @@ const TOWER_DEFS = {
         splash: 0, slowFactor: 0, slowDuration: 0, chainCount: 0,
         linkRange: 120, linkDmgBoost: 0.2
     }
+};
+
+// Branch evolution options per base tower type
+const EVOLVE_OPTIONS = {
+    archer: [
+        { type: 'archer_crit', label: '致命一击', icon: '🎯', desc: '高伤暴击', color: '#DAA520' },
+        { type: 'archer_multi', label: '多重射击', icon: '🏹', desc: '三箭齐发', color: '#43A047' }
+    ],
+    artillery: [
+        { type: 'artillery_blast', label: '焦土重炮', icon: '💥', desc: '大范围燃烧', color: '#FF5722' },
+        { type: 'artillery_shrapnel', label: '破片风暴', icon: '💠', desc: '碎片飞溅', color: '#DAA520' },
+        { type: 'artillery_concuss', label: '震撼弹幕', icon: '💫', desc: '眩晕减速', color: '#5DADE2' }
+    ]
 };
 
 const ENEMY_DEFS = {
@@ -722,7 +754,12 @@ function towerStats(t) {
         evolveCost: def.evolveCost || 0,
         critChance: def.critChance || 0,
         critMultiplier: def.critMultiplier || 0,
-        multiShot: def.multiShot || 0
+        multiShot: def.multiShot || 0,
+        shrapnelCount: Array.isArray(def.shrapnelCount) ? def.shrapnelCount[lv] : (def.shrapnelCount || 0),
+        shrapnelRange: def.shrapnelRange || 0,
+        shrapnelDmg: def.shrapnelDmg || 0,
+        stunFactor: def.stunFactor || 0,
+        stunDuration: Array.isArray(def.stunDuration) ? def.stunDuration[lv] : (def.stunDuration || 0)
     };
 }
 
@@ -1036,7 +1073,12 @@ function createProjectile(tower, target) {
         towerX: tower.x,
         towerY: tower.y,
         critChance: st.critChance,
-        critMultiplier: st.critMultiplier
+        critMultiplier: st.critMultiplier,
+        shrapnelCount: st.shrapnelCount,
+        shrapnelRange: st.shrapnelRange,
+        shrapnelDmg: st.shrapnelDmg,
+        stunFactor: st.stunFactor,
+        stunDuration: st.stunDuration
     };
     // Missile: vertical launch then arc toward target
     if (tower.type === 'missile') {
@@ -1074,6 +1116,29 @@ function updateProjectiles(dt) {
             } else {
                 p.x += (dx / d) * moveSpeed;
                 p.y += (dy / d) * moveSpeed;
+            }
+            continue;
+        }
+
+        // Shrapnel — fly outward from impact, hit first enemy
+        if (p.type === 'shrapnel') {
+            const dx = p.vx * p.speed * dt;
+            const dy = p.vy * p.speed * dt;
+            p.x += dx;
+            p.y += dy;
+            p.progress += p.speed * dt;
+            // Check collision with enemies
+            for (const e of game.enemies) {
+                if (!e.alive) continue;
+                if (dist(p, e) <= e.size + 4) {
+                    dealDamage(e, p.damage);
+                    createHitSpark(e.x, e.y, '#FFAA00');
+                    p.alive = false;
+                    break;
+                }
+            }
+            if (p.alive && p.progress >= p.flightDistance) {
+                p.alive = false;
             }
             continue;
         }
@@ -1202,16 +1267,36 @@ function handleImpact(p) {
     if (!p.target || !p.target.alive) return;
 
     if (p.splashRadius > 0) {
-        // Splash damage (cannon)
+        // Splash damage (cannon & variants)
         for (const e of game.enemies) {
             if (!e.alive) continue;
             const d = dist(p.target, e);
             if (d <= p.splashRadius) {
                 const dmg = e === p.target ? p.damage : Math.floor(p.damage * p.splashDmgPct);
                 dealDamage(e, dmg);
+                // Concussive stun on splash
+                if (p.stunFactor > 0 && p.stunDuration > 0) {
+                    applySlow(e, p.stunFactor, p.stunDuration);
+                }
             }
         }
-        createSplashRing(p.target.x, p.target.y, p.splashRadius, '#e74c3c');
+        // Visual effect depends on variant
+        if (p.stunFactor > 0) {
+            createSplashRing(p.target.x, p.target.y, p.splashRadius, '#88CCFF');
+        } else if (p.flameRadius > 0) {
+            createSplashRing(p.target.x, p.target.y, p.splashRadius, '#FF4400');
+        } else {
+            createSplashRing(p.target.x, p.target.y, p.splashRadius, '#e74c3c');
+        }
+        // Blast — create fire zone on ground
+        if (p.flameRadius > 0 && p.flameDuration > 0) {
+            createFireZone(p.x, p.y, p.flameRadius, Math.floor(p.damage * 0.3), p.flameDuration, p.flameTickInterval);
+            createFireIgnition(p.x, p.y, p.flameRadius);
+        }
+        // Shrapnel — spawn fragments
+        if (p.shrapnelCount > 0) {
+            spawnShrapnel(p);
+        }
     } else if (p.slowFactor > 0) {
         // Ice slow
         dealDamage(p.target, p.damage);
@@ -1236,6 +1321,52 @@ function handleImpact(p) {
         } else {
             createHitSpark(p.target.x, p.target.y, '#f1c40f');
         }
+    }
+}
+
+function spawnShrapnel(p) {
+    const impactX = p.target ? p.target.x : p.x;
+    const impactY = p.target ? p.target.y : p.y;
+    for (let i = 0; i < p.shrapnelCount; i++) {
+        const angle = (Math.PI * 2 * i) / p.shrapnelCount + (Math.random() - 0.5) * 0.5;
+        game.projectiles.push({
+            x: impactX, y: impactY,
+            vx: Math.cos(angle),
+            vy: Math.sin(angle),
+            target: null,
+            targetX: impactX + Math.cos(angle) * p.shrapnelRange,
+            targetY: impactY + Math.sin(angle) * p.shrapnelRange,
+            startX: impactX, startY: impactY,
+            damage: Math.floor(p.damage * p.shrapnelDmg),
+            speed: 350,
+            type: 'shrapnel',
+            color: '#FFAA00',
+            splashRadius: 0,
+            splashDmgPct: 0,
+            slowFactor: 0,
+            slowDuration: 0,
+            chainCount: 0,
+            chainRange: 0,
+            chainFalloff: 0,
+            flameRadius: 0,
+            flameDuration: 0,
+            flameTickInterval: 0,
+            sheepDuration: 0,
+            knockbackDist: 0,
+            arcHeight: 0,
+            flightDistance: p.shrapnelRange,
+            progress: 0,
+            alive: true,
+            towerX: p.towerX,
+            towerY: p.towerY,
+            critChance: 0,
+            critMultiplier: 0,
+            shrapnelCount: 0,
+            shrapnelRange: 0,
+            shrapnelDmg: 0,
+            stunFactor: 0,
+            stunDuration: 0
+        });
     }
 }
 
@@ -1876,6 +2007,9 @@ function drawTower(t) {
         case 'archer_crit': drawCritTower(t, st, lv); break;
         case 'archer_multi': drawMultiTower(t, st, lv); break;
         case 'artillery': drawArtilleryTower(t, st, lv); break;
+        case 'artillery_blast': drawBlastTower(t, st, lv); break;
+        case 'artillery_shrapnel': drawShrapnelTower(t, st, lv); break;
+        case 'artillery_concuss': drawConcussTower(t, st, lv); break;
         case 'ice': drawIceTower(t, st, lv); break;
         case 'tesla': drawTeslaTower(t, st, lv); break;
         case 'fire': drawFireTower(t, st, lv); break;
@@ -2328,6 +2462,238 @@ function drawArtilleryTower(t, st, lv) {
         ctx.fillStyle = '#777';
         ctx.fillRect(-ir + 3, -r + 1, 7, 2);
     }
+}
+
+// ===== BLAST TOWER — Evolved artillery: scorched-earth bombard =====
+function drawBlastTower(t, st, lv) {
+    const r = 13 + lv * 1.5;
+    const time = Date.now() / 1000;
+    const pulse = 0.5 + Math.sin(time * 5) * 0.5;
+
+    // Dark iron foundation platform
+    const platGrad = ctx.createLinearGradient(0, -r, 0, r);
+    platGrad.addColorStop(0, '#5C4030');
+    platGrad.addColorStop(0.5, '#3A2010');
+    platGrad.addColorStop(1, '#1A0800');
+    ctx.fillStyle = platGrad;
+    ctx.beginPath();
+    ctx.arc(0, 0, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#8B2500';
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+
+    // Glowing ember vents on platform
+    for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * Math.PI * 2;
+        const vx = Math.cos(a) * (r - 3);
+        const vy = Math.sin(a) * (r - 3);
+        ctx.fillStyle = `rgba(255,80,10,${0.3 + pulse * 0.4})`;
+        ctx.beginPath();
+        ctx.arc(vx, vy, 2, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // Reinforced iron barrel base
+    const innerR = r - 4;
+    const baseGrad = ctx.createLinearGradient(-innerR, 0, innerR, 0);
+    baseGrad.addColorStop(0, '#4A2820');
+    baseGrad.addColorStop(0.5, '#8B4513');
+    baseGrad.addColorStop(1, '#3A1810');
+    ctx.fillStyle = baseGrad;
+    ctx.beginPath();
+    ctx.arc(0, 0, innerR, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#FF5722';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Iron ring bolts
+    ctx.fillStyle = '#666';
+    for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2;
+        ctx.beginPath();
+        ctx.arc(Math.cos(a) * (innerR - 2), Math.sin(a) * (innerR - 2), 1.5, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // Heavy cannon barrel — thicker, menacing
+    const ir = innerR - 2;
+    ctx.save();
+    ctx.rotate(t.angle);
+    const barrelGrad = ctx.createLinearGradient(0, -ir * 0.5, 0, ir * 0.5);
+    barrelGrad.addColorStop(0, '#6B3A20');
+    barrelGrad.addColorStop(0.3, '#9B5A30');
+    barrelGrad.addColorStop(0.7, '#7B4A20');
+    barrelGrad.addColorStop(1, '#4A1A08');
+    ctx.fillStyle = barrelGrad;
+    ctx.fillRect(0, -ir * 0.55, r + lv + 6, ir * 1.1);
+    // Barrel rings
+    ctx.fillStyle = '#444';
+    ctx.fillRect(r * 0.4, -ir * 0.6, 3, ir * 1.2);
+    ctx.fillRect(r * 0.8, -ir * 0.6, 3, ir * 1.2);
+    // Muzzle glow
+    ctx.fillStyle = `rgba(255,80,10,${0.2 + pulse * 0.3})`;
+    ctx.beginPath();
+    ctx.arc(r + lv + 6, 0, ir * 0.7, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // Flame aura around tower
+    ctx.fillStyle = `rgba(255,100,20,${0.08 + pulse * 0.06})`;
+    ctx.beginPath();
+    ctx.arc(0, 0, r + 4, 0, Math.PI * 2);
+    ctx.fill();
+}
+
+// ===== SHRAPNEL TOWER — Evolved artillery: fragmentation bombard =====
+function drawShrapnelTower(t, st, lv) {
+    const r = 13 + lv * 1.5;
+    const time = Date.now() / 1000;
+
+    // Brass-reinforced platform
+    const platGrad = ctx.createLinearGradient(0, -r, 0, r);
+    platGrad.addColorStop(0, '#9B865B');
+    platGrad.addColorStop(0.5, '#7B6640');
+    platGrad.addColorStop(1, '#5B4620');
+    ctx.fillStyle = platGrad;
+    ctx.beginPath();
+    ctx.arc(0, 0, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#DAA520';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Inner mechanism — visible gears
+    const innerR = r - 4;
+    ctx.fillStyle = '#5B4620';
+    ctx.beginPath();
+    ctx.arc(0, 0, innerR, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#8B7355';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Rotating gear teeth
+    for (let i = 0; i < 12; i++) {
+        const a = (i / 12) * Math.PI * 2 + time * 1.5;
+        const gx = Math.cos(a) * (innerR - 2);
+        const gy = Math.sin(a) * (innerR - 2);
+        ctx.fillStyle = '#DAA520';
+        ctx.fillRect(gx - 2, gy - 1, 4, 2.5);
+    }
+
+    // Fragmentation barrel — wider bore
+    const ir = innerR - 2;
+    ctx.save();
+    ctx.rotate(t.angle);
+    const barrelGrad = ctx.createLinearGradient(0, -ir * 0.4, 0, ir * 0.4);
+    barrelGrad.addColorStop(0, '#7B6640');
+    barrelGrad.addColorStop(0.5, '#C8A860');
+    barrelGrad.addColorStop(1, '#5B4620');
+    ctx.fillStyle = barrelGrad;
+    ctx.fillRect(0, -ir * 0.5, r + lv + 4, ir * 1.0);
+    // Shrapnel shell visible in barrel
+    ctx.fillStyle = '#DAA520';
+    ctx.beginPath();
+    ctx.arc(r + lv + 1, 0, ir * 0.4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#FFA000';
+    ctx.beginPath();
+    ctx.arc(r + lv + 1, 0, ir * 0.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // Fragment particles orbiting tower
+    for (let i = 0; i < 5; i++) {
+        const a = time * 3 + i * Math.PI * 2 / 5;
+        const px = Math.cos(a) * (r + 2);
+        const py = Math.sin(a) * (r + 2);
+        ctx.fillStyle = '#FFAA00';
+        ctx.beginPath();
+        ctx.arc(px, py, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+    }
+}
+
+// ===== CONCUSS TOWER — Evolved artillery: shockwave bombard =====
+function drawConcussTower(t, st, lv) {
+    const r = 13 + lv * 1.5;
+    const time = Date.now() / 1000;
+    const pulse = 0.5 + Math.sin(time * 3) * 0.5;
+
+    // Blue-steel platform
+    const platGrad = ctx.createLinearGradient(0, -r, 0, r);
+    platGrad.addColorStop(0, '#4A6A9A');
+    platGrad.addColorStop(0.5, '#3A5A8A');
+    platGrad.addColorStop(1, '#2A4A7A');
+    ctx.fillStyle = platGrad;
+    ctx.beginPath();
+    ctx.arc(0, 0, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#5DADE2';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Shockwave rings on platform
+    const innerR = r - 4;
+    for (let i = 1; i <= 3; i++) {
+        ctx.strokeStyle = `rgba(136,204,255,${0.15 + pulse * 0.1})`;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(0, 0, innerR * i * 0.3, 0, Math.PI * 2);
+        ctx.stroke();
+    }
+    ctx.fillStyle = '#3A5A8A';
+    ctx.beginPath();
+    ctx.arc(0, 0, innerR, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#5DADE2';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Energy coil winding around core
+    for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * Math.PI * 2;
+        ctx.strokeStyle = `rgba(136,204,255,${0.4 + pulse * 0.3})`;
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.arc(0, 0, innerR - 2, a, a + 0.6);
+        ctx.stroke();
+    }
+
+    // Concussive barrel — flared muzzle
+    const ir = innerR - 2;
+    ctx.save();
+    ctx.rotate(t.angle);
+    const barrelGrad = ctx.createLinearGradient(0, -ir * 0.4, 0, ir * 0.4);
+    barrelGrad.addColorStop(0, '#4A6A9A');
+    barrelGrad.addColorStop(0.5, '#6A9ACA');
+    barrelGrad.addColorStop(1, '#3A5A8A');
+    ctx.fillStyle = barrelGrad;
+    ctx.fillRect(0, -ir * 0.45, r + lv + 2, ir * 0.9);
+    // Flared muzzle brake
+    ctx.fillStyle = '#5DADE2';
+    ctx.beginPath();
+    ctx.moveTo(r + lv + 2, -ir * 0.7);
+    ctx.lineTo(r + lv + 6, -ir * 0.5);
+    ctx.lineTo(r + lv + 6, ir * 0.5);
+    ctx.lineTo(r + lv + 2, ir * 0.7);
+    ctx.closePath();
+    ctx.fill();
+    // Shockwave pulse at muzzle
+    ctx.strokeStyle = `rgba(136,204,255,${0.3 + pulse * 0.4})`;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(r + lv + 5, 0, ir * 0.6, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+
+    // Pulsing aura
+    ctx.fillStyle = `rgba(100,180,255,${0.06 + pulse * 0.05})`;
+    ctx.beginPath();
+    ctx.arc(0, 0, r + 4, 0, Math.PI * 2);
+    ctx.fill();
 }
 
 // ===== ICE TOWER — Frost crystal spire with chilling aura =====
@@ -3452,6 +3818,32 @@ function drawProjectile(p) {
         ctx.beginPath();
         ctx.arc(p.x, p.y, 12, 0, Math.PI * 2);
         ctx.fill();
+    } else if (p.type === 'shrapnel') {
+        // Shrapnel fragment — small glowing dart
+        const sAngle = Math.atan2(p.vy, p.vx);
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(sAngle);
+        // Glow
+        ctx.fillStyle = 'rgba(255,180,20,0.35)';
+        ctx.beginPath();
+        ctx.arc(0, 0, 5, 0, Math.PI * 2);
+        ctx.fill();
+        // Core
+        ctx.fillStyle = '#FFAA00';
+        ctx.beginPath();
+        ctx.moveTo(6, 0);
+        ctx.lineTo(0, -1.5);
+        ctx.lineTo(-2, 0);
+        ctx.lineTo(0, 1.5);
+        ctx.closePath();
+        ctx.fill();
+        // Bright center
+        ctx.fillStyle = '#FFD700';
+        ctx.beginPath();
+        ctx.arc(2, 0, 1.2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
     } else if (p.type === 'missile') {
         // Missile — vertical launch then arc toward target
         let angle;
@@ -3924,21 +4316,39 @@ function showTowerInfo(t) {
         (st.linkRange > 0 && t.linkedCount > 0 ? '<div class="stat-row"><span>已链接</span><span>' + t.linkedCount + '个 (+' + Math.round(t.linkedCount * st.linkDmgBoost * 100) + '%伤害)</span></div>' : '') +
         (st.critChance > 0 ? '<div class="stat-row"><span>暴击率</span><span>' + Math.round(st.critChance * 100) + '%</span></div>' : '') +
         (st.critMultiplier > 0 ? '<div class="stat-row"><span>暴击倍率</span><span>' + st.critMultiplier + 'x</span></div>' : '') +
-        (st.multiShot > 0 ? '<div class="stat-row"><span>多重射击</span><span>' + st.multiShot + '支箭</span></div>' : '');
+        (st.multiShot > 0 ? '<div class="stat-row"><span>多重射击</span><span>' + st.multiShot + '支箭</span></div>' : '') +
+        (st.shrapnelCount > 0 ? '<div class="stat-row"><span>破片数量</span><span>' + st.shrapnelCount + '个</span></div>' : '') +
+        (st.shrapnelRange > 0 ? '<div class="stat-row"><span>破片射程</span><span>' + st.shrapnelRange + 'px</span></div>' : '') +
+        (st.stunFactor > 0 ? '<div class="stat-row"><span>眩晕减速</span><span>' + Math.round((1 - st.stunFactor) * 100) + '%</span></div>' : '') +
+        (st.stunDuration > 0 ? '<div class="stat-row"><span>眩晕持续</span><span>' + (st.stunDuration / 1000).toFixed(1) + 's</span></div>' : '');
 
-    // Branch evolution for archer Lv3
+    // Branch evolution — dynamic based on tower type
     const evolveDiv = document.getElementById('evolve-btns');
     const upBtn = document.getElementById('upgrade-btn');
-    if (t.type === 'archer' && t.level >= 3) {
+    const options = EVOLVE_OPTIONS[t.type];
+    if (options && t.level >= 3) {
         evolveDiv.style.display = 'flex';
-        const critBtn = evolveDiv.querySelector('.crit-btn');
-        const multiBtn = evolveDiv.querySelector('.multi-btn');
-        critBtn.disabled = game.gold < TOWER_DEFS.archer_crit.evolveCost;
-        multiBtn.disabled = game.gold < TOWER_DEFS.archer_multi.evolveCost;
+        for (let i = 0; i < 3; i++) {
+            const btn = document.getElementById('evolve-btn-' + i);
+            if (!btn) continue;
+            if (i < options.length) {
+                const opt = options[i];
+                const def = TOWER_DEFS[opt.type];
+                btn.style.display = '';
+                btn.style.background = `linear-gradient(135deg, ${opt.color}, ${opt.color}cc)`;
+                btn.style.boxShadow = `0 0 8px ${opt.color}66`;
+                btn.innerHTML = `<span>${opt.icon}</span> ${opt.label} <span class="evolve-cost">${def.evolveCost}💰</span>`;
+                btn.disabled = game.gold < def.evolveCost;
+            } else {
+                btn.style.display = 'none';
+            }
+        }
+        game._evolveOptions = options;
         upBtn.textContent = '已满级';
         upBtn.disabled = true;
     } else {
         evolveDiv.style.display = 'none';
+        game._evolveOptions = null;
         if (t.level >= 3) {
             upBtn.textContent = '已满级';
             upBtn.disabled = true;
@@ -3975,15 +4385,17 @@ function upgradeSelectedTower() {
     if (game.selectedTower) upgradeTower(game.selectedTower);
 }
 
-function evolveSelectedTower(newType) {
-    if (!game.selectedTower) return;
+function evolveSelectedIndex(index) {
+    if (!game.selectedTower || !game._evolveOptions) return;
     const t = game.selectedTower;
-    if (t.type !== 'archer' || t.level < 3) return;
-    const def = TOWER_DEFS[newType];
+    if (t.level < 3) return;
+    const opt = game._evolveOptions[index];
+    if (!opt) return;
+    const def = TOWER_DEFS[opt.type];
     if (!def || !def.evolveCost) return;
     if (game.gold < def.evolveCost) return;
     game.gold -= def.evolveCost;
-    t.type = newType;
+    t.type = opt.type;
     t.level = 1;
     t.totalInvested += def.evolveCost;
     t.cooldown = 0;
