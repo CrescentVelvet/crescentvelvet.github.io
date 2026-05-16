@@ -11,21 +11,28 @@ title: "塔防战争"
     <title>塔防战争 - Tower Defense</title>
     <style>
         :root {
-            --bg: #1a1a2e;
-            --panel-bg: rgba(0,0,0,0.75);
-            --gold: #f1c40f;
-            --lives: #e74c3c;
-            --text: #ecf0f1;
-            --btn-green: #27ae60;
-            --btn-red: #c0392b;
-            --btn-blue: #2980b9;
+            --bg: #101512;
+            --panel-bg: rgba(22, 28, 25, 0.88);
+            --panel-border: rgba(239, 199, 122, 0.24);
+            --panel-highlight: rgba(255, 245, 204, 0.10);
+            --gold: #f5c84c;
+            --lives: #ff6b5f;
+            --text: #f7ead2;
+            --muted: #b7a886;
+            --btn-green: #4f9d58;
+            --btn-red: #b14f49;
+            --btn-blue: #3f83a8;
+            --accent: #d89b45;
+            --stone: #2a312b;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
         body {
             background: var(--bg);
-            background-image: radial-gradient(ellipse at center, #1a2740 0%, #0d1117 100%);
+            background-image:
+                linear-gradient(180deg, #111619 0%, #17251b 48%, #0d1110 100%),
+                repeating-linear-gradient(135deg, rgba(255,255,255,0.025) 0 1px, transparent 1px 9px);
             display: flex;
             justify-content: center;
             align-items: center;
@@ -40,6 +47,17 @@ title: "塔防战争"
             padding: 0 12px;
         }
 
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            background:
+                linear-gradient(115deg, rgba(242, 203, 128, 0.12), transparent 38%),
+                linear-gradient(0deg, rgba(0, 0, 0, 0.34), transparent 42%, rgba(0, 0, 0, 0.18));
+            mix-blend-mode: screen;
+        }
+
         #game-wrapper {
             display: flex;
             flex-direction: column;
@@ -48,8 +66,10 @@ title: "塔防战争"
             width: 100%;
             max-width: 1100px;
             height: 100vh;
-            padding: 8px 0;
+            padding: 10px 0;
             justify-content: center;
+            position: relative;
+            z-index: 1;
         }
 
         /* -- HUD -- */
@@ -60,14 +80,29 @@ title: "塔防战争"
             align-items: center;
             gap: 12px;
             width: 100%;
-            background: var(--panel-bg);
-            border-radius: 10px;
-            padding: 8px 16px;
+            background:
+                linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.02)),
+                var(--panel-bg);
+            border-radius: 8px;
+            padding: 9px 16px;
             color: var(--text);
             font-size: 14px;
-            border: 1px solid rgba(255,255,255,0.1);
+            border: 1px solid var(--panel-border);
+            box-shadow:
+                0 14px 34px rgba(0,0,0,0.35),
+                inset 0 1px 0 var(--panel-highlight);
+            backdrop-filter: blur(10px);
         }
-        #hud-bar .stat { display: flex; align-items: center; gap: 4px; }
+        #hud-bar .stat {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            min-height: 30px;
+            padding: 3px 8px;
+            border-radius: 6px;
+            background: rgba(255,255,255,0.045);
+            border: 1px solid rgba(255,255,255,0.055);
+        }
         #hud-bar .stat .icon { font-size: 18px; }
         #hud-bar .val { font-weight: bold; font-size: 16px; }
         .gold-val { color: var(--gold); }
@@ -75,7 +110,7 @@ title: "塔防战争"
 
         #hud-bar button {
             padding: 6px 14px;
-            border: none;
+            border: 1px solid rgba(255,255,255,0.16);
             border-radius: 6px;
             cursor: pointer;
             font-size: 13px;
@@ -83,27 +118,33 @@ title: "塔防战争"
             color: #fff;
             transition: all 0.15s;
             font-family: inherit;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.16), 0 4px 10px rgba(0,0,0,0.22);
         }
+        #hud-bar button:hover { filter: brightness(1.08); transform: translateY(-1px); }
         #hud-bar button:active { transform: scale(0.95); }
-        #speed-btn { background: #555; }
-        #speed-btn.active { background: #e67e22; }
-        #start-wave-btn { background: var(--btn-green); }
+        #speed-btn { background: linear-gradient(180deg, #5b625c, #343a36); }
+        #speed-btn.active { background: linear-gradient(180deg, #f0a83c, #b96a24); }
+        #start-wave-btn { background: linear-gradient(180deg, #68b66d, var(--btn-green)); }
         #start-wave-btn:disabled { background: #555; opacity: 0.5; cursor: not-allowed; }
         #countdown-display { color: #f39c12; min-width: 50px; text-align: center; }
-        #auto-wave-btn { background: #555; }
-        #auto-wave-btn.active { background: #8e44ad; }
+        #auto-wave-btn { background: linear-gradient(180deg, #5b625c, #343a36); }
+        #auto-wave-btn.active { background: linear-gradient(180deg, #9b68d9, #6c3ca0); }
 
         /* -- Canvas -- */
         #game-canvas {
-            border: 2px solid rgba(255,255,255,0.15);
+            border: 3px solid #4d3a25;
             border-radius: 8px;
             width: 100%;
             max-height: calc(100vh - 160px);
             aspect-ratio: 800 / 600;
-            background: #1a2e1a;
+            background: #1f3a23;
             cursor: crosshair;
             touch-action: none;
             flex-shrink: 1;
+            box-shadow:
+                0 22px 60px rgba(0,0,0,0.48),
+                0 0 0 1px rgba(255,218,137,0.18),
+                inset 0 0 36px rgba(0,0,0,0.36);
         }
 
         /* -- Tower Selection Panel -- */
@@ -120,20 +161,36 @@ title: "塔防战争"
             align-items: center;
             gap: 2px;
             padding: 10px 14px;
-            border: 2px solid rgba(255,255,255,0.2);
-            border-radius: 10px;
-            background: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 8px;
+            background:
+                linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02)),
+                var(--panel-bg);
             color: var(--text);
             cursor: pointer;
             font-family: inherit;
             font-size: 13px;
             transition: all 0.15s;
             min-width: 75px;
+            box-shadow: inset 0 1px 0 var(--panel-highlight), 0 8px 18px rgba(0,0,0,0.28);
         }
-        .tower-btn:hover { border-color: rgba(255,255,255,0.5); background: rgba(255,255,255,0.1); }
+        .tower-btn:hover {
+            border-color: rgba(245,200,76,0.55);
+            background:
+                linear-gradient(180deg, rgba(255,255,255,0.12), rgba(255,255,255,0.04)),
+                rgba(32, 39, 34, 0.94);
+            transform: translateY(-1px);
+        }
         .tower-btn:active { transform: scale(0.95); }
-        .tower-btn.selected { border-color: #f1c40f; background: rgba(241,196,15,0.15); box-shadow: 0 0 12px rgba(241,196,15,0.3); }
-        .tower-btn .tower-icon { font-size: 26px; }
+        .tower-btn.selected {
+            border-color: var(--gold);
+            background: linear-gradient(180deg, rgba(245,200,76,0.22), rgba(245,200,76,0.08)), var(--panel-bg);
+            box-shadow: 0 0 0 1px rgba(245,200,76,0.18), 0 0 18px rgba(245,200,76,0.28);
+        }
+        .tower-btn .tower-icon {
+            font-size: 26px;
+            filter: drop-shadow(0 2px 2px rgba(0,0,0,0.42));
+        }
         .tower-btn .tower-cost { font-size: 11px; color: var(--gold); }
         .tower-btn .tower-name { font-size: 12px; font-weight: bold; }
         .tower-btn.disabled { opacity: 0.4; cursor: not-allowed; }
@@ -142,16 +199,19 @@ title: "塔防战争"
         #tower-info-panel {
             display: none;
             position: fixed;
-            background: rgba(20,20,40,0.95);
-            border: 1px solid rgba(255,255,255,0.3);
-            border-radius: 10px;
+            background:
+                linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02)),
+                rgba(24, 30, 27, 0.96);
+            border: 1px solid var(--panel-border);
+            border-radius: 8px;
             padding: 14px 18px;
             color: var(--text);
             font-size: 13px;
             z-index: 100;
             min-width: 180px;
-            box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+            box-shadow: 0 14px 34px rgba(0,0,0,0.5), inset 0 1px 0 var(--panel-highlight);
             pointer-events: auto;
+            backdrop-filter: blur(10px);
         }
         #tower-info-panel h3 { margin-bottom: 8px; font-size: 15px; }
         #tower-info-panel .stat-row { display: flex; justify-content: space-between; margin: 3px 0; font-size: 12px; }
@@ -167,9 +227,9 @@ title: "塔防战争"
             color: #fff;
             font-family: inherit;
         }
-        #upgrade-btn { background: var(--btn-blue); }
+        #upgrade-btn { background: linear-gradient(180deg, #5aa2c4, var(--btn-blue)); }
         #upgrade-btn:disabled { background: #555; opacity: 0.5; cursor: not-allowed; }
-        #sell-btn { background: var(--btn-red); }
+        #sell-btn { background: linear-gradient(180deg, #d36a62, var(--btn-red)); }
         #evolve-btns { display: flex; gap: 6px; margin-bottom: 6px; flex-wrap: wrap; }
         .evolve-btn {
             flex: 1; padding: 7px 8px; border: none; border-radius: 6px;
@@ -188,7 +248,8 @@ title: "塔防战争"
             display: none;
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0,0,0,0.8);
+            background: rgba(4,8,7,0.82);
+            backdrop-filter: blur(6px);
             z-index: 200;
             justify-content: center;
             align-items: center;
@@ -217,7 +278,7 @@ title: "塔防战争"
         #tooltip {
             display: none;
             position: fixed;
-            background: rgba(0,0,0,0.85);
+            background: rgba(21, 25, 22, 0.92);
             color: #fff;
             padding: 6px 12px;
             border-radius: 6px;
@@ -225,6 +286,8 @@ title: "塔防战争"
             pointer-events: none;
             z-index: 150;
             white-space: nowrap;
+            border: 1px solid rgba(239,199,122,0.24);
+            box-shadow: 0 8px 18px rgba(0,0,0,0.34);
         }
 
         /* -- Mobile / Small screens -- */
@@ -2532,96 +2595,259 @@ function createSheepTransform(x, y) {
 }
 
 // ==================== RENDERING ====================
-function drawGrid() {
-    // === Layer 1: Base terrain with biome zones ===
-    for (let r = 0; r < ROWS; r++) {
-        for (let c = 0; c < COLS; c++) {
-            const x = c * CELL, y = r * CELL;
-            const t = grid[r][c];
+function artNoise(r, c, salt = 0) {
+    const n = Math.sin(r * 127.1 + c * 311.7 + salt * 74.7) * 43758.5453;
+    return n - Math.floor(n);
+}
 
-            if (t === TERRAIN.PATH) {
-                // Dirt road - two-tone earth
-                const shade = ((r + c) % 3) * 5;
-                ctx.fillStyle = `rgb(${160 + shade},${130 + shade},${95 + shade})`;
-                ctx.fillRect(x, y, CELL, CELL);
-                // Cart tracks (subtle lines)
-                ctx.fillStyle = `rgba(120,95,65,0.3)`;
-                ctx.fillRect(x + 5, y, 2, CELL);
-                ctx.fillRect(x + CELL - 8, y, 2, CELL);
-            } else if (t === TERRAIN.GRASS) {
-                // Buildable plateau - raised earth with stone border hint
-                const shade = ((r * 13 + c * 7) % 16) - 8;
-                ctx.fillStyle = `rgb(${62 + shade},${108 + shade},${42 + shade})`;
-                ctx.fillRect(x, y, CELL, CELL);
-                // Subtle plateau highlight
-                ctx.fillStyle = `rgba(255,255,255,0.04)`;
-                ctx.fillRect(x + 1, y + 1, CELL - 2, 2);
-                // Stone edge accent
-                ctx.strokeStyle = 'rgba(139,119,90,0.25)';
-                ctx.lineWidth = 1;
-                ctx.strokeRect(x + 1, y + 1, CELL - 2, CELL - 2);
+function drawGrassField() {
+    ctx.fillStyle = '#6daa45';
+    ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+    const px = 4;
+    for (let y = 0; y < CANVAS_H; y += px) {
+        for (let x = 0; x < CANVAS_W; x += px) {
+            const n = artNoise(x, y, 21);
+            if (n < 0.18) {
+                ctx.fillStyle = '#5b963e';
+                ctx.fillRect(x, y, px, px);
+            } else if (n > 0.86) {
+                ctx.fillStyle = '#86bd4d';
+                ctx.fillRect(x, y, px, px);
+            }
+        }
+    }
+
+    for (let i = 0; i < 520; i++) {
+        const x = Math.floor(artNoise(i, 3, 31) * CANVAS_W / 4) * 4;
+        const y = Math.floor(artNoise(i, 5, 32) * CANVAS_H / 4) * 4;
+        const n = artNoise(i, 7, 33);
+        ctx.fillStyle = n > 0.45 ? '#8fc354' : '#477f36';
+        ctx.fillRect(x, y, 4, 4);
+        if (n > 0.72) ctx.fillRect(x + 4, y, 4, 4);
+        if (n < 0.22) ctx.fillRect(x, y - 4, 4, 4);
+    }
+
+    for (let i = 0; i < 120; i++) {
+        const x = Math.floor(artNoise(i, 11, 34) * CANVAS_W / 4) * 4;
+        const y = Math.floor(artNoise(i, 13, 35) * CANVAS_H / 4) * 4;
+        ctx.fillStyle = artNoise(i, 17, 36) > 0.5 ? '#a6cb63' : '#3f7433';
+        ctx.fillRect(x, y, 8, 4);
+        ctx.fillRect(x + 4, y - 4, 4, 4);
+    }
+}
+
+function strokeRoadPath(width, style) {
+    ctx.save();
+    ctx.lineWidth = width;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = style;
+    ctx.beginPath();
+    ctx.moveTo(WAYPOINTS[0].x, WAYPOINTS[0].y);
+    for (let i = 1; i < WAYPOINTS.length - 1; i++) {
+        const prev = WAYPOINTS[i - 1];
+        const p = WAYPOINTS[i];
+        const next = WAYPOINTS[i + 1];
+        const inDx = p.x - prev.x;
+        const inDy = p.y - prev.y;
+        const outDx = next.x - p.x;
+        const outDy = next.y - p.y;
+        const inLen = Math.sqrt(inDx * inDx + inDy * inDy) || 1;
+        const outLen = Math.sqrt(outDx * outDx + outDy * outDy) || 1;
+        const cut = Math.min(42, inLen * 0.42, outLen * 0.42);
+        const p1 = { x: p.x - (inDx / inLen) * cut, y: p.y - (inDy / inLen) * cut };
+        const p2 = { x: p.x + (outDx / outLen) * cut, y: p.y + (outDy / outLen) * cut };
+        ctx.lineTo(p1.x, p1.y);
+        ctx.quadraticCurveTo(p.x, p.y, p2.x, p2.y);
+    }
+    const last = WAYPOINTS[WAYPOINTS.length - 1];
+    ctx.lineTo(last.x, last.y);
+    ctx.stroke();
+    ctx.restore();
+}
+
+function strokeRoadTrack(offset, width, color) {
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    for (let i = 1; i < WAYPOINTS.length; i++) {
+        const a = WAYPOINTS[i - 1];
+        const b = WAYPOINTS[i];
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const len = Math.sqrt(dx * dx + dy * dy) || 1;
+        const nx = -dy / len;
+        const ny = dx / len;
+        ctx.beginPath();
+        ctx.moveTo(a.x + nx * offset, a.y + ny * offset);
+        ctx.lineTo(b.x + nx * offset, b.y + ny * offset);
+        ctx.stroke();
+    }
+    ctx.restore();
+}
+
+function drawRoadTexture() {
+    for (let i = 1; i < WAYPOINTS.length; i++) {
+        const a = WAYPOINTS[i - 1];
+        const b = WAYPOINTS[i];
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const len = Math.sqrt(dx * dx + dy * dy) || 1;
+        const nx = -dy / len;
+        const ny = dx / len;
+        const steps = Math.max(2, Math.floor(len / 10));
+        for (let s = 0; s < steps; s++) {
+            const seed = i * 100 + s;
+            const t = (s + artNoise(seed, 1, 1) * 0.8) / steps;
+            const lateral = (artNoise(seed, 2, 2) - 0.5) * 48;
+            const x = Math.floor((a.x + dx * t + nx * lateral) / 4) * 4;
+            const y = Math.floor((a.y + dy * t + ny * lateral) / 4) * 4;
+            const n = artNoise(seed, 4, 4);
+            if (n < 0.30) {
+                ctx.fillStyle = '#f6d985';
+                ctx.fillRect(x, y, 4, 4);
+            } else if (n < 0.70) {
+                ctx.fillStyle = '#d6a85a';
+                ctx.fillRect(x, y, 4, 4);
             } else {
-                // Scenery ground - darker, varied greens and browns
-                const biome = Math.floor((r / 5)) % 3;
-                let base;
-                if (biome === 0) {
-                    base = { r: 48, g: 72, b: 30 }; // forest green
-                } else if (biome === 1) {
-                    base = { r: 55, g: 65, b: 35 }; // meadow
+                ctx.fillStyle = '#bc8545';
+                ctx.fillRect(x, y, n > 0.88 ? 8 : 4, 4);
+            }
+            if (n > 0.92) {
+                ctx.fillStyle = '#a56d39';
+                ctx.fillRect(x + 4, y - 4, 4, 4);
+            }
+        }
+    }
+}
+
+function drawRoadEdgePixels() {
+    for (let i = 1; i < WAYPOINTS.length; i++) {
+        const a = WAYPOINTS[i - 1];
+        const b = WAYPOINTS[i];
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const len = Math.sqrt(dx * dx + dy * dy) || 1;
+        const nx = -dy / len;
+        const ny = dx / len;
+        const steps = Math.max(3, Math.floor(len / 10));
+        for (let side = -1; side <= 1; side += 2) {
+            for (let s = 0; s < steps; s++) {
+                const seed = i * 1000 + side * 101 + s;
+                const t = (s + artNoise(seed, 1, 1) * 0.9) / steps;
+                const edge = side * (39 + (artNoise(seed, 2, 2) - 0.5) * 14);
+                const x = Math.floor((a.x + dx * t + nx * edge) / 4) * 4;
+                const y = Math.floor((a.y + dy * t + ny * edge) / 4) * 4;
+                const n = artNoise(seed, 3, 3);
+                if (n < 0.38) {
+                    ctx.fillStyle = '#e7c672';
+                    ctx.fillRect(x, y, 8, 4);
+                } else if (n < 0.76) {
+                    ctx.fillStyle = '#b98545';
+                    ctx.fillRect(x, y, 4, 4);
                 } else {
-                    base = { r: 50, g: 58, b: 40 }; // rocky area
-                }
-                const v = ((r * 17 + c * 11) % 14) - 7;
-                ctx.fillStyle = `rgb(${base.r + v},${base.g + v},${base.b + v})`;
-                ctx.fillRect(x, y, CELL, CELL);
-                // Ground texture dots
-                ctx.fillStyle = `rgba(0,0,0,0.06)`;
-                const dotSeed = r * 100 + c;
-                for (let d = 0; d < 3; d++) {
-                    const dx = ((dotSeed * 7 + d * 13) % CELL);
-                    const dy = ((dotSeed * 11 + d * 19) % CELL);
-                    ctx.fillRect(x + dx, y + dy, 2, 2);
+                    ctx.fillStyle = '#8f6537';
+                    ctx.fillRect(x, y, 4, 4);
+                    ctx.fillStyle = '#f3d886';
+                    ctx.fillRect(x + side * 4, y, 4, 4);
                 }
             }
         }
     }
+}
 
-    // === Layer 2: Path edge softening (blend terrain) ===
-    for (let r = 0; r < ROWS; r++) {
-        for (let c = 0; c < COLS; c++) {
-            if (grid[r][c] !== TERRAIN.PATH) continue;
-            const x = c * CELL, y = r * CELL;
-            // Check neighbors — if adjacent to BLOCKED, draw grassy edge
-            const neighbors = [
-                [r-1,c],[r+1,c],[r,c-1],[r,c+1]
-            ];
-            for (const [nr, nc] of neighbors) {
-                if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS && grid[nr][nc] === TERRAIN.BLOCKED) {
-                    ctx.fillStyle = 'rgba(90,130,50,0.35)';
-                    if (nr < r) ctx.fillRect(x, y, CELL, 4);
-                    if (nr > r) ctx.fillRect(x, y + CELL - 4, CELL, 4);
-                    if (nc < c) ctx.fillRect(x, y, 4, CELL);
-                    if (nc > c) ctx.fillRect(x + CELL - 4, y, 4, CELL);
-                }
-            }
+function drawDirtRoad() {
+    strokeRoadPath(106, '#577d3d');
+    strokeRoadPath(96, '#8a6a38');
+    strokeRoadPath(88, '#a9783d');
+    strokeRoadPath(80, '#d29a4d');
+    strokeRoadPath(68, '#e9bd69');
+    strokeRoadPath(52, '#f0cf7a');
+
+    drawRoadEdgePixels();
+    drawRoadTexture();
+}
+
+function drawPixelGroundDetails() {
+    for (let i = 0; i < 95; i++) {
+        const x = Math.floor(artNoise(i, 81, 41) * CANVAS_W / 4) * 4;
+        const y = Math.floor(artNoise(i, 83, 42) * CANVAS_H / 4) * 4;
+        const n = artNoise(i, 89, 43);
+        if (n < 0.34) {
+            ctx.fillStyle = '#76924a';
+            ctx.fillRect(x, y, 8, 4);
+            ctx.fillStyle = '#4a6f37';
+            ctx.fillRect(x + 4, y + 4, 4, 4);
+        } else if (n < 0.62) {
+            ctx.fillStyle = '#b7c06b';
+            ctx.fillRect(x, y, 4, 4);
+            ctx.fillRect(x + 8, y, 4, 4);
+            ctx.fillStyle = '#6a9344';
+            ctx.fillRect(x + 4, y + 4, 4, 4);
+        } else {
+            ctx.fillStyle = '#477a39';
+            ctx.fillRect(x, y, 12, 4);
+            ctx.fillStyle = '#8fbd54';
+            ctx.fillRect(x + 4, y - 4, 4, 4);
         }
     }
+}
 
-    // === Layer 3: Grid lines ===
-    ctx.strokeStyle = 'rgba(255,255,255,0.03)';
-    ctx.lineWidth = 0.5;
-    for (let r = 0; r <= ROWS; r++) {
+function drawPathDirectionMarkers() {
+    ctx.save();
+    for (let i = 1; i < WAYPOINTS.length; i++) {
+        const a = WAYPOINTS[i - 1], b = WAYPOINTS[i];
+        const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+        if (mx < 0 || mx > CANVAS_W || my < 0 || my > CANVAS_H) continue;
+
+        const angle = Math.atan2(b.y - a.y, b.x - a.x);
+        ctx.save();
+        ctx.translate(mx, my);
+        ctx.rotate(angle);
+        ctx.fillStyle = 'rgba(255, 235, 180, 0.16)';
+        ctx.strokeStyle = 'rgba(82, 54, 32, 0.20)';
+        ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.moveTo(0, r * CELL);
-        ctx.lineTo(COLS * CELL, r * CELL);
+        ctx.moveTo(9, 0);
+        ctx.lineTo(-5, -7);
+        ctx.lineTo(-2, 0);
+        ctx.lineTo(-5, 7);
+        ctx.closePath();
+        ctx.fill();
         ctx.stroke();
+        ctx.restore();
     }
-    for (let c = 0; c <= COLS; c++) {
-        ctx.beginPath();
-        ctx.moveTo(c * CELL, 0);
-        ctx.lineTo(c * CELL, ROWS * CELL);
-        ctx.stroke();
-    }
+    ctx.restore();
+}
+
+function drawBattlefieldAtmosphere() {
+    ctx.save();
+    const sunlight = ctx.createLinearGradient(0, 0, CANVAS_W, CANVAS_H);
+    sunlight.addColorStop(0, 'rgba(255, 232, 156, 0.08)');
+    sunlight.addColorStop(0.46, 'rgba(255, 232, 156, 0.01)');
+    sunlight.addColorStop(1, 'rgba(15, 21, 18, 0.16)');
+    ctx.globalCompositeOperation = 'overlay';
+    ctx.fillStyle = sunlight;
+    ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+    ctx.restore();
+
+    ctx.save();
+    const vignette = ctx.createRadialGradient(CANVAS_W * 0.5, CANVAS_H * 0.45, 200, CANVAS_W * 0.5, CANVAS_H * 0.45, 560);
+    vignette.addColorStop(0, 'rgba(0,0,0,0)');
+    vignette.addColorStop(0.74, 'rgba(0,0,0,0.04)');
+    vignette.addColorStop(1, 'rgba(0,0,0,0.18)');
+    ctx.fillStyle = vignette;
+    ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+    ctx.restore();
+}
+
+function drawGrid() {
+    drawGrassField();
+    drawPixelGroundDetails();
+    drawDirtRoad();
 }
 
 // Draw a single scenery item (tree, bush, rock)
@@ -2720,10 +2946,13 @@ function drawTower(t) {
     ctx.save();
     ctx.translate(t.x, t.y);
 
-    // Shadow under tower
-    ctx.fillStyle = 'rgba(0,0,0,0.25)';
+    // Grounded painted shadow under tower
+    const shadow = ctx.createRadialGradient(0, 5, 2, 0, 5, 22);
+    shadow.addColorStop(0, 'rgba(0,0,0,0.34)');
+    shadow.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = shadow;
     ctx.beginPath();
-    ctx.ellipse(0, 3, 15, 5, 0, 0, Math.PI * 2);
+    ctx.ellipse(0, 5, 22, 8, 0, 0, Math.PI * 2);
     ctx.fill();
 
     switch (t.type) {
@@ -5989,31 +6218,63 @@ function drawMissileNukeTower(t, st, lv) {
         ctx.stroke();
     }
 
-    // Huge warhead visible in tube
-    const warheadY = -tubeH + 6;
-    ctx.fillStyle = '#3A3020';
-    ctx.fillRect(-tubeW + 2, warheadY, tubeW * 2 - 4, tubeH * 0.45);
-    ctx.strokeStyle = '#2A2000';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(-tubeW + 2, warheadY, tubeW * 2 - 4, tubeH * 0.45);
-    // Warhead nose cone
-    ctx.fillStyle = '#CC3300';
-    ctx.beginPath();
-    ctx.moveTo(-tubeW + 2, warheadY);
-    ctx.lineTo(tubeW - 2, warheadY);
-    ctx.lineTo(0, warheadY - 10 - lv * 2);
-    ctx.closePath();
-    ctx.fill();
-    // Nose glow
-    const glowAlpha = 0.3 + Math.sin(time * 2) * 0.15;
-    ctx.fillStyle = `rgba(255,100,20,${glowAlpha})`;
-    ctx.beginPath();
-    ctx.arc(0, warheadY - 6, tubeW * 0.5, 0, Math.PI * 2);
-    ctx.fill();
-    // Radiation label on warhead
-    ctx.fillStyle = '#F0C040';
-    ctx.font = `${4 + lv}px sans-serif`;
-    ctx.fillText('☢', -tubeW + 4, warheadY + tubeH * 0.3);
+    const reloadProgress = st.cooldown > 0 ? Math.max(0, Math.min(1, 1 - (t.cooldown / Math.max(st.cooldown, 1)))) : 1;
+    const warheadTopLoaded = -tubeH + 6;
+    const warheadTopHidden = 5;
+    const riseThreshold = 0.68;
+    const drawNukeWarhead = (warheadY) => {
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(-tubeW + 1, -tubeH - 14, tubeW * 2 - 2, tubeH + 20);
+        ctx.clip();
+
+        ctx.fillStyle = '#3A3020';
+        ctx.fillRect(-tubeW + 2, warheadY, tubeW * 2 - 4, tubeH * 0.45);
+        ctx.strokeStyle = '#2A2000';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(-tubeW + 2, warheadY, tubeW * 2 - 4, tubeH * 0.45);
+
+        ctx.fillStyle = '#CC3300';
+        ctx.beginPath();
+        ctx.moveTo(-tubeW + 2, warheadY);
+        ctx.lineTo(tubeW - 2, warheadY);
+        ctx.lineTo(0, warheadY - 10 - lv * 2);
+        ctx.closePath();
+        ctx.fill();
+
+        const glowAlpha = 0.25 + Math.sin(time * 2) * 0.12;
+        ctx.fillStyle = `rgba(255,100,20,${glowAlpha})`;
+        ctx.beginPath();
+        ctx.arc(0, warheadY - 6, tubeW * 0.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = '#F0C040';
+        ctx.font = `${4 + lv}px sans-serif`;
+        ctx.fillText('☢', -tubeW + 4, warheadY + tubeH * 0.3);
+        ctx.restore();
+    };
+
+    // Empty bay / reload animation. The tactical warhead should not be visible immediately after launch.
+    if (reloadProgress > riseThreshold) {
+        const rise = (reloadProgress - riseThreshold) / (1 - riseThreshold);
+        const warheadY = warheadTopHidden + (warheadTopLoaded - warheadTopHidden) * rise;
+        drawNukeWarhead(warheadY);
+    } else {
+        ctx.fillStyle = 'rgba(12, 8, 4, 0.72)';
+        ctx.fillRect(-tubeW + 2, -tubeH + 3, tubeW * 2 - 4, tubeH - 2);
+        ctx.strokeStyle = 'rgba(240, 192, 64, 0.22)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(-tubeW + 3, -tubeH + 5);
+        ctx.lineTo(tubeW - 3, -tubeH + 5);
+        ctx.stroke();
+
+        if (reloadProgress > 0.15) {
+            const barH = Math.max(2, (tubeH - 8) * Math.min(reloadProgress / riseThreshold, 1));
+            ctx.fillStyle = 'rgba(240, 192, 64, 0.18)';
+            ctx.fillRect(-tubeW + 4, 1 - barH, tubeW * 2 - 8, barH);
+        }
+    }
 
     // Ventilation pipes
     for (let sx = -1; sx <= 1; sx += 2) {
@@ -6361,6 +6622,14 @@ function drawEnemy(e) {
     if (!e.alive) return;
     ctx.save();
     ctx.translate(e.x, e.y);
+
+    const enemyShadow = ctx.createRadialGradient(0, e.size * 0.45, 1, 0, e.size * 0.45, e.size * 1.25);
+    enemyShadow.addColorStop(0, 'rgba(0,0,0,0.34)');
+    enemyShadow.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = enemyShadow;
+    ctx.beginPath();
+    ctx.ellipse(0, e.size * 0.48, e.size * 1.15, e.size * 0.42, 0, 0, Math.PI * 2);
+    ctx.fill();
 
     // Sheep transformation — draw cute white sheep or turncoat wolf-sheep
     if (e.isSheep) {
@@ -6848,7 +7117,20 @@ function drawHoverPreview() {
     const valid = isBuildable(game.hoverCol, game.hoverRow);
     const def = TOWER_DEFS[game.selectedType];
 
-    ctx.globalAlpha = valid ? 0.45 : 0.5;
+    ctx.save();
+    ctx.globalAlpha = valid ? 0.34 : 0.42;
+    ctx.fillStyle = valid ? 'rgba(245, 200, 76, 0.34)' : 'rgba(231, 76, 60, 0.38)';
+    ctx.strokeStyle = valid ? 'rgba(255, 236, 184, 0.78)' : 'rgba(255, 126, 105, 0.82)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 4]);
+    ctx.beginPath();
+    ctx.roundRect(pos.x - CELL / 2 + 4, pos.y - CELL / 2 + 4, CELL - 8, CELL - 8, 6);
+    ctx.fill();
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+
+    ctx.globalAlpha = valid ? 0.58 : 0.56;
     ctx.fillStyle = valid ? def.color : '#e74c3c';
 
     // Draw type-specific silhouette
@@ -6973,15 +7255,22 @@ function drawHoverPreview() {
     }
     ctx.restore();
 
-    ctx.strokeStyle = valid ? '#fff' : '#f00';
+    ctx.strokeStyle = valid ? 'rgba(255, 245, 205, 0.88)' : 'rgba(255, 99, 87, 0.9)';
     ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(pos.x, pos.y, 18, 0, Math.PI * 2);
     ctx.stroke();
 
     // Range indicator
     if (valid) {
-        ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = 'rgba(245, 200, 76, 0.045)';
+        ctx.beginPath();
+        ctx.arc(pos.x, pos.y, def.range[0], 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255, 235, 180, 0.28)';
         ctx.lineWidth = 1;
-        ctx.setLineDash([5, 5]);
+        ctx.setLineDash([6, 5]);
         ctx.beginPath();
         ctx.arc(pos.x, pos.y, def.range[0], 0, Math.PI * 2);
         ctx.stroke();
@@ -6997,17 +7286,21 @@ function drawSelectedTowerRange() {
     const pulse = Math.sin(Date.now() / 400) * 0.2 + 0.8;
 
     // Range circle
-    ctx.strokeStyle = 'rgba(255,255,255,0.3)';
-    ctx.lineWidth = 2;
-    ctx.setLineDash([4, 4]);
+    ctx.fillStyle = 'rgba(245, 200, 76, 0.035)';
+    ctx.beginPath();
+    ctx.arc(t.x, t.y, st.range, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255, 232, 166, 0.35)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([7, 5]);
     ctx.beginPath();
     ctx.arc(t.x, t.y, st.range, 0, Math.PI * 2);
     ctx.stroke();
     ctx.setLineDash([]);
 
     // Selection ring (pulsing gold)
-    ctx.strokeStyle = `rgba(241,196,15,${0.5 + pulse * 0.3})`;
-    ctx.lineWidth = 2.5 * pulse;
+    ctx.strokeStyle = `rgba(245,200,76,${0.52 + pulse * 0.28})`;
+    ctx.lineWidth = 2.4 * pulse;
     ctx.beginPath();
     ctx.arc(t.x, t.y, 20 + t.level * 2, 0, Math.PI * 2);
     ctx.stroke();
@@ -7024,7 +7317,6 @@ function render() {
 
     // Layer 1: Grid
     drawGrid();
-
     // Layer 2: Tower range of selected
     drawSelectedTowerRange();
 
@@ -7047,19 +7339,11 @@ function render() {
     // Layer 7: Particles
     drawParticles();
 
-    // Layer 7: Hover preview
-    drawHoverPreview();
+    // Layer 8: Shared color grade
+    drawBattlefieldAtmosphere();
 
-    // Path arrows (subtle direction hints at waypoints)
-    for (let i = 1; i < WAYPOINTS.length; i++) {
-        const a = WAYPOINTS[i - 1], b = WAYPOINTS[i];
-        const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
-        if (mx < 0 || mx > CANVAS_W || my < 0 || my > CANVAS_H) continue;
-        ctx.fillStyle = 'rgba(255,255,255,0.06)';
-        ctx.beginPath();
-        ctx.arc(mx, my, 6, 0, Math.PI * 2);
-        ctx.fill();
-    }
+    // Layer 9: Hover preview
+    drawHoverPreview();
 
 }
 
