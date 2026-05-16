@@ -235,16 +235,16 @@ title: "塔防战争"
     </div>
     <canvas id="game-canvas" width="800" height="600"></canvas>
     <div id="tower-panel">
-        <button class="tower-btn" data-type="arrow" onclick="selectTowerType('arrow')">
+        <button class="tower-btn" data-type="archer" onclick="selectTowerType('archer')">
             <span class="tower-icon">🏹</span><span class="tower-name">箭塔</span><span class="tower-cost">100💰</span>
         </button>
-        <button class="tower-btn" data-type="cannon" onclick="selectTowerType('cannon')">
+        <button class="tower-btn" data-type="artillery" onclick="selectTowerType('artillery')">
             <span class="tower-icon">💣</span><span class="tower-name">炮塔</span><span class="tower-cost">150💰</span>
         </button>
-        <button class="tower-btn" data-type="ice" onclick="selectTowerType('ice')">
-            <span class="tower-icon">❄️</span><span class="tower-name">冰塔</span><span class="tower-cost">120💰</span>
+        <button class="tower-btn" data-type="mage" onclick="selectTowerType('mage')">
+            <span class="tower-icon">🔮</span><span class="tower-name">法师塔</span><span class="tower-cost">120💰</span>
         </button>
-        <button class="tower-btn" data-type="lightning" onclick="selectTowerType('lightning')">
+        <button class="tower-btn" data-type="tesla" onclick="selectTowerType('tesla')">
             <span class="tower-icon">⚡</span><span class="tower-name">雷塔</span><span class="tower-cost">200💰</span>
         </button>
     </div>
@@ -278,32 +278,32 @@ const ctx = canvas.getContext('2d');
 
 // ==================== TOWER STATS TABLE ====================
 const TOWER_DEFS = {
-    arrow: {
+    archer: {
         name: '箭塔', icon: '🏹',
         cost: 100, upgradeCost: [80, 160],
         damage: [15, 30, 50], range: [130, 145, 160], cooldown: [500, 420, 350],
-        color: '#4CAF50', bulletColor: '#a5d6a7', bulletSpeed: 450,
+        color: '#7B8D3C', bulletColor: '#D4C898', bulletSpeed: 450,
         splash: 0, slowFactor: 0, slowDuration: 0, chainCount: 0
     },
-    cannon: {
+    artillery: {
         name: '炮塔', icon: '💣',
         cost: 150, upgradeCost: [120, 240],
         damage: [40, 75, 120], range: [110, 120, 135], cooldown: [2000, 1800, 1600],
-        color: '#e74c3c', bulletColor: '#444', bulletSpeed: 250,
+        color: '#8B4513', bulletColor: '#333', bulletSpeed: 250,
         splash: [55, 65, 75], slowFactor: 0, slowDuration: 0, chainCount: 0, splashDmgPct: 0.5
     },
-    ice: {
-        name: '冰塔', icon: '❄️',
+    mage: {
+        name: '法师塔', icon: '🔮',
         cost: 120, upgradeCost: [100, 200],
         damage: [8, 15, 25], range: [110, 120, 135], cooldown: [1000, 900, 750],
-        color: '#5DADE2', bulletColor: '#aed6f1', bulletSpeed: 350,
+        color: '#6C5CE7', bulletColor: '#B8B0F0', bulletSpeed: 350,
         splash: 0, slowFactor: [0.5, 0.6, 0.7], slowDuration: [2000, 2500, 3000], chainCount: 0
     },
-    lightning: {
+    tesla: {
         name: '雷塔', icon: '⚡',
         cost: 200, upgradeCost: [150, 300],
         damage: [25, 45, 70], range: [120, 130, 145], cooldown: [1200, 1050, 900],
-        color: '#9B59B6', bulletColor: '#f1c40f', bulletSpeed: 9999,
+        color: '#B8860B', bulletColor: '#FFE44D', bulletSpeed: 9999,
         splash: 0, slowFactor: 0, slowDuration: 0, chainCount: [3, 4, 5], chainRange: [80, 90, 100], chainFalloff: 0.3
     }
 };
@@ -355,14 +355,26 @@ const game = {
     waveSpawningDone: false
 };
 
-// ==================== GRID ====================
+// ==================== GRID & SCENERY ====================
 const grid = [];
 for (let r = 0; r < ROWS; r++) {
     grid[r] = new Array(COLS).fill(TERRAIN.GRASS);
 }
 
+// Scenery items: { col, row, type, size }
+let scenery = [];
+
+// Seeded random for deterministic scenery
+function seededRand(seed) {
+    let s = seed;
+    return function() {
+        s = (s * 16807 + 0) % 2147483647;
+        return (s - 1) / 2147483646;
+    };
+}
+
 function initGrid() {
-    // Mark path cells along waypoint segments
+    // Mark path cells along waypoint segments (path is 2 cells wide)
     for (let i = 1; i < WAYPOINTS.length; i++) {
         const a = WAYPOINTS[i - 1];
         const b = WAYPOINTS[i];
@@ -372,32 +384,106 @@ function initGrid() {
         const by = Math.round(b.y / CELL - 0.5);
 
         if (ay === by) {
-            // Horizontal segment
             const row = ay;
             const x0 = Math.max(0, Math.min(ax, bx));
             const x1 = Math.min(COLS - 1, Math.max(ax, bx));
             for (let c = x0; c <= x1; c++) {
                 if (c >= 0 && c < COLS && row >= 0 && row < ROWS) grid[row][c] = TERRAIN.PATH;
+                if (row + 1 < ROWS && c >= 0 && c < COLS) grid[row + 1][c] = TERRAIN.PATH;
             }
         } else if (ax === bx) {
-            // Vertical segment
             const col = ax;
             const y0 = Math.max(0, Math.min(ay, by));
             const y1 = Math.min(ROWS - 1, Math.max(ay, by));
             for (let r = y0; r <= y1; r++) {
                 if (r >= 0 && r < ROWS && col >= 0 && col < COLS) grid[r][col] = TERRAIN.PATH;
+                if (col + 1 < COLS && r >= 0 && r < ROWS) grid[r][col + 1] = TERRAIN.PATH;
             }
         }
     }
 
-    // Scatter blocked cells (decorative obstacles)
-    const blocked = [
-        [0,0],[0,14],[19,0],[19,14],[0,7],[19,7],
-        [10,7],[15,2],[2,13],[15,13],[9,0],[9,14],
-        [1,4],[18,10],[5,14],[16,0]
-    ];
-    for (const [c, r] of blocked) {
-        if (grid[r][c] === TERRAIN.GRASS) grid[r][c] = TERRAIN.BLOCKED;
+    // Mark path-adjacent cells as BLOCKED (buffer 1 cell around path, unless already buildable)
+    for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+            if (grid[r][c] === TERRAIN.PATH) {
+                for (let dr = -2; dr <= 2; dr++) {
+                    for (let dc = -2; dc <= 2; dc++) {
+                        const nr = r + dr, nc = c + dc;
+                        if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS && grid[nr][nc] === TERRAIN.GRASS) {
+                            if (Math.abs(dr) + Math.abs(dc) <= 2) {
+                                grid[nr][nc] = TERRAIN.BLOCKED;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Reclaim buildable spots: cells adjacent to blocked but not directly next to path
+    // Keep the outer ring of blocked cells, mark inner grass as buildable
+    const buildableSeeds = [];
+    for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+            if (grid[r][c] === TERRAIN.BLOCKED) {
+                let nearPath = false;
+                for (let dr = -1; dr <= 1 && !nearPath; dr++) {
+                    for (let dc = -1; dc <= 1 && !nearPath; dc++) {
+                        const nr = r + dr, nc = c + dc;
+                        if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS && grid[nr][nc] === TERRAIN.PATH) {
+                            nearPath = true;
+                        }
+                    }
+                }
+                if (!nearPath && (c > 1 && c < COLS - 2 && r > 1 && r < ROWS - 2)) {
+                    buildableSeeds.push([c, r]);
+                }
+            }
+        }
+    }
+    for (const [c, r] of buildableSeeds) {
+        grid[r][c] = TERRAIN.GRASS;
+    }
+
+    // Generate scenery
+    initScenery();
+}
+
+function initScenery() {
+    scenery = [];
+    const rand = seededRand(42);
+    const treeTypes = ['pine', 'oak', 'bush'];
+    for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+            if (grid[r][c] === TERRAIN.BLOCKED && rand() < 0.65) {
+                const type = treeTypes[Math.floor(rand() * treeTypes.length)];
+                const size = 0.7 + rand() * 0.6;
+                const ox = (rand() - 0.5) * CELL * 0.5;
+                const oy = (rand() - 0.5) * CELL * 0.5;
+                scenery.push({ col: c, row: r, type, size, ox, oy });
+            }
+        }
+    }
+    // Also add rocks along path edges
+    for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+            if (grid[r][c] === TERRAIN.BLOCKED) {
+                let nextToPath = false;
+                for (let dr = -1; dr <= 1; dr++) {
+                    for (let dc = -1; dc <= 1; dc++) {
+                        const nr = r + dr, nc = c + dc;
+                        if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS && grid[nr][nc] === TERRAIN.PATH) {
+                            nextToPath = true;
+                        }
+                    }
+                }
+                if (nextToPath && rand() < 0.5) {
+                    const ox2 = (rand() - 0.5) * CELL * 0.3;
+                    const oy2 = (rand() - 0.5) * CELL * 0.3;
+                    scenery.push({ col: c, row: r, type: 'rock', size: 0.5 + rand() * 0.4, ox: ox2, oy: oy2 });
+                }
+            }
+        }
     }
 }
 
@@ -712,7 +798,7 @@ function updateProjectiles(dt) {
         const d = Math.sqrt(dx * dx + dy * dy);
 
         // Lightning is instant
-        if (p.type === 'lightning' && p.speed > 9000) {
+        if (p.type === 'tesla' && p.speed > 9000) {
             handleImpact(p);
             p.alive = false;
             continue;
@@ -908,37 +994,89 @@ function updateParticles(dt) {
 
 // ==================== RENDERING ====================
 function drawGrid() {
+    // === Layer 1: Base terrain with biome zones ===
     for (let r = 0; r < ROWS; r++) {
         for (let c = 0; c < COLS; c++) {
             const x = c * CELL, y = r * CELL;
-            switch (grid[r][c]) {
-                case TERRAIN.PATH:
-                    ctx.fillStyle = '#8B7355';
-                    ctx.fillRect(x, y, CELL, CELL);
-                    ctx.fillStyle = '#7a6548';
-                    ctx.fillRect(x + 2, y + 2, CELL - 4, CELL - 4);
-                    break;
-                case TERRAIN.GRASS:
-                    ctx.fillStyle = '#2d5a1e';
-                    ctx.fillRect(x, y, CELL, CELL);
-                    // Subtle variation
-                    const shade = ((r * 7 + c * 13) % 20) - 10;
-                    ctx.fillStyle = `rgb(${45 + shade},${90 + shade},${30 + shade})`;
-                    ctx.fillRect(x + 1, y + 1, CELL - 2, CELL - 2);
-                    break;
-                case TERRAIN.BLOCKED:
-                    ctx.fillStyle = '#4a4a4a';
-                    ctx.fillRect(x, y, CELL, CELL);
-                    ctx.fillStyle = '#3a3a3a';
-                    ctx.beginPath();
-                    ctx.arc(x + CELL / 2, y + CELL / 2, CELL / 3, 0, Math.PI * 2);
-                    ctx.fill();
-                    break;
+            const t = grid[r][c];
+
+            if (t === TERRAIN.PATH) {
+                // Dirt road - two-tone earth
+                const shade = ((r + c) % 3) * 5;
+                ctx.fillStyle = `rgb(${160 + shade},${130 + shade},${95 + shade})`;
+                ctx.fillRect(x, y, CELL, CELL);
+                // Cart tracks (subtle lines)
+                ctx.fillStyle = `rgba(120,95,65,0.3)`;
+                ctx.fillRect(x + 5, y, 2, CELL);
+                ctx.fillRect(x + CELL - 8, y, 2, CELL);
+            } else if (t === TERRAIN.GRASS) {
+                // Buildable plateau - raised earth with stone border hint
+                const shade = ((r * 13 + c * 7) % 16) - 8;
+                ctx.fillStyle = `rgb(${62 + shade},${108 + shade},${42 + shade})`;
+                ctx.fillRect(x, y, CELL, CELL);
+                // Subtle plateau highlight
+                ctx.fillStyle = `rgba(255,255,255,0.04)`;
+                ctx.fillRect(x + 1, y + 1, CELL - 2, 2);
+                // Stone edge accent
+                ctx.strokeStyle = 'rgba(139,119,90,0.25)';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(x + 1, y + 1, CELL - 2, CELL - 2);
+            } else {
+                // Scenery ground - darker, varied greens and browns
+                const biome = Math.floor((r / 5)) % 3;
+                let base;
+                if (biome === 0) {
+                    base = { r: 48, g: 72, b: 30 }; // forest green
+                } else if (biome === 1) {
+                    base = { r: 55, g: 65, b: 35 }; // meadow
+                } else {
+                    base = { r: 50, g: 58, b: 40 }; // rocky area
+                }
+                const v = ((r * 17 + c * 11) % 14) - 7;
+                ctx.fillStyle = `rgb(${base.r + v},${base.g + v},${base.b + v})`;
+                ctx.fillRect(x, y, CELL, CELL);
+                // Ground texture dots
+                ctx.fillStyle = `rgba(0,0,0,0.06)`;
+                const dotSeed = r * 100 + c;
+                for (let d = 0; d < 3; d++) {
+                    const dx = ((dotSeed * 7 + d * 13) % CELL);
+                    const dy = ((dotSeed * 11 + d * 19) % CELL);
+                    ctx.fillRect(x + dx, y + dy, 2, 2);
+                }
             }
         }
     }
-    // Grid lines
-    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+
+    // === Layer 2: Path edge softening (blend terrain) ===
+    for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+            if (grid[r][c] !== TERRAIN.PATH) continue;
+            const x = c * CELL, y = r * CELL;
+            // Check neighbors — if adjacent to BLOCKED, draw grassy edge
+            const neighbors = [
+                [r-1,c],[r+1,c],[r,c-1],[r,c+1]
+            ];
+            for (const [nr, nc] of neighbors) {
+                if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS && grid[nr][nc] === TERRAIN.BLOCKED) {
+                    ctx.fillStyle = 'rgba(90,130,50,0.35)';
+                    if (nr < r) ctx.fillRect(x, y, CELL, 4);
+                    if (nr > r) ctx.fillRect(x, y + CELL - 4, CELL, 4);
+                    if (nc < c) ctx.fillRect(x, y, 4, CELL);
+                    if (nc > c) ctx.fillRect(x + CELL - 4, y, 4, CELL);
+                }
+            }
+        }
+    }
+
+    // === Layer 3: Scenery (trees, bushes, rocks) ===
+    for (const s of scenery) {
+        const cx = s.col * CELL + CELL / 2 + s.ox;
+        const cy = s.row * CELL + CELL / 2 + s.oy;
+        drawSceneryItem(cx, cy, s.type, s.size);
+    }
+
+    // === Layer 4: Subtle grid lines (only over grass cells) ===
+    ctx.strokeStyle = 'rgba(255,255,255,0.03)';
     ctx.lineWidth = 0.5;
     for (let r = 0; r <= ROWS; r++) {
         ctx.beginPath();
@@ -954,303 +1092,556 @@ function drawGrid() {
     }
 }
 
+// Draw a single scenery item (tree, bush, rock)
+function drawSceneryItem(cx, cy, type, size) {
+    ctx.save();
+    ctx.translate(cx, cy);
+    const s = size;
+
+    switch (type) {
+        case 'pine': {
+            // Trunk
+            ctx.fillStyle = '#6B4226';
+            ctx.fillRect(-2 * s, 0, 4 * s, 8 * s);
+            // Three-tier pine triangle
+            const tiers = [{y: -2, w: 10, h: 8}, {y: -6, w: 8, h: 7}, {y: -10, w: 5, h: 6}];
+            for (const t of tiers) {
+                ctx.fillStyle = '#3D6B2E';
+                ctx.beginPath();
+                ctx.moveTo(0, -t.y * s - t.h * s);
+                ctx.lineTo(-t.w * s, -t.y * s);
+                ctx.lineTo(t.w * s, -t.y * s);
+                ctx.closePath();
+                ctx.fill();
+                ctx.fillStyle = '#4A8038';
+                ctx.beginPath();
+                ctx.moveTo(0, -t.y * s - t.h * s + 3 * s);
+                ctx.lineTo(-t.w * s + 2 * s, -t.y * s + 1 * s);
+                ctx.lineTo(t.w * s - 2 * s, -t.y * s + 1 * s);
+                ctx.closePath();
+                ctx.fill();
+            }
+            break;
+        }
+        case 'oak': {
+            // Trunk
+            ctx.fillStyle = '#8B5E3C';
+            ctx.fillRect(-2.5 * s, 4 * s, 5 * s, 7 * s);
+            // Canopy
+            ctx.fillStyle = '#5B8C3E';
+            ctx.beginPath();
+            ctx.arc(0, -1 * s, 10 * s, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#6B9E4A';
+            ctx.beginPath();
+            ctx.arc(-3 * s, -3 * s, 6 * s, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#7AAF5C';
+            ctx.beginPath();
+            ctx.arc(2 * s, -5 * s, 5 * s, 0, Math.PI * 2);
+            ctx.fill();
+            break;
+        }
+        case 'bush': {
+            ctx.fillStyle = '#4A7C2E';
+            ctx.beginPath();
+            ctx.arc(0, 0, 6 * s, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#5B9038';
+            ctx.beginPath();
+            ctx.arc(-2 * s, -1 * s, 4 * s, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#6BA044';
+            ctx.beginPath();
+            ctx.arc(2 * s, -2 * s, 3.5 * s, 0, Math.PI * 2);
+            ctx.fill();
+            break;
+        }
+        case 'rock': {
+            ctx.fillStyle = '#7A7A7A';
+            ctx.beginPath();
+            ctx.arc(0, 0, 5 * s, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#8E8E8E';
+            ctx.beginPath();
+            ctx.arc(-1.5 * s, -2 * s, 3 * s, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#666';
+            ctx.lineWidth = 0.6;
+            ctx.beginPath();
+            ctx.moveTo(-1 * s, -3 * s);
+            ctx.lineTo(0.5 * s, 0);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(1 * s, 1 * s);
+            ctx.lineTo(3 * s, -1 * s);
+            ctx.stroke();
+            break;
+        }
+    }
+    ctx.restore();
+}
+
 function drawTower(t) {
     const st = towerStats(t);
     const lv = t.level;
     ctx.save();
     ctx.translate(t.x, t.y);
 
+    // Shadow under tower
+    ctx.fillStyle = 'rgba(0,0,0,0.25)';
+    ctx.beginPath();
+    ctx.ellipse(0, 3, 15, 5, 0, 0, Math.PI * 2);
+    ctx.fill();
+
     switch (t.type) {
-        case 'arrow': drawArrowTower(t, st, lv); break;
-        case 'cannon': drawCannonTower(t, st, lv); break;
-        case 'ice': drawIceTower(t, st, lv); break;
-        case 'lightning': drawLightningTower(t, st, lv); break;
-    }
-
-    // Level pips (small dots above tower)
-    for (let i = 0; i < lv; i++) {
-        ctx.fillStyle = '#fff';
-        ctx.beginPath();
-        ctx.arc(-(lv - 1) * 4 + i * 8, -20, 2, 0, Math.PI * 2);
-        ctx.fill();
+        case 'archer': drawArcherTower(t, st, lv); break;
+        case 'artillery': drawArtilleryTower(t, st, lv); break;
+        case 'mage': drawMageTower(t, st, lv); break;
+        case 'tesla': drawTeslaTower(t, st, lv); break;
     }
 
     ctx.restore();
 }
 
-function drawArrowTower(t, st, lv) {
-    const s = 10 + lv * 3; // base half-size
-    const h = 10 + lv * 4; // height above center
+// ===== ARCHER TOWER — Kingdom Rush Marksmen Watchtower =====
+function drawArcherTower(t, st, lv) {
+    const b = 10 + lv * 2;  // base radius
+    const h = 12 + lv * 4;  // roof height
 
-    // Wooden base - rounded square
-    ctx.fillStyle = '#8B6914';
+    // Stone foundation ring
+    ctx.fillStyle = '#8B7D6B';
     ctx.beginPath();
-    ctx.roundRect(-s, -2, s * 2, s + 2, 4);
+    ctx.arc(0, 6, b + 3, Math.PI, 0);
     ctx.fill();
-    ctx.strokeStyle = '#5C4A0E';
-    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = '#6B5D4B';
+    ctx.lineWidth = 1;
     ctx.stroke();
 
-    // Wood grain lines
-    ctx.strokeStyle = '#6B4F10';
-    ctx.lineWidth = 0.8;
-    for (let i = 1; i < 3; i++) {
+    // Timber platform (horizontal beams)
+    ctx.fillStyle = '#C4A265';
+    ctx.fillRect(-b - 2, 2, b * 2 + 4, 5);
+    ctx.fillStyle = '#B89555';
+    ctx.fillRect(-b, 2, b * 2, 3);
+
+    // Main tower body — tapered wooden structure
+    const bodyTop = -h + 10;
+    const bw = b - 2;
+    const tw = b - 5;
+    ctx.fillStyle = '#A07840';
+    ctx.beginPath();
+    ctx.moveTo(-bw, 2);
+    ctx.lineTo(bw, 2);
+    ctx.lineTo(tw, bodyTop);
+    ctx.lineTo(-tw, bodyTop);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#7A5530';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+
+    // Wood plank lines
+    ctx.strokeStyle = '#8B6535';
+    ctx.lineWidth = 0.5;
+    for (let i = 1; i < 5; i++) {
+        const y = 2 - i * (2 - bodyTop) / 5;
         ctx.beginPath();
-        ctx.moveTo(-s + 2, -2 + i * s / 3);
-        ctx.lineTo(s - 2, -2 + i * s / 3);
+        ctx.moveTo(-bw + 2 + i * 0.3, y);
+        ctx.lineTo(bw - 2 - i * 0.3, y);
         ctx.stroke();
     }
 
-    // Upper turret - smaller rounded rect
-    ctx.fillStyle = '#A0782C';
+    // Lookout window
+    const winY = bodyTop + 8;
+    ctx.fillStyle = '#3A2010';
     ctx.beginPath();
-    ctx.roundRect(-s + 3, -h, s * 2 - 6, h - 2, 3);
+    ctx.roundRect(-4, winY, 8, 7, 2);
     ctx.fill();
-    ctx.strokeStyle = '#5C4A0E';
-    ctx.lineWidth = 1;
-    ctx.stroke();
+    ctx.fillStyle = '#6B4226';
+    ctx.fillRect(-3, winY + 1, 6, 5);
 
-    // Pointed roof
-    ctx.fillStyle = '#6B3A2E';
+    // Red tile roof — Kingdom Rush iconic
+    ctx.fillStyle = '#8B2500';
     ctx.beginPath();
-    ctx.moveTo(-s + 1, -h);
-    ctx.lineTo(s - 1, -h);
-    ctx.lineTo(0, -h - s * 1.2);
-    ctx.closePath();
-    ctx.fill();
-    ctx.strokeStyle = '#4A2018';
-    ctx.lineWidth = 1;
-    ctx.stroke();
-
-    // Arrow barrel
-    ctx.save();
-    ctx.rotate(t.angle);
-    ctx.fillStyle = '#D4B896';
-    ctx.fillRect(3, -1.5, s + lv * 2, 3);
-    ctx.fillStyle = '#888';
-    ctx.fillRect(s + lv, -2.5, 5, 5); // arrowhead
-    ctx.restore();
-
-    // Window slit
-    ctx.fillStyle = '#3a2a0a';
-    ctx.fillRect(-2, -h + 4, 4, s - 2);
-}
-
-function drawCannonTower(t, st, lv) {
-    const r = 13 + lv * 2; // outer radius
-
-    // Stone base - dark circle
-    const grad = ctx.createRadialGradient(0, r * 0.3, r * 0.3, 0, 0, r);
-    grad.addColorStop(0, '#888');
-    grad.addColorStop(0.6, '#666');
-    grad.addColorStop(1, '#444');
-    ctx.fillStyle = grad;
-    ctx.beginPath();
-    ctx.arc(0, 0, r, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = '#333';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-
-    // Stone brick lines
-    ctx.strokeStyle = '#555';
-    ctx.lineWidth = 0.8;
-    for (let i = -1; i <= 1; i++) {
-        ctx.beginPath();
-        ctx.moveTo(-r + 3, i * r * 0.4);
-        ctx.lineTo(r - 3, i * r * 0.4);
-        ctx.stroke();
-    }
-    ctx.beginPath();
-    ctx.moveTo(0, -r + 3);
-    ctx.lineTo(0, r - 3);
-    ctx.stroke();
-
-    // Inner platform
-    ctx.fillStyle = '#777';
-    ctx.beginPath();
-    ctx.arc(0, 0, r * 0.55, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = '#555';
-    ctx.lineWidth = 1;
-    ctx.stroke();
-
-    // Cannon barrel
-    ctx.save();
-    ctx.rotate(t.angle);
-    const bw = 4 + lv;
-    ctx.fillStyle = '#444';
-    ctx.fillRect(r * 0.4, -bw / 2, r * 0.9, bw);
-    // Barrel ring
-    ctx.fillStyle = '#666';
-    ctx.fillRect(r * 0.75, -bw / 2 - 1.5, bw, bw + 3);
-    // Muzzle
-    ctx.fillStyle = '#333';
-    ctx.fillRect(r * 0.4 + r * 0.85, -bw / 2 - 1, 3, bw + 2);
-    ctx.restore();
-}
-
-function drawIceTower(t, st, lv) {
-    const s = 11 + lv * 2.5; // radius
-    const h = 12 + lv * 5;   // height above center
-
-    // Outer glow
-    ctx.shadowColor = 'rgba(100,180,255,0.4)';
-    ctx.shadowBlur = 6 + lv * 2;
-
-    // Main crystal body - hexagonal
-    ctx.fillStyle = '#A8D8F0';
-    ctx.beginPath();
-    for (let i = 0; i < 6; i++) {
-        const angle = Math.PI / 3 * i - Math.PI / 2;
-        const r = i % 2 === 0 ? s : s * 0.75;
-        const px = Math.cos(angle) * r;
-        const py = Math.sin(angle) * r;
-        if (i === 0) ctx.moveTo(px, py);
-        else ctx.lineTo(px, py);
-    }
-    ctx.closePath();
-    ctx.fill();
-    ctx.strokeStyle = '#7CB8E0';
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
-
-    ctx.shadowColor = 'transparent';
-    ctx.shadowBlur = 0;
-
-    // Inner highlight
-    ctx.fillStyle = 'rgba(255,255,255,0.35)';
-    ctx.beginPath();
-    ctx.arc(-s * 0.2, -s * 0.2, s * 0.35, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Rising ice spire
-    ctx.fillStyle = '#B8E8FF';
-    ctx.beginPath();
-    ctx.moveTo(-s * 0.3, 0);
-    ctx.lineTo(s * 0.3, 0);
+    ctx.moveTo(-b - 2, bodyTop + 2);
+    ctx.lineTo(b + 2, bodyTop + 2);
     ctx.lineTo(0, -h);
     ctx.closePath();
     ctx.fill();
-    ctx.strokeStyle = '#8CC8E8';
-    ctx.lineWidth = 1;
-    ctx.stroke();
-
-    // Crystal facets on spire
-    ctx.fillStyle = 'rgba(255,255,255,0.4)';
-    ctx.beginPath();
-    ctx.moveTo(-s * 0.15, -2);
-    ctx.lineTo(s * 0.05, -2);
-    ctx.lineTo(0, -h + 4);
-    ctx.closePath();
-    ctx.fill();
-
-    // Ice barrel
-    ctx.save();
-    ctx.rotate(t.angle);
-    ctx.fillStyle = '#D0F0FF';
-    ctx.fillRect(3, -1.5, s * 1.2, 3);
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(s * 0.9, -2, 5, 4);
-    ctx.restore();
-
-    // Floating ice particles
-    const time = Date.now() / 1000;
-    for (let i = 0; i < lv + 1; i++) {
-        const angle = time * 1.5 + i * Math.PI * 2 / (lv + 1);
-        const dist = s + 6;
-        const px = Math.cos(angle) * dist;
-        const py = Math.sin(angle) * dist - 5;
-        ctx.fillStyle = 'rgba(200,230,255,0.7)';
-        ctx.beginPath();
-        ctx.arc(px, py, 1.5, 0, Math.PI * 2);
-        ctx.fill();
-    }
-}
-
-function drawLightningTower(t, st, lv) {
-    const w = 8 + lv;            // base half-width
-    const h = 16 + lv * 6;       // total height above center
-
-    // Metal base - tapered trapezoid
-    ctx.fillStyle = '#5B3A7A';
-    ctx.beginPath();
-    ctx.moveTo(-w - 3, 4);
-    ctx.lineTo(w + 3, 4);
-    ctx.lineTo(w, -4);
-    ctx.lineTo(-w, -4);
-    ctx.closePath();
-    ctx.fill();
-    ctx.strokeStyle = '#3E2955';
+    ctx.strokeStyle = '#6B1C00';
     ctx.lineWidth = 1.5;
     ctx.stroke();
 
-    // Tesla coil body - narrow column
-    const coilW = 3 + lv * 0.8;
-    ctx.fillStyle = '#7D5BA6';
-    ctx.fillRect(-coilW, -h * 0.6, coilW * 2, h * 0.55);
-    ctx.strokeStyle = '#6A4590';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(-coilW, -h * 0.6, coilW * 2, h * 0.55);
-
-    // Copper coil windings
-    ctx.strokeStyle = '#D4883C';
-    ctx.lineWidth = 0.8;
-    for (let i = 0; i < lv + 2; i++) {
-        const y = -h * 0.6 + i * (h * 0.55 / (lv + 2)) + 3;
+    // Roof tile lines
+    ctx.strokeStyle = '#A03000';
+    ctx.lineWidth = 0.6;
+    for (let i = 1; i <= lv + 1; i++) {
+        const ry = bodyTop + 2 - i * (bodyTop + 2 + h) / (lv + 2);
         ctx.beginPath();
-        ctx.moveTo(-coilW - 0.5, y);
-        ctx.lineTo(coilW + 0.5, y + 2);
+        const rw = b + 2 - (b + 2) * (i / (lv + 2)) * 0.5;
+        ctx.moveTo(-rw, ry);
+        ctx.lineTo(rw, ry);
         ctx.stroke();
     }
 
-    // Energy orb at top
-    const orbY = -h * 0.6 - 3;
-    const orbR = 4 + lv;
+    // Roof finial / flag
+    ctx.fillStyle = '#D4A030';
+    ctx.fillRect(-1, -h, 2, -6);
+    ctx.fillStyle = '#E74C3C';
+    ctx.beginPath();
+    ctx.moveTo(1, -h - 6);
+    ctx.lineTo(10, -h - 8);
+    ctx.lineTo(10, -h - 3);
+    ctx.lineTo(1, -h - 2);
+    ctx.closePath();
+    ctx.fill();
+
+    // Crossbow barrel
+    ctx.save();
+    ctx.rotate(t.angle);
+    ctx.fillStyle = '#6B4226';
+    ctx.fillRect(3, -1, b + lv, 2.5);
+    ctx.fillStyle = '#A07840';
+    ctx.fillRect(b + lv - 3, -3, 8, 6);  // crossbow prod
+    ctx.restore();
+}
+
+// ===== ARTILLERY TOWER — Kingdom Rush Dwarven Bombard =====
+function drawArtilleryTower(t, st, lv) {
+    const r = 13 + lv * 1.5;
+
+    // Stone foundation platform
+    const platGrad = ctx.createLinearGradient(0, -r, 0, r);
+    platGrad.addColorStop(0, '#9E9080');
+    platGrad.addColorStop(0.5, '#7A6E60');
+    platGrad.addColorStop(1, '#5C5040');
+    ctx.fillStyle = platGrad;
+    ctx.beginPath();
+    ctx.arc(0, 0, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#4A3E30';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Stone brick pattern
+    ctx.strokeStyle = '#6B5D4B';
+    ctx.lineWidth = 0.7;
+    for (let i = -2; i <= 2; i++) {
+        ctx.beginPath();
+        ctx.moveTo(-r + 3, i * r * 0.35);
+        ctx.lineTo(r - 3, i * r * 0.35);
+        ctx.stroke();
+    }
+    ctx.beginPath();
+    ctx.moveTo(0, -r + 2);
+    ctx.lineTo(0, r - 2);
+    ctx.stroke();
+
+    // Inner iron platform
+    const ir = r * 0.5 + lv;
+    ctx.fillStyle = '#5C5C5C';
+    ctx.beginPath();
+    ctx.arc(0, 0, ir, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#3A3A3A';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Rivets on platform
+    ctx.fillStyle = '#888';
+    for (let i = 0; i < 6; i++) {
+        const a = Math.PI / 3 * i;
+        ctx.beginPath();
+        ctx.arc(Math.cos(a) * (ir - 2), Math.sin(a) * (ir - 2), 1.5, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // Wheels / gears on sides
+    ctx.fillStyle = '#444';
+    ctx.beginPath();
+    ctx.arc(-r + 2, 2, 4 + lv * 0.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#666';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(r - 2, 2, 4 + lv * 0.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // Cannon barrel — big iron
+    ctx.save();
+    ctx.rotate(t.angle);
+    const bw = 5 + lv;
+    const bl = r * 0.6 + lv * 2;
+    // Barrel gradient
+    const barrelGrad = ctx.createLinearGradient(0, -bw, 0, bw);
+    barrelGrad.addColorStop(0, '#666');
+    barrelGrad.addColorStop(0.4, '#999');
+    barrelGrad.addColorStop(0.6, '#777');
+    barrelGrad.addColorStop(1, '#444');
+    ctx.fillStyle = barrelGrad;
+    ctx.fillRect(ir - 2, -bw / 2, bl, bw);
+    // Barrel ring
+    ctx.fillStyle = '#B8860B';
+    ctx.fillRect(ir + bl * 0.5, -bw / 2 - 2, bw * 0.8, bw + 4);
+    // Muzzle flare
+    ctx.fillStyle = '#333';
+    ctx.beginPath();
+    ctx.moveTo(ir + bl - 2, -bw / 2 - 3);
+    ctx.lineTo(ir + bl + 4, -bw / 2);
+    ctx.lineTo(ir + bl + 4, bw / 2);
+    ctx.lineTo(ir + bl - 2, bw / 2 + 3);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+
+    // Smoke stack at back (for Lv2+)
+    if (lv >= 2) {
+        ctx.fillStyle = '#555';
+        ctx.fillRect(-ir + 4, -r + 1, 5, -4 - lv * 2);
+        ctx.fillStyle = '#777';
+        ctx.fillRect(-ir + 3, -r + 1, 7, 2);
+    }
+}
+
+// ===== MAGE TOWER — Kingdom Rush Arcane Wizard Spire =====
+function drawMageTower(t, st, lv) {
+    const b = 9 + lv * 1.5;   // base radius
+    const h = 18 + lv * 6;    // spire height
+
+    // Stone circle base
+    const baseGrad = ctx.createRadialGradient(0, 3, b * 0.2, 0, 3, b);
+    baseGrad.addColorStop(0, '#D5CFE8');
+    baseGrad.addColorStop(0.6, '#9B8EC0');
+    baseGrad.addColorStop(1, '#5C4A8A');
+    ctx.fillStyle = baseGrad;
+    ctx.beginPath();
+    ctx.arc(0, 3, b + 2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#4A3A70';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Runic circle on base
+    ctx.strokeStyle = 'rgba(180,160,220,0.6)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(0, 3, b * 0.7, 0, Math.PI * 2);
+    ctx.stroke();
+    // Rune marks
+    for (let i = 0; i < 6; i++) {
+        const a = Math.PI / 3 * i;
+        const rx = Math.cos(a) * b * 0.7;
+        const ry = Math.sin(a) * b * 0.7 + 3;
+        ctx.fillStyle = 'rgba(220,200,255,0.7)';
+        ctx.beginPath();
+        ctx.arc(rx, ry, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // Main tower body — tall thin stone tower
+    const tw = b * 0.5;
+    const bw = b * 0.8;
+    ctx.fillStyle = '#C8BFE8';
+    ctx.beginPath();
+    ctx.moveTo(-bw, 0);
+    ctx.lineTo(bw, 0);
+    ctx.lineTo(tw, -h * 0.7);
+    ctx.lineTo(-tw, -h * 0.7);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#8B7DBA';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Tower stone block lines
+    ctx.strokeStyle = '#A095C8';
+    ctx.lineWidth = 0.4;
+    for (let i = 1; i < 6; i++) {
+        const y = -i * h * 0.7 / 6;
+        ctx.beginPath();
+        const wAtY = bw - (bw - tw) * (i / 6);
+        ctx.moveTo(-wAtY + 1, y);
+        ctx.lineTo(wAtY - 1, y);
+        ctx.stroke();
+    }
+
+    // Window / arcane slit
+    ctx.fillStyle = '#3A2060';
+    ctx.fillRect(-2, -h * 0.45, 4, 10);
+    ctx.fillStyle = 'rgba(180,150,255,0.5)';
+    ctx.fillRect(-1.5, -h * 0.45 + 1, 3, 8);
+
+    // Pointed spire roof
+    ctx.fillStyle = '#7B6CB0';
+    ctx.beginPath();
+    ctx.moveTo(-tw - 1, -h * 0.7);
+    ctx.lineTo(tw + 1, -h * 0.7);
+    ctx.lineTo(0, -h);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#5C4A8A';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Arcane orb at top
+    const orbY = -h;
+    const orbR = 3 + lv;
+    ctx.shadowColor = 'rgba(150,120,255,0.8)';
+    ctx.shadowBlur = 8 + lv * 3;
     const orbGrad = ctx.createRadialGradient(0, orbY - orbR * 0.3, orbR * 0.1, 0, orbY, orbR);
-    orbGrad.addColorStop(0, '#fff');
-    orbGrad.addColorStop(0.3, '#FFE44D');
-    orbGrad.addColorStop(0.7, '#C77DFF');
-    orbGrad.addColorStop(1, 'rgba(90,30,150,0)');
+    orbGrad.addColorStop(0, '#FFFFFF');
+    orbGrad.addColorStop(0.3, '#D8C8FF');
+    orbGrad.addColorStop(0.7, '#8B60E0');
+    orbGrad.addColorStop(1, 'rgba(100,40,180,0)');
     ctx.fillStyle = orbGrad;
     ctx.beginPath();
-    ctx.arc(0, orbY, orbR + 3, 0, Math.PI * 2);
+    ctx.arc(0, orbY, orbR + 2, 0, Math.PI * 2);
     ctx.fill();
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
 
-    // Bright core
-    ctx.fillStyle = '#fff';
-    ctx.beginPath();
-    ctx.arc(0, orbY, orbR * 0.45, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Pulsing electricity arcs
+    // Orbiting crystals
     const time = Date.now() / 1000;
-    ctx.strokeStyle = '#FFE44D';
-    ctx.lineWidth = 1.2;
-    for (let i = 0; i < lv; i++) {
-        const a0 = time * 4 + i * Math.PI * 2 / lv;
-        const dist0 = orbR + 3;
-        const x0 = Math.cos(a0) * dist0;
-        const y0 = orbY + Math.sin(a0) * dist0;
-        const a1 = a0 + Math.PI * (0.4 + Math.sin(time * 3 + i) * 0.2);
-        const dist1 = orbR + 3 + 4;
-        const x1 = Math.cos(a1) * dist1;
-        const y1 = orbY + Math.sin(a1) * dist1;
+    for (let i = 0; i < lv + 1; i++) {
+        const a = time * 2 + i * Math.PI * 2 / (lv + 1);
+        const dist = b + 4;
+        const cx = Math.cos(a) * dist;
+        const cy = -h * 0.3 + Math.sin(a) * dist * 0.5;
+        ctx.fillStyle = '#C8B8FF';
+        ctx.beginPath();
+        // Small diamond crystal
+        ctx.moveTo(cx, cy - 3);
+        ctx.lineTo(cx + 2, cy);
+        ctx.lineTo(cx, cy + 3);
+        ctx.lineTo(cx - 2, cy);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 0.4;
+        ctx.stroke();
+    }
+
+    // Magic wand barrel
+    ctx.save();
+    ctx.rotate(t.angle);
+    ctx.fillStyle = '#A090C8';
+    ctx.fillRect(3, -1, tw + 6, 2);
+    ctx.fillStyle = '#D8C8FF';
+    ctx.beginPath();
+    ctx.arc(tw + 8, 0, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+}
+
+// ===== TESLA TOWER — Kingdom Rush Tesla / Dwarven Engineer =====
+function drawTeslaTower(t, st, lv) {
+    const w = 9 + lv;
+    const h = 20 + lv * 5;
+
+    // Riveted metal base
+    ctx.fillStyle = '#6B5030';
+    ctx.beginPath();
+    ctx.roundRect(-w - 2, 3, (w + 2) * 2, w + 2, 3);
+    ctx.fill();
+    ctx.strokeStyle = '#4A3020';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Base rivets
+    ctx.fillStyle = '#D4A030';
+    for (let i = 0; i < 4; i++) {
+        const rx = -w + 3 + i * (w * 2 - 6) / 3;
+        ctx.beginPath();
+        ctx.arc(rx, 3 + w / 2, 1.8, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // Copper coil column
+    const coilW = 4 + lv * 0.7;
+    const coilH = h * 0.6;
+    // Column body
+    ctx.fillStyle = '#8B6914';
+    ctx.fillRect(-coilW, -coilH, coilW * 2, coilH + 3);
+    ctx.strokeStyle = '#6B4F10';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(-coilW, -coilH, coilW * 2, coilH + 3);
+
+    // Copper windings
+    const numCoils = 4 + lv * 2;
+    for (let i = 0; i < numCoils; i++) {
+        const y = -coilH + 2 + i * coilH / numCoils;
+        ctx.strokeStyle = (i % 3 === 0) ? '#E8A020' : '#C87830';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(-coilW - 0.8, y);
+        ctx.lineTo(0, y + 3);
+        ctx.lineTo(coilW + 0.8, y);
+        ctx.stroke();
+    }
+
+    // Tesla coil top — metal dome
+    const domeY = -coilH - 3;
+    ctx.fillStyle = '#A08040';
+    ctx.beginPath();
+    ctx.arc(0, domeY, coilW + 2, Math.PI, 0);
+    ctx.fill();
+    ctx.strokeStyle = '#7A6030';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Antenna / spike
+    ctx.fillStyle = '#D4A030';
+    ctx.fillRect(-1, domeY - 8 - lv * 3, 2, 8 + lv * 3);
+    // Antenna ball
+    ctx.fillStyle = '#FFD700';
+    ctx.beginPath();
+    ctx.arc(0, domeY - 9 - lv * 3, 3 + lv * 0.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Energy orb glow
+    const orbCY = domeY - 9 - lv * 3;
+    const orbR = 6 + lv * 2;
+    const glowGrad = ctx.createRadialGradient(0, orbCY - orbR * 0.3, orbR * 0.05, 0, orbCY, orbR);
+    glowGrad.addColorStop(0, 'rgba(255,255,200,0.95)');
+    glowGrad.addColorStop(0.2, 'rgba(255,228,50,0.7)');
+    glowGrad.addColorStop(0.5, 'rgba(255,180,0,0.3)');
+    glowGrad.addColorStop(1, 'rgba(255,100,0,0)');
+    ctx.fillStyle = glowGrad;
+    ctx.beginPath();
+    ctx.arc(0, orbCY, orbR, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Pulsing arcs
+    const time = Date.now() / 1000;
+    ctx.strokeStyle = 'rgba(255,228,80,0.8)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i < lv + 1; i++) {
+        const a0 = time * 5 + i * Math.PI * 2 / (lv + 1);
+        const x0 = Math.cos(a0) * orbR * 0.4;
+        const y0 = orbCY + Math.sin(a0) * orbR * 0.4;
+        const a1 = a0 + 0.5 + Math.sin(time * 4 + i) * 0.3;
+        const d1 = orbR * 0.8;
+        const x1 = Math.cos(a1) * d1;
+        const y1 = orbCY + Math.sin(a1) * d1;
         ctx.beginPath();
         ctx.moveTo(x0, y0);
-        const mx = (x0 + x1) / 2 + (Math.random() - 0.5) * 8;
-        const my = (y0 + y1) / 2 + (Math.random() - 0.5) * 8;
+        const mx = (x0 + x1) / 2 + (Math.random() - 0.5) * 12;
+        const my = (y0 + y1) / 2 + (Math.random() - 0.5) * 12;
         ctx.quadraticCurveTo(mx, my, x1, y1);
         ctx.stroke();
     }
 
-    // Lightning barrel (prong at top)
+    // Electrical prong barrel
     ctx.save();
     ctx.rotate(t.angle);
-    ctx.fillStyle = '#D4883C';
-    ctx.fillRect(2, -1, coilW + 6, 2);
+    ctx.fillStyle = '#C89830';
+    ctx.fillRect(2, -1, coilW + 8, 2);
     ctx.fillStyle = '#FFE44D';
-    ctx.fillRect(coilW + 5, -2, 4, 4);
+    ctx.beginPath();
+    ctx.arc(coilW + 9, 0, 3, 0, Math.PI * 2);
+    ctx.fill();
     ctx.restore();
 }
 
@@ -1347,50 +1738,38 @@ function drawHoverPreview() {
     ctx.translate(pos.x, pos.y);
     const s = 14;
     switch (game.selectedType) {
-        case 'arrow':
+        case 'archer':
             ctx.beginPath();
-            ctx.roundRect(-s, -2, s * 2, s + 2, 4);
+            ctx.roundRect(-s, 0, s * 2, s + 1, 3);
             ctx.fill();
             ctx.beginPath();
-            ctx.moveTo(-s + 1, -14);
-            ctx.lineTo(s - 1, -14);
-            ctx.lineTo(0, -26);
-            ctx.closePath();
-            ctx.fill();
-            break;
-        case 'cannon':
-            ctx.beginPath();
-            ctx.arc(0, 0, s + 2, 0, Math.PI * 2);
-            ctx.fill();
-            break;
-        case 'ice':
-            ctx.beginPath();
-            for (let i = 0; i < 6; i++) {
-                const a = Math.PI / 3 * i - Math.PI / 2;
-                const r = i % 2 === 0 ? s : s * 0.75;
-                const px = Math.cos(a) * r, py = Math.sin(a) * r;
-                i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
-            }
-            ctx.closePath();
-            ctx.fill();
-            ctx.beginPath();
-            ctx.moveTo(-4, 0);
-            ctx.lineTo(4, 0);
+            ctx.moveTo(-s + 1, -8);
+            ctx.lineTo(s - 1, -8);
             ctx.lineTo(0, -20);
             ctx.closePath();
             ctx.fill();
             break;
-        case 'lightning':
+        case 'artillery':
             ctx.beginPath();
-            ctx.moveTo(-s - 2, 4);
-            ctx.lineTo(s + 2, 4);
-            ctx.lineTo(s - 1, -4);
-            ctx.lineTo(-s + 1, -4);
+            ctx.arc(0, 0, s + 2, 0, Math.PI * 2);
+            ctx.fill();
+            break;
+        case 'mage':
+            ctx.beginPath();
+            ctx.moveTo(0, -18);
+            ctx.lineTo(s - 2, -5);
+            ctx.lineTo(s + 2, 2);
+            ctx.lineTo(0, s);
+            ctx.lineTo(-s - 2, 2);
+            ctx.lineTo(-s + 2, -5);
             ctx.closePath();
             ctx.fill();
-            ctx.fillRect(-4, -18, 8, 14);
+            break;
+        case 'tesla':
+            ctx.fillRect(-4, -18, 8, 8);
+            ctx.fillRect(-6, -8, 12, 12);
             ctx.beginPath();
-            ctx.arc(0, -19, 5, 0, Math.PI * 2);
+            ctx.arc(0, -6, 8, Math.PI, 0);
             ctx.fill();
             break;
     }
@@ -1729,10 +2108,10 @@ document.addEventListener('keydown', (e) => {
             hideTowerInfo();
             updateTowerButtons();
             break;
-        case '1': selectTowerType('arrow'); break;
-        case '2': selectTowerType('cannon'); break;
-        case '3': selectTowerType('ice'); break;
-        case '4': selectTowerType('lightning'); break;
+        case '1': selectTowerType('archer'); break;
+        case '2': selectTowerType('artillery'); break;
+        case '3': selectTowerType('mage'); break;
+        case '4': selectTowerType('tesla'); break;
         case ' ':
             e.preventDefault();
             if (game.state === 'idle') startNextWave();
