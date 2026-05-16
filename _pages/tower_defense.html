@@ -29,13 +29,15 @@ title: "塔防战争"
             display: flex;
             justify-content: center;
             align-items: center;
-            min-height: 100vh;
+            height: 100vh;
+            height: 100dvh;
+            overflow: hidden;
             font-family: 'Microsoft YaHei', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif;
             touch-action: none;
             user-select: none;
             -webkit-user-select: none;
             -webkit-tap-highlight-color: transparent;
-            padding: 10px;
+            padding: 0 12px;
         }
 
         #game-wrapper {
@@ -43,8 +45,11 @@ title: "塔防战争"
             flex-direction: column;
             align-items: center;
             gap: 8px;
-            max-width: 820px;
             width: 100%;
+            max-width: 1100px;
+            height: 100vh;
+            padding: 8px 0;
+            justify-content: center;
         }
 
         /* -- HUD -- */
@@ -90,12 +95,13 @@ title: "塔防战争"
         #game-canvas {
             border: 2px solid rgba(255,255,255,0.15);
             border-radius: 8px;
-            max-width: 100%;
-            height: auto;
+            width: 100%;
+            max-height: calc(100vh - 160px);
             aspect-ratio: 800 / 600;
             background: #1a2e1a;
             cursor: crosshair;
             touch-action: none;
+            flex-shrink: 1;
         }
 
         /* -- Tower Selection Panel -- */
@@ -207,17 +213,27 @@ title: "塔防战争"
             white-space: nowrap;
         }
 
-        /* -- Mobile -- */
-        @media (max-width: 640px) {
-            #hud-bar { font-size: 11px; gap: 6px; padding: 6px 8px; }
-            #hud-bar .val { font-size: 13px; }
-            #hud-bar button { padding: 4px 10px; font-size: 11px; }
-            .tower-btn { padding: 8px 10px; min-width: 60px; }
-            .tower-btn .tower-icon { font-size: 22px; }
-            .tower-btn .tower-name { font-size: 11px; }
-            #tower-info-panel { min-width: 150px; padding: 10px 14px; }
-            #overlay h2 { font-size: 24px; }
-            #overlay .sub-text { font-size: 14px; }
+        /* -- Mobile / Small screens -- */
+        @media (max-width: 700px) {
+            body { padding: 0 4px; }
+            #game-wrapper { max-width: 100%; gap: 4px; padding: 4px 0; height: 100vh; height: 100dvh; }
+            #game-canvas { max-height: calc(100vh - 140px); max-height: calc(100dvh - 140px); }
+            #hud-bar { font-size: 10px; gap: 4px; padding: 4px 6px; }
+            #hud-bar .val { font-size: 11px; }
+            #hud-bar button { padding: 3px 8px; font-size: 10px; }
+            .tower-btn { padding: 6px 8px; min-width: 55px; gap: 0; }
+            .tower-btn .tower-icon { font-size: 20px; }
+            .tower-btn .tower-name { font-size: 10px; }
+            .tower-btn .tower-cost { font-size: 9px; }
+            #tower-info-panel { min-width: 140px; padding: 8px 10px; font-size: 11px; }
+            #overlay h2 { font-size: 22px; }
+            #overlay .sub-text { font-size: 13px; }
+        }
+        @media (min-width: 1400px) {
+            #game-wrapper { max-width: 1200px; }
+        }
+        @media (min-width: 1800px) {
+            #game-wrapper { max-width: 1300px; }
         }
     </style>
 </head>
@@ -241,11 +257,23 @@ title: "塔防战争"
         <button class="tower-btn" data-type="artillery" onclick="selectTowerType('artillery')">
             <span class="tower-icon">💣</span><span class="tower-name">炮塔</span><span class="tower-cost">150💰</span>
         </button>
-        <button class="tower-btn" data-type="mage" onclick="selectTowerType('mage')">
-            <span class="tower-icon">🔮</span><span class="tower-name">法师塔</span><span class="tower-cost">120💰</span>
+        <button class="tower-btn" data-type="ice" onclick="selectTowerType('ice')">
+            <span class="tower-icon">❄️</span><span class="tower-name">冰塔</span><span class="tower-cost">120💰</span>
         </button>
         <button class="tower-btn" data-type="tesla" onclick="selectTowerType('tesla')">
             <span class="tower-icon">⚡</span><span class="tower-name">雷塔</span><span class="tower-cost">200💰</span>
+        </button>
+        <button class="tower-btn" data-type="fire" onclick="selectTowerType('fire')">
+            <span class="tower-icon">🔥</span><span class="tower-name">火塔</span><span class="tower-cost">180💰</span>
+        </button>
+        <button class="tower-btn" data-type="knockback" onclick="selectTowerType('knockback')">
+            <span class="tower-icon">💥</span><span class="tower-name">震波塔</span><span class="tower-cost">130💰</span>
+        </button>
+        <button class="tower-btn" data-type="sheep" onclick="selectTowerType('sheep')">
+            <span class="tower-icon">🐑</span><span class="tower-name">羊塔</span><span class="tower-cost">150💰</span>
+        </button>
+        <button class="tower-btn" data-type="missile" onclick="selectTowerType('missile')">
+            <span class="tower-icon">🚀</span><span class="tower-name">导弹塔</span><span class="tower-cost">250💰</span>
         </button>
     </div>
 </div>
@@ -292,11 +320,11 @@ const TOWER_DEFS = {
         color: '#8B4513', bulletColor: '#333', bulletSpeed: 250,
         splash: [55, 65, 75], slowFactor: 0, slowDuration: 0, chainCount: 0, splashDmgPct: 0.5
     },
-    mage: {
-        name: '法师塔', icon: '🔮',
+    ice: {
+        name: '冰塔', icon: '❄️',
         cost: 120, upgradeCost: [100, 200],
         damage: [8, 15, 25], range: [110, 120, 135], cooldown: [1000, 900, 750],
-        color: '#6C5CE7', bulletColor: '#B8B0F0', bulletSpeed: 350,
+        color: '#5DADE2', bulletColor: '#AED6F1', bulletSpeed: 350,
         splash: 0, slowFactor: [0.5, 0.6, 0.7], slowDuration: [2000, 2500, 3000], chainCount: 0
     },
     tesla: {
@@ -305,6 +333,38 @@ const TOWER_DEFS = {
         damage: [25, 45, 70], range: [120, 130, 145], cooldown: [1200, 1050, 900],
         color: '#B8860B', bulletColor: '#FFE44D', bulletSpeed: 9999,
         splash: 0, slowFactor: 0, slowDuration: 0, chainCount: [3, 4, 5], chainRange: [80, 90, 100], chainFalloff: 0.3
+    },
+    fire: {
+        name: '火塔', icon: '🔥',
+        cost: 180, upgradeCost: [140, 280],
+        damage: [14, 24, 38], range: [110, 120, 135], cooldown: [2500, 2200, 1800],
+        color: '#D4452A', bulletColor: '#FF6B35', bulletSpeed: 280,
+        splash: 0, slowFactor: 0, slowDuration: 0, chainCount: 0,
+        flameRadius: [50, 55, 65], flameDuration: [2200, 2600, 3200], flameTickInterval: 350
+    },
+    knockback: {
+        name: '震波塔', icon: '💥',
+        cost: 130, upgradeCost: [100, 200],
+        damage: [20, 35, 55], range: [85, 90, 100], cooldown: [1600, 1400, 1100],
+        color: '#4A90D9', bulletColor: '#C8E0F8', bulletSpeed: 500,
+        splash: 0, slowFactor: 0, slowDuration: 0, chainCount: 0,
+        knockbackDist: [45, 55, 70]
+    },
+    sheep: {
+        name: '羊塔', icon: '🐑',
+        cost: 150, upgradeCost: [120, 240],
+        damage: [5, 10, 18], range: [120, 130, 145], cooldown: [3000, 2600, 2100],
+        color: '#C9A0DC', bulletColor: '#F0D0FF', bulletSpeed: 320,
+        splash: 0, slowFactor: 0, slowDuration: 0, chainCount: 0,
+        sheepDuration: [2200, 3000, 4000]
+    },
+    missile: {
+        name: '导弹塔', icon: '🚀',
+        cost: 250, upgradeCost: [200, 400],
+        damage: [80, 140, 220], range: [180, 200, 230], cooldown: [3500, 3000, 2400],
+        color: '#4A5568', bulletColor: '#CBD5E0', bulletSpeed: 380,
+        splash: [60, 70, 85], slowFactor: 0, slowDuration: 0, chainCount: 0, splashDmgPct: 0.6,
+        arcHeight: 70
     }
 };
 
@@ -343,6 +403,7 @@ const game = {
     enemies: [],
     projectiles: [],
     particles: [],
+    fireZones: [],
     selectedType: null,
     selectedTower: null,
     hoverCol: -1,
@@ -605,6 +666,12 @@ function towerStats(t) {
         chainRange: Array.isArray(def.chainRange) ? def.chainRange[lv] : (def.chainRange || 0),
         chainFalloff: def.chainFalloff || 0,
         splashDmgPct: def.splashDmgPct || 0,
+        flameRadius: Array.isArray(def.flameRadius) ? def.flameRadius[lv] : (def.flameRadius || 0),
+        flameDuration: Array.isArray(def.flameDuration) ? def.flameDuration[lv] : (def.flameDuration || 0),
+        flameTickInterval: def.flameTickInterval || 0,
+        sheepDuration: Array.isArray(def.sheepDuration) ? def.sheepDuration[lv] : (def.sheepDuration || 0),
+        knockbackDist: Array.isArray(def.knockbackDist) ? def.knockbackDist[lv] : (def.knockbackDist || 0),
+        arcHeight: def.arcHeight || 0,
         color: def.color,
         bulletColor: def.bulletColor,
         bulletSpeed: def.bulletSpeed,
@@ -699,7 +766,9 @@ function createEnemy(type, waveNum) {
         size: def.size,
         color: def.color,
         slowTimer: 0,
-        slowFactor: 1
+        slowFactor: 1,
+        isSheep: false,
+        sheepTimer: 0
     };
 }
 
@@ -714,6 +783,14 @@ function updateEnemies(dt) {
             if (e.slowTimer <= 0) {
                 e.slowFactor = 1;
                 e.currentSpeed = e.speed;
+            }
+        }
+
+        // Update sheep timer
+        if (e.sheepTimer > 0) {
+            e.sheepTimer -= dtMs;
+            if (e.sheepTimer <= 0) {
+                e.isSheep = false;
             }
         }
 
@@ -759,13 +836,53 @@ function applySlow(enemy, factor, duration) {
     enemy.slowTimer = Math.max(enemy.slowTimer, duration);
 }
 
+function applyKnockback(enemy, distance) {
+    if (enemy.waypointIndex >= WAYPOINTS.length) return;
+    const wp = WAYPOINTS[enemy.waypointIndex];
+    let dx = wp.x - enemy.x;
+    let dy = wp.y - enemy.y;
+    const d = Math.sqrt(dx * dx + dy * dy);
+    if (d < 1) return;
+    enemy.x -= (dx / d) * distance;
+    enemy.y -= (dy / d) * distance;
+    if (enemy.waypointIndex > 1) {
+        const prev = WAYPOINTS[enemy.waypointIndex - 1];
+        const toPrev = Math.sqrt((prev.x - enemy.x) ** 2 + (prev.y - enemy.y) ** 2);
+        const toNext = Math.sqrt((wp.x - enemy.x) ** 2 + (wp.y - enemy.y) ** 2);
+        if (toPrev < toNext) enemy.waypointIndex--;
+    }
+}
+
+function createKnockbackShockwave(x, y) {
+    for (let i = 0; i < 12; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 30 + Math.random() * 100;
+        game.particles.push({
+            x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+            life: 0.25 + Math.random() * 0.3, maxLife: 0.55,
+            color: '#AED6F1', size: 2 + Math.random() * 3
+        });
+    }
+    game.particles.push({
+        x, y, vx: 0, vy: 0,
+        life: 0.35, maxLife: 0.35,
+        color: '#5DADE2', size: 30, ring: true
+    });
+}
+
 // ==================== PROJECTILE LOGIC ====================
 function createProjectile(tower, target) {
     const st = towerStats(tower);
+    const noTrack = tower.type === 'fire';
+    const flightDist = Math.sqrt((target.x - tower.x) ** 2 + (target.y - tower.y) ** 2);
     const p = {
         x: tower.x,
         y: tower.y,
-        target: target,
+        target: noTrack ? null : target,
+        targetX: target.x,
+        targetY: target.y,
+        startX: tower.x,
+        startY: tower.y,
         damage: st.damage,
         speed: st.bulletSpeed,
         type: tower.type,
@@ -777,6 +894,14 @@ function createProjectile(tower, target) {
         chainCount: st.chainCount,
         chainRange: st.chainRange,
         chainFalloff: st.chainFalloff,
+        flameRadius: st.flameRadius,
+        flameDuration: st.flameDuration,
+        flameTickInterval: st.flameTickInterval,
+        sheepDuration: st.sheepDuration,
+        knockbackDist: st.knockbackDist,
+        arcHeight: st.arcHeight,
+        flightDistance: flightDist,
+        progress: 0,
         alive: true,
         towerX: tower.x,
         towerY: tower.y
@@ -785,9 +910,65 @@ function createProjectile(tower, target) {
 }
 
 function updateProjectiles(dt) {
-    const dtMs = dt * 1000;
     for (const p of game.projectiles) {
         if (!p.alive) continue;
+
+        // Fire projectiles fly to fixed position (not tracking target)
+        if (p.type === 'fire') {
+            const dx = p.targetX - p.x;
+            const dy = p.targetY - p.y;
+            const d = Math.sqrt(dx * dx + dy * dy);
+            const moveSpeed = p.speed * dt;
+            if (d <= moveSpeed + 2) {
+                p.x = p.targetX;
+                p.y = p.targetY;
+                handleImpact(p);
+                p.alive = false;
+            } else {
+                p.x += (dx / d) * moveSpeed;
+                p.y += (dy / d) * moveSpeed;
+            }
+            continue;
+        }
+
+        // Missile — tracking with smoke trail
+        if (p.type === 'missile') {
+            if (!p.target || !p.target.alive) {
+                // Fly to last known position then explode
+                const dx = p.targetX - p.x;
+                const dy = p.targetY - p.y;
+                const d = Math.sqrt(dx * dx + dy * dy);
+                const moveSpeed = p.speed * dt;
+                if (d <= moveSpeed + 2) {
+                    p.x = p.targetX; p.y = p.targetY;
+                    handleImpact(p);
+                    p.alive = false;
+                } else {
+                    p.x += (dx / d) * moveSpeed;
+                    p.y += (dy / d) * moveSpeed;
+                }
+                // Still spawn smoke trail
+                spawnMissileTrail(p);
+                continue;
+            }
+            // Update target position for homing
+            p.targetX = p.target.x;
+            p.targetY = p.target.y;
+            const dx = p.targetX - p.x;
+            const dy = p.targetY - p.y;
+            const d = Math.sqrt(dx * dx + dy * dy);
+            const moveSpeed = p.speed * dt;
+            if (d <= moveSpeed + 2) {
+                handleImpact(p);
+                p.alive = false;
+            } else {
+                p.x += (dx / d) * moveSpeed;
+                p.y += (dy / d) * moveSpeed;
+            }
+            spawnMissileTrail(p);
+            continue;
+        }
+
         if (!p.target || !p.target.alive) {
             p.alive = false;
             continue;
@@ -817,6 +998,48 @@ function updateProjectiles(dt) {
 }
 
 function handleImpact(p) {
+    // Fire projectiles create a persistent ground fire zone
+    if (p.type === 'fire') {
+        createFireZone(p.x, p.y, p.flameRadius, p.damage, p.flameDuration, p.flameTickInterval);
+        createFireIgnition(p.x, p.y, p.flameRadius);
+        return;
+    }
+
+    // Missile — big splash explosion at impact point
+    if (p.type === 'missile') {
+        createMissileExplosion(p.x, p.y, p.splashRadius);
+        for (const e of game.enemies) {
+            if (!e.alive) continue;
+            const d = dist({ x: p.x, y: p.y }, e);
+            if (d <= p.splashRadius) {
+                const dmg = Math.floor(p.damage * (1 - (d / p.splashRadius) * 0.5));
+                dealDamage(e, Math.max(Math.floor(p.damage * p.splashDmgPct), dmg));
+            }
+        }
+        return;
+    }
+
+    // Knockback — push enemy backward along the path
+    if (p.type === 'knockback') {
+        if (!p.target || !p.target.alive) return;
+        dealDamage(p.target, p.damage);
+        applyKnockback(p.target, p.knockbackDist);
+        createHitSpark(p.target.x, p.target.y, '#C8E0F8');
+        createKnockbackShockwave(p.target.x, p.target.y);
+        return;
+    }
+
+    // Sheep — transform target into a helpless sheep
+    if (p.type === 'sheep') {
+        if (!p.target || !p.target.alive) return;
+        dealDamage(p.target, p.damage);
+        applySlow(p.target, 0.25, p.sheepDuration);
+        p.target.isSheep = true;
+        p.target.sheepTimer = p.sheepDuration;
+        createSheepTransform(p.target.x, p.target.y);
+        return;
+    }
+
     if (!p.target || !p.target.alive) return;
 
     if (p.splashRadius > 0) {
@@ -990,6 +1213,223 @@ function updateParticles(dt) {
         }
     }
     game.particles = game.particles.filter(p => p.life > 0);
+}
+
+// ==================== FIRE ZONE SYSTEM ====================
+function createFireZone(x, y, radius, damage, duration, tickInterval) {
+    game.fireZones.push({
+        x, y, radius, damage, duration, maxDuration: duration, tickInterval, tickTimer: 0
+    });
+}
+
+function createFireIgnition(x, y, radius) {
+    for (let i = 0; i < 18; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 30 + Math.random() * 120;
+        game.particles.push({
+            x, y,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed - 30,
+            life: 0.4 + Math.random() * 0.6,
+            maxLife: 1.0,
+            color: Math.random() < 0.5 ? '#FF6B35' : '#FFB830',
+            size: 2 + Math.random() * 4
+        });
+    }
+    // Central flash
+    game.particles.push({
+        x, y, vx: 0, vy: 0,
+        life: 0.3, maxLife: 0.3,
+        color: '#FFD700', size: radius, ring: true
+    });
+}
+
+function updateFireZones(dt) {
+    const dtMs = dt * 1000;
+    for (const fz of game.fireZones) {
+        fz.duration -= dtMs;
+        fz.tickTimer -= dtMs;
+        while (fz.tickTimer <= 0) {
+            for (const e of game.enemies) {
+                if (!e.alive) continue;
+                if (dist(fz, e) <= fz.radius) {
+                    dealDamage(e, fz.damage);
+                }
+            }
+            fz.tickTimer += fz.tickInterval;
+        }
+    }
+    game.fireZones = game.fireZones.filter(fz => fz.duration > 0);
+}
+
+function drawFireZones() {
+    const time = Date.now() / 1000;
+    for (const fz of game.fireZones) {
+        const lifeRatio = fz.duration / fz.maxDuration;
+        const fadeAlpha = Math.min(1, lifeRatio * 2.5);
+        const flicker = 1 + Math.sin(time * 18 + fz.x) * 0.08 + Math.sin(time * 23 + fz.y) * 0.07;
+
+        // Outer heat glow
+        const glowGrad = ctx.createRadialGradient(fz.x, fz.y, fz.radius * 0.15, fz.x, fz.y, fz.radius * flicker);
+        glowGrad.addColorStop(0, `rgba(255,200,40,${0.7 * fadeAlpha})`);
+        glowGrad.addColorStop(0.45, `rgba(255,120,15,${0.45 * fadeAlpha})`);
+        glowGrad.addColorStop(0.75, `rgba(255,50,5,${0.2 * fadeAlpha})`);
+        glowGrad.addColorStop(1, 'rgba(255,20,0,0)');
+        ctx.fillStyle = glowGrad;
+        ctx.beginPath();
+        ctx.arc(fz.x, fz.y, fz.radius * flicker, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Inner fire ring
+        ctx.strokeStyle = `rgba(255,180,30,${0.5 * fadeAlpha})`;
+        ctx.lineWidth = 3 * fadeAlpha;
+        ctx.beginPath();
+        ctx.arc(fz.x, fz.y, fz.radius * 0.75, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Flame tongues on the ground
+        const numFlames = 8;
+        for (let i = 0; i < numFlames; i++) {
+            const a = (i / numFlames) * Math.PI * 2 + time * 1.5 + i;
+            const baseX = fz.x + Math.cos(a) * fz.radius * 0.4;
+            const baseY = fz.y + Math.sin(a) * fz.radius * 0.4;
+            const h = fz.radius * (0.3 + 0.35 * Math.sin(time * 8 + i * 1.7));
+            const dirA = a + Math.PI / 2;
+            const tipX = baseX + Math.cos(dirA) * h * flicker;
+            const tipY = baseY + Math.sin(dirA) * h * flicker;
+            const fw = 3 + Math.sin(time * 10 + i) * 1.5;
+
+            ctx.fillStyle = `rgba(255,160,30,${0.6 * fadeAlpha})`;
+            ctx.beginPath();
+            ctx.moveTo(baseX + Math.cos(a) * fw, baseY + Math.sin(a) * fw);
+            ctx.quadraticCurveTo(baseX + Math.cos(dirA) * h * 0.3, baseY + Math.sin(dirA) * h * 0.3, tipX, tipY);
+            ctx.quadraticCurveTo(baseX - Math.cos(dirA) * h * 0.3, baseY - Math.sin(dirA) * h * 0.3, baseX - Math.cos(a) * fw, baseY - Math.sin(a) * fw);
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        // Ember sparks rising up
+        for (let i = 0; i < 6; i++) {
+            const sparkA = Math.random() * Math.PI * 2;
+            const sparkR = Math.random() * fz.radius * 0.8;
+            const sx = fz.x + Math.cos(sparkA) * sparkR;
+            const sy = fz.y + Math.sin(sparkA) * sparkR - Math.random() * 15;
+            const sparkAlpha = 0.4 + Math.random() * 0.4;
+            ctx.fillStyle = `rgba(255,200,50,${sparkAlpha * fadeAlpha})`;
+            ctx.beginPath();
+            ctx.arc(sx, sy, 1.2 + Math.random() * 1.5, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+}
+
+function spawnMissileTrail(p) {
+    // Dense smoke puff behind missile
+    const angle = Math.atan2(p.targetY - p.startY, p.targetX - p.startX);
+    const tx = p.x - Math.cos(angle) * 8;
+    const ty = p.y - Math.sin(angle) * 8;
+    game.particles.push({
+        x: tx + (Math.random() - 0.5) * 6,
+        y: ty + (Math.random() - 0.5) * 6,
+        vx: (Math.random() - 0.5) * 30,
+        vy: -15 - Math.random() * 25,
+        life: 0.4 + Math.random() * 0.5,
+        maxLife: 0.9,
+        color: '#888',
+        size: 4 + Math.random() * 7,
+        smoke: true
+    });
+    // Orange fire spark
+    game.particles.push({
+        x: tx + (Math.random() - 0.5) * 3,
+        y: ty + (Math.random() - 0.5) * 3,
+        vx: (Math.random() - 0.5) * 50,
+        vy: -20 - Math.random() * 40,
+        life: 0.15 + Math.random() * 0.3,
+        maxLife: 0.45,
+        color: Math.random() < 0.5 ? '#FFB830' : '#FF6B35',
+        size: 1.5 + Math.random() * 2.5
+    });
+}
+
+function createMissileExplosion(x, y, radius) {
+    // Big explosion flash
+    for (let i = 0; i < 25; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 40 + Math.random() * 180;
+        game.particles.push({
+            x, y,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed - 20,
+            life: 0.3 + Math.random() * 0.7,
+            maxLife: 1.0,
+            color: Math.random() < 0.4 ? '#FFD700' : (Math.random() < 0.5 ? '#FF6B35' : '#E74C3C'),
+            size: 2 + Math.random() * 6
+        });
+    }
+    // Smoke ring
+    game.particles.push({
+        x, y, vx: 0, vy: 0,
+        life: 0.6, maxLife: 0.6,
+        color: '#888', size: radius, ring: true
+    });
+    // Central flash ring
+    game.particles.push({
+        x, y, vx: 0, vy: 0,
+        life: 0.25, maxLife: 0.25,
+        color: '#FFAA00', size: radius * 0.7, ring: true
+    });
+    // Rising smoke clouds
+    for (let i = 0; i < 6; i++) {
+        game.particles.push({
+            x: x + (Math.random() - 0.5) * radius * 0.6,
+            y: y - Math.random() * 10,
+            vx: (Math.random() - 0.5) * 20,
+            vy: -30 - Math.random() * 40,
+            life: 0.8 + Math.random() * 0.8,
+            maxLife: 1.6,
+            color: '#666',
+            size: 6 + Math.random() * 10,
+            smoke: true
+        });
+    }
+}
+
+function createSheepTransform(x, y) {
+    // Magical pink/purple sparkles
+    for (let i = 0; i < 15; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 30 + Math.random() * 80;
+        game.particles.push({
+            x, y,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed - 40,
+            life: 0.5 + Math.random() * 0.6,
+            maxLife: 1.1,
+            color: Math.random() < 0.5 ? '#F0D0FF' : '#FFE0F0',
+            size: 2 + Math.random() * 3
+        });
+    }
+    // Wool poof
+    for (let i = 0; i < 8; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        game.particles.push({
+            x, y,
+            vx: Math.cos(angle) * 40,
+            vy: Math.sin(angle) * 40 - 30,
+            life: 0.4 + Math.random() * 0.4,
+            maxLife: 0.8,
+            color: '#FFFFFF',
+            size: 3 + Math.random() * 5,
+            wool: true
+        });
+    }
+    // Star spark ring
+    game.particles.push({
+        x, y, vx: 0, vy: 0,
+        life: 0.3, maxLife: 0.3,
+        color: '#F0D0FF', size: 25, ring: true
+    });
 }
 
 // ==================== RENDERING ====================
@@ -1197,8 +1637,12 @@ function drawTower(t) {
     switch (t.type) {
         case 'archer': drawArcherTower(t, st, lv); break;
         case 'artillery': drawArtilleryTower(t, st, lv); break;
-        case 'mage': drawMageTower(t, st, lv); break;
+        case 'ice': drawIceTower(t, st, lv); break;
         case 'tesla': drawTeslaTower(t, st, lv); break;
+        case 'fire': drawFireTower(t, st, lv); break;
+        case 'knockback': drawKnockbackTower(t, st, lv); break;
+        case 'sheep': drawSheepTower(t, st, lv); break;
+        case 'missile': drawMissileTower(t, st, lv); break;
     }
 
     ctx.restore();
@@ -1405,45 +1849,50 @@ function drawArtilleryTower(t, st, lv) {
     }
 }
 
-// ===== MAGE TOWER — Kingdom Rush Arcane Wizard Spire =====
-function drawMageTower(t, st, lv) {
-    const b = 9 + lv * 1.5;   // base radius
-    const h = 18 + lv * 6;    // spire height
+// ===== ICE TOWER — Frost crystal spire with chilling aura =====
+function drawIceTower(t, st, lv) {
+    const b = 9 + lv * 1.5;
+    const h = 18 + lv * 6;
+    const time = Date.now() / 1000;
 
-    // Stone circle base
+    // Ice crystal base
     const baseGrad = ctx.createRadialGradient(0, 3, b * 0.2, 0, 3, b);
-    baseGrad.addColorStop(0, '#D5CFE8');
-    baseGrad.addColorStop(0.6, '#9B8EC0');
-    baseGrad.addColorStop(1, '#5C4A8A');
+    baseGrad.addColorStop(0, '#E8F4FD');
+    baseGrad.addColorStop(0.5, '#AED6F1');
+    baseGrad.addColorStop(1, '#5DADE2');
     ctx.fillStyle = baseGrad;
     ctx.beginPath();
     ctx.arc(0, 3, b + 2, 0, Math.PI * 2);
     ctx.fill();
-    ctx.strokeStyle = '#4A3A70';
+    ctx.strokeStyle = '#2E86C1';
     ctx.lineWidth = 1.5;
     ctx.stroke();
 
-    // Runic circle on base
-    ctx.strokeStyle = 'rgba(180,160,220,0.6)';
+    // Frost rune circle
+    ctx.strokeStyle = 'rgba(174,214,241,0.6)';
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.arc(0, 3, b * 0.7, 0, Math.PI * 2);
     ctx.stroke();
-    // Rune marks
     for (let i = 0; i < 6; i++) {
         const a = Math.PI / 3 * i;
         const rx = Math.cos(a) * b * 0.7;
         const ry = Math.sin(a) * b * 0.7 + 3;
-        ctx.fillStyle = 'rgba(220,200,255,0.7)';
+        ctx.fillStyle = 'rgba(255,255,255,0.8)';
         ctx.beginPath();
         ctx.arc(rx, ry, 1.5, 0, Math.PI * 2);
         ctx.fill();
     }
 
-    // Main tower body — tall thin stone tower
+    // Main tower — icy crystal spire
     const tw = b * 0.5;
     const bw = b * 0.8;
-    ctx.fillStyle = '#C8BFE8';
+    const iceGrad = ctx.createLinearGradient(-bw, 0, bw, 0);
+    iceGrad.addColorStop(0, '#85C1E9');
+    iceGrad.addColorStop(0.3, '#D6EAF8');
+    iceGrad.addColorStop(0.7, '#AED6F1');
+    iceGrad.addColorStop(1, '#5DADE2');
+    ctx.fillStyle = iceGrad;
     ctx.beginPath();
     ctx.moveTo(-bw, 0);
     ctx.lineTo(bw, 0);
@@ -1451,13 +1900,13 @@ function drawMageTower(t, st, lv) {
     ctx.lineTo(-tw, -h * 0.7);
     ctx.closePath();
     ctx.fill();
-    ctx.strokeStyle = '#8B7DBA';
-    ctx.lineWidth = 1;
+    ctx.strokeStyle = '#3498DB';
+    ctx.lineWidth = 1.2;
     ctx.stroke();
 
-    // Tower stone block lines
-    ctx.strokeStyle = '#A095C8';
-    ctx.lineWidth = 0.4;
+    // Ice crystal lines
+    ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+    ctx.lineWidth = 0.5;
     for (let i = 1; i < 6; i++) {
         const y = -i * h * 0.7 / 6;
         ctx.beginPath();
@@ -1467,34 +1916,34 @@ function drawMageTower(t, st, lv) {
         ctx.stroke();
     }
 
-    // Window / arcane slit
-    ctx.fillStyle = '#3A2060';
+    // Glowing ice window
+    ctx.fillStyle = '#1A5276';
     ctx.fillRect(-2, -h * 0.45, 4, 10);
-    ctx.fillStyle = 'rgba(180,150,255,0.5)';
+    ctx.fillStyle = 'rgba(133,193,233,0.6)';
     ctx.fillRect(-1.5, -h * 0.45 + 1, 3, 8);
 
-    // Pointed spire roof
-    ctx.fillStyle = '#7B6CB0';
+    // Ice crystal spire roof
+    ctx.fillStyle = '#85C1E9';
     ctx.beginPath();
     ctx.moveTo(-tw - 1, -h * 0.7);
     ctx.lineTo(tw + 1, -h * 0.7);
     ctx.lineTo(0, -h);
     ctx.closePath();
     ctx.fill();
-    ctx.strokeStyle = '#5C4A8A';
+    ctx.strokeStyle = '#2E86C1';
     ctx.lineWidth = 1;
     ctx.stroke();
 
-    // Arcane orb at top
+    // Glowing frost orb at top
     const orbY = -h;
     const orbR = 3 + lv;
-    ctx.shadowColor = 'rgba(150,120,255,0.8)';
+    ctx.shadowColor = 'rgba(133,193,233,0.9)';
     ctx.shadowBlur = 8 + lv * 3;
     const orbGrad = ctx.createRadialGradient(0, orbY - orbR * 0.3, orbR * 0.1, 0, orbY, orbR);
     orbGrad.addColorStop(0, '#FFFFFF');
-    orbGrad.addColorStop(0.3, '#D8C8FF');
-    orbGrad.addColorStop(0.7, '#8B60E0');
-    orbGrad.addColorStop(1, 'rgba(100,40,180,0)');
+    orbGrad.addColorStop(0.3, '#D6EAF8');
+    orbGrad.addColorStop(0.7, '#5DADE2');
+    orbGrad.addColorStop(1, 'rgba(41,128,185,0)');
     ctx.fillStyle = orbGrad;
     ctx.beginPath();
     ctx.arc(0, orbY, orbR + 2, 0, Math.PI * 2);
@@ -1502,33 +1951,31 @@ function drawMageTower(t, st, lv) {
     ctx.shadowColor = 'transparent';
     ctx.shadowBlur = 0;
 
-    // Orbiting crystals
-    const time = Date.now() / 1000;
+    // Orbiting ice crystals
     for (let i = 0; i < lv + 1; i++) {
         const a = time * 2 + i * Math.PI * 2 / (lv + 1);
         const dist = b + 4;
         const cx = Math.cos(a) * dist;
         const cy = -h * 0.3 + Math.sin(a) * dist * 0.5;
-        ctx.fillStyle = '#C8B8FF';
+        ctx.fillStyle = '#D6EAF8';
         ctx.beginPath();
-        // Small diamond crystal
-        ctx.moveTo(cx, cy - 3);
-        ctx.lineTo(cx + 2, cy);
-        ctx.lineTo(cx, cy + 3);
-        ctx.lineTo(cx - 2, cy);
+        ctx.moveTo(cx, cy - 4);
+        ctx.lineTo(cx + 2.5, cy);
+        ctx.lineTo(cx, cy + 4);
+        ctx.lineTo(cx - 2.5, cy);
         ctx.closePath();
         ctx.fill();
-        ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 0.4;
+        ctx.strokeStyle = '#FFF';
+        ctx.lineWidth = 0.5;
         ctx.stroke();
     }
 
-    // Magic wand barrel
+    // Ice wand barrel
     ctx.save();
     ctx.rotate(t.angle);
-    ctx.fillStyle = '#A090C8';
+    ctx.fillStyle = '#85C1E9';
     ctx.fillRect(3, -1, tw + 6, 2);
-    ctx.fillStyle = '#D8C8FF';
+    ctx.fillStyle = '#D6EAF8';
     ctx.beginPath();
     ctx.arc(tw + 8, 0, 3, 0, Math.PI * 2);
     ctx.fill();
@@ -1645,10 +2092,589 @@ function drawTeslaTower(t, st, lv) {
     ctx.restore();
 }
 
+// ===== FIRE TOWER — Brazier with persistent ground flames =====
+function drawFireTower(t, st, lv) {
+    const bw = 7 + lv;
+    const h = 16 + lv * 4;
+    const time = Date.now() / 1000;
+
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.beginPath();
+    ctx.ellipse(0, 4, bw + 4, bw * 0.4, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Stone base platform — dark volcanic rock
+    const baseGrad = ctx.createLinearGradient(0, -2, 0, bw + 3);
+    baseGrad.addColorStop(0, '#5C4A3A');
+    baseGrad.addColorStop(0.5, '#3D3025');
+    baseGrad.addColorStop(1, '#2A1F18');
+    ctx.fillStyle = baseGrad;
+    ctx.beginPath();
+    ctx.roundRect(-bw - 3, 1, (bw + 3) * 2, bw + 4, 3);
+    ctx.fill();
+    ctx.strokeStyle = '#1A1008';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Base cracks / detail
+    ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+    ctx.lineWidth = 0.5;
+    ctx.beginPath(); ctx.moveTo(-bw + 2, 3); ctx.lineTo(-2, bw + 2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(bw - 2, 3); ctx.lineTo(1, bw + 3); ctx.stroke();
+
+    // Iron stand / tripod legs
+    const standY = -h * 0.25;
+    ctx.strokeStyle = '#555';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(-bw + 2, 2); ctx.lineTo(-3, standY); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(bw - 2, 2); ctx.lineTo(3, standY); ctx.stroke();
+    ctx.strokeStyle = '#666';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(0, bw + 2); ctx.lineTo(0, standY + 2); ctx.stroke();
+
+    // Central pillar
+    ctx.fillStyle = '#4A3728';
+    ctx.fillRect(-3, standY, 6, -standY + 2);
+
+    // Brazier bowl
+    const bowlY = standY;
+    const bowlW = bw + 1;
+    ctx.fillStyle = '#5C3D2E';
+    ctx.beginPath();
+    ctx.arc(0, bowlY, bowlW, Math.PI, 0);
+    ctx.fill();
+    ctx.strokeStyle = '#3A2010';
+    ctx.lineWidth = 1.8;
+    ctx.stroke();
+
+    // Bowl rim highlights
+    ctx.strokeStyle = '#7A5540';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(0, bowlY, bowlW - 1.5, Math.PI + 0.3, -0.3);
+    ctx.stroke();
+
+    // Ember / coal bed inside bowl
+    const emberGrad = ctx.createRadialGradient(0, bowlY - 2, 0, 0, bowlY - 3, bowlW - 2);
+    emberGrad.addColorStop(0, '#FFAA00');
+    emberGrad.addColorStop(0.4, '#FF5500');
+    emberGrad.addColorStop(1, '#8B0000');
+    ctx.fillStyle = emberGrad;
+    ctx.beginPath();
+    ctx.ellipse(0, bowlY - 3, bowlW - 3, (bowlW - 2) * 0.35, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Animated flames rising from bowl
+    const flameBaseY = bowlY - 3;
+    const flameHeight = 10 + lv * 5;
+    const numFlames = 4 + lv * 2;
+
+    for (let i = 0; i < numFlames; i++) {
+        const seed = i * 1.7 + time * 4;
+        const ox = Math.sin(seed + i * 2.1) * (bowlW - 3) * 0.6;
+        const fh = flameHeight * (0.5 + 0.5 * Math.abs(Math.sin(seed * 0.7 + i * 0.5)));
+        const flicker = Math.sin(time * 12 + i * 2.5) * 0.15;
+        const fw = 4 + lv * 0.8 + flicker * 3;
+
+        const flameGrad = ctx.createLinearGradient(0, flameBaseY - fh, 0, flameBaseY);
+        flameGrad.addColorStop(0, 'rgba(255,200,30,0.85)');
+        flameGrad.addColorStop(0.3, 'rgba(255,140,10,0.8)');
+        flameGrad.addColorStop(0.6, 'rgba(255,60,5,0.7)');
+        flameGrad.addColorStop(1, 'rgba(200,20,0,0.5)');
+        ctx.fillStyle = flameGrad;
+
+        ctx.beginPath();
+        ctx.moveTo(ox - fw, flameBaseY);
+        const cp1x = ox - fw * 0.3;
+        const cp1y = flameBaseY - fh * 0.5;
+        const cp2x = ox + Math.sin(time * 6 + i) * fw * 0.5;
+        const cp2y = flameBaseY - fh * 0.85;
+        ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, ox + Math.cos(time * 7 + i) * fw * 0.3, flameBaseY - fh);
+        ctx.bezierCurveTo(cp2x + fw * 0.3, cp2y, cp1x + fw * 0.3, cp1y, ox + fw, flameBaseY);
+        ctx.closePath();
+        ctx.fill();
+    }
+
+    // Outer glow around flames
+    const glowGrad = ctx.createRadialGradient(0, flameBaseY - flameHeight * 0.3, flameHeight * 0.1, 0, flameBaseY, flameHeight * 0.7);
+    glowGrad.addColorStop(0, 'rgba(255,180,40,0.35)');
+    glowGrad.addColorStop(0.5, 'rgba(255,100,15,0.15)');
+    glowGrad.addColorStop(1, 'rgba(255,40,0,0)');
+    ctx.fillStyle = glowGrad;
+    ctx.beginPath();
+    ctx.arc(0, flameBaseY - flameHeight * 0.2, flameHeight * 0.7, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Smoke wisps (Lv2+)
+    if (lv >= 2) {
+        for (let i = 0; i < 2 + lv; i++) {
+            const sx = Math.sin(time * 1.5 + i * 2) * bowlW * 0.6;
+            const sy = flameBaseY - flameHeight - 2 - i * 4 - Math.sin(time + i) * 3;
+            const sa = 0.15 + Math.sin(time * 2 + i) * 0.05;
+            ctx.fillStyle = `rgba(100,100,100,${sa})`;
+            ctx.beginPath();
+            ctx.arc(sx, sy, 2 + i * 0.5, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+}
+
+// ===== KNOCKBACK TOWER — Shockwave emitter with piston hammer =====
+function drawKnockbackTower(t, st, lv) {
+    const bw = 10 + lv;
+    const h = 14 + lv * 3;
+    const time = Date.now() / 1000;
+
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.25)';
+    ctx.beginPath();
+    ctx.ellipse(0, 5, bw + 2, bw * 0.35, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Steel base platform
+    const baseGrad = ctx.createLinearGradient(0, 0, 0, bw + 2);
+    baseGrad.addColorStop(0, '#7D8B9C');
+    baseGrad.addColorStop(1, '#4A5568');
+    ctx.fillStyle = baseGrad;
+    ctx.beginPath();
+    ctx.roundRect(-bw - 1, 1, (bw + 1) * 2, bw + 3, 3);
+    ctx.fill();
+    ctx.strokeStyle = '#2D3748';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Steel rivets
+    ctx.fillStyle = '#A0AEC0';
+    for (let i = 0; i < 3; i++) {
+        const rx = -bw + 4 + i * (bw * 2 - 8) / 2;
+        ctx.beginPath();
+        ctx.arc(rx, bw / 2 + 2, 1.8, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // Central hydraulic piston
+    const pistonW = 4 + lv;
+    const pistonH = h * 0.45;
+    ctx.fillStyle = '#A0AEC0';
+    ctx.fillRect(-pistonW, -pistonH, pistonW * 2, pistonH + 2);
+    ctx.strokeStyle = '#4A5568';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(-pistonW, -pistonH, pistonW * 2, pistonH + 2);
+
+    // Piston rings
+    for (let i = 0; i < 4; i++) {
+        const ry = -pistonH + (i + 1) * pistonH / 5;
+        ctx.strokeStyle = '#718096';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(-pistonW - 1, ry);
+        ctx.lineTo(pistonW + 1, ry);
+        ctx.stroke();
+    }
+
+    // Impact hammer head
+    const hammerW = pistonW + 3;
+    const hammerH = 5 + lv;
+    const hammerY = -pistonH - hammerH;
+    // Animated hammer movement (subtle vibration)
+    const vibrate = Math.sin(time * 20) * (lv * 0.8);
+    const hammerCY = hammerY + hammerH / 2 + vibrate;
+    ctx.fillStyle = '#CBD5E0';
+    ctx.fillRect(-hammerW, hammerCY - hammerH / 2, hammerW * 2, hammerH);
+    ctx.strokeStyle = '#718096';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(-hammerW, hammerCY - hammerH / 2, hammerW * 2, hammerH);
+
+    // Hammer face highlight
+    ctx.fillStyle = '#E2E8F0';
+    ctx.fillRect(-hammerW + 2, hammerCY - hammerH / 2 + 1, hammerW * 2 - 4, 2);
+
+    // Shockwave emitter coils on sides
+    for (let side = -1; side <= 1; side += 2) {
+        const coilX = side * (pistonW + 4);
+        const coilY = -pistonH * 0.5;
+        for (let i = 0; i < 3; i++) {
+            const cy = coilY - i * 5;
+            ctx.strokeStyle = '#63B3ED';
+            ctx.lineWidth = 1.2;
+            ctx.beginPath();
+            ctx.arc(coilX, cy, 3, 0, Math.PI * 2);
+            ctx.stroke();
+            // Glow
+            const glowAlpha = 0.2 + Math.sin(time * 8 + i + side) * 0.1;
+            ctx.fillStyle = `rgba(99,179,237,${glowAlpha})`;
+            ctx.beginPath();
+            ctx.arc(coilX, cy, 3, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        // Connecting wire
+        ctx.strokeStyle = '#63B3ED';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(coilX, coilY + 5);
+        ctx.lineTo(side * pistonW, coilY + 5);
+        ctx.stroke();
+    }
+
+    // Top antenna / discharge spike
+    ctx.fillStyle = '#CBD5E0';
+    ctx.fillRect(-1, hammerCY - hammerH / 2 - 6 - lv, 2, 6 + lv);
+    // Discharge orb
+    const orbCY = hammerCY - hammerH / 2 - 7 - lv;
+    const orbR = 2.5 + lv * 0.7;
+    const orbGrad = ctx.createRadialGradient(0, orbCY, 0, 0, orbCY, orbR);
+    orbGrad.addColorStop(0, '#FFFFFF');
+    orbGrad.addColorStop(0.3, '#BEE3F8');
+    orbGrad.addColorStop(1, 'rgba(49,130,206,0)');
+    ctx.fillStyle = orbGrad;
+    ctx.beginPath();
+    ctx.arc(0, orbCY, orbR + 2, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Pulsing shockwave rings from orb
+    for (let i = 0; i < 2; i++) {
+        const ringPhase = (time * 3 + i * 0.5) % 1;
+        const ringR = orbR + ringPhase * 10;
+        const ringA = (1 - ringPhase) * 0.4;
+        ctx.strokeStyle = `rgba(99,179,237,${ringA})`;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(0, orbCY, ringR, 0, Math.PI * 2);
+        ctx.stroke();
+    }
+
+    // Barrel (energy projector)
+    ctx.save();
+    ctx.rotate(t.angle);
+    ctx.fillStyle = '#A0AEC0';
+    ctx.fillRect(2, -1.5, pistonW + 6, 3);
+    ctx.fillStyle = '#63B3ED';
+    ctx.beginPath();
+    ctx.arc(pistonW + 7, 0, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+}
+
+// ===== SHEEP TOWER — Pastoral farm with magical wool core =====
+function drawSheepTower(t, st, lv) {
+    const bw = 8 + lv;
+    const h = 15 + lv * 3;
+    const time = Date.now() / 1000;
+
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.25)';
+    ctx.beginPath();
+    ctx.ellipse(0, 5, bw + 3, bw * 0.35, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Grass mound base
+    const grassGrad = ctx.createLinearGradient(0, 0, 0, bw + 3);
+    grassGrad.addColorStop(0, '#8BC34A');
+    grassGrad.addColorStop(1, '#558B2F');
+    ctx.fillStyle = grassGrad;
+    ctx.beginPath();
+    ctx.ellipse(0, 4, bw + 3, bw * 0.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Wooden fence posts (ring around base)
+    ctx.fillStyle = '#A08060';
+    for (let i = 0; i < 5; i++) {
+        const a = (i / 5) * Math.PI * 2;
+        const fx = Math.cos(a) * (bw + 1);
+        const fy = Math.sin(a) * bw * 0.3 + 4;
+        ctx.fillRect(fx - 1, fy - 7, 2.5, 7);
+        ctx.fillStyle = '#C8A878';
+        ctx.fillRect(fx - 0.5, fy - 7, 0.8, 7);
+        ctx.fillStyle = '#A08060';
+    }
+    // Fence rope
+    ctx.strokeStyle = '#8B7355';
+    ctx.lineWidth = 0.8;
+    ctx.beginPath();
+    for (let i = 0; i <= 5; i++) {
+        const a = (i / 5) * Math.PI * 2;
+        const fx = Math.cos(a) * (bw + 1);
+        const fy = Math.sin(a) * bw * 0.3 + 4;
+        if (i === 0) ctx.moveTo(fx, fy - 3);
+        else ctx.lineTo(fx, fy - 3);
+    }
+    ctx.stroke();
+
+    // Central pillar — pastel stone
+    const pillarGrad = ctx.createLinearGradient(-3, 0, 3, 0);
+    pillarGrad.addColorStop(0, '#D8C8E8');
+    pillarGrad.addColorStop(0.5, '#EDE0F5');
+    pillarGrad.addColorStop(1, '#C8B8D8');
+    ctx.fillStyle = pillarGrad;
+    ctx.fillRect(-4, -h * 0.5, 8, h * 0.5 + 5);
+    ctx.strokeStyle = '#B0A0C0';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(-4, -h * 0.5, 8, h * 0.5 + 5);
+
+    // Heart / wool symbol on pillar
+    ctx.fillStyle = '#E8C0E0';
+    ctx.beginPath();
+    ctx.arc(-1.5, -h * 0.2, 2.5, 0, Math.PI * 2);
+    ctx.arc(1.5, -h * 0.2, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#F0D0F0';
+    ctx.beginPath();
+    ctx.moveTo(-3.5, -h * 0.15);
+    ctx.lineTo(0, -h * 0.05);
+    ctx.lineTo(3.5, -h * 0.15);
+    ctx.lineTo(0, -h * 0.3);
+    ctx.closePath();
+    ctx.fill();
+
+    // Roof — round woolly dome
+    const domeY = -h * 0.5;
+    const domeR = bw - 1;
+    const woolGrad = ctx.createRadialGradient(0, domeY - 2, domeR * 0.1, 0, domeY, domeR);
+    woolGrad.addColorStop(0, '#FFFFFF');
+    woolGrad.addColorStop(0.5, '#F5F0FA');
+    woolGrad.addColorStop(1, '#D8C8E8');
+    ctx.fillStyle = woolGrad;
+    ctx.beginPath();
+    ctx.arc(0, domeY, domeR, Math.PI, 0);
+    ctx.fill();
+
+    // Fluffy wool bumps on dome
+    for (let i = 0; i < 8; i++) {
+        const a = Math.PI + (i / 7) * Math.PI;
+        const bx = Math.cos(a) * domeR * 0.85;
+        const by = domeY + Math.sin(a) * domeR * 0.85;
+        ctx.fillStyle = '#FFF';
+        ctx.beginPath();
+        ctx.arc(bx, by, 3 + Math.sin(i * 2.5) * 1.2, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // Magical floating wool particles
+    for (let i = 0; i < lv + 2; i++) {
+        const px = Math.sin(time * 1.3 + i * 2.1) * (bw + 2);
+        const py = domeY - 4 - i * 5 + Math.cos(time * 1.7 + i * 1.3) * 4;
+        const pa = 0.4 + Math.sin(time * 2 + i) * 0.2;
+        ctx.fillStyle = `rgba(240,220,255,${pa})`;
+        ctx.beginPath();
+        ctx.arc(px, py, 2.5 + Math.sin(time + i) * 1, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // Wand barrel — sparkly
+    ctx.save();
+    ctx.rotate(t.angle);
+    ctx.fillStyle = '#D0B8E8';
+    ctx.fillRect(3, -1.5, domeR + 4, 3);
+    ctx.fillStyle = '#F0D8FF';
+    ctx.beginPath();
+    ctx.arc(domeR + 5, 0, 3.5, 0, Math.PI * 2);
+    ctx.fill();
+    // Star sparkle at tip
+    const sparkAlpha = 0.5 + Math.sin(time * 6) * 0.3;
+    ctx.fillStyle = `rgba(255,255,255,${sparkAlpha})`;
+    ctx.beginPath();
+    ctx.arc(domeR + 5, -2, 1.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+}
+
+// ===== MISSILE TOWER — Military silo with long-range missiles =====
+function drawMissileTower(t, st, lv) {
+    const bw = 10 + lv;
+    const h = 20 + lv * 4;
+    const time = Date.now() / 1000;
+
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.beginPath();
+    ctx.ellipse(0, 4, bw + 3, bw * 0.4, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Concrete bunker base
+    const bunkerGrad = ctx.createLinearGradient(0, 0, 0, bw + 2);
+    bunkerGrad.addColorStop(0, '#7A7D7F');
+    bunkerGrad.addColorStop(0.5, '#5A5D5F');
+    bunkerGrad.addColorStop(1, '#3A3D3F');
+    ctx.fillStyle = bunkerGrad;
+    ctx.beginPath();
+    ctx.roundRect(-bw - 2, 1, (bw + 2) * 2, bw + 4, 3);
+    ctx.fill();
+    ctx.strokeStyle = '#2A2D2F';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Concrete panel lines
+    ctx.strokeStyle = '#6A6D6F';
+    ctx.lineWidth = 0.6;
+    ctx.beginPath(); ctx.moveTo(0, 2); ctx.lineTo(0, bw + 4); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-bw + 2, bw / 2 + 2); ctx.lineTo(bw - 2, bw / 2 + 2); ctx.stroke();
+
+    // Warning stripes on base
+    for (let i = -3; i <= 3; i++) {
+        if (i % 2 === 0) {
+            ctx.fillStyle = '#F0C040';
+            ctx.fillRect(i * (bw / 4), bw + 2, bw / 4, 3);
+        } else {
+            ctx.fillStyle = '#333';
+            ctx.fillRect(i * (bw / 4), bw + 2, bw / 4, 3);
+        }
+    }
+
+    // Missile silo / launch tube
+    const tubeW = 5 + lv * 0.5;
+    const tubeH = h * 0.5;
+    const siloGrad = ctx.createLinearGradient(-tubeW, 0, tubeW, 0);
+    siloGrad.addColorStop(0, '#5A5D5F');
+    siloGrad.addColorStop(0.3, '#8A8D8F');
+    siloGrad.addColorStop(0.7, '#7A7D7F');
+    siloGrad.addColorStop(1, '#4A4D4F');
+    ctx.fillStyle = siloGrad;
+    ctx.fillRect(-tubeW, -tubeH, tubeW * 2, tubeH + 2);
+    ctx.strokeStyle = '#3A3D3F';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(-tubeW, -tubeH, tubeW * 2, tubeH + 2);
+
+    // Tube rings
+    for (let i = 0; i < 3; i++) {
+        const ry = -tubeH + (i + 1) * tubeH / 4;
+        ctx.strokeStyle = '#4A4D4F';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(-tubeW - 1, ry);
+        ctx.lineTo(tubeW + 1, ry);
+        ctx.stroke();
+        ctx.strokeStyle = '#9A9D9F';
+        ctx.lineWidth = 0.8;
+        ctx.beginPath();
+        ctx.moveTo(-tubeW - 1, ry - 1);
+        ctx.lineTo(tubeW + 1, ry - 1);
+        ctx.stroke();
+    }
+
+    // Missile visible in tube (Lv determines size)
+    const missileW = 2 + lv * 0.5;
+    const missileTipY = -tubeH + 4;
+    ctx.fillStyle = '#E8E8E8';
+    ctx.fillRect(-missileW, missileTipY, missileW * 2, 2);
+    // Missile nose cone
+    ctx.fillStyle = '#CC3333';
+    ctx.beginPath();
+    ctx.moveTo(-missileW, missileTipY);
+    ctx.lineTo(missileW, missileTipY);
+    ctx.lineTo(0, missileTipY - 6 - lv);
+    ctx.closePath();
+    ctx.fill();
+    // Missile fins
+    ctx.fillStyle = '#333';
+    ctx.beginPath();
+    ctx.moveTo(-missileW - 2, missileTipY + 2);
+    ctx.lineTo(-missileW, missileTipY + 2);
+    ctx.lineTo(-missileW, missileTipY + 7);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(missileW + 2, missileTipY + 2);
+    ctx.lineTo(missileW, missileTipY + 2);
+    ctx.lineTo(missileW, missileTipY + 7);
+    ctx.closePath();
+    ctx.fill();
+
+    // Radar dish / antenna on side
+    const dishX = tubeW + 5;
+    const dishY = -tubeH * 0.5;
+    ctx.fillStyle = '#555';
+    ctx.fillRect(dishX - 0.5, dishY, 1, tubeH * 0.5);
+    ctx.fillStyle = '#777';
+    ctx.beginPath();
+    ctx.ellipse(dishX, dishY, 5, 2, -0.4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#999';
+    ctx.lineWidth = 0.8;
+    ctx.stroke();
+
+    // Blinking light on antenna
+    const blinkAlpha = 0.4 + Math.sin(time * 4) * 0.3;
+    ctx.fillStyle = `rgba(255,50,50,${blinkAlpha})`;
+    ctx.beginPath();
+    ctx.arc(dishX + 1, dishY - 1, 1.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Smoke/vent from silo base (Lv2+)
+    if (lv >= 2) {
+        for (let i = 0; i < 2; i++) {
+            const sx = -tubeW + 2 + i * (tubeW * 2 - 4);
+            const sy = -tubeH - 2 - Math.sin(time * 3 + i) * 4;
+            ctx.fillStyle = `rgba(180,180,180,${0.2 + Math.sin(time * 2 + i) * 0.08})`;
+            ctx.beginPath();
+            ctx.arc(sx, sy, 3 + i, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+}
+
 function drawEnemy(e) {
     if (!e.alive) return;
     ctx.save();
     ctx.translate(e.x, e.y);
+
+    // Sheep transformation — draw cute white sheep
+    if (e.isSheep) {
+        const woolY = -e.size * 0.2;
+        // Woolly body (fluffy cloud-like)
+        ctx.fillStyle = '#FEFEFE';
+        for (let i = 0; i < 7; i++) {
+            const a = (i / 7) * Math.PI * 2;
+            const r = e.size * (0.7 + 0.15 * Math.sin(i * 3 + Date.now() / 400));
+            ctx.beginPath();
+            ctx.arc(Math.cos(a) * r * 0.8, woolY + Math.sin(a) * r * 0.6, e.size * 0.45, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.fillStyle = '#F8F8F8';
+        ctx.beginPath();
+        ctx.ellipse(0, woolY, e.size * 0.85, e.size * 0.55, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#DDD';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        // Sheep head
+        const headX = e.size * 0.5;
+        const headY = woolY - e.size * 0.4;
+        ctx.fillStyle = '#333';
+        ctx.beginPath();
+        ctx.ellipse(headX, headY, e.size * 0.28, e.size * 0.3, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Ears
+        ctx.fillStyle = '#444';
+        ctx.beginPath(); ctx.ellipse(headX - 2, headY - 4, 3, 5, -0.3, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(headX + 2, headY - 4, 3, 5, 0.3, 0, Math.PI * 2); ctx.fill();
+
+        // Eyes
+        ctx.fillStyle = '#FFF';
+        ctx.beginPath(); ctx.arc(headX - 1.5, headY - 1, 1.8, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(headX + 1.5, headY - 1, 1.8, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#000';
+        ctx.beginPath(); ctx.arc(headX - 1.5, headY - 1, 0.8, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(headX + 1.5, headY - 1, 0.8, 0, Math.PI * 2); ctx.fill();
+
+        // Tiny legs
+        ctx.fillStyle = '#333';
+        for (let lx = -3; lx <= 3; lx += 6) {
+            ctx.fillRect(lx - 1, woolY + e.size * 0.3, 2, e.size * 0.3);
+        }
+
+        // "zzZ" floating text
+        const zAlpha = 0.5 + Math.sin(Date.now() / 500) * 0.3;
+        ctx.fillStyle = `rgba(200,180,255,${zAlpha})`;
+        ctx.font = `${e.size * 0.7}px sans-serif`;
+        ctx.fillText('z', e.size * 0.4, -e.size * 0.8 - Math.sin(Date.now() / 300) * 3);
+        ctx.fillText('Z', e.size * 0.2, -e.size * 1.2 - Math.sin(Date.now() / 350) * 3);
+
+        ctx.restore();
+        return;
+    }
 
     // Body
     const isBoss = e.type === 'boss';
@@ -1688,10 +2714,142 @@ function drawEnemy(e) {
 }
 
 function drawProjectile(p) {
-    ctx.fillStyle = p.color;
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
-    ctx.fill();
+    if (p.type === 'fire') {
+        // Fireball — glowing orb with trail
+        const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, 6);
+        grad.addColorStop(0, '#FFF8C0');
+        grad.addColorStop(0.3, '#FFB830');
+        grad.addColorStop(0.7, '#FF6B35');
+        grad.addColorStop(1, 'rgba(200,30,0,0)');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 7, 0, Math.PI * 2);
+        ctx.fill();
+        // Outer glow
+        ctx.fillStyle = 'rgba(255,140,20,0.3)';
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 12, 0, Math.PI * 2);
+        ctx.fill();
+    } else if (p.type === 'missile') {
+        // Homing missile — big, dramatic, tracking
+        const angle = p.target ? Math.atan2(p.target.y - p.y, p.target.x - p.x)
+                               : Math.atan2(p.targetY - p.startY, p.targetX - p.startX);
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(angle);
+
+        // Outer glow
+        ctx.fillStyle = 'rgba(255,140,20,0.25)';
+        ctx.beginPath();
+        ctx.arc(0, 0, 14, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Missile body — longer, sleeker
+        const bodyLen = 24;
+        const bodyH = 3.5;
+        ctx.fillStyle = '#F0F0F0';
+        ctx.fillRect(-12, -bodyH, bodyLen, bodyH * 2);
+        ctx.strokeStyle = '#AAA';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(-12, -bodyH, bodyLen, bodyH * 2);
+
+        // Body stripe
+        ctx.fillStyle = '#E74C3C';
+        ctx.fillRect(-8, -bodyH, 3, bodyH * 2);
+        ctx.fillRect(-2, -bodyH, 3, bodyH * 2);
+
+        // Nose cone — larger
+        ctx.fillStyle = '#CC2222';
+        ctx.beginPath();
+        ctx.moveTo(12, -bodyH - 1);
+        ctx.lineTo(12, bodyH + 1);
+        ctx.lineTo(19, 0);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = '#991111';
+        ctx.lineWidth = 0.8;
+        ctx.stroke();
+
+        // Nose tip highlight
+        ctx.fillStyle = '#FF4444';
+        ctx.beginPath();
+        ctx.arc(17, 0, 1.2, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Rear fins — larger
+        ctx.fillStyle = '#444';
+        ctx.beginPath(); ctx.moveTo(-10, -bodyH); ctx.lineTo(-12, -8); ctx.lineTo(-7, -bodyH); ctx.closePath(); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(-10, bodyH); ctx.lineTo(-12, 8); ctx.lineTo(-7, bodyH); ctx.closePath(); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(2, -bodyH); ctx.lineTo(0, -6); ctx.lineTo(5, -bodyH); ctx.closePath(); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(2, bodyH); ctx.lineTo(0, 6); ctx.lineTo(5, bodyH); ctx.closePath(); ctx.fill();
+
+        // Big flame exhaust — multi-layer
+        // Layer 1: bright core
+        const flameLen = 16;
+        const exhGrad1 = ctx.createLinearGradient(-12, 0, -12 - flameLen, 0);
+        exhGrad1.addColorStop(0, '#FFD700');
+        exhGrad1.addColorStop(0.2, '#FFB830');
+        exhGrad1.addColorStop(0.5, '#FF6B35');
+        exhGrad1.addColorStop(1, 'rgba(200,20,0,0)');
+        ctx.fillStyle = exhGrad1;
+        ctx.beginPath();
+        ctx.moveTo(-12, -3.5);
+        ctx.lineTo(-12 - flameLen, -2);
+        ctx.lineTo(-12 - flameLen - 4, 0);
+        ctx.lineTo(-12 - flameLen, 2);
+        ctx.lineTo(-12, 3.5);
+        ctx.closePath();
+        ctx.fill();
+
+        // Layer 2: outer glow flames
+        const exhGrad2 = ctx.createLinearGradient(-12, 0, -12 - flameLen * 0.7, 0);
+        exhGrad2.addColorStop(0, 'rgba(255,200,40,0.6)');
+        exhGrad2.addColorStop(1, 'rgba(255,40,0,0)');
+        ctx.fillStyle = exhGrad2;
+        ctx.beginPath();
+        ctx.moveTo(-12, -5);
+        ctx.lineTo(-12 - flameLen * 0.7, -4);
+        ctx.lineTo(-12 - flameLen, 0);
+        ctx.lineTo(-12 - flameLen * 0.7, 4);
+        ctx.lineTo(-12, 5);
+        ctx.closePath();
+        ctx.fill();
+
+        // Smoke puff right behind
+        ctx.fillStyle = 'rgba(140,140,140,0.4)';
+        ctx.beginPath();
+        ctx.arc(-13, 0, 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = 'rgba(160,160,160,0.25)';
+        ctx.beginPath();
+        ctx.arc(-16, 0, 7, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = 'rgba(120,120,120,0.15)';
+        ctx.beginPath();
+        ctx.arc(-20, 0, 9, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
+    } else if (p.type === 'sheep') {
+        // Sparkly pink/purple orb
+        const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, 5);
+        grad.addColorStop(0, '#FFFFFF');
+        grad.addColorStop(0.4, '#F0D0FF');
+        grad.addColorStop(1, 'rgba(200,160,240,0)');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = 'rgba(240,200,255,0.35)';
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 10, 0, Math.PI * 2);
+        ctx.fill();
+    } else {
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+        ctx.fill();
+    }
 }
 
 function drawParticles() {
@@ -1714,6 +2872,24 @@ function drawParticles() {
             const midY = (p.y + p.y2) / 2 + (Math.random() - 0.5) * 30;
             ctx.quadraticCurveTo(midX, midY, p.x2, p.y2);
             ctx.stroke();
+        } else if (p.smoke) {
+            // Rising smoke cloud
+            const progress = 1 - alpha;
+            ctx.fillStyle = p.color;
+            ctx.globalAlpha = alpha * 0.5;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size * (0.5 + progress * 0.5), 0, Math.PI * 2);
+            ctx.fill();
+        } else if (p.wool) {
+            // Fluffy wool particle
+            ctx.fillStyle = p.color;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size * alpha, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#FFF';
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size * alpha * 0.5, 0, Math.PI * 2);
+            ctx.fill();
         } else {
             ctx.fillStyle = p.color;
             ctx.beginPath();
@@ -1754,7 +2930,7 @@ function drawHoverPreview() {
             ctx.arc(0, 0, s + 2, 0, Math.PI * 2);
             ctx.fill();
             break;
-        case 'mage':
+        case 'ice':
             ctx.beginPath();
             ctx.moveTo(0, -18);
             ctx.lineTo(s - 2, -5);
@@ -1771,6 +2947,67 @@ function drawHoverPreview() {
             ctx.beginPath();
             ctx.arc(0, -6, 8, Math.PI, 0);
             ctx.fill();
+            break;
+        case 'fire':
+            ctx.fillStyle = def.color;
+            ctx.fillRect(-5, -6, 10, 12);
+            ctx.beginPath();
+            ctx.arc(0, -8, 6, Math.PI, 0);
+            ctx.fill();
+            // Flame silhouette on top
+            ctx.fillStyle = '#FF6B35';
+            ctx.beginPath();
+            ctx.moveTo(-4, -9);
+            ctx.quadraticCurveTo(-2, -18, 0, -22);
+            ctx.quadraticCurveTo(2, -18, 4, -9);
+            ctx.closePath();
+            ctx.fill();
+            break;
+        case 'knockback':
+            ctx.fillStyle = def.color;
+            ctx.fillRect(-6, -4, 12, 12);
+            ctx.fillStyle = '#CBD5E0';
+            ctx.fillRect(-4, -8, 8, 6);
+            ctx.strokeStyle = '#63B3ED';
+            ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.arc(0, -5, 5, 0, Math.PI * 2); ctx.stroke();
+            break;
+        case 'sheep':
+            ctx.fillStyle = def.color;
+            ctx.beginPath();
+            ctx.roundRect(-5, -6, 10, 14, 4);
+            ctx.fill();
+            // Wool dome on top
+            ctx.fillStyle = '#FFF';
+            ctx.beginPath();
+            ctx.arc(0, -6, 8, Math.PI, 0);
+            ctx.fill();
+            // Tiny sheep ears
+            ctx.fillStyle = '#DDD';
+            ctx.beginPath(); ctx.ellipse(-4, -8, 2.5, 4, -0.3, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.ellipse(4, -8, 2.5, 4, 0.3, 0, Math.PI * 2); ctx.fill();
+            break;
+        case 'missile':
+            // Silo shape
+            ctx.fillStyle = def.color;
+            ctx.fillRect(-6, -8, 12, 14);
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(-6, -8, 12, 14);
+            // Missile nose poking out
+            ctx.fillStyle = '#E8E8E8';
+            ctx.fillRect(-2, -10, 4, 4);
+            ctx.fillStyle = '#CC3333';
+            ctx.beginPath();
+            ctx.moveTo(-2, -10);
+            ctx.lineTo(2, -10);
+            ctx.lineTo(0, -17);
+            ctx.closePath();
+            ctx.fill();
+            // Fins
+            ctx.fillStyle = '#555';
+            ctx.beginPath(); ctx.moveTo(-6, -6); ctx.lineTo(-9, -4); ctx.lineTo(-6, -2); ctx.closePath(); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(6, -6); ctx.lineTo(9, -4); ctx.lineTo(6, -2); ctx.closePath(); ctx.fill();
             break;
     }
     ctx.restore();
@@ -1836,10 +3073,13 @@ function render() {
     // Layer 4: Enemies
     for (const e of game.enemies) drawEnemy(e);
 
-    // Layer 5: Projectiles
+    // Layer 5: Fire zones (ground AoE)
+    drawFireZones();
+
+    // Layer 6: Projectiles
     for (const p of game.projectiles) drawProjectile(p);
 
-    // Layer 6: Particles
+    // Layer 7: Particles
     drawParticles();
 
     // Layer 7: Hover preview
@@ -1907,7 +3147,12 @@ function showTowerInfo(t) {
         '<div class="stat-row"><span>攻速</span><span>' + (st.cooldown / 1000).toFixed(1) + 's</span></div>' +
         (st.splashRadius > 0 ? '<div class="stat-row"><span>溅射</span><span>' + st.splashRadius + 'px</span></div>' : '') +
         (st.slowFactor > 0 ? '<div class="stat-row"><span>减速</span><span>' + Math.round(st.slowFactor * 100) + '%</span></div>' : '') +
-        (st.chainCount > 0 ? '<div class="stat-row"><span>连锁</span><span>' + st.chainCount + '个</span></div>' : '');
+        (st.chainCount > 0 ? '<div class="stat-row"><span>连锁</span><span>' + st.chainCount + '个</span></div>' : '') +
+        (st.flameRadius > 0 ? '<div class="stat-row"><span>火焰范围</span><span>' + st.flameRadius + 'px</span></div>' : '') +
+        (st.flameDuration > 0 ? '<div class="stat-row"><span>火焰持续</span><span>' + (st.flameDuration / 1000).toFixed(1) + 's</span></div>' : '') +
+        (st.sheepDuration > 0 ? '<div class="stat-row"><span>变羊持续</span><span>' + (st.sheepDuration / 1000).toFixed(1) + 's</span></div>' : '') +
+        (st.arcHeight > 0 ? '<div class="stat-row"><span>导弹弧线</span><span>是</span></div>' : '') +
+        (st.knockbackDist > 0 ? '<div class="stat-row"><span>击退距离</span><span>' + st.knockbackDist + 'px</span></div>' : '');
 
     const upBtn = document.getElementById('upgrade-btn');
     if (t.level >= 3) {
@@ -1986,6 +3231,7 @@ function restartGame() {
     game.enemies = [];
     game.projectiles = [];
     game.particles = [];
+    game.fireZones = [];
     game.selectedType = null;
     game.selectedTower = null;
     game.spawnQueue = [];
@@ -2110,8 +3356,12 @@ document.addEventListener('keydown', (e) => {
             break;
         case '1': selectTowerType('archer'); break;
         case '2': selectTowerType('artillery'); break;
-        case '3': selectTowerType('mage'); break;
+        case '3': selectTowerType('ice'); break;
         case '4': selectTowerType('tesla'); break;
+        case '5': selectTowerType('fire'); break;
+        case '6': selectTowerType('sheep'); break;
+        case '7': selectTowerType('missile'); break;
+        case '8': selectTowerType('knockback'); break;
         case ' ':
             e.preventDefault();
             if (game.state === 'idle') startNextWave();
@@ -2169,6 +3419,8 @@ function gameLoop(timestamp) {
         updateProjectiles(0);
     }
 
+    // Fire zones always tick (even during idle — they burn out)
+    updateFireZones(logicDt);
     updateParticles(dt);
 
     // Render every frame (always at 1x visual speed)
