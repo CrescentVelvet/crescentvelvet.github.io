@@ -377,16 +377,16 @@ const ENEMY_DEFS = {
 
 // ==================== PATH WAYPOINTS (pixel centers) ====================
 const WAYPOINTS = [
-    { x: -20, y: 100 },   // off-screen left
-    { x: 180, y: 100 },   // (col 4, row 2)
-    { x: 180, y: 460 },   // (col 4, row 11)
-    { x: 340, y: 460 },   // (col 8, row 11)
-    { x: 340, y: 180 },   // (col 8, row 4)
-    { x: 540, y: 180 },   // (col 13, row 4)
-    { x: 540, y: 460 },   // (col 13, row 11)
-    { x: 700, y: 460 },   // (col 17, row 11)
-    { x: 700, y: 300 },   // (col 17, row 7)
-    { x: 820, y: 300 }    // off-screen right
+    { x: -20, y: 120 },
+    { x: 200, y: 120 },
+    { x: 200, y: 480 },
+    { x: 360, y: 480 },
+    { x: 360, y: 200 },
+    { x: 560, y: 200 },
+    { x: 560, y: 480 },
+    { x: 720, y: 480 },
+    { x: 720, y: 320 },
+    { x: 820, y: 320 }
 ];
 
 // ==================== GAME STATE ====================
@@ -436,13 +436,14 @@ function seededRand(seed) {
 
 function initGrid() {
     // Mark path cells along waypoint segments (path is 2 cells wide)
+    // Waypoints are centered in the 2-cell path; offset by -20 to get the top-left cell
     for (let i = 1; i < WAYPOINTS.length; i++) {
         const a = WAYPOINTS[i - 1];
         const b = WAYPOINTS[i];
-        const ax = Math.round(a.x / CELL - 0.5);
-        const ay = Math.round(a.y / CELL - 0.5);
-        const bx = Math.round(b.x / CELL - 0.5);
-        const by = Math.round(b.y / CELL - 0.5);
+        const ax = Math.floor((a.x - 20) / CELL);
+        const ay = Math.floor((a.y - 20) / CELL);
+        const bx = Math.floor((b.x - 20) / CELL);
+        const by = Math.floor((b.y - 20) / CELL);
 
         if (ay === by) {
             const row = ay;
@@ -463,51 +464,10 @@ function initGrid() {
         }
     }
 
-    // Mark path-adjacent cells as BLOCKED (buffer 1 cell around path, unless already buildable)
-    for (let r = 0; r < ROWS; r++) {
-        for (let c = 0; c < COLS; c++) {
-            if (grid[r][c] === TERRAIN.PATH) {
-                for (let dr = -2; dr <= 2; dr++) {
-                    for (let dc = -2; dc <= 2; dc++) {
-                        const nr = r + dr, nc = c + dc;
-                        if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS && grid[nr][nc] === TERRAIN.GRASS) {
-                            if (Math.abs(dr) + Math.abs(dc) <= 2) {
-                                grid[nr][nc] = TERRAIN.BLOCKED;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
+    // All non-path cells remain buildable (no blocking buffer)
 
-    // Reclaim buildable spots: cells adjacent to blocked but not directly next to path
-    // Keep the outer ring of blocked cells, mark inner grass as buildable
-    const buildableSeeds = [];
-    for (let r = 0; r < ROWS; r++) {
-        for (let c = 0; c < COLS; c++) {
-            if (grid[r][c] === TERRAIN.BLOCKED) {
-                let nearPath = false;
-                for (let dr = -1; dr <= 1 && !nearPath; dr++) {
-                    for (let dc = -1; dc <= 1 && !nearPath; dc++) {
-                        const nr = r + dr, nc = c + dc;
-                        if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS && grid[nr][nc] === TERRAIN.PATH) {
-                            nearPath = true;
-                        }
-                    }
-                }
-                if (!nearPath && (c > 1 && c < COLS - 2 && r > 1 && r < ROWS - 2)) {
-                    buildableSeeds.push([c, r]);
-                }
-            }
-        }
-    }
-    for (const [c, r] of buildableSeeds) {
-        grid[r][c] = TERRAIN.GRASS;
-    }
-
-    // Generate scenery
-    initScenery();
+    // Scenery disabled — no trees/rocks
+    scenery = [];
 }
 
 function initScenery() {
@@ -750,12 +710,22 @@ function updateTowers(dt) {
 
 // ==================== ENEMY LOGIC ====================
 function createEnemy(type, waveNum) {
-    const pos = { x: WAYPOINTS[0].x, y: WAYPOINTS[0].y };
+    const laneOffset = (Math.random() - 0.5) * 70; // spread across full 2-cell path width
+    const firstSegX = WAYPOINTS[1].x - WAYPOINTS[0].x;
+    const firstSegY = WAYPOINTS[1].y - WAYPOINTS[0].y;
+    const firstLen = Math.sqrt(firstSegX ** 2 + firstSegY ** 2) || 1;
+    const perpX = -firstSegY / firstLen;
+    const perpY = firstSegX / firstLen;
+    const pos = {
+        x: WAYPOINTS[0].x + perpX * laneOffset,
+        y: WAYPOINTS[0].y + perpY * laneOffset
+    };
     const def = ENEMY_DEFS[type];
     const hp = enemyHP(type, waveNum);
     return {
         id: game.nextEnemyId++,
         type,
+        laneOffset,
         x: pos.x, y: pos.y,
         hp, maxHp: hp,
         speed: def.speed,
@@ -768,7 +738,10 @@ function createEnemy(type, waveNum) {
         slowTimer: 0,
         slowFactor: 1,
         isSheep: false,
-        sheepTimer: 0
+        sheepTimer: 0,
+        knockbackVx: 0,
+        knockbackVy: 0,
+        knockbackTimer: 0
     };
 }
 
@@ -794,17 +767,59 @@ function updateEnemies(dt) {
             }
         }
 
-        // Move along waypoints
+        // Apply knockback — smooth backward push
+        if (e.knockbackTimer > 0) {
+            e.knockbackTimer -= dtMs;
+            e.x += e.knockbackVx * dt;
+            e.y += e.knockbackVy * dt;
+            e.knockbackVx *= 0.88;
+            e.knockbackVy *= 0.88;
+            // If pushed close to previous waypoint, snap back to it
+            if (e.waypointIndex > 1) {
+                const prev = WAYPOINTS[e.waypointIndex - 1];
+                const wp = WAYPOINTS[e.waypointIndex];
+                const toPrev = Math.sqrt((prev.x - e.x) ** 2 + (prev.y - e.y) ** 2);
+                const segLen = Math.sqrt((wp.x - prev.x) ** 2 + (wp.y - prev.y) ** 2);
+                if (toPrev < segLen * 0.25) {
+                    e.waypointIndex--;
+                    e.x = prev.x;
+                    e.y = prev.y;
+                }
+            }
+            if (e.knockbackTimer <= 0) {
+                e.knockbackVx = 0;
+                e.knockbackVy = 0;
+            }
+        }
+
+        // Move along waypoints with lane offset (spread across path width)
+        if (e.knockbackTimer > 0) continue;
         if (e.waypointIndex >= WAYPOINTS.length) continue;
         const wp = WAYPOINTS[e.waypointIndex];
-        const dx = wp.x - e.x;
-        const dy = wp.y - e.y;
+        // Segment direction approaching this waypoint
+        let segDx, segDy;
+        if (e.waypointIndex > 1) {
+            const prev = WAYPOINTS[e.waypointIndex - 1];
+            segDx = wp.x - prev.x;
+            segDy = wp.y - prev.y;
+        } else {
+            segDx = WAYPOINTS[1].x - WAYPOINTS[0].x;
+            segDy = WAYPOINTS[1].y - WAYPOINTS[0].y;
+        }
+        const segLen = Math.sqrt(segDx * segDx + segDy * segDy) || 1;
+        const perpX = -segDy / segLen;
+        const perpY = segDx / segLen;
+        const targetX = wp.x + perpX * e.laneOffset;
+        const targetY = wp.y + perpY * e.laneOffset;
+
+        const dx = targetX - e.x;
+        const dy = targetY - e.y;
         const d = Math.sqrt(dx * dx + dy * dy);
         const moveSpeed = e.currentSpeed * dt;
 
         if (d <= moveSpeed + 1) {
-            e.x = wp.x;
-            e.y = wp.y;
+            e.x = targetX;
+            e.y = targetY;
             e.waypointIndex++;
             if (e.waypointIndex >= WAYPOINTS.length) {
                 enemyReachedExit(e);
@@ -839,18 +854,15 @@ function applySlow(enemy, factor, duration) {
 function applyKnockback(enemy, distance) {
     if (enemy.waypointIndex >= WAYPOINTS.length) return;
     const wp = WAYPOINTS[enemy.waypointIndex];
-    let dx = wp.x - enemy.x;
-    let dy = wp.y - enemy.y;
+    const dx = wp.x - enemy.x;
+    const dy = wp.y - enemy.y;
     const d = Math.sqrt(dx * dx + dy * dy);
     if (d < 1) return;
-    enemy.x -= (dx / d) * distance;
-    enemy.y -= (dy / d) * distance;
-    if (enemy.waypointIndex > 1) {
-        const prev = WAYPOINTS[enemy.waypointIndex - 1];
-        const toPrev = Math.sqrt((prev.x - enemy.x) ** 2 + (prev.y - enemy.y) ** 2);
-        const toNext = Math.sqrt((wp.x - enemy.x) ** 2 + (wp.y - enemy.y) ** 2);
-        if (toPrev < toNext) enemy.waypointIndex--;
-    }
+    // Give a smooth backward velocity instead of teleporting
+    const knockSpeed = distance * 6;
+    enemy.knockbackVx = -(dx / d) * knockSpeed;
+    enemy.knockbackVy = -(dy / d) * knockSpeed;
+    enemy.knockbackTimer = 0.25;
 }
 
 function createKnockbackShockwave(x, y) {
@@ -1508,14 +1520,7 @@ function drawGrid() {
         }
     }
 
-    // === Layer 3: Scenery (trees, bushes, rocks) ===
-    for (const s of scenery) {
-        const cx = s.col * CELL + CELL / 2 + s.ox;
-        const cy = s.row * CELL + CELL / 2 + s.oy;
-        drawSceneryItem(cx, cy, s.type, s.size);
-    }
-
-    // === Layer 4: Subtle grid lines (only over grass cells) ===
+    // === Layer 3: Grid lines ===
     ctx.strokeStyle = 'rgba(255,255,255,0.03)';
     ctx.lineWidth = 0.5;
     for (let r = 0; r <= ROWS; r++) {
@@ -3095,6 +3100,7 @@ function render() {
         ctx.arc(mx, my, 6, 0, Math.PI * 2);
         ctx.fill();
     }
+
 }
 
 // ==================== UI ====================
