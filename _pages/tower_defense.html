@@ -383,6 +383,30 @@ const TOWER_DEFS = {
         splash: [60, 70, 80], slowFactor: 0, slowDuration: 0, chainCount: 0, splashDmgPct: 0.5,
         stunFactor: 0.2, stunDuration: [1200, 1800, 2500]
     },
+    ice_splash: {
+        name: '极寒领域', icon: '❄️',
+        cost: null, upgradeCost: [150, 280], evolveCost: 250,
+        damage: [12, 22, 38], range: [110, 120, 135], cooldown: [1100, 950, 800],
+        color: '#6DB9DE', bulletColor: '#D6EAF8', bulletSpeed: 350,
+        splash: [50, 60, 70], slowFactor: [0.5, 0.55, 0.6], slowDuration: [2000, 2500, 3000], chainCount: 0,
+        splashDmgPct: 0.6
+    },
+    ice_freeze: {
+        name: '深冻之箭', icon: '🧊',
+        cost: null, upgradeCost: [150, 280], evolveCost: 250,
+        damage: [18, 32, 52], range: [115, 125, 140], cooldown: [1100, 950, 800],
+        color: '#2E86C1', bulletColor: '#85C1E9', bulletSpeed: 380,
+        splash: 0, slowFactor: [0.5, 0.55, 0.6], slowDuration: [2200, 2600, 3000], chainCount: 0,
+        freezeStacks: 3, freezeDuration: [1800, 2400, 3000]
+    },
+    ice_aura: {
+        name: '冰霜光环', icon: '🫧',
+        cost: null, upgradeCost: [150, 300], evolveCost: 250,
+        damage: [0, 0, 0], range: [100, 115, 130], cooldown: [2000, 1800, 1600],
+        color: '#A9CCE3', bulletColor: '#E8F4FD', bulletSpeed: 0,
+        splash: 0, slowFactor: 0, slowDuration: 0, chainCount: 0,
+        auraSlowFactor: [0.5, 0.55, 0.6]
+    },
     ice: {
         name: '冰塔', icon: '❄️',
         cost: 120, upgradeCost: [100, 200],
@@ -449,6 +473,11 @@ const EVOLVE_OPTIONS = {
         { type: 'artillery_blast', label: '焦土重炮', icon: '💥', desc: '大范围燃烧', color: '#FF5722' },
         { type: 'artillery_shrapnel', label: '破片风暴', icon: '💠', desc: '碎片飞溅', color: '#DAA520' },
         { type: 'artillery_concuss', label: '震撼弹幕', icon: '💫', desc: '眩晕减速', color: '#5DADE2' }
+    ],
+    ice: [
+        { type: 'ice_splash', label: '极寒领域', icon: '❄️', desc: '冰霜溅射', color: '#6DB9DE' },
+        { type: 'ice_freeze', label: '深冻之箭', icon: '🧊', desc: '三击冻结', color: '#2E86C1' },
+        { type: 'ice_aura', label: '冰霜光环', icon: '🫧', desc: '减速光环', color: '#A9CCE3' }
     ]
 };
 
@@ -719,7 +748,9 @@ function createTower(type, col, row) {
         cooldown: 0,
         angle: 0,
         totalInvested: def.cost,
-        target: null
+        target: null,
+        freezeTargetId: null,
+        freezeStack: 0
     };
 }
 
@@ -759,7 +790,10 @@ function towerStats(t) {
         shrapnelRange: def.shrapnelRange || 0,
         shrapnelDmg: def.shrapnelDmg || 0,
         stunFactor: def.stunFactor || 0,
-        stunDuration: Array.isArray(def.stunDuration) ? def.stunDuration[lv] : (def.stunDuration || 0)
+        stunDuration: Array.isArray(def.stunDuration) ? def.stunDuration[lv] : (def.stunDuration || 0),
+        auraSlowFactor: Array.isArray(def.auraSlowFactor) ? def.auraSlowFactor[lv] : (def.auraSlowFactor || 0),
+        freezeStacks: def.freezeStacks || 0,
+        freezeDuration: Array.isArray(def.freezeDuration) ? def.freezeDuration[lv] : (def.freezeDuration || 0)
     };
 }
 
@@ -834,6 +868,18 @@ function updateTowers(dt) {
     for (const t of game.towers) {
         t.cooldown -= dt * 1000;
         if (t.cooldown > 0) continue;
+        // Frost aura — passive area slow, no projectile
+        if (t.type === 'ice_aura') {
+            const st = towerStats(t);
+            for (const e of game.enemies) {
+                if (!e.alive) continue;
+                if (dist(t, e) <= st.range) {
+                    applySlow(e, st.auraSlowFactor, st.cooldown + 200);
+                }
+            }
+            t.cooldown = st.cooldown;
+            continue;
+        }
         const target = towerAcquireTarget(t);
         if (target) {
             const st = towerStats(t);
@@ -1072,13 +1118,17 @@ function createProjectile(tower, target) {
         alive: true,
         towerX: tower.x,
         towerY: tower.y,
+        towerId: tower.id,
         critChance: st.critChance,
         critMultiplier: st.critMultiplier,
         shrapnelCount: st.shrapnelCount,
         shrapnelRange: st.shrapnelRange,
         shrapnelDmg: st.shrapnelDmg,
         stunFactor: st.stunFactor,
-        stunDuration: st.stunDuration
+        stunDuration: st.stunDuration,
+        freezeStacks: st.freezeStacks,
+        freezeDuration: st.freezeDuration,
+        auraSlowFactor: st.auraSlowFactor
     };
     // Missile: vertical launch then arc toward target
     if (tower.type === 'missile') {
@@ -1267,7 +1317,7 @@ function handleImpact(p) {
     if (!p.target || !p.target.alive) return;
 
     if (p.splashRadius > 0) {
-        // Splash damage (cannon & variants)
+        // Splash damage (cannon, ice_splash & variants)
         for (const e of game.enemies) {
             if (!e.alive) continue;
             const d = dist(p.target, e);
@@ -1278,6 +1328,10 @@ function handleImpact(p) {
                 if (p.stunFactor > 0 && p.stunDuration > 0) {
                     applySlow(e, p.stunFactor, p.stunDuration);
                 }
+                // Ice splash slow to all enemies in splash
+                if (p.slowFactor > 0 && p.slowDuration > 0) {
+                    applySlow(e, p.slowFactor, p.slowDuration);
+                }
             }
         }
         // Visual effect depends on variant
@@ -1285,6 +1339,8 @@ function handleImpact(p) {
             createSplashRing(p.target.x, p.target.y, p.splashRadius, '#88CCFF');
         } else if (p.flameRadius > 0) {
             createSplashRing(p.target.x, p.target.y, p.splashRadius, '#FF4400');
+        } else if (p.slowFactor > 0) {
+            createSplashRing(p.target.x, p.target.y, p.splashRadius, '#AED6F1');
         } else {
             createSplashRing(p.target.x, p.target.y, p.splashRadius, '#e74c3c');
         }
@@ -1298,9 +1354,27 @@ function handleImpact(p) {
             spawnShrapnel(p);
         }
     } else if (p.slowFactor > 0) {
-        // Ice slow
+        // Ice / freeze slow
         dealDamage(p.target, p.damage);
         applySlow(p.target, p.slowFactor, p.slowDuration);
+        // Freeze stack tracking — consecutive hits on same target
+        if (p.freezeStacks > 0) {
+            const tower = game.towers.find(tw => tw.id === p.towerId);
+            if (tower) {
+                if (tower.freezeTargetId === p.target.id) {
+                    tower.freezeStack = (tower.freezeStack || 0) + 1;
+                } else {
+                    tower.freezeTargetId = p.target.id;
+                    tower.freezeStack = 1;
+                }
+                if (tower.freezeStack >= p.freezeStacks) {
+                    applySlow(p.target, 0.05, p.freezeDuration);
+                    tower.freezeTargetId = null;
+                    tower.freezeStack = 0;
+                    createFrostShatter(p.target.x, p.target.y);
+                }
+            }
+        }
         createHitSpark(p.target.x, p.target.y, '#aed6f1');
     } else if (p.chainCount > 0) {
         // Chain lightning
@@ -1512,6 +1586,42 @@ function createCritSpark(x, y, multiplier) {
             maxLife: 0.8,
             color: '#FFF',
             size: 3 + Math.random() * 5
+        });
+    }
+}
+
+function createFrostShatter(x, y) {
+    // Ice shatter burst when freeze procs
+    for (let i = 0; i < 14; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 60 + Math.random() * 160;
+        game.particles.push({
+            x, y,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            life: 0.3 + Math.random() * 0.5,
+            maxLife: 0.8,
+            color: Math.random() < 0.5 ? '#D6EAF8' : '#FFFFFF',
+            size: 2 + Math.random() * 4
+        });
+    }
+    // Ice ring shockwave
+    game.particles.push({
+        x, y, vx: 0, vy: 0,
+        life: 0.5, maxLife: 0.5,
+        color: '#85C1E9', size: 18, ring: true
+    });
+    // Floating ice shards
+    for (let i = 0; i < 6; i++) {
+        const a = Math.PI * 2 * i / 6;
+        game.particles.push({
+            x: x + Math.cos(a) * 4, y: y + Math.sin(a) * 4,
+            vx: Math.cos(a) * 40,
+            vy: Math.sin(a) * 40,
+            life: 0.4 + Math.random() * 0.4,
+            maxLife: 0.8,
+            color: '#AED6F1',
+            size: 3 + Math.random() * 3
         });
     }
 }
@@ -2011,6 +2121,9 @@ function drawTower(t) {
         case 'artillery_shrapnel': drawShrapnelTower(t, st, lv); break;
         case 'artillery_concuss': drawConcussTower(t, st, lv); break;
         case 'ice': drawIceTower(t, st, lv); break;
+        case 'ice_splash': drawIceSplashTower(t, st, lv); break;
+        case 'ice_freeze': drawIceFreezeTower(t, st, lv); break;
+        case 'ice_aura': drawIceAuraTower(t, st, lv); break;
         case 'tesla': drawTeslaTower(t, st, lv); break;
         case 'fire': drawFireTower(t, st, lv); break;
         case 'knockback': drawKnockbackTower(t, st, lv); break;
@@ -2827,6 +2940,399 @@ function drawIceTower(t, st, lv) {
     ctx.arc(tw + 8, 0, 3, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
+}
+
+// ===== ICE_SPLASH TOWER — Frozen Domain: wide-area ice splash =====
+function drawIceSplashTower(t, st, lv) {
+    const b = 9 + lv;
+    const h = 16 + lv * 5;
+    const time = Date.now() / 1000;
+    const pulse = 0.6 + Math.sin(time * 2.5) * 0.4;
+
+    // Wide frost crystal base
+    const baseGrad = ctx.createRadialGradient(0, 2, b * 0.3, 0, 2, b + 4);
+    baseGrad.addColorStop(0, '#E8F4FD');
+    baseGrad.addColorStop(0.4, '#AED6F1');
+    baseGrad.addColorStop(0.8, '#6DB9DE');
+    baseGrad.addColorStop(1, '#3A7CA5');
+    ctx.fillStyle = baseGrad;
+    ctx.beginPath();
+    ctx.arc(0, 2, b + 4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#2E86C1';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Pulsing frost ring (aura indicator)
+    ctx.strokeStyle = `rgba(174,214,241,${0.3 + pulse * 0.25})`;
+    ctx.lineWidth = 2 + pulse;
+    ctx.beginPath();
+    ctx.arc(0, 2, b + 2 + pulse * 3, -0.3, Math.PI + 0.3);
+    ctx.stroke();
+
+    // Frost rune nodes around base
+    for (let i = 0; i < 8; i++) {
+        const a = Math.PI * 2 * i / 8 + time * 0.5;
+        const rx = Math.cos(a) * (b + 2);
+        const ry = Math.sin(a) * (b + 2) + 2;
+        ctx.fillStyle = 'rgba(255,255,255,0.7)';
+        ctx.beginPath();
+        ctx.arc(rx, ry, 1.5 + pulse * 0.5, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // Tower body — broadened ice crystal
+    const bw = b * 0.9;
+    const tw = b * 0.6;
+    const bodyGrad = ctx.createLinearGradient(-bw, 0, bw, 0);
+    bodyGrad.addColorStop(0, '#5DADE2');
+    bodyGrad.addColorStop(0.2, '#AED6F1');
+    bodyGrad.addColorStop(0.5, '#D6EAF8');
+    bodyGrad.addColorStop(0.8, '#85C1E9');
+    bodyGrad.addColorStop(1, '#2E86C1');
+    ctx.fillStyle = bodyGrad;
+    ctx.beginPath();
+    ctx.moveTo(-bw, 0);
+    ctx.lineTo(bw, 0);
+    ctx.lineTo(tw, -h * 0.6);
+    ctx.lineTo(-tw, -h * 0.6);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#1A5276';
+    ctx.lineWidth = 1.3;
+    ctx.stroke();
+
+    // Ice crystal ridges
+    ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+    ctx.lineWidth = 0.5;
+    for (let i = 1; i < 5; i++) {
+        const y = -i * h * 0.6 / 5;
+        const wAtY = bw - (bw - tw) * (i / 5);
+        ctx.beginPath();
+        ctx.moveTo(-wAtY + 1, y);
+        ctx.lineTo(wAtY - 1, y);
+        ctx.stroke();
+    }
+
+    // Inner glow chamber
+    ctx.fillStyle = '#1A5276';
+    ctx.fillRect(-3, -h * 0.4, 6, 12);
+    ctx.fillStyle = `rgba(133,193,233,${0.5 + pulse * 0.3})`;
+    ctx.fillRect(-2, -h * 0.4 + 1, 4, 10);
+
+    // Wide crystal roof
+    const roofGrad = ctx.createLinearGradient(0, -h * 0.6, 0, -h);
+    roofGrad.addColorStop(0, '#AED6F1');
+    roofGrad.addColorStop(0.4, '#D6EAF8');
+    roofGrad.addColorStop(1, '#E8F4FD');
+    ctx.fillStyle = roofGrad;
+    ctx.beginPath();
+    ctx.moveTo(-tw - 2, -h * 0.6);
+    ctx.lineTo(tw + 2, -h * 0.6);
+    ctx.lineTo(0, -h);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#5DADE2';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+
+    // Glowing frost orb at apex
+    ctx.shadowColor = 'rgba(174,214,241,0.8)';
+    ctx.shadowBlur = 8 + lv * 2;
+    ctx.fillStyle = '#FFFFFF';
+    ctx.beginPath();
+    ctx.arc(0, -h, 3 + lv * 0.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
+
+    // Splash crystal barrel — wider, shorter
+    ctx.save();
+    ctx.rotate(t.angle);
+    ctx.fillStyle = '#6DB9DE';
+    ctx.fillRect(1, -2, tw + 5, 4);
+    // Triple crystal tips
+    for (let i = -1; i <= 1; i++) {
+        ctx.fillStyle = '#D6EAF8';
+        ctx.beginPath();
+        ctx.arc(tw + 6, i * 3, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    ctx.restore();
+}
+
+// ===== ICE_FREEZE TOWER — Deep Freeze Arrow: pinpoint freeze =====
+function drawIceFreezeTower(t, st, lv) {
+    const b = 9 + lv;
+    const h = 18 + lv * 5;
+    const time = Date.now() / 1000;
+    const pulse = 0.5 + Math.sin(time * 3.5) * 0.5;
+
+    // Deep blue crystal base
+    const baseGrad = ctx.createRadialGradient(0, 3, b * 0.2, 0, 3, b + 2);
+    baseGrad.addColorStop(0, '#D6EAF8');
+    baseGrad.addColorStop(0.3, '#85C1E9');
+    baseGrad.addColorStop(0.7, '#2E86C1');
+    baseGrad.addColorStop(1, '#1A5276');
+    ctx.fillStyle = baseGrad;
+    ctx.beginPath();
+    ctx.arc(0, 3, b + 2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#154360';
+    ctx.lineWidth = 1.8;
+    ctx.stroke();
+
+    // Freeze stack indicator — 3 dots showing progress
+    const freezeStack = t.freezeStack || 0;
+    const freezeStacksNeeded = st.freezeStacks;
+    for (let i = 0; i < freezeStacksNeeded; i++) {
+        const dx = -b * 0.5 + i * b * 0.5;
+        const dy = b + 2;
+        const bright = i < freezeStack;
+        ctx.fillStyle = bright ? '#FFFFFF' : 'rgba(255,255,255,0.3)';
+        ctx.shadowColor = bright ? 'rgba(255,255,255,0.8)' : 'transparent';
+        ctx.shadowBlur = bright ? 4 : 0;
+        ctx.beginPath();
+        ctx.arc(dx, dy, 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowColor = 'transparent';
+        ctx.shadowBlur = 0;
+    }
+
+    // Tower body — tall deep blue crystal
+    const bw = b * 0.75;
+    const tw = b * 0.4;
+    const bodyGrad = ctx.createLinearGradient(-bw, 0, bw, 0);
+    bodyGrad.addColorStop(0, '#154360');
+    bodyGrad.addColorStop(0.3, '#2E86C1');
+    bodyGrad.addColorStop(0.5, '#5DADE2');
+    bodyGrad.addColorStop(0.7, '#2E86C1');
+    bodyGrad.addColorStop(1, '#154360');
+    ctx.fillStyle = bodyGrad;
+    ctx.beginPath();
+    ctx.moveTo(-bw, 0);
+    ctx.lineTo(bw, 0);
+    ctx.lineTo(tw, -h * 0.65);
+    ctx.lineTo(-tw, -h * 0.65);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#1A5276';
+    ctx.lineWidth = 1.4;
+    ctx.stroke();
+
+    // Concentric ring energy lines
+    for (let i = 1; i < 6; i++) {
+        const y = -i * h * 0.65 / 6;
+        const wAtY = bw - (bw - tw) * (i / 6);
+        ctx.strokeStyle = `rgba(174,214,241,${0.2 + i * 0.05})`;
+        ctx.lineWidth = 0.6;
+        ctx.beginPath();
+        ctx.moveTo(-wAtY, y);
+        ctx.lineTo(wAtY, y);
+        ctx.stroke();
+    }
+
+    // Freeze chamber window
+    ctx.fillStyle = '#0D3B5E';
+    ctx.fillRect(-2.5, -h * 0.45, 5, 11);
+    ctx.fillStyle = `rgba(133,193,233,${0.5 + pulse * 0.3})`;
+    ctx.fillRect(-1.5, -h * 0.45 + 1, 3, 9);
+
+    // Sharp crystal roof
+    const roofGrad = ctx.createLinearGradient(0, -h * 0.65, 0, -h);
+    roofGrad.addColorStop(0, '#5DADE2');
+    roofGrad.addColorStop(0.3, '#2E86C1');
+    roofGrad.addColorStop(1, '#154360');
+    ctx.fillStyle = roofGrad;
+    ctx.beginPath();
+    ctx.moveTo(-tw - 1, -h * 0.65);
+    ctx.lineTo(tw + 1, -h * 0.65);
+    ctx.lineTo(0, -h);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#1A5276';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+
+    // Sharp crystal tip
+    ctx.fillStyle = '#85C1E9';
+    ctx.beginPath();
+    ctx.moveTo(-1, -h);
+    ctx.lineTo(1, -h);
+    ctx.lineTo(0, -h - 6 - lv);
+    ctx.closePath();
+    ctx.fill();
+
+    // Deep freeze barrel — long, focused ice lance
+    ctx.save();
+    ctx.rotate(t.angle);
+    const barrelGrad = ctx.createLinearGradient(0, -2, 0, 2);
+    barrelGrad.addColorStop(0, '#154360');
+    barrelGrad.addColorStop(0.3, '#2E86C1');
+    barrelGrad.addColorStop(0.7, '#85C1E9');
+    barrelGrad.addColorStop(1, '#154360');
+    ctx.fillStyle = barrelGrad;
+    ctx.fillRect(1, -1.5, tw + 8, 3);
+    // Penetrating crystal tip
+    ctx.fillStyle = '#D6EAF8';
+    ctx.beginPath();
+    ctx.moveTo(tw + 9, -3);
+    ctx.lineTo(tw + 9, 3);
+    ctx.lineTo(tw + 14, 0);
+    ctx.closePath();
+    ctx.fill();
+    // Glow on tip
+    ctx.fillStyle = `rgba(133,193,233,${0.5 + pulse * 0.4})`;
+    ctx.beginPath();
+    ctx.arc(tw + 9, 0, 4 + pulse, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+}
+
+// ===== ICE_AURA TOWER — Frost Aura: passive slowing field =====
+function drawIceAuraTower(t, st, lv) {
+    const b = 9 + lv;
+    const h = 13 + lv * 4;
+    const time = Date.now() / 1000;
+    const pulse = 0.5 + Math.sin(time * 1.8) * 0.5;
+    const auraPulse = 0.5 + Math.sin(time * 2.2) * 0.5;
+
+    // Soft ethereal frost base
+    const baseGrad = ctx.createRadialGradient(0, 3, b * 0.1, 0, 3, b + 3);
+    baseGrad.addColorStop(0, 'rgba(255,255,255,0.9)');
+    baseGrad.addColorStop(0.3, 'rgba(232,244,253,0.7)');
+    baseGrad.addColorStop(0.6, 'rgba(169,204,227,0.4)');
+    baseGrad.addColorStop(1, 'rgba(169,204,227,0)');
+    ctx.fillStyle = baseGrad;
+    ctx.beginPath();
+    ctx.arc(0, 3, b + 3, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Outer pulsing aura ring (shows range)
+    ctx.strokeStyle = `rgba(174,214,241,${0.15 + auraPulse * 0.15})`;
+    ctx.lineWidth = 3 + auraPulse * 2;
+    ctx.beginPath();
+    ctx.arc(0, 2, b + 8 + auraPulse * 4, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Second ring
+    ctx.strokeStyle = `rgba(133,193,233,${0.1 + auraPulse * 0.12})`;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 8]);
+    ctx.beginPath();
+    ctx.arc(0, 2, b + 6 + auraPulse * 3, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Frost rune circle
+    for (let i = 0; i < 8; i++) {
+        const a = Math.PI * 2 * i / 8 + time * 0.3;
+        const rx = Math.cos(a) * (b + 2);
+        const ry = Math.sin(a) * (b + 2) + 3;
+        ctx.fillStyle = `rgba(255,255,255,${0.4 + pulse * 0.3})`;
+        ctx.beginPath();
+        // Small snowflake shape
+        for (let j = 0; j < 6; j++) {
+            const sa = Math.PI * 2 * j / 6;
+            const sr = 2.5;
+            const sx = rx + Math.cos(sa) * sr;
+            const sy = ry + Math.sin(sa) * sr;
+            if (j === 0) ctx.moveTo(sx, sy);
+            else ctx.lineTo(sx, sy);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = '#D6EAF8';
+        ctx.lineWidth = 0.4;
+        ctx.stroke();
+    }
+
+    // Tower body — gentle, rounded ice crystal (no weapon)
+    const bw = b * 0.7;
+    const tw = b * 0.55;
+    const bodyGrad = ctx.createLinearGradient(-bw, 0, bw, 0);
+    bodyGrad.addColorStop(0, 'rgba(133,193,233,0.8)');
+    bodyGrad.addColorStop(0.3, 'rgba(214,234,248,0.9)');
+    bodyGrad.addColorStop(0.5, 'rgba(232,244,253,1)');
+    bodyGrad.addColorStop(0.7, 'rgba(214,234,248,0.9)');
+    bodyGrad.addColorStop(1, 'rgba(133,193,233,0.8)');
+    ctx.fillStyle = bodyGrad;
+    ctx.beginPath();
+    ctx.moveTo(-bw, 0);
+    ctx.lineTo(bw, 0);
+    ctx.quadraticCurveTo(tw + 2, -h * 0.3, tw, -h * 0.55);
+    ctx.quadraticCurveTo(0, -h * 0.62, -tw, -h * 0.55);
+    ctx.quadraticCurveTo(-tw - 2, -h * 0.3, -bw, 0);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#AED6F1';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Ethereal glow lines
+    for (let i = 1; i < 4; i++) {
+        const y = -i * h * 0.55 / 4;
+        ctx.strokeStyle = `rgba(255,255,255,${0.3 + pulse * 0.15})`;
+        ctx.lineWidth = 0.6;
+        ctx.beginPath();
+        const wAtY = bw - (bw - tw) * (i / 4);
+        ctx.moveTo(-wAtY + 1, y);
+        ctx.lineTo(wAtY - 1, y);
+        ctx.stroke();
+    }
+
+    // Inner light chamber
+    ctx.fillStyle = 'rgba(255,255,255,0.15)';
+    ctx.fillRect(-3, -h * 0.35, 6, 8);
+    ctx.fillStyle = `rgba(174,214,241,${0.4 + pulse * 0.25})`;
+    ctx.fillRect(-2, -h * 0.35 + 1, 4, 6);
+
+    // Soft rounded dome roof
+    const roofGrad = ctx.createRadialGradient(0, -h * 0.55, tw * 0.1, 0, -h * 0.6, tw + 3);
+    roofGrad.addColorStop(0, 'rgba(255,255,255,0.9)');
+    roofGrad.addColorStop(0.4, 'rgba(214,234,248,0.8)');
+    roofGrad.addColorStop(0.8, 'rgba(133,193,233,0.5)');
+    roofGrad.addColorStop(1, 'rgba(169,204,227,0)');
+    ctx.fillStyle = roofGrad;
+    ctx.beginPath();
+    ctx.arc(0, -h * 0.45, b, 0, Math.PI);
+    ctx.fill();
+
+    // Central frost orb (no weapon — pure support)
+    const orbY = -h * 0.3;
+    const orbR = 3 + lv;
+    ctx.shadowColor = 'rgba(174,214,241,0.7)';
+    ctx.shadowBlur = 8 + lv * 2;
+    const orbGrad = ctx.createRadialGradient(0, orbY - orbR * 0.3, orbR * 0.1, 0, orbY, orbR);
+    orbGrad.addColorStop(0, '#FFFFFF');
+    orbGrad.addColorStop(0.4, '#D6EAF8');
+    orbGrad.addColorStop(0.8, '#85C1E9');
+    orbGrad.addColorStop(1, 'rgba(133,193,233,0)');
+    ctx.fillStyle = orbGrad;
+    ctx.beginPath();
+    ctx.arc(0, orbY, orbR + 1, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
+
+    // Floating snowflake orbiters
+    for (let i = 0; i < lv + 3; i++) {
+        const a = time * 1.5 + i * Math.PI * 2 / (lv + 3);
+        const dist = b + 6;
+        const sx = Math.cos(a) * dist;
+        const sy = orbY + Math.sin(a) * dist * 0.4;
+        ctx.fillStyle = `rgba(255,255,255,${0.5 + Math.sin(time * 3 + i) * 0.3})`;
+        ctx.beginPath();
+        // Tiny snowflake
+        for (let j = 0; j < 4; j++) {
+            const sa = Math.PI / 2 * j;
+            ctx.moveTo(sx, sy);
+            ctx.lineTo(sx + Math.cos(sa) * 3, sy + Math.sin(sa) * 3);
+        }
+        ctx.strokeStyle = `rgba(255,255,255,${0.5 + Math.sin(time * 3 + i) * 0.3})`;
+        ctx.lineWidth = 0.6;
+        ctx.stroke();
+    }
 }
 
 // ===== TESLA TOWER — Kingdom Rush Tesla / Dwarven Engineer =====
@@ -4320,7 +4826,10 @@ function showTowerInfo(t) {
         (st.shrapnelCount > 0 ? '<div class="stat-row"><span>破片数量</span><span>' + st.shrapnelCount + '个</span></div>' : '') +
         (st.shrapnelRange > 0 ? '<div class="stat-row"><span>破片射程</span><span>' + st.shrapnelRange + 'px</span></div>' : '') +
         (st.stunFactor > 0 ? '<div class="stat-row"><span>眩晕减速</span><span>' + Math.round((1 - st.stunFactor) * 100) + '%</span></div>' : '') +
-        (st.stunDuration > 0 ? '<div class="stat-row"><span>眩晕持续</span><span>' + (st.stunDuration / 1000).toFixed(1) + 's</span></div>' : '');
+        (st.stunDuration > 0 ? '<div class="stat-row"><span>眩晕持续</span><span>' + (st.stunDuration / 1000).toFixed(1) + 's</span></div>' : '') +
+        (st.auraSlowFactor > 0 ? '<div class="stat-row"><span>光环减速</span><span>' + Math.round(st.auraSlowFactor * 100) + '%</span></div>' : '') +
+        (st.freezeStacks > 0 ? '<div class="stat-row"><span>冻结所需连击</span><span>' + st.freezeStacks + '次</span></div>' : '') +
+        (st.freezeDuration > 0 && !st.stunDuration ? '<div class="stat-row"><span>冻结持续</span><span>' + (st.freezeDuration / 1000).toFixed(1) + 's</span></div>' : '');
 
     // Branch evolution — dynamic based on tower type
     const evolveDiv = document.getElementById('evolve-btns');
@@ -4399,6 +4908,8 @@ function evolveSelectedIndex(index) {
     t.level = 1;
     t.totalInvested += def.evolveCost;
     t.cooldown = 0;
+    t.freezeTargetId = null;
+    t.freezeStack = 0;
     updateHUD();
     showTowerInfo(t);
 }
