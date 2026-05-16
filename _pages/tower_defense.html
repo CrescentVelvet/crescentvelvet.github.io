@@ -538,6 +538,37 @@ const TOWER_DEFS = {
         splash: [60, 70, 85], slowFactor: 0, slowDuration: 0, chainCount: 0, splashDmgPct: 0.6,
         arcHeight: 70
     },
+    missile_cluster: {
+        name: '集束炸弹', icon: '🌠',
+        cost: null, upgradeCost: [200, 380], evolveCost: 350,
+        damage: [55, 90, 150], range: [170, 190, 220], cooldown: [3800, 3300, 2800],
+        color: '#5D6D7E', bulletColor: '#DDD6FE', bulletSpeed: 360,
+        splash: [35, 40, 50], splashDmgPct: 0.55, slowFactor: 0, slowDuration: 0, chainCount: 0,
+        arcHeight: 65,
+        clusterCount: [3, 4, 5],
+        clusterDmgPct: 0.5,
+        clusterSplitPct: 0.75
+    },
+    missile_nuke: {
+        name: '战术核弹', icon: '☢️',
+        cost: null, upgradeCost: [280, 550], evolveCost: 450,
+        damage: [350, 600, 950], range: [200, 230, 270], cooldown: [11000, 10000, 8500],
+        color: '#4A2C0E', bulletColor: '#FF6B00', bulletSpeed: 180,
+        splash: [150, 180, 220], splashDmgPct: 0.85, slowFactor: 0, slowDuration: 0, chainCount: 0,
+        arcHeight: 140,
+        nukeZoneDuration: [5000, 6500, 8000],
+        nukeZoneRadius: [75, 90, 110],
+        nukeZoneDmg: [30, 50, 75],
+        nukeZoneInterval: 500
+    },
+    missile_precision: {
+        name: '精准导弹', icon: '🎯',
+        cost: null, upgradeCost: [200, 400], evolveCost: 350,
+        damage: [120, 200, 320], range: [195, 220, 255], cooldown: [3200, 2700, 2200],
+        color: '#0D3B4E', bulletColor: '#00F0FF', bulletSpeed: 480,
+        splash: [20, 25, 30], splashDmgPct: 0.35, slowFactor: 0, slowDuration: 0, chainCount: 0,
+        arcHeight: 50
+    },
     laser: {
         name: '激光塔', icon: '🔆',
         cost: 200, upgradeCost: [150, 300],
@@ -559,6 +590,11 @@ const EVOLVE_OPTIONS = {
         { type: 'artillery_blast', label: '焦土重炮', icon: '💥', desc: '大范围燃烧', color: '#FF5722' },
         { type: 'artillery_shrapnel', label: '破片风暴', icon: '💠', desc: '碎片飞溅', color: '#DAA520' },
         { type: 'artillery_concuss', label: '震撼弹幕', icon: '💫', desc: '眩晕减速', color: '#5DADE2' }
+    ],
+    missile: [
+        { type: 'missile_cluster', label: '集束炸弹', icon: '🌠', desc: '集束分裂', color: '#7C5CBF' },
+        { type: 'missile_nuke', label: '战术核弹', icon: '☢️', desc: '核弹毁灭', color: '#E65100' },
+        { type: 'missile_precision', label: '精准导弹', icon: '🎯', desc: '精准狙杀', color: '#00ACC1' }
     ],
     ice: [
         { type: 'ice_splash', label: '凛冬之息', icon: '❄️', desc: '冰霜溅射', color: '#6DB9DE' },
@@ -916,7 +952,15 @@ function towerStats(t) {
         turncoatDamage: Array.isArray(def.turncoatDamage) ? def.turncoatDamage[lv] : (def.turncoatDamage || 0),
         contagionRange: Array.isArray(def.contagionRange) ? def.contagionRange[lv] : (def.contagionRange || 0),
         contagionFalloff: def.contagionFalloff || 0,
-        auraSheepDuration: Array.isArray(def.auraSheepDuration) ? def.auraSheepDuration[lv] : (def.auraSheepDuration || 0)
+        auraSheepDuration: Array.isArray(def.auraSheepDuration) ? def.auraSheepDuration[lv] : (def.auraSheepDuration || 0),
+        clusterCount: Array.isArray(def.clusterCount) ? def.clusterCount[lv] : (def.clusterCount || 0),
+        clusterDmgPct: def.clusterDmgPct || 0,
+        clusterSplitPct: def.clusterSplitPct || 0,
+        nukeZoneDuration: Array.isArray(def.nukeZoneDuration) ? def.nukeZoneDuration[lv] : (def.nukeZoneDuration || 0),
+        nukeZoneRadius: Array.isArray(def.nukeZoneRadius) ? def.nukeZoneRadius[lv] : (def.nukeZoneRadius || 0),
+        nukeZoneDmg: Array.isArray(def.nukeZoneDmg) ? def.nukeZoneDmg[lv] : (def.nukeZoneDmg || 0),
+        nukeZoneInterval: def.nukeZoneInterval || 0,
+        precisionTracking: def.precisionTracking || false
     };
 }
 
@@ -960,6 +1004,22 @@ function sellTower(t) {
 function towerAcquireTarget(t) {
     const st = towerStats(t);
     let best = null;
+    // Precision targeting: highest HP percentage
+    if (st.precisionTracking) {
+        let bestHpPct = -1;
+        for (const e of game.enemies) {
+            if (!e.alive || e.isTurncoat) continue;
+            const d = dist(t, e);
+            if (d > st.range) continue;
+            const hpPct = e.hp / e.maxHp;
+            if (hpPct > bestHpPct || (hpPct === bestHpPct && e.waypointIndex > (best ? best.waypointIndex : -1))) {
+                best = e;
+                bestHpPct = hpPct;
+            }
+        }
+        return best;
+    }
+    // Default: furthest progress
     let bestProgress = -1;
     for (const e of game.enemies) {
         if (!e.alive) continue;
@@ -1385,10 +1445,18 @@ function createProjectile(tower, target) {
         turncoatDamage: st.turncoatDamage,
         contagionRange: st.contagionRange,
         contagionFalloff: st.contagionFalloff,
+        clusterCount: st.clusterCount,
+        clusterDmgPct: st.clusterDmgPct,
+        clusterSplitPct: st.clusterSplitPct,
+        nukeZoneDuration: st.nukeZoneDuration,
+        nukeZoneRadius: st.nukeZoneRadius,
+        nukeZoneDmg: st.nukeZoneDmg,
+        nukeZoneInterval: st.nukeZoneInterval,
+        precisionTracking: st.precisionTracking,
         towerId: tower.id
     };
-    // Missile: vertical launch then arc toward target
-    if (tower.type === 'missile') {
+    // Missile & variants: vertical launch then arc toward target
+    if (tower.type === 'missile' || tower.type === 'missile_cluster' || tower.type === 'missile_nuke' || tower.type === 'missile_precision') {
         p.phase = 'launch';
         p.launchHeight = 55 + Math.random() * 35;
         p.launchSpeed = 300;
@@ -1396,6 +1464,7 @@ function createProjectile(tower, target) {
         p.bezierP1 = null;
         p.bezierP2 = null;
         p.bezierT = 0;
+        p.hasSplit = false;  // cluster split flag
     }
     // Laser: link boost placeholder (set by caller)
     if (tower.type === 'laser') {
@@ -1492,20 +1561,17 @@ function updateProjectiles(dt) {
             continue;
         }
 
-        // Missile — vertical launch then bezier arc toward target
-        if (p.type === 'missile') {
+        // Missile & variants — vertical launch then bezier arc toward target
+        if (p.type === 'missile' || p.type === 'missile_cluster' || p.type === 'missile_nuke' || p.type === 'missile_precision') {
             if (p.phase === 'launch') {
-                // Update target tracking during launch
                 if (p.target && p.target.alive) {
                     p.targetX = p.target.x;
                     p.targetY = p.target.y;
                 }
-                // Vertical launch: fly straight up from silo
                 p.y -= p.launchSpeed * dt;
                 if (p.y <= p.startY - p.launchHeight) {
                     p.phase = 'cruise';
                     p.y = p.startY - p.launchHeight;
-                    // Lock bezier curve at cruise start
                     p.bezierP0 = { x: p.x, y: p.y };
                     p.bezierP2 = { x: p.targetX, y: p.targetY };
                     const midX = (p.bezierP0.x + p.bezierP2.x) / 2;
@@ -1516,6 +1582,87 @@ function updateProjectiles(dt) {
                 }
                 spawnMissileTrail(p);
                 continue;
+            }
+            // Precision tracking: re-aim bezier toward target midpoint during cruise
+            if (p.precisionTracking && p.target && p.target.alive) {
+                p.targetX = p.target.x;
+                p.targetY = p.target.y;
+                const remaining = 1 - (p.bezierDist / p.bezierLen);
+                const newP2 = { x: p.targetX, y: p.targetY };
+                const curPos = bezierPoint(p.bezierP0, p.bezierP1, p.bezierP2, p.bezierDist / p.bezierLen);
+                const midX = (curPos.x + newP2.x) / 2;
+                const midY = Math.min(curPos.y, newP2.y) - p.arcHeight * remaining;
+                p.bezierP0 = curPos;
+                p.bezierP1 = { x: midX, y: midY };
+                p.bezierP2 = newP2;
+                p.bezierLen = bezierLength(p.bezierP0, p.bezierP1, p.bezierP2);
+                p.bezierDist = 0;
+            }
+            // Cluster split: burst into sub-missiles near end of cruise
+            if (p.clusterCount > 0 && !p.hasSplit) {
+                const progress = p.bezierDist / p.bezierLen;
+                if (progress >= p.clusterSplitPct) {
+                    p.hasSplit = true;
+                    const splitPos = bezierPoint(p.bezierP0, p.bezierP1, p.bezierP2, progress);
+                    // Gather candidate targets
+                    const candidates = [];
+                    for (const e of game.enemies) {
+                        if (!e.alive || e.isTurncoat) continue;
+                        if (dist({ x: splitPos.x, y: splitPos.y }, e) <= p.splashRadius * 2) {
+                            candidates.push(e);
+                        }
+                    }
+                    const subDmg = Math.floor(p.damage * p.clusterDmgPct);
+                    for (let i = 0; i < p.clusterCount; i++) {
+                        let stg;
+                        if (candidates.length > 0) {
+                            stg = candidates.splice(Math.floor(Math.random() * candidates.length), 1)[0];
+                        }
+                        const sub = {
+                            x: splitPos.x + (Math.random() - 0.5) * 16,
+                            y: splitPos.y + (Math.random() - 0.5) * 16,
+                            target: stg || null,
+                            targetX: stg ? stg.x : splitPos.x + (Math.random() - 0.5) * 200,
+                            targetY: stg ? stg.y : splitPos.y + (Math.random() - 0.5) * 200,
+                            startX: splitPos.x,
+                            startY: splitPos.y,
+                            damage: subDmg,
+                            speed: 420,
+                            type: 'missile_sub',
+                            color: '#DDD6FE',
+                            splashRadius: 0,
+                            splashDmgPct: 0,
+                            slowFactor: 0, slowDuration: 0,
+                            chainCount: 0, chainRange: 0, chainFalloff: 0,
+                            flameRadius: 0, flameDuration: 0, flameTickInterval: 0,
+                            sheepDuration: 0, knockbackDist: 0, arcHeight: 0,
+                            flightDistance: 600,
+                            progress: 0,
+                            alive: true,
+                            towerX: p.towerX,
+                            towerY: p.towerY,
+                            critChance: 0, critMultiplier: 0,
+                            shrapnelCount: 0, shrapnelRange: 0, shrapnelDmg: 0,
+                            stunFactor: 0, stunDuration: 0,
+                            freezeStacks: 0, freezeDuration: 0,
+                            auraSlowFactor: 0,
+                            pierceCount: 0, pierceFalloff: 0,
+                            focusDmgPerStack: 0, focusMaxStacks: 0,
+                            detonateDmg: 0, detonateRadius: 0,
+                            chainDmgBoost: 0,
+                            turncoatDamage: 0,
+                            contagionRange: 0, contagionFalloff: 0,
+                            clusterCount: 0, clusterDmgPct: 0, clusterSplitPct: 0,
+                            nukeZoneDuration: 0, nukeZoneRadius: 0, nukeZoneDmg: 0, nukeZoneInterval: 0,
+                            precisionTracking: false,
+                            towerId: p.towerId
+                        };
+                        game.projectiles.push(sub);
+                    }
+                    p.alive = false;
+                    createHitSpark(splitPos.x, splitPos.y, '#DDD6FE');
+                    continue;
+                }
             }
             // Cruise phase: follow bezier curve to target
             p.bezierDist += p.speed * dt;
@@ -1528,6 +1675,30 @@ function updateProjectiles(dt) {
                 const t = p.bezierDist / p.bezierLen;
                 const pos = bezierPoint(p.bezierP0, p.bezierP1, p.bezierP2, t);
                 p.x = pos.x; p.y = pos.y;
+            }
+            spawnMissileTrail(p);
+            continue;
+        }
+
+        // Cluster sub-missile — fast homing projectile
+        if (p.type === 'missile_sub') {
+            if (p.target && p.target.alive) {
+                p.targetX = p.target.x;
+                p.targetY = p.target.y;
+            }
+            const dx = p.targetX - p.x;
+            const dy = p.targetY - p.y;
+            const d = Math.sqrt(dx * dx + dy * dy);
+            const moveSpeed = p.speed * dt;
+            if (d <= moveSpeed + 3) {
+                if (p.target && p.target.alive) {
+                    dealDamage(p.target, p.damage);
+                    createHitSpark(p.target.x, p.target.y, '#C0B0F0');
+                }
+                p.alive = false;
+            } else {
+                p.x += (dx / d) * moveSpeed;
+                p.y += (dy / d) * moveSpeed;
             }
             spawnMissileTrail(p);
             continue;
@@ -1569,9 +1740,25 @@ function handleImpact(p) {
         return;
     }
 
-    // Missile — big splash explosion at impact point
-    if (p.type === 'missile') {
-        createMissileExplosion(p.x, p.y, p.splashRadius);
+    // Missile & variants — big splash explosion at impact point
+    if (p.type === 'missile' || p.type === 'missile_cluster' || p.type === 'missile_nuke' || p.type === 'missile_precision') {
+        const isNuke = p.type === 'missile_nuke';
+        if (isNuke) {
+            createNukeExplosion(p.x, p.y, p.splashRadius);
+            // Lingering radiation zone
+            if (p.nukeZoneDuration > 0) {
+                createFireZone(p.x, p.y, p.nukeZoneRadius, p.nukeZoneDmg, p.nukeZoneDuration, p.nukeZoneInterval);
+            }
+            // Full screen flash
+            game.particles.push({
+                x: CANVAS_W / 2, y: CANVAS_H / 2,
+                vx: 0, vy: 0,
+                life: 0.35, maxLife: 0.35,
+                color: '#FFFFFF', size: Math.max(CANVAS_W, CANVAS_H), ring: true
+            });
+        } else {
+            createMissileExplosion(p.x, p.y, p.splashRadius);
+        }
         for (const e of game.enemies) {
             if (!e.alive || e.isTurncoat) continue;
             const d = dist({ x: p.x, y: p.y }, e);
@@ -2245,6 +2432,68 @@ function createMissileExplosion(x, y, radius) {
     }
 }
 
+function createNukeExplosion(x, y, radius) {
+    // Massive nuclear fireball
+    for (let i = 0; i < 50; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 60 + Math.random() * 300;
+        game.particles.push({
+            x, y,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed - 40,
+            life: 0.4 + Math.random() * 1.2,
+            maxLife: 1.6,
+            color: Math.random() < 0.3 ? '#FFFFFF' : (Math.random() < 0.4 ? '#FFD700' : (Math.random() < 0.5 ? '#FF4500' : '#FF8C00')),
+            size: 3 + Math.random() * 10
+        });
+    }
+    // Intense flash
+    game.particles.push({
+        x, y, vx: 0, vy: 0,
+        life: 0.3, maxLife: 0.3,
+        color: '#FFFFFF', size: radius * 1.2, ring: true
+    });
+    game.particles.push({
+        x, y, vx: 0, vy: 0,
+        life: 0.5, maxLife: 0.5,
+        color: '#FF6000', size: radius, ring: true
+    });
+    game.particles.push({
+        x, y, vx: 0, vy: 0,
+        life: 0.7, maxLife: 0.7,
+        color: '#FF0000', size: radius * 0.7, ring: true
+    });
+    // Rising mushroom cloud smoke
+    for (let i = 0; i < 18; i++) {
+        game.particles.push({
+            x: x + (Math.random() - 0.5) * radius * 0.5,
+            y: y - Math.random() * 20,
+            vx: (Math.random() - 0.5) * 30,
+            vy: -40 - Math.random() * 80,
+            life: 1.0 + Math.random() * 1.5,
+            maxLife: 2.5,
+            color: Math.random() < 0.5 ? '#444' : '#5A4030',
+            size: 8 + Math.random() * 16,
+            smoke: true
+        });
+    }
+    // Ground scorch ring
+    for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2;
+        const dist = radius * (0.6 + Math.random() * 0.4);
+        game.particles.push({
+            x: x + Math.cos(a) * dist,
+            y: y + Math.sin(a) * dist,
+            vx: 0, vy: 0,
+            life: 1.0 + Math.random() * 1.0,
+            maxLife: 2.0,
+            color: '#332200',
+            size: 10 + Math.random() * 14,
+            smoke: true
+        });
+    }
+}
+
 function createSheepTransform(x, y) {
     // Magical pink/purple sparkles
     for (let i = 0; i < 15; i++) {
@@ -2504,6 +2753,9 @@ function drawTower(t) {
         case 'sheep_contagion': drawSheepContagionTower(t, st, lv); break;
         case 'sheep_aura': drawSheepAuraTower(t, st, lv); break;
         case 'missile': drawMissileTower(t, st, lv); break;
+        case 'missile_cluster': drawMissileClusterTower(t, st, lv); break;
+        case 'missile_nuke': drawMissileNukeTower(t, st, lv); break;
+        case 'missile_precision': drawMissilePrecisionTower(t, st, lv); break;
         case 'laser': drawLaserTower(t, st, lv); break;
     }
 
@@ -5546,7 +5798,384 @@ function drawMissileTower(t, st, lv) {
     }
 }
 
-// ===== LASER TOWER — High-tech energy cannon that links with nearby lasers =====
+// ===== MISSILE CLUSTER TOWER — Multi-tube launcher with cluster warheads =====
+function drawMissileClusterTower(t, st, lv) {
+    const bw = 9 + lv;
+    const h = 18 + lv * 4;
+    const time = Date.now() / 1000;
+
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.beginPath();
+    ctx.ellipse(0, 4, bw + 4, bw * 0.4, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Armored base platform
+    const baseGrad = ctx.createLinearGradient(0, 0, 0, bw + 3);
+    baseGrad.addColorStop(0, '#5A5070');
+    baseGrad.addColorStop(0.5, '#3A3060');
+    baseGrad.addColorStop(1, '#2A2040');
+    ctx.fillStyle = baseGrad;
+    ctx.beginPath();
+    ctx.roundRect(-bw - 3, 1, (bw + 3) * 2, bw + 5, 3);
+    ctx.fill();
+    ctx.strokeStyle = '#4A3A60';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Ammo feed hatches on base
+    for (let i = 0; i < 3; i++) {
+        const hx = -bw + 3 + i * (bw * 2 - 6) / 2;
+        ctx.fillStyle = '#2A2040';
+        ctx.fillRect(hx - 2, bw, 4, 5);
+        ctx.fillStyle = '#6A5A90';
+        ctx.fillRect(hx - 1, bw + 1, 2, 3);
+    }
+
+    // Triple launch tubes arranged in triangle
+    const tubeW = 3 + lv * 0.3;
+    const tubeH = h * 0.55;
+    const tubeOffsets = [
+        { x: 0, y: -2 },
+        { x: -bw + 2, y: 3 },
+        { x: bw - 2, y: 3 }
+    ];
+
+    for (const to of tubeOffsets) {
+        const tubeGrad = ctx.createLinearGradient(to.x - tubeW, 0, to.x + tubeW, 0);
+        tubeGrad.addColorStop(0, '#4A4060');
+        tubeGrad.addColorStop(0.3, '#7A7090');
+        tubeGrad.addColorStop(0.7, '#6A6090');
+        tubeGrad.addColorStop(1, '#3A3060');
+        ctx.fillStyle = tubeGrad;
+        ctx.fillRect(to.x - tubeW, -tubeH + 4 + to.y, tubeW * 2, tubeH);
+        ctx.strokeStyle = '#2A2040';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(to.x - tubeW, -tubeH + 4 + to.y, tubeW * 2, tubeH);
+        // Tube ring
+        ctx.strokeStyle = '#5A4A80';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(to.x - tubeW - 1, -tubeH + 8 + to.y);
+        ctx.lineTo(to.x + tubeW + 1, -tubeH + 8 + to.y);
+        ctx.stroke();
+    }
+
+    // Central targeting computer
+    ctx.fillStyle = '#1A1030';
+    ctx.fillRect(-3, -h * 0.2, 6, 8);
+    ctx.fillStyle = '#00E060';
+    ctx.fillRect(-2, -h * 0.15, 4, 3);
+    // Blinking targeting screen
+    const blinkAlpha = 0.5 + Math.sin(time * 5) * 0.3;
+    ctx.fillStyle = `rgba(0,255,100,${blinkAlpha})`;
+    ctx.fillRect(-1.5, -h * 0.14, 3, 1.5);
+
+    // Cluster missile tips peeking from tubes
+    for (const to of tubeOffsets) {
+        const tipY = -tubeH + 4 + to.y;
+        ctx.fillStyle = '#E0D8F0';
+        ctx.fillRect(to.x - 1.5, tipY, 3, 3);
+        ctx.fillStyle = '#C0A0E0';
+        ctx.beginPath();
+        ctx.moveTo(to.x - 1.5, tipY);
+        ctx.lineTo(to.x + 1.5, tipY);
+        ctx.lineTo(to.x, tipY - 5);
+        ctx.closePath();
+        ctx.fill();
+    }
+
+    // Purple energy conduit between tubes
+    const pulseAlpha = 0.25 + Math.sin(time * 3) * 0.1;
+    ctx.strokeStyle = `rgba(180,150,220,${pulseAlpha})`;
+    ctx.lineWidth = 1;
+    ctx.setLineDash([2, 3]);
+    ctx.beginPath();
+    ctx.moveTo(tubeOffsets[0].x, tubeOffsets[0].y - tubeH + 10);
+    ctx.lineTo(tubeOffsets[1].x, tubeOffsets[1].y - tubeH + 10);
+    ctx.lineTo(tubeOffsets[2].x, tubeOffsets[2].y - tubeH + 10);
+    ctx.closePath();
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Status lights
+    for (let i = 0; i < 3; i++) {
+        const lx = -bw + 3 + i * 8;
+        const ly = -2;
+        ctx.fillStyle = `rgba(200,120,255,${0.5 + Math.sin(time * 4 + i * 2) * 0.3})`;
+        ctx.beginPath();
+        ctx.arc(lx, ly, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+    }
+}
+
+// ===== MISSILE NUKE TOWER — Heavy reinforced bunker with tactical warhead =====
+function drawMissileNukeTower(t, st, lv) {
+    const bw = 12 + lv;
+    const h = 22 + lv * 5;
+    const time = Date.now() / 1000;
+
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+    ctx.beginPath();
+    ctx.ellipse(0, 5, bw + 5, bw * 0.4, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Heavy concrete bunker — extra thick
+    const bunkerGrad = ctx.createLinearGradient(0, 0, 0, bw + 4);
+    bunkerGrad.addColorStop(0, '#6B5D4B');
+    bunkerGrad.addColorStop(0.3, '#4A3D2B');
+    bunkerGrad.addColorStop(0.7, '#3A2D1B');
+    bunkerGrad.addColorStop(1, '#2A1D0B');
+    ctx.fillStyle = bunkerGrad;
+    ctx.beginPath();
+    ctx.roundRect(-bw - 3, 1, (bw + 3) * 2, bw + 6, 3);
+    ctx.fill();
+    ctx.strokeStyle = '#1A0D00';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Radiation warning stripes (yellow/black alternating)
+    for (let i = -4; i <= 4; i++) {
+        ctx.fillStyle = i % 2 === 0 ? '#F0C040' : '#222';
+        ctx.fillRect(i * (bw / 5), bw + 3, bw / 5, 4);
+    }
+
+    // Radiation trefoil symbol on base
+    ctx.fillStyle = '#F0C040';
+    ctx.beginPath();
+    ctx.arc(0, bw * 0.5, 5, 0, Math.PI * 2);
+    ctx.fill();
+    for (let i = 0; i < 3; i++) {
+        const a = (i / 3) * Math.PI * 2 - Math.PI / 2;
+        ctx.beginPath();
+        ctx.arc(Math.cos(a) * 7, bw * 0.5 + Math.sin(a) * 7, 3.5, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    ctx.fillStyle = '#4A2C0E';
+    ctx.beginPath();
+    ctx.arc(0, bw * 0.5, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Massive single launch silo
+    const tubeW = 7 + lv;
+    const tubeH = h * 0.6;
+    const siloGrad = ctx.createLinearGradient(-tubeW, 0, tubeW, 0);
+    siloGrad.addColorStop(0, '#3A2510');
+    siloGrad.addColorStop(0.2, '#5A4530');
+    siloGrad.addColorStop(0.5, '#6B5540');
+    siloGrad.addColorStop(0.8, '#5A4530');
+    siloGrad.addColorStop(1, '#3A2510');
+    ctx.fillStyle = siloGrad;
+    ctx.fillRect(-tubeW, -tubeH, tubeW * 2, tubeH + 4);
+    ctx.strokeStyle = '#2A1500';
+    ctx.lineWidth = 2.5;
+    ctx.strokeRect(-tubeW, -tubeH, tubeW * 2, tubeH + 4);
+
+    // Heavy tube reinforcement rings
+    for (let i = 0; i < 4; i++) {
+        const ry = -tubeH + 5 + i * tubeH / 5;
+        ctx.strokeStyle = '#2A1500';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.moveTo(-tubeW - 1, ry);
+        ctx.lineTo(tubeW + 1, ry);
+        ctx.stroke();
+        ctx.strokeStyle = '#7A6550';
+        ctx.lineWidth = 0.8;
+        ctx.beginPath();
+        ctx.moveTo(-tubeW - 1, ry - 1);
+        ctx.lineTo(tubeW + 1, ry - 1);
+        ctx.stroke();
+    }
+
+    // Huge warhead visible in tube
+    const warheadY = -tubeH + 6;
+    ctx.fillStyle = '#3A3020';
+    ctx.fillRect(-tubeW + 2, warheadY, tubeW * 2 - 4, tubeH * 0.45);
+    ctx.strokeStyle = '#2A2000';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(-tubeW + 2, warheadY, tubeW * 2 - 4, tubeH * 0.45);
+    // Warhead nose cone
+    ctx.fillStyle = '#CC3300';
+    ctx.beginPath();
+    ctx.moveTo(-tubeW + 2, warheadY);
+    ctx.lineTo(tubeW - 2, warheadY);
+    ctx.lineTo(0, warheadY - 10 - lv * 2);
+    ctx.closePath();
+    ctx.fill();
+    // Nose glow
+    const glowAlpha = 0.3 + Math.sin(time * 2) * 0.15;
+    ctx.fillStyle = `rgba(255,100,20,${glowAlpha})`;
+    ctx.beginPath();
+    ctx.arc(0, warheadY - 6, tubeW * 0.5, 0, Math.PI * 2);
+    ctx.fill();
+    // Radiation label on warhead
+    ctx.fillStyle = '#F0C040';
+    ctx.font = `${4 + lv}px sans-serif`;
+    ctx.fillText('☢', -tubeW + 4, warheadY + tubeH * 0.3);
+
+    // Ventilation pipes
+    for (let sx = -1; sx <= 1; sx += 2) {
+        const px = sx * (tubeW + 4);
+        ctx.fillStyle = '#555';
+        ctx.fillRect(px - 1, -tubeH + 10, 2, tubeH - 12);
+        ctx.fillStyle = '#444';
+        ctx.fillRect(px - 1.5, -tubeH + 8, 3, 4);
+    }
+
+    // Steam vents (Lv2+)
+    if (lv >= 2) {
+        for (let i = 0; i < 3; i++) {
+            const sx = -tubeW + 3 + i * (tubeW * 2 - 6) / 2;
+            const sy = -tubeH - 2 - Math.sin(time * 1.5 + i) * 3;
+            ctx.fillStyle = `rgba(180,160,140,${0.15 + Math.sin(time * 2 + i) * 0.05})`;
+            ctx.beginPath();
+            ctx.arc(sx, sy, 2 + i * 1.5, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+}
+
+// ===== MISSILE PRECISION TOWER — Advanced targeting silo with sensor array =====
+function drawMissilePrecisionTower(t, st, lv) {
+    const bw = 9 + lv;
+    const h = 18 + lv * 3;
+    const time = Date.now() / 1000;
+
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.25)';
+    ctx.beginPath();
+    ctx.ellipse(0, 4, bw + 3, bw * 0.35, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Sleek dark tech base
+    const baseGrad = ctx.createLinearGradient(0, 0, 0, bw + 2);
+    baseGrad.addColorStop(0, '#1A3A4A');
+    baseGrad.addColorStop(0.5, '#0D2B3A');
+    baseGrad.addColorStop(1, '#051A28');
+    ctx.fillStyle = baseGrad;
+    ctx.beginPath();
+    ctx.roundRect(-bw - 2, 1, (bw + 2) * 2, bw + 4, 2);
+    ctx.fill();
+    ctx.strokeStyle = '#00ACC1';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Neon cyan trim
+    ctx.strokeStyle = 'rgba(0,255,240,0.3)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(-bw, bw + 3);
+    ctx.lineTo(bw, bw + 3);
+    ctx.stroke();
+
+    // Sleek launch tube
+    const tubeW = 4 + lv * 0.3;
+    const tubeH = h * 0.55;
+    const tubeGrad = ctx.createLinearGradient(-tubeW, 0, tubeW, 0);
+    tubeGrad.addColorStop(0, '#0A2030');
+    tubeGrad.addColorStop(0.3, '#1A4050');
+    tubeGrad.addColorStop(0.7, '#1A4050');
+    tubeGrad.addColorStop(1, '#0A2030');
+    ctx.fillStyle = tubeGrad;
+    ctx.fillRect(-tubeW, -tubeH, tubeW * 2, tubeH + 2);
+    ctx.strokeStyle = '#00ACC1';
+    ctx.lineWidth = 1.2;
+    ctx.strokeRect(-tubeW, -tubeH, tubeW * 2, tubeH + 2);
+
+    // Tube accent rings with cyan glow
+    for (let i = 0; i < 3; i++) {
+        const ry = -tubeH + (i + 1) * tubeH / 4;
+        ctx.strokeStyle = `rgba(0,200,220,${0.4 + Math.sin(time * 3 + i) * 0.2})`;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(-tubeW - 1, ry);
+        ctx.lineTo(tubeW + 1, ry);
+        ctx.stroke();
+    }
+
+    // Precision missile in tube
+    const missileW = 2;
+    const missileTipY = -tubeH + 3;
+    ctx.fillStyle = '#E0F8FF';
+    ctx.fillRect(-missileW, missileTipY, missileW * 2, 2);
+    // Cyan nose cone
+    ctx.fillStyle = '#00F0FF';
+    ctx.beginPath();
+    ctx.moveTo(-missileW, missileTipY);
+    ctx.lineTo(missileW, missileTipY);
+    ctx.lineTo(0, missileTipY - 7 - lv);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = '#FFFFFF';
+    ctx.beginPath();
+    ctx.arc(0, missileTipY - 5, 1, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Advanced sensor array (rotating dish)
+    const dishX = tubeW + 4;
+    const dishY = -tubeH * 0.6;
+    ctx.fillStyle = '#1A3A4A';
+    ctx.fillRect(dishX - 0.5, dishY + 2, 1, tubeH * 0.4);
+    // Rotating radar dish
+    const dishAngle = time * 2.5;
+    ctx.save();
+    ctx.translate(dishX, dishY);
+    ctx.rotate(dishAngle);
+    ctx.fillStyle = '#0D2B3A';
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 5, 3, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#00F0FF';
+    ctx.lineWidth = 0.8;
+    ctx.stroke();
+    ctx.fillStyle = '#00F0FF';
+    ctx.beginPath();
+    ctx.arc(0, 0, 1.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // Secondary targeting sensor
+    const sensorX = -tubeW - 4;
+    const sensorY = -tubeH * 0.4;
+    ctx.fillStyle = '#0D2B3A';
+    ctx.fillRect(sensorX - 0.5, sensorY + 3, 1, tubeH * 0.3);
+    // Sensor lens
+    const lensAlpha = 0.5 + Math.sin(time * 6) * 0.3;
+    ctx.fillStyle = `rgba(0,240,255,${lensAlpha})`;
+    ctx.beginPath();
+    ctx.arc(sensorX, sensorY, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#FFFFFF';
+    ctx.beginPath();
+    ctx.arc(sensorX, sensorY, 1, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Targeting laser sight (sweeps occasionally)
+    const laserAlpha = 0.2 + Math.sin(time * 1.5) * 0.15;
+    ctx.strokeStyle = `rgba(255,30,30,${laserAlpha})`;
+    ctx.lineWidth = 1;
+    ctx.setLineDash([2, 8]);
+    ctx.beginPath();
+    ctx.moveTo(0, -tubeH);
+    const laserLen = 15 + Math.sin(time * 2) * 5;
+    ctx.lineTo(t.angle ? Math.cos(t.angle) * laserLen : laserLen, t.angle ? -tubeH + Math.sin(t.angle) * laserLen : -tubeH);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // HUD-style data rings on base
+    for (let r = 2; r <= 6; r += 2) {
+        const ringAlpha = 0.15 + Math.sin(time * 2 + r) * 0.05;
+        ctx.strokeStyle = `rgba(0,240,255,${ringAlpha})`;
+        ctx.lineWidth = 0.5;
+        ctx.beginPath();
+        ctx.arc(0, -h * 0.1, r, 0, Math.PI * 2);
+        ctx.stroke();
+    }
+}
+
+// ===== LASER LINK RENDERING =====
 function drawLaserLinks() {
     const time = Date.now() / 1000;
     const drawn = new Set();
@@ -5926,11 +6555,11 @@ function drawProjectile(p) {
         ctx.arc(2, 0, 1.2, 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
-    } else if (p.type === 'missile') {
+    } else if (p.type === 'missile' || p.type === 'missile_cluster' || p.type === 'missile_nuke' || p.type === 'missile_precision') {
         // Missile — vertical launch then arc toward target
         let angle;
         if (p.phase === 'launch') {
-            angle = -Math.PI / 2; // Pointing straight up during launch
+            angle = -Math.PI / 2;
         } else if (p.bezierP1) {
             const t = Math.min(p.bezierDist / p.bezierLen, 1);
             const tan = bezierTangent(p.bezierP0, p.bezierP1, p.bezierP2, t);
@@ -5942,99 +6571,129 @@ function drawProjectile(p) {
         ctx.translate(p.x, p.y);
         ctx.rotate(angle);
 
-        // Outer glow
-        ctx.fillStyle = 'rgba(255,140,20,0.25)';
+        const isNuke = p.type === 'missile_nuke';
+        const isCluster = p.type === 'missile_cluster';
+        const isPrecision = p.type === 'missile_precision';
+        const isLaunch = p.phase === 'launch';
+
+        // Outer glow — variant specific
+        const glowColor = isNuke ? 'rgba(255,60,0,0.35)' : isCluster ? 'rgba(180,150,220,0.25)' : isPrecision ? 'rgba(0,200,255,0.25)' : 'rgba(255,140,20,0.25)';
+        const glowSize = isNuke ? 22 : isCluster ? 12 : 14;
+        ctx.fillStyle = glowColor;
         ctx.beginPath();
-        ctx.arc(0, 0, 14, 0, Math.PI * 2);
+        ctx.arc(0, 0, glowSize, 0, Math.PI * 2);
         ctx.fill();
 
-        // Missile body — longer, sleeker
-        const bodyLen = 24;
-        const bodyH = 3.5;
-        ctx.fillStyle = '#F0F0F0';
-        ctx.fillRect(-12, -bodyH, bodyLen, bodyH * 2);
-        ctx.strokeStyle = '#AAA';
+        // Missile body dimensions
+        const bodyLen = isNuke ? 32 : isCluster ? 20 : 24;
+        const bodyH = isNuke ? 5 : 3.5;
+        const bodyColor = isNuke ? '#3A2A1A' : isCluster ? '#E0D8F0' : isPrecision ? '#E0F4F8' : '#F0F0F0';
+        const noseColor = isNuke ? '#CC3300' : isCluster ? '#C0A0E0' : isPrecision ? '#00F0FF' : '#CC2222';
+
+        ctx.fillStyle = bodyColor;
+        ctx.fillRect(-bodyLen / 2, -bodyH, bodyLen, bodyH * 2);
+        ctx.strokeStyle = isPrecision ? '#00ACC1' : '#AAA';
         ctx.lineWidth = 1;
-        ctx.strokeRect(-12, -bodyH, bodyLen, bodyH * 2);
+        ctx.strokeRect(-bodyLen / 2, -bodyH, bodyLen, bodyH * 2);
 
-        // Body stripe
-        ctx.fillStyle = '#E74C3C';
-        ctx.fillRect(-8, -bodyH, 3, bodyH * 2);
-        ctx.fillRect(-2, -bodyH, 3, bodyH * 2);
+        // Body stripes / markings
+        if (isNuke) {
+            ctx.fillStyle = '#F0C040';
+            ctx.fillRect(-10, -bodyH, 3, bodyH * 2);
+            ctx.fillRect(-4, -bodyH, 3, bodyH * 2);
+            ctx.fillRect(4, -bodyH, 2, bodyH * 2);
+        } else if (isCluster) {
+            ctx.fillStyle = '#9B59B6';
+            ctx.fillRect(-6, -bodyH, 2, bodyH * 2);
+            ctx.fillRect(0, -bodyH, 2, bodyH * 2);
+        } else if (isPrecision) {
+            ctx.fillStyle = '#00ACC1';
+            ctx.fillRect(-8, -bodyH, 2, bodyH * 2);
+            ctx.fillRect(-2, -bodyH, 2, bodyH * 2);
+            ctx.fillRect(6, -bodyH, 1, bodyH * 2);
+        } else {
+            ctx.fillStyle = '#E74C3C';
+            ctx.fillRect(-8, -bodyH, 3, bodyH * 2);
+            ctx.fillRect(-2, -bodyH, 3, bodyH * 2);
+        }
 
-        // Nose cone — larger
-        ctx.fillStyle = '#CC2222';
+        // Nose cone
+        ctx.fillStyle = noseColor;
         ctx.beginPath();
-        ctx.moveTo(12, -bodyH - 1);
-        ctx.lineTo(12, bodyH + 1);
-        ctx.lineTo(19, 0);
+        ctx.moveTo(bodyLen / 2, -bodyH - 1);
+        ctx.lineTo(bodyLen / 2, bodyH + 1);
+        ctx.lineTo(bodyLen / 2 + (isNuke ? 12 : 7), 0);
         ctx.closePath();
         ctx.fill();
-        ctx.strokeStyle = '#991111';
+        ctx.strokeStyle = isNuke ? '#992200' : isPrecision ? '#008899' : isCluster ? '#8866AA' : '#991111';
         ctx.lineWidth = 0.8;
         ctx.stroke();
 
-        // Nose tip highlight
-        ctx.fillStyle = '#FF4444';
-        ctx.beginPath();
-        ctx.arc(17, 0, 1.2, 0, Math.PI * 2);
-        ctx.fill();
+        // Rear fins
+        ctx.fillStyle = isNuke ? '#2A1A0A' : isPrecision ? '#0A3040' : '#444';
+        const finLen = isNuke ? 10 : 6;
+        ctx.beginPath(); ctx.moveTo(-bodyLen / 2 + 2, -bodyH); ctx.lineTo(-bodyLen / 2, -bodyH - finLen); ctx.lineTo(-bodyLen / 2 + 5, -bodyH); ctx.closePath(); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(-bodyLen / 2 + 2, bodyH); ctx.lineTo(-bodyLen / 2, bodyH + finLen); ctx.lineTo(-bodyLen / 2 + 5, bodyH); ctx.closePath(); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(bodyLen / 4, -bodyH); ctx.lineTo(bodyLen / 4 - 2, -bodyH - finLen * 0.6); ctx.lineTo(bodyLen / 4 + 3, -bodyH); ctx.closePath(); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(bodyLen / 4, bodyH); ctx.lineTo(bodyLen / 4 - 2, bodyH + finLen * 0.6); ctx.lineTo(bodyLen / 4 + 3, bodyH); ctx.closePath(); ctx.fill();
 
-        // Rear fins — larger
-        ctx.fillStyle = '#444';
-        ctx.beginPath(); ctx.moveTo(-10, -bodyH); ctx.lineTo(-12, -8); ctx.lineTo(-7, -bodyH); ctx.closePath(); ctx.fill();
-        ctx.beginPath(); ctx.moveTo(-10, bodyH); ctx.lineTo(-12, 8); ctx.lineTo(-7, bodyH); ctx.closePath(); ctx.fill();
-        ctx.beginPath(); ctx.moveTo(2, -bodyH); ctx.lineTo(0, -6); ctx.lineTo(5, -bodyH); ctx.closePath(); ctx.fill();
-        ctx.beginPath(); ctx.moveTo(2, bodyH); ctx.lineTo(0, 6); ctx.lineTo(5, bodyH); ctx.closePath(); ctx.fill();
+        // Flame exhaust
+        const flameLen = isLaunch ? (isNuke ? 40 : 24) : (isNuke ? 28 : 14);
+        const flameCore = isNuke ? '#FFB830' : isCluster ? '#D0A0FF' : isPrecision ? '#00E0FF' : '#FFD700';
+        const flameMid = isNuke ? '#FF4500' : isCluster ? '#9060C0' : isPrecision ? '#0088CC' : '#FF6B35';
+        const flameEnd = isNuke ? 'rgba(200,20,0,0)' : isCluster ? 'rgba(100,40,160,0)' : isPrecision ? 'rgba(0,80,120,0)' : 'rgba(200,20,0,0)';
 
-        // Big flame exhaust — multi-layer (longer during launch)
-        const isLaunch = p.phase === 'launch';
-        const flameLen = isLaunch ? 28 : 16;
-        // Layer 1: bright core
-        const exhGrad1 = ctx.createLinearGradient(-12, 0, -12 - flameLen, 0);
-        exhGrad1.addColorStop(0, '#FFD700');
-        exhGrad1.addColorStop(0.2, '#FFB830');
-        exhGrad1.addColorStop(0.5, '#FF6B35');
-        exhGrad1.addColorStop(1, 'rgba(200,20,0,0)');
+        const exhGrad1 = ctx.createLinearGradient(-bodyLen / 2, 0, -bodyLen / 2 - flameLen, 0);
+        exhGrad1.addColorStop(0, flameCore);
+        exhGrad1.addColorStop(0.3, flameMid);
+        exhGrad1.addColorStop(1, flameEnd);
         ctx.fillStyle = exhGrad1;
         ctx.beginPath();
-        ctx.moveTo(-12, -3.5);
-        ctx.lineTo(-12 - flameLen, -2);
-        ctx.lineTo(-12 - flameLen - 4, 0);
-        ctx.lineTo(-12 - flameLen, 2);
-        ctx.lineTo(-12, 3.5);
+        ctx.moveTo(-bodyLen / 2, -bodyH);
+        ctx.lineTo(-bodyLen / 2 - flameLen, -bodyH * 0.5);
+        ctx.lineTo(-bodyLen / 2 - flameLen - 5, 0);
+        ctx.lineTo(-bodyLen / 2 - flameLen, bodyH * 0.5);
+        ctx.lineTo(-bodyLen / 2, bodyH);
         ctx.closePath();
         ctx.fill();
+        ctx.restore();
+    } else if (p.type === 'missile_sub') {
+        // Small fast homing sub-missile
+        const angle = Math.atan2(p.targetY - p.y, p.targetX - p.x);
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(angle);
 
-        // Layer 2: outer glow flames
-        const exhGrad2 = ctx.createLinearGradient(-12, 0, -12 - flameLen * 0.7, 0);
-        exhGrad2.addColorStop(0, 'rgba(255,200,40,0.6)');
-        exhGrad2.addColorStop(1, 'rgba(255,40,0,0)');
-        ctx.fillStyle = exhGrad2;
+        ctx.fillStyle = '#DDD6FE';
+        ctx.fillRect(-8, -2, 16, 4);
+        ctx.strokeStyle = '#C0A0E0';
+        ctx.lineWidth = 0.8;
+        ctx.strokeRect(-8, -2, 16, 4);
+        // Purple nose
+        ctx.fillStyle = '#9B59B6';
         ctx.beginPath();
-        ctx.moveTo(-12, -5);
-        ctx.lineTo(-12 - flameLen * 0.7, -4);
-        ctx.lineTo(-12 - flameLen, 0);
-        ctx.lineTo(-12 - flameLen * 0.7, 4);
-        ctx.lineTo(-12, 5);
+        ctx.moveTo(8, -2);
+        ctx.lineTo(8, 2);
+        ctx.lineTo(13, 0);
         ctx.closePath();
         ctx.fill();
-
-        // Smoke puff right behind (bigger during launch)
-        const smokeScale = isLaunch ? 1.6 : 1;
-        ctx.fillStyle = 'rgba(140,140,140,0.4)';
+        // Tail fins
+        ctx.fillStyle = '#8866AA';
+        ctx.beginPath(); ctx.moveTo(-6, -2); ctx.lineTo(-8, -5); ctx.lineTo(-4, -2); ctx.closePath(); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(-6, 2); ctx.lineTo(-8, 5); ctx.lineTo(-4, 2); ctx.closePath(); ctx.fill();
+        // Flame
+        const subGrad = ctx.createLinearGradient(-8, 0, -16, 0);
+        subGrad.addColorStop(0, '#D0A0FF');
+        subGrad.addColorStop(1, 'rgba(120,60,180,0)');
+        ctx.fillStyle = subGrad;
         ctx.beginPath();
-        ctx.arc(-13, 0, 6 * smokeScale, 0, Math.PI * 2);
+        ctx.moveTo(-8, -1.5);
+        ctx.lineTo(-16, -0.5);
+        ctx.lineTo(-18, 0);
+        ctx.lineTo(-16, 0.5);
+        ctx.lineTo(-8, 1.5);
+        ctx.closePath();
         ctx.fill();
-        ctx.fillStyle = 'rgba(160,160,160,0.25)';
-        ctx.beginPath();
-        ctx.arc(-16, 0, 7 * smokeScale, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = 'rgba(120,120,120,0.15)';
-        ctx.beginPath();
-        ctx.arc(-20, 0, 9 * smokeScale, 0, Math.PI * 2);
-        ctx.fill();
-
         ctx.restore();
     } else if (p.type === 'sheep' || p.type === 'sheep_turncoat' || p.type === 'sheep_contagion') {
         // Orb based on sheep variant
@@ -6486,7 +7145,13 @@ function showTowerInfo(t) {
         (st.turncoatDamage > 0 ? '<div class="stat-row"><span>反戈伤害</span><span>' + st.turncoatDamage + '</span></div>' : '') +
         (st.contagionRange > 0 ? '<div class="stat-row"><span>传染范围</span><span>' + st.contagionRange + 'px</span></div>' : '') +
         (st.contagionFalloff > 0 ? '<div class="stat-row"><span>传染衰减</span><span>' + Math.round(st.contagionFalloff * 100) + '%</span></div>' : '') +
-        (st.auraSheepDuration > 0 ? '<div class="stat-row"><span>光环化羊</span><span>' + (st.auraSheepDuration / 1000).toFixed(1) + 's</span></div>' : '');
+        (st.auraSheepDuration > 0 ? '<div class="stat-row"><span>光环化羊</span><span>' + (st.auraSheepDuration / 1000).toFixed(1) + 's</span></div>' : '') +
+        (st.clusterCount > 0 ? '<div class="stat-row"><span>分裂数量</span><span>' + st.clusterCount + '枚</span></div>' : '') +
+        (st.clusterDmgPct > 0 ? '<div class="stat-row"><span>子导弹伤害</span><span>' + Math.round(st.clusterDmgPct * 100) + '%</span></div>' : '') +
+        (st.nukeZoneDuration > 0 ? '<div class="stat-row"><span>辐射持续</span><span>' + (st.nukeZoneDuration / 1000).toFixed(1) + 's</span></div>' : '') +
+        (st.nukeZoneRadius > 0 ? '<div class="stat-row"><span>辐射范围</span><span>' + st.nukeZoneRadius + 'px</span></div>' : '') +
+        (st.nukeZoneDmg > 0 ? '<div class="stat-row"><span>辐射伤害</span><span>' + st.nukeZoneDmg + '/跳</span></div>' : '') +
+        (st.precisionTracking ? '<div class="stat-row"><span>精准制导</span><span>是</span></div>' : '');
 
     // Branch evolution — dynamic based on tower type
     const evolveDiv = document.getElementById('evolve-btns');
