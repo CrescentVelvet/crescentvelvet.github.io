@@ -275,6 +275,9 @@ title: "塔防战争"
         <button class="tower-btn" data-type="missile" onclick="selectTowerType('missile')">
             <span class="tower-icon">🚀</span><span class="tower-name">导弹塔</span><span class="tower-cost">250💰</span>
         </button>
+        <button class="tower-btn" data-type="laser" onclick="selectTowerType('laser')">
+            <span class="tower-icon">🔆</span><span class="tower-name">激光塔</span><span class="tower-cost">200💰</span>
+        </button>
     </div>
 </div>
 
@@ -365,6 +368,14 @@ const TOWER_DEFS = {
         color: '#4A5568', bulletColor: '#CBD5E0', bulletSpeed: 380,
         splash: [60, 70, 85], slowFactor: 0, slowDuration: 0, chainCount: 0, splashDmgPct: 0.6,
         arcHeight: 70
+    },
+    laser: {
+        name: '激光塔', icon: '🔆',
+        cost: 200, upgradeCost: [150, 300],
+        damage: [35, 60, 100], range: [140, 155, 170], cooldown: [1600, 1350, 1100],
+        color: '#C0392B', bulletColor: '#FF3333', bulletSpeed: 9999,
+        splash: 0, slowFactor: 0, slowDuration: 0, chainCount: 0,
+        linkRange: 120, linkDmgBoost: 0.2
     }
 };
 
@@ -659,6 +670,8 @@ function towerStats(t) {
         sheepDuration: Array.isArray(def.sheepDuration) ? def.sheepDuration[lv] : (def.sheepDuration || 0),
         knockbackDist: Array.isArray(def.knockbackDist) ? def.knockbackDist[lv] : (def.knockbackDist || 0),
         arcHeight: def.arcHeight || 0,
+        linkRange: def.linkRange || 0,
+        linkDmgBoost: def.linkDmgBoost || 0,
         color: def.color,
         bulletColor: def.bulletColor,
         bulletSpeed: def.bulletSpeed,
@@ -722,6 +735,20 @@ function towerAcquireTarget(t) {
 }
 
 function updateTowers(dt) {
+    // Update laser tower links
+    const laserTowers = game.towers.filter(t => t.type === 'laser');
+    for (const lt of laserTowers) {
+        const linkRange = TOWER_DEFS.laser.linkRange;
+        lt.linkedTo = [];
+        for (const other of laserTowers) {
+            if (other.id === lt.id) continue;
+            if (dist(lt, other) <= linkRange) {
+                lt.linkedTo.push(other.id);
+            }
+        }
+        lt.linkedCount = lt.linkedTo.length;
+    }
+
     for (const t of game.towers) {
         t.cooldown -= dt * 1000;
         if (t.cooldown > 0) continue;
@@ -729,7 +756,11 @@ function updateTowers(dt) {
         if (target) {
             const st = towerStats(t);
             t.angle = angleTo(t, target);
-            createProjectile(t, target);
+            const p = createProjectile(t, target);
+            // Laser link damage boost
+            if (t.type === 'laser' && t.linkedCount > 0) {
+                p.linkBoost = 1 + t.linkedCount * TOWER_DEFS.laser.linkDmgBoost;
+            }
             t.cooldown = st.cooldown;
         }
     }
@@ -955,7 +986,12 @@ function createProjectile(tower, target) {
         p.bezierP2 = null;
         p.bezierT = 0;
     }
+    // Laser: link boost placeholder (set by caller)
+    if (tower.type === 'laser') {
+        p.linkBoost = 1;
+    }
     game.projectiles.push(p);
+    return p;
 }
 
 function updateProjectiles(dt) {
@@ -1030,8 +1066,8 @@ function updateProjectiles(dt) {
         const dy = p.target.y - p.y;
         const d = Math.sqrt(dx * dx + dy * dy);
 
-        // Lightning is instant
-        if (p.type === 'tesla' && p.speed > 9000) {
+        // Lightning / Laser are instant
+        if ((p.type === 'tesla' || p.type === 'laser') && p.speed > 9000) {
             handleImpact(p);
             p.alive = false;
             continue;
@@ -1089,6 +1125,15 @@ function handleImpact(p) {
         p.target.isSheep = true;
         p.target.sheepTimer = p.sheepDuration;
         createSheepTransform(p.target.x, p.target.y);
+        return;
+    }
+
+    // Laser — single-target instant beam with link boost
+    if (p.type === 'laser') {
+        if (!p.target || !p.target.alive) return;
+        const linkBoost = p.linkBoost || 1;
+        dealDamage(p.target, Math.floor(p.damage * linkBoost));
+        createLaserBeam(p.towerX, p.towerY, p.target.x, p.target.y);
         return;
     }
 
@@ -1240,6 +1285,35 @@ function createLightningArc(x1, y1, x2, y2) {
     });
 }
 
+function createLaserBeam(x1, y1, x2, y2) {
+    // Bright laser beam particle (rendered as a line in drawParticles)
+    game.particles.push({
+        x: x1, y: y1, x2, y2,
+        life: 0.12, maxLife: 0.12,
+        color: '#FF4444', size: 3, laserBeam: true
+    });
+    // Outer glow
+    game.particles.push({
+        x: x1, y: y1, x2, y2,
+        life: 0.18, maxLife: 0.18,
+        color: '#FF8888', size: 6, laserBeam: true
+    });
+    // Impact spark at target
+    for (let i = 0; i < 5; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 60 + Math.random() * 120;
+        game.particles.push({
+            x: x2, y: y2,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            life: 0.1 + Math.random() * 0.2,
+            maxLife: 0.3,
+            color: Math.random() < 0.5 ? '#FF6666' : '#FFAAAA',
+            size: 1.5 + Math.random() * 2
+        });
+    }
+}
+
 function createDeathExplosion(x, y, size, color) {
     for (let i = 0; i < 10; i++) {
         const angle = Math.random() * Math.PI * 2;
@@ -1259,7 +1333,7 @@ function createDeathExplosion(x, y, size, color) {
 function updateParticles(dt) {
     for (const p of game.particles) {
         p.life -= dt;
-        if (!p.ring && !p.lightning) {
+        if (!p.ring && !p.lightning && !p.laserBeam) {
             p.x += p.vx * dt;
             p.y += p.vy * dt;
         }
@@ -1698,6 +1772,7 @@ function drawTower(t) {
         case 'knockback': drawKnockbackTower(t, st, lv); break;
         case 'sheep': drawSheepTower(t, st, lv); break;
         case 'missile': drawMissileTower(t, st, lv); break;
+        case 'laser': drawLaserTower(t, st, lv); break;
     }
 
     ctx.restore();
@@ -2716,6 +2791,188 @@ function drawMissileTower(t, st, lv) {
     }
 }
 
+// ===== LASER TOWER — High-tech energy cannon that links with nearby lasers =====
+function drawLaserLinks() {
+    const time = Date.now() / 1000;
+    const drawn = new Set();
+    const laserTowers = game.towers.filter(t => t.type === 'laser');
+    for (const t of laserTowers) {
+        if (!t.linkedTo) continue;
+        for (const otherId of t.linkedTo) {
+            const key = Math.min(t.id, otherId) + '_' + Math.max(t.id, otherId);
+            if (drawn.has(key)) continue;
+            drawn.add(key);
+            const other = game.towers.find(tw => tw.id === otherId);
+            if (!other) continue;
+            const pulse = 0.5 + Math.sin(time * 4 + t.id * 0.7) * 0.3;
+            // Glow beam
+            ctx.strokeStyle = `rgba(255,180,50,${0.15 + pulse * 0.15})`;
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(t.x, t.y);
+            ctx.lineTo(other.x, other.y);
+            ctx.stroke();
+            // Core beam
+            ctx.strokeStyle = `rgba(255,220,100,${0.3 + pulse * 0.25})`;
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(t.x, t.y);
+            ctx.lineTo(other.x, other.y);
+            ctx.stroke();
+            // Energy particles along the beam
+            const dx = other.x - t.x;
+            const dy = other.y - t.y;
+            const len = Math.sqrt(dx * dx + dy * dy);
+            const nx = -dy / len;
+            const ny = dx / len;
+            for (let i = 1; i < 5; i++) {
+                const f = (i / 5 + time * 0.3) % 1;
+                const px = t.x + dx * f + nx * (Math.sin(time * 6 + i) * 3);
+                const py = t.y + dy * f + ny * (Math.sin(time * 6 + i) * 3);
+                ctx.fillStyle = `rgba(255,255,200,${0.5 + pulse * 0.4})`;
+                ctx.beginPath();
+                ctx.arc(px, py, 1.2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+    }
+}
+
+// ===== LASER TOWER — High-tech energy cannon that links with nearby lasers =====
+function drawLaserTower(t, st, lv) {
+    const bw = 9 + lv;
+    const h = 16 + lv * 4;
+    const time = Date.now() / 1000;
+    const pulse = 0.6 + Math.sin(time * 3) * 0.4;
+    const linkedCount = t.linkedCount || 0;
+
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.beginPath();
+    ctx.ellipse(0, 4, bw + 3, bw * 0.4, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Metallic base platform
+    const baseGrad = ctx.createLinearGradient(0, 0, 0, bw + 2);
+    baseGrad.addColorStop(0, '#5A5A6E');
+    baseGrad.addColorStop(0.4, '#3A3A4E');
+    baseGrad.addColorStop(1, '#1A1A2E');
+    ctx.fillStyle = baseGrad;
+    ctx.beginPath();
+    ctx.roundRect(-bw - 2, 1, (bw + 2) * 2, bw + 4, 3);
+    ctx.fill();
+    ctx.strokeStyle = '#2A2A3E';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Energy conduits on base (glowing lines)
+    for (let i = -1; i <= 1; i += 2) {
+        const cx = i * bw * 0.5;
+        ctx.strokeStyle = `rgba(255,60,60,${0.3 + pulse * 0.3})`;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(cx, 3);
+        ctx.lineTo(cx, bw + 2);
+        ctx.stroke();
+    }
+    // Link indicator lights when connected
+    if (linkedCount > 0) {
+        for (let i = 0; i < linkedCount && i < 4; i++) {
+            const lx = -bw + 3 + i * 5;
+            ctx.fillStyle = `rgba(255,200,50,${0.5 + pulse * 0.4})`;
+            ctx.beginPath();
+            ctx.arc(lx, bw + 1, 1.8, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+
+    // Main crystal column
+    const colW = 4 + lv * 0.5;
+    const colH = h * 0.45;
+    const crystalGrad = ctx.createLinearGradient(-colW, 0, colW, 0);
+    crystalGrad.addColorStop(0, '#8B1A1A');
+    crystalGrad.addColorStop(0.3, '#E85D5D');
+    crystalGrad.addColorStop(0.5, '#FF7777');
+    crystalGrad.addColorStop(0.7, '#C0392B');
+    crystalGrad.addColorStop(1, '#6B1010');
+    ctx.fillStyle = crystalGrad;
+    ctx.beginPath();
+    ctx.roundRect(-colW, -colH, colW * 2, colH + 2, 2);
+    ctx.fill();
+    ctx.strokeStyle = '#FF9999';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(-colW, -colH, colW * 2, colH + 2);
+
+    // Crystal inner glow
+    const innerGlowGrad = ctx.createLinearGradient(0, -colH, 0, 0);
+    innerGlowGrad.addColorStop(0, 'rgba(255,255,255,0.5)');
+    innerGlowGrad.addColorStop(0.5, 'rgba(255,100,100,0.3)');
+    innerGlowGrad.addColorStop(1, 'rgba(200,0,0,0.1)');
+    ctx.fillStyle = innerGlowGrad;
+    ctx.fillRect(-colW + 1, -colH + 1, colW * 2 - 2, colH);
+
+    // Energy rings around crystal
+    for (let i = 0; i < 3; i++) {
+        const ry = -colH + (i + 1) * colH / 4;
+        const ringAlpha = 0.3 + Math.sin(time * 5 + i) * 0.2;
+        ctx.strokeStyle = `rgba(255,150,150,${ringAlpha})`;
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(-colW - 2, ry);
+        ctx.lineTo(colW + 2, ry);
+        ctx.stroke();
+    }
+
+    // Focusing lens on top
+    const lensW = colW + 2;
+    const lensH = 4 + lv;
+    const lensGrad = ctx.createLinearGradient(0, -colH - lensH, 0, -colH);
+    lensGrad.addColorStop(0, '#FF9999');
+    lensGrad.addColorStop(0.5, '#FF4444');
+    lensGrad.addColorStop(1, '#AA1111');
+    ctx.fillStyle = lensGrad;
+    ctx.beginPath();
+    ctx.moveTo(-lensW, -colH);
+    ctx.lineTo(lensW, -colH);
+    ctx.lineTo(lensW - 2, -colH - lensH);
+    ctx.lineTo(-lensW + 2, -colH - lensH);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#FFBBBB';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Lens glow
+    ctx.fillStyle = `rgba(255,200,200,${0.4 + pulse * 0.3})`;
+    ctx.beginPath();
+    ctx.arc(0, -colH - lensH * 0.5, lensW * 0.6, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Rotating emitter prongs
+    for (let i = 0; i < 3; i++) {
+        const a = time * 2 + i * Math.PI * 2 / 3;
+        const px = Math.cos(a) * (lensW * 0.7);
+        const py = -colH - lensH - 3 + Math.sin(a) * 2;
+        ctx.fillStyle = '#FF6666';
+        ctx.beginPath();
+        ctx.arc(px, py, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // Emitter tip — brightest point
+    ctx.fillStyle = `rgba(255,255,255,${0.7 + pulse * 0.3})`;
+    ctx.beginPath();
+    ctx.arc(0, -colH - lensH - 1, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+    // Outer emitter glow
+    ctx.fillStyle = `rgba(255,100,100,${0.3 + pulse * 0.2})`;
+    ctx.beginPath();
+    ctx.arc(0, -colH - lensH - 1, 6, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Link energy beams drawn in main render loop
+}
+
 function drawEnemy(e) {
     if (!e.alive) return;
     ctx.save();
@@ -2774,6 +3031,17 @@ function drawEnemy(e) {
         ctx.font = `${e.size * 0.7}px sans-serif`;
         ctx.fillText('z', e.size * 0.4, -e.size * 0.8 - Math.sin(Date.now() / 300) * 3);
         ctx.fillText('Z', e.size * 0.2, -e.size * 1.2 - Math.sin(Date.now() / 350) * 3);
+
+        // Health bar for sheep
+        const sheepBarW = e.size * 2.5;
+        const sheepBarH = 3;
+        const sheepBarY = -e.size * 1.6;
+        ctx.fillStyle = '#333';
+        ctx.fillRect(-sheepBarW / 2, sheepBarY, sheepBarW, sheepBarH);
+        const sheepHpPct = e.hp / e.maxHp;
+        const sheepHpColor = sheepHpPct > 0.5 ? '#2ecc71' : sheepHpPct > 0.25 ? '#f39c12' : '#e74c3c';
+        ctx.fillStyle = sheepHpColor;
+        ctx.fillRect(-sheepBarW / 2, sheepBarY, sheepBarW * sheepHpPct, sheepBarH);
 
         ctx.restore();
         return;
@@ -2985,6 +3253,17 @@ function drawParticles() {
             const midY = (p.y + p.y2) / 2 + (Math.random() - 0.5) * 30;
             ctx.quadraticCurveTo(midX, midY, p.x2, p.y2);
             ctx.stroke();
+        } else if (p.laserBeam) {
+            // Laser beam — straight line with glow
+            ctx.strokeStyle = p.color;
+            ctx.lineWidth = p.size * alpha;
+            ctx.shadowColor = p.color;
+            ctx.shadowBlur = 6 * alpha;
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(p.x2, p.y2);
+            ctx.stroke();
+            ctx.shadowBlur = 0;
         } else if (p.smoke) {
             // Rising smoke cloud
             const progress = 1 - alpha;
@@ -3122,6 +3401,25 @@ function drawHoverPreview() {
             ctx.beginPath(); ctx.moveTo(-6, -6); ctx.lineTo(-9, -4); ctx.lineTo(-6, -2); ctx.closePath(); ctx.fill();
             ctx.beginPath(); ctx.moveTo(6, -6); ctx.lineTo(9, -4); ctx.lineTo(6, -2); ctx.closePath(); ctx.fill();
             break;
+        case 'laser':
+            // Crystal column silhouette
+            ctx.fillStyle = def.color;
+            ctx.fillRect(-4, -6, 8, 12);
+            // Lens top
+            ctx.fillStyle = '#FF4444';
+            ctx.beginPath();
+            ctx.moveTo(-5, -6);
+            ctx.lineTo(5, -6);
+            ctx.lineTo(3, -12);
+            ctx.lineTo(-3, -12);
+            ctx.closePath();
+            ctx.fill();
+            // Emitter dot
+            ctx.fillStyle = '#FFF';
+            ctx.beginPath();
+            ctx.arc(0, -12, 2, 0, Math.PI * 2);
+            ctx.fill();
+            break;
     }
     ctx.restore();
 
@@ -3180,8 +3478,12 @@ function render() {
     // Layer 2: Tower range of selected
     drawSelectedTowerRange();
 
-    // Layer 3: Towers
-    for (const t of game.towers) drawTower(t);
+    // Layer 3: Towers — sort by Y so lower towers render on top
+    const sortedTowers = [...game.towers].sort((a, b) => a.y - b.y);
+    for (const t of sortedTowers) drawTower(t);
+
+    // Layer 3.5: Laser link beams between connected laser towers
+    drawLaserLinks();
 
     // Layer 4: Enemies
     for (const e of game.enemies) drawEnemy(e);
@@ -3266,7 +3568,9 @@ function showTowerInfo(t) {
         (st.flameDuration > 0 ? '<div class="stat-row"><span>火焰持续</span><span>' + (st.flameDuration / 1000).toFixed(1) + 's</span></div>' : '') +
         (st.sheepDuration > 0 ? '<div class="stat-row"><span>变羊持续</span><span>' + (st.sheepDuration / 1000).toFixed(1) + 's</span></div>' : '') +
         (st.arcHeight > 0 ? '<div class="stat-row"><span>导弹弧线</span><span>是</span></div>' : '') +
-        (st.knockbackDist > 0 ? '<div class="stat-row"><span>击退距离</span><span>' + st.knockbackDist + 'px</span></div>' : '');
+        (st.knockbackDist > 0 ? '<div class="stat-row"><span>击退距离</span><span>' + st.knockbackDist + 'px</span></div>' : '') +
+        (st.linkRange > 0 ? '<div class="stat-row"><span>链接范围</span><span>' + st.linkRange + 'px</span></div>' : '') +
+        (st.linkRange > 0 && t.linkedCount > 0 ? '<div class="stat-row"><span>已链接</span><span>' + t.linkedCount + '个 (+' + Math.round(t.linkedCount * st.linkDmgBoost * 100) + '%伤害)</span></div>' : '');
 
     const upBtn = document.getElementById('upgrade-btn');
     if (t.level >= 3) {
@@ -3476,6 +3780,7 @@ document.addEventListener('keydown', (e) => {
         case '6': selectTowerType('sheep'); break;
         case '7': selectTowerType('missile'); break;
         case '8': selectTowerType('knockback'); break;
+        case '9': selectTowerType('laser'); break;
         case ' ':
             e.preventDefault();
             if (game.state === 'idle') startNextWave();
