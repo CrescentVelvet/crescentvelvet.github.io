@@ -424,6 +424,30 @@ const TOWER_DEFS = {
         color: '#5DADE2', bulletColor: '#AED6F1', bulletSpeed: 350,
         splash: 0, slowFactor: [0.5, 0.6, 0.7], slowDuration: [2000, 2500, 3000], chainCount: 0
     },
+    tesla_chain: {
+        name: '雷霆万钧', icon: '⚡',
+        cost: null, upgradeCost: [180, 360], evolveCost: 300,
+        damage: [35, 58, 90], range: [120, 130, 145], cooldown: [1300, 1100, 900],
+        color: '#B8860B', bulletColor: '#FFD700', bulletSpeed: 9999,
+        splash: 0, slowFactor: 0, slowDuration: 0, chainCount: [4, 5, 6], chainRange: [85, 95, 105], chainFalloff: 0,
+        chainDmgBoost: 0.3
+    },
+    tesla_charge: {
+        name: '天雷裁决', icon: '🔱',
+        cost: null, upgradeCost: [200, 400], evolveCost: 300,
+        damage: [80, 140, 220], range: [130, 145, 165], cooldown: [4000, 3500, 3000],
+        color: '#7B68EE', bulletColor: '#E8E0FF', bulletSpeed: 9999,
+        splash: [35, 45, 55], slowFactor: 0, slowDuration: 0, chainCount: 0, splashDmgPct: 0.4,
+        chargeMaxTime: [2500, 3000, 3500], chargeDmgMultiplier: [1.6, 1.9, 2.2]
+    },
+    tesla_emp: {
+        name: '雷殛领域', icon: '🌀',
+        cost: null, upgradeCost: [160, 340], evolveCost: 300,
+        damage: [0, 0, 0], range: [100, 115, 130], cooldown: [2200, 1900, 1600],
+        color: '#6C5CE7', bulletColor: '#CCC0FF', bulletSpeed: 0,
+        splash: 0, slowFactor: 0, slowDuration: 0, chainCount: 0,
+        vulnFactor: [0.25, 0.35, 0.5], vulnDuration: [2200, 2600, 3000]
+    },
     tesla: {
         name: '雷塔', icon: '⚡',
         cost: 200, upgradeCost: [150, 300],
@@ -518,6 +542,11 @@ const EVOLVE_OPTIONS = {
         { type: 'fire_focus', label: '焚天烈焰', icon: '🔥', desc: '聚焦递增', color: '#C0392B' },
         { type: 'fire_ignite', label: '燎原星火', icon: '✨', desc: '范围点燃', color: '#E67E22' },
         { type: 'fire_detonate', label: '炎爆余烬', icon: '💢', desc: '击杀爆炸', color: '#D35400' }
+    ],
+    tesla: [
+        { type: 'tesla_chain', label: '雷霆万钧', icon: '⚡', desc: '递增连锁', color: '#DAA520' },
+        { type: 'tesla_charge', label: '天雷裁决', icon: '🔱', desc: '蓄力天雷', color: '#7B68EE' },
+        { type: 'tesla_emp', label: '雷殛领域', icon: '🌀', desc: '削弱防御', color: '#6C5CE7' }
     ]
 };
 
@@ -793,7 +822,8 @@ function createTower(type, col, row) {
         freezeTargetId: null,
         freezeStack: 0,
         focusTargetId: null,
-        focusStack: 0
+        focusStack: 0,
+        overflowCharge: 0
     };
 }
 
@@ -845,7 +875,12 @@ function towerStats(t) {
         igniteFlameDuration: Array.isArray(def.igniteFlameDuration) ? def.igniteFlameDuration[lv] : (def.igniteFlameDuration || 0),
         igniteFlameTickInterval: def.igniteFlameTickInterval || 0,
         detonateDmg: Array.isArray(def.detonateDmg) ? def.detonateDmg[lv] : (def.detonateDmg || 0),
-        detonateRadius: Array.isArray(def.detonateRadius) ? def.detonateRadius[lv] : (def.detonateRadius || 0)
+        detonateRadius: Array.isArray(def.detonateRadius) ? def.detonateRadius[lv] : (def.detonateRadius || 0),
+        chainDmgBoost: def.chainDmgBoost || 0,
+        chargeMaxTime: Array.isArray(def.chargeMaxTime) ? def.chargeMaxTime[lv] : (def.chargeMaxTime || 0),
+        chargeDmgMultiplier: Array.isArray(def.chargeDmgMultiplier) ? def.chargeDmgMultiplier[lv] : (def.chargeDmgMultiplier || 0),
+        vulnFactor: Array.isArray(def.vulnFactor) ? def.vulnFactor[lv] : (def.vulnFactor || 0),
+        vulnDuration: Array.isArray(def.vulnDuration) ? def.vulnDuration[lv] : (def.vulnDuration || 0)
     };
 }
 
@@ -945,7 +980,27 @@ function updateTowers(dt) {
             t.cooldown = st.cooldown;
             continue;
         }
+        // EMP pulse — passive vulnerability aura
+        if (t.type === 'tesla_emp') {
+            const st = towerStats(t);
+            for (const e of game.enemies) {
+                if (!e.alive) continue;
+                if (dist(t, e) <= st.range) {
+                    e.vulnFactor = Math.max(e.vulnFactor, st.vulnFactor);
+                    e.vulnTimer = Math.max(e.vulnTimer, st.cooldown + 200);
+                }
+            }
+            t.cooldown = st.cooldown;
+            continue;
+        }
         const target = towerAcquireTarget(t);
+        // Charge overflow — tesla_charge accumulates extra damage when idle
+        if (t.type === 'tesla_charge' && !target) {
+            const st = towerStats(t);
+            t.overflowCharge = Math.min(t.overflowCharge + st.cooldown, st.chargeMaxTime);
+            t.cooldown = 50; // check again soon
+            continue;
+        }
         if (target) {
             const st = towerStats(t);
             t.angle = angleTo(t, target);
@@ -980,6 +1035,13 @@ function updateTowers(dt) {
                 // Focus damage ramp
                 if (st.focusMaxStacks > 0 && t.focusStack > 0) {
                     p.damage = Math.floor(p.damage * (1 + (t.focusStack - 1) * st.focusDmgPerStack));
+                }
+                // Charge overflow damage multiplier
+                if (st.chargeMaxTime > 0 && t.overflowCharge > 0) {
+                    const chargeRatio = Math.min(t.overflowCharge / st.chargeMaxTime, 1);
+                    const mult = 1 + chargeRatio * (st.chargeDmgMultiplier - 1);
+                    p.damage = Math.floor(p.damage * mult);
+                    t.overflowCharge = 0;
                 }
             }
             t.cooldown = st.cooldown;
@@ -1020,7 +1082,9 @@ function createEnemy(type, waveNum) {
         sheepTimer: 0,
         knockbackVx: 0,
         knockbackVy: 0,
-        knockbackTimer: 0
+        knockbackTimer: 0,
+        vulnFactor: 0,
+        vulnTimer: 0
     };
 }
 
@@ -1043,6 +1107,14 @@ function updateEnemies(dt) {
             e.sheepTimer -= dtMs;
             if (e.sheepTimer <= 0) {
                 e.isSheep = false;
+            }
+        }
+
+        // Update vulnerability timer
+        if (e.vulnTimer > 0) {
+            e.vulnTimer -= dtMs;
+            if (e.vulnTimer <= 0) {
+                e.vulnFactor = 0;
             }
         }
 
@@ -1212,6 +1284,7 @@ function createProjectile(tower, target) {
         focusMaxStacks: st.focusMaxStacks,
         detonateDmg: st.detonateDmg,
         detonateRadius: st.detonateRadius,
+        chainDmgBoost: st.chainDmgBoost,
         towerId: tower.id
     };
     // Missile: vertical launch then arc toward target
@@ -1510,7 +1583,7 @@ function handleImpact(p) {
         // Chain lightning
         dealDamage(p.target, p.damage);
         createLightningArc(p.towerX, p.towerY, p.target.x, p.target.y);
-        chainLightning(p.target, p.damage, p.chainCount - 1, p.chainRange, p.chainFalloff, new Set([p.target.id]));
+        chainLightning(p.target, p.damage, p.chainCount - 1, p.chainRange, p.chainFalloff, p.chainDmgBoost, new Set([p.target.id]));
     } else {
         // Arrow - single target (with possible crit)
         let dmg = p.damage;
@@ -1574,7 +1647,7 @@ function spawnShrapnel(p) {
     }
 }
 
-function chainLightning(sourceEnemy, baseDmg, remainingChains, chainRange, falloff, visited) {
+function chainLightning(sourceEnemy, baseDmg, remainingChains, chainRange, falloff, boost, visited) {
     if (remainingChains <= 0) return;
     let nearest = null;
     let nearestDist = Infinity;
@@ -1587,15 +1660,18 @@ function chainLightning(sourceEnemy, baseDmg, remainingChains, chainRange, fallo
         }
     }
     if (nearest) {
-        const dmg = Math.floor(baseDmg * (1 - falloff));
+        const dmg = boost > 0 ? Math.floor(baseDmg * (1 + boost)) : Math.floor(baseDmg * (1 - falloff));
         dealDamage(nearest, dmg);
         visited.add(nearest.id);
         createLightningArc(sourceEnemy.x, sourceEnemy.y, nearest.x, nearest.y);
-        chainLightning(nearest, dmg, remainingChains - 1, chainRange, falloff, visited);
+        chainLightning(nearest, dmg, remainingChains - 1, chainRange, falloff, boost, visited);
     }
 }
 
 function dealDamage(enemy, dmg) {
+    if (enemy.vulnFactor > 0) {
+        dmg = Math.floor(dmg * (1 + enemy.vulnFactor));
+    }
     enemy.hp -= dmg;
     if (enemy.hp <= 0) {
         enemy.hp = 0;
@@ -2294,6 +2370,9 @@ function drawTower(t) {
         case 'ice_freeze': drawIceFreezeTower(t, st, lv); break;
         case 'ice_aura': drawIceAuraTower(t, st, lv); break;
         case 'tesla': drawTeslaTower(t, st, lv); break;
+        case 'tesla_chain': drawTeslaChainTower(t, st, lv); break;
+        case 'tesla_charge': drawTeslaChargeTower(t, st, lv); break;
+        case 'tesla_emp': drawTeslaEmpTower(t, st, lv); break;
         case 'fire': drawFireTower(t, st, lv); break;
         case 'fire_focus': drawFireFocusTower(t, st, lv); break;
         case 'fire_ignite': drawFireIgniteTower(t, st, lv); break;
@@ -3738,6 +3817,337 @@ function drawTeslaTower(t, st, lv) {
     ctx.arc(coilW + 9, 0, 3, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
+}
+
+// ===== TESLA CHAIN TOWER — Escalating chain lightning =====
+function drawTeslaChainTower(t, st, lv) {
+    const w = 10 + lv;
+    const h = 20 + lv * 5;
+    const time = Date.now() / 1000;
+    const pulse = 0.5 + Math.sin(time * 4) * 0.5;
+
+    // Golden brass base — wider, reinforced
+    const baseGrad = ctx.createLinearGradient(0, -2, 0, w + 4);
+    baseGrad.addColorStop(0, '#C89830');
+    baseGrad.addColorStop(0.5, '#8B6914');
+    baseGrad.addColorStop(1, '#5C3A08');
+    ctx.fillStyle = baseGrad;
+    ctx.beginPath();
+    ctx.roundRect(-w - 4, 1, (w + 4) * 2, w + 5, 4);
+    ctx.fill();
+    ctx.strokeStyle = '#DAA520';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Chain-link detail on base
+    for (let i = 0; i < 6; i++) {
+        const cx = -w + 2 + i * w * 2 / 5;
+        ctx.strokeStyle = `rgba(255,215,0,${0.3 + pulse * 0.3})`;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(cx, w + 1, 2, 0, Math.PI * 2);
+        ctx.stroke();
+    }
+
+    // Iron pillar
+    ctx.fillStyle = '#5C5030';
+    ctx.fillRect(-3, -h * 0.2, 6, h * 0.2 + 1);
+
+    // Copper coil chamber — larger
+    const coilW = w - 1;
+    const coilY = -h * 0.25;
+    ctx.fillStyle = '#6B5030';
+    ctx.beginPath();
+    ctx.arc(0, coilY, coilW + 1, Math.PI, 0);
+    ctx.fill();
+    ctx.strokeStyle = '#DAA520';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Dense coil windings
+    for (let i = 0; i < 8; i++) {
+        const frac = i / 8;
+        const y = coilY - frac * h * 0.35;
+        const r = coilW - 2;
+        ctx.strokeStyle = `rgba(255,200,60,${0.4 + pulse * 0.3})`;
+        ctx.lineWidth = 1.3;
+        ctx.beginPath();
+        ctx.arc(0, y, r + Math.sin(time * 8 + i) * 1, 0, Math.PI * 2);
+        ctx.stroke();
+    }
+
+    // Chain-arc antenna — glowing golden rods
+    for (let i = -1; i <= 1; i += 2) {
+        const ax = i * coilW * 0.5;
+        const ay = coilY - h * 0.35;
+        ctx.fillStyle = '#DAA520';
+        ctx.fillRect(ax - 1, ay, 2, -h * 0.5 + lv * 3);
+        // Arc ball at top
+        ctx.fillStyle = `rgba(255,215,0,${0.6 + pulse * 0.4})`;
+        ctx.beginPath();
+        ctx.arc(ax, ay - h * 0.5 + lv * 3, 3 + lv * 0.5, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    // Arc between antennas
+    ctx.strokeStyle = `rgba(255,230,80,${0.3 + pulse * 0.3})`;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(0, coilY - h * 0.35 - h * 0.5 + lv * 3, coilW * 0.5, Math.PI * 0.6, Math.PI * 0.4);
+    ctx.stroke();
+
+    // Central emitter coil
+    ctx.fillStyle = '#8B6914';
+    ctx.fillRect(-2, -h * 0.5, 4, h * 0.4);
+    for (let i = 0; i < 5; i++) {
+        const wy = -h * 0.48 + i * h * 0.08;
+        ctx.strokeStyle = `rgba(255,215,0,${0.4 + pulse * 0.3})`;
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(-3, wy); ctx.lineTo(3, wy); ctx.stroke();
+    }
+
+    // Pointed lightning rod
+    ctx.fillStyle = '#FFD700';
+    ctx.beginPath();
+    ctx.moveTo(-2, -h * 0.9);
+    ctx.lineTo(2, -h * 0.9);
+    ctx.lineTo(0, -h);
+    ctx.closePath();
+    ctx.fill();
+
+    // Barrel — lightning fork
+    ctx.save();
+    ctx.rotate(t.angle);
+    ctx.fillStyle = '#C89830';
+    ctx.fillRect(3, -1, w + 4, 2);
+    ctx.fillStyle = `rgba(255,230,80,${0.6 + pulse * 0.4})`;
+    ctx.beginPath();
+    ctx.arc(w + 6, 0, 3.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+}
+
+// ===== TESLA CHARGE TOWER — Divine lightning strike =====
+function drawTeslaChargeTower(t, st, lv) {
+    const w = 10 + lv;
+    const h = 22 + lv * 6;
+    const time = Date.now() / 1000;
+    const pulse = 0.5 + Math.sin(time * 3) * 0.5;
+    const chargeRatio = st.chargeMaxTime > 0 ? Math.min(t.overflowCharge / st.chargeMaxTime, 1) : 0;
+
+    // Dark storm-forged steel base
+    const baseGrad = ctx.createLinearGradient(0, -2, 0, w + 4);
+    baseGrad.addColorStop(0, '#5A4A8A');
+    baseGrad.addColorStop(0.5, '#3A2A6A');
+    baseGrad.addColorStop(1, '#1A0A4A');
+    ctx.fillStyle = baseGrad;
+    ctx.beginPath();
+    ctx.roundRect(-w - 4, 1, (w + 4) * 2, w + 5, 4);
+    ctx.fill();
+    ctx.strokeStyle = '#7B68EE';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Charge level indicator runes
+    for (let i = 0; i < 5; i++) {
+        const rx = -w + 3 + i * w * 2 / 4;
+        const bright = i / 5 <= chargeRatio;
+        ctx.fillStyle = bright ? '#E8E0FF' : 'rgba(200,180,255,0.2)';
+        ctx.shadowColor = bright ? '#7B68EE' : 'transparent';
+        ctx.shadowBlur = bright ? 6 : 0;
+        ctx.beginPath();
+        ctx.arc(rx, w + 3, 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowColor = 'transparent';
+        ctx.shadowBlur = 0;
+    }
+
+    // Massive stone pillar
+    ctx.fillStyle = '#4A3A6A';
+    ctx.fillRect(-4, -h * 0.15, 8, h * 0.15 + 1);
+
+    // Energy containment chamber
+    const coilW = w - 1;
+    const coilY = -h * 0.2;
+    ctx.fillStyle = '#3A2A6A';
+    ctx.beginPath();
+    ctx.arc(0, coilY, coilW + 1, Math.PI, 0);
+    ctx.fill();
+    ctx.strokeStyle = '#7B68EE';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Charging energy core — brightness based on charge
+    const coreAlpha = 0.3 + chargeRatio * 0.5 + pulse * 0.2;
+    const coreGrad = ctx.createRadialGradient(0, coilY, 0, 0, coilY, coilW);
+    coreGrad.addColorStop(0, `rgba(255,255,255,${coreAlpha})`);
+    coreGrad.addColorStop(0.3, `rgba(200,180,255,${coreAlpha * 0.8})`);
+    coreGrad.addColorStop(0.7, `rgba(120,100,220,${coreAlpha * 0.5})`);
+    coreGrad.addColorStop(1, 'rgba(60,40,160,0)');
+    ctx.fillStyle = coreGrad;
+    ctx.beginPath();
+    ctx.ellipse(0, coilY - 1, coilW - 2, (coilW - 2) * 0.4, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Ascending energy rings
+    for (let i = 0; i < 3; i++) {
+        const ry = coilY - 3 - i * (h * 0.5) / 3 - chargeRatio * h * 0.15;
+        const ringAlpha = 0.2 + chargeRatio * 0.3 + pulse * 0.15;
+        ctx.strokeStyle = `rgba(200,180,255,${ringAlpha})`;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(0, ry, coilW - 1 - i, 0, Math.PI * 2);
+        ctx.stroke();
+    }
+
+    // Tall lightning spire
+    const spireGrad = ctx.createLinearGradient(0, -h * 0.2, 0, -h);
+    spireGrad.addColorStop(0, '#7B68EE');
+    spireGrad.addColorStop(0.4, '#9B8AF0');
+    spireGrad.addColorStop(1, '#C8C0FF');
+    ctx.fillStyle = spireGrad;
+    ctx.beginPath();
+    ctx.moveTo(-2.5, -h * 0.2);
+    ctx.lineTo(2.5, -h * 0.2);
+    ctx.lineTo(1.5, -h * 0.85);
+    ctx.lineTo(0, -h);
+    ctx.lineTo(-1.5, -h * 0.85);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#E8E0FF';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Spire tip — blinding when charged
+    ctx.shadowColor = `rgba(200,180,255,${0.6 + chargeRatio * 0.4})`;
+    ctx.shadowBlur = 8 + chargeRatio * 12;
+    ctx.fillStyle = `rgba(255,255,255,${0.7 + chargeRatio * 0.3})`;
+    ctx.beginPath();
+    ctx.arc(0, -h, 2 + chargeRatio * 2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
+
+    // Barrel — energy focus rod
+    ctx.save();
+    ctx.rotate(t.angle);
+    ctx.fillStyle = '#7B68EE';
+    ctx.fillRect(3, -1.5, w + 5, 3);
+    ctx.fillStyle = '#C8C0FF';
+    ctx.fillRect(4, -0.5, w + 2, 1);
+    // Energy orb at tip
+    ctx.fillStyle = `rgba(200,180,255,${0.5 + chargeRatio * 0.4})`;
+    ctx.beginPath();
+    ctx.arc(w + 6, 0, 4 + chargeRatio * 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+}
+
+// ===== TESLA EMP TOWER — Passive vulnerability field =====
+function drawTeslaEmpTower(t, st, lv) {
+    const w = 9 + lv;
+    const h = 14 + lv * 3;
+    const time = Date.now() / 1000;
+    const pulse = 0.5 + Math.sin(time * 2.5) * 0.5;
+
+    // Crystalline violet base
+    const baseGrad = ctx.createRadialGradient(0, 3, w * 0.1, 0, 3, w + 4);
+    baseGrad.addColorStop(0, 'rgba(180,160,240,0.6)');
+    baseGrad.addColorStop(0.5, 'rgba(120,100,220,0.3)');
+    baseGrad.addColorStop(1, 'rgba(80,60,200,0)');
+    ctx.fillStyle = baseGrad;
+    ctx.beginPath();
+    ctx.arc(0, 3, w + 4, 0, Math.PI * 2);
+    ctx.fill();
+
+    // EMP pulse rings
+    for (let i = 1; i <= 2; i++) {
+        const ringRad = w + 2 + Math.sin(time * 3 + i) * 3;
+        ctx.strokeStyle = `rgba(180,160,240,${0.12 + pulse * 0.1})`;
+        ctx.lineWidth = 1.5 + i;
+        ctx.setLineDash([i * 3, 5]);
+        ctx.beginPath();
+        ctx.arc(0, 2, ringRad, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+    }
+
+    // Tower body — sleek purple crystal
+    const bodyTop = -h * 0.5;
+    const tw = w * 0.45;
+    const bodyGrad = ctx.createLinearGradient(-w, 0, w, 0);
+    bodyGrad.addColorStop(0, '#4A2080');
+    bodyGrad.addColorStop(0.3, '#6C5CE7');
+    bodyGrad.addColorStop(0.5, '#8B7AF0');
+    bodyGrad.addColorStop(0.7, '#6C5CE7');
+    bodyGrad.addColorStop(1, '#3A1070');
+    ctx.fillStyle = bodyGrad;
+    ctx.beginPath();
+    ctx.moveTo(-w * 0.8, 0);
+    ctx.quadraticCurveTo(-tw - 1, -h * 0.2, -tw, bodyTop);
+    ctx.lineTo(tw, bodyTop);
+    ctx.quadraticCurveTo(tw + 1, -h * 0.2, w * 0.8, 0);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#9B8AF0';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+
+    // Energy wave lines
+    for (let i = 1; i < 4; i++) {
+        const y = -i * h * 0.5 / 4;
+        ctx.strokeStyle = `rgba(200,180,255,${0.2 + pulse * 0.12})`;
+        ctx.lineWidth = 0.6;
+        ctx.beginPath();
+        const wAtY = w * 0.8 - (w * 0.8 - tw) * (i / 4);
+        ctx.moveTo(-wAtY + 1, y);
+        ctx.lineTo(wAtY - 1, y);
+        ctx.stroke();
+    }
+
+    // Core chamber — pulsing violet
+    ctx.fillStyle = '#2A1060';
+    ctx.fillRect(-2.5, -h * 0.3, 5, 7);
+    ctx.fillStyle = `rgba(180,160,240,${0.45 + pulse * 0.3})`;
+    ctx.fillRect(-1.5, -h * 0.3 + 1, 3, 5);
+
+    // Dome — energy field projector (no weapon)
+    const domeGrad = ctx.createRadialGradient(0, bodyTop, tw * 0.1, 0, bodyTop, tw + 3);
+    domeGrad.addColorStop(0, 'rgba(220,200,255,0.9)');
+    domeGrad.addColorStop(0.3, 'rgba(160,140,240,0.6)');
+    domeGrad.addColorStop(0.7, 'rgba(100,80,220,0.3)');
+    domeGrad.addColorStop(1, 'rgba(60,40,180,0)');
+    ctx.fillStyle = domeGrad;
+    ctx.beginPath();
+    ctx.arc(0, bodyTop, tw + 4, Math.PI, 0);
+    ctx.fill();
+
+    // Central energy orb (passive, no barrel)
+    const orbY = -h * 0.15;
+    ctx.shadowColor = 'rgba(160,140,240,0.6)';
+    ctx.shadowBlur = 8 + lv * 2;
+    const orbGrad = ctx.createRadialGradient(0, orbY - 1, 1, 0, orbY, 4 + lv);
+    orbGrad.addColorStop(0, '#E8E0FF');
+    orbGrad.addColorStop(0.3, '#C0B0FF');
+    orbGrad.addColorStop(0.7, '#8B7AF0');
+    orbGrad.addColorStop(1, 'rgba(100,80,220,0)');
+    ctx.fillStyle = orbGrad;
+    ctx.beginPath();
+    ctx.arc(0, orbY, 4 + lv, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
+
+    // Orbiting energy motes
+    for (let i = 0; i < lv + 2; i++) {
+        const a = time * 2 + i * Math.PI * 2 / (lv + 2);
+        const dist = w + 4;
+        const mx = Math.cos(a) * dist;
+        const my = orbY + Math.sin(a) * dist * 0.3;
+        ctx.fillStyle = `rgba(200,180,255,${0.4 + Math.sin(time * 4 + i) * 0.3})`;
+        ctx.beginPath();
+        ctx.arc(mx, my, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+    }
 }
 
 // ===== FIRE TOWER — Brazier with persistent ground flames =====
@@ -5499,7 +5909,11 @@ function showTowerInfo(t) {
         (st.focusDmgPerStack > 0 ? '<div class="stat-row"><span>每层增伤</span><span>+' + Math.round(st.focusDmgPerStack * 100) + '%</span></div>' : '') +
         (st.igniteFlameRadius > 0 ? '<div class="stat-row"><span>点燃范围</span><span>' + st.igniteFlameRadius + 'px</span></div>' : '') +
         (st.detonateDmg > 0 ? '<div class="stat-row"><span>爆炸伤害</span><span>' + st.detonateDmg + '</span></div>' : '') +
-        (st.detonateRadius > 0 ? '<div class="stat-row"><span>爆炸范围</span><span>' + st.detonateRadius + 'px</span></div>' : '');
+        (st.detonateRadius > 0 ? '<div class="stat-row"><span>爆炸范围</span><span>' + st.detonateRadius + 'px</span></div>' : '') +
+        (st.chainDmgBoost > 0 ? '<div class="stat-row"><span>连锁增伤</span><span>+' + Math.round(st.chainDmgBoost * 100) + '%/跳</span></div>' : '') +
+        (st.chargeMaxTime > 0 ? '<div class="stat-row"><span>最大蓄力</span><span>' + (st.chargeMaxTime / 1000).toFixed(1) + 's</span></div>' : '') +
+        (st.chargeDmgMultiplier > 0 ? '<div class="stat-row"><span>蓄力倍率</span><span>' + st.chargeDmgMultiplier.toFixed(1) + 'x</span></div>' : '') +
+        (st.vulnFactor > 0 ? '<div class="stat-row"><span>易伤加成</span><span>+' + Math.round(st.vulnFactor * 100) + '%</span></div>' : '');
 
     // Branch evolution — dynamic based on tower type
     const evolveDiv = document.getElementById('evolve-btns');
@@ -5582,6 +5996,7 @@ function evolveSelectedIndex(index) {
     t.freezeStack = 0;
     t.focusTargetId = null;
     t.focusStack = 0;
+    t.overflowCharge = 0;
     updateHUD();
     showTowerInfo(t);
 }
