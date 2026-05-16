@@ -90,6 +90,8 @@ title: "塔防战争"
         #start-wave-btn { background: var(--btn-green); }
         #start-wave-btn:disabled { background: #555; opacity: 0.5; cursor: not-allowed; }
         #countdown-display { color: #f39c12; min-width: 50px; text-align: center; }
+        #auto-wave-btn { background: #555; }
+        #auto-wave-btn.active { background: #8e44ad; }
 
         /* -- Canvas -- */
         #game-canvas {
@@ -260,6 +262,7 @@ title: "塔防战争"
         <span id="countdown-display"></span>
         <button id="speed-btn" onclick="toggleSpeed()">1x</button>
         <button id="start-wave-btn" onclick="startNextWave()">开始波次</button>
+        <button id="auto-wave-btn" onclick="toggleAutoWave()">⏩ 自动</button>
     </div>
     <canvas id="game-canvas" width="800" height="600"></canvas>
     <div id="tower-panel">
@@ -511,6 +514,7 @@ const game = {
     totalWaves: 20,
     state: 'idle',          // idle | wave_active | wave_complete | game_over | victory
     speedMult: 1,
+    autoWave: false,
     countdown: 0,
     towers: [],
     enemies: [],
@@ -1522,6 +1526,9 @@ function checkWaveComplete() {
 
     if (game.waveNum >= game.totalWaves) {
         endGame('victory');
+    } else if (game.autoWave) {
+        document.getElementById('countdown-display').textContent = '⏩ 自动下一波...';
+        startNextWave();
     } else {
         document.getElementById('countdown-display').textContent = '✔ 波次完成';
     }
@@ -4925,6 +4932,21 @@ function toggleSpeed() {
     if (game.speedMult === 2) btn.classList.add('active'); else btn.classList.remove('active');
 }
 
+function toggleAutoWave() {
+    game.autoWave = !game.autoWave;
+    const btn = document.getElementById('auto-wave-btn');
+    if (game.autoWave) {
+        btn.classList.add('active');
+        btn.textContent = '⏩ 自动中';
+        if (game.state === 'idle' && game.waveNum < game.totalWaves) {
+            startNextWave();
+        }
+    } else {
+        btn.classList.remove('active');
+        btn.textContent = '⏩ 自动';
+    }
+}
+
 function endGame(result) {
     game.state = result === 'victory' ? 'victory' : 'game_over';
     game.selectedType = null;
@@ -4950,6 +4972,7 @@ function restartGame() {
     game.waveNum = 0;
     game.state = 'idle';
     game.speedMult = 1;
+    game.autoWave = false;
     game.countdown = 0;
     game.towers = [];
     game.enemies = [];
@@ -4967,6 +4990,8 @@ function restartGame() {
     document.getElementById('overlay').classList.remove('show');
     document.getElementById('speed-btn').textContent = '1x';
     document.getElementById('speed-btn').classList.remove('active');
+    document.getElementById('auto-wave-btn').textContent = '⏩ 自动';
+    document.getElementById('auto-wave-btn').classList.remove('active');
     document.getElementById('start-wave-btn').disabled = false;
     document.getElementById('countdown-display').textContent = '';
     hideTowerInfo();
