@@ -503,6 +503,33 @@ const TOWER_DEFS = {
         splash: 0, slowFactor: 0, slowDuration: 0, chainCount: 0,
         sheepDuration: [2200, 3000, 4000]
     },
+    sheep_turncoat: {
+        name: '魅惑反戈', icon: '🐺',
+        cost: null, upgradeCost: [150, 280], evolveCost: 300,
+        damage: [8, 15, 25], range: [125, 140, 155], cooldown: [2800, 2400, 2000],
+        color: '#9B59B6', bulletColor: '#D7BDE2', bulletSpeed: 330,
+        splash: 0, slowFactor: 0, slowDuration: 0, chainCount: 0,
+        sheepDuration: [2400, 3200, 4200],
+        turncoatDamage: [35, 55, 85]
+    },
+    sheep_contagion: {
+        name: '羊群蔓延', icon: '🐑',
+        cost: null, upgradeCost: [150, 280], evolveCost: 300,
+        damage: [7, 12, 20], range: [125, 140, 155], cooldown: [2800, 2400, 2000],
+        color: '#27AE60', bulletColor: '#A9DFBF', bulletSpeed: 330,
+        splash: 0, slowFactor: 0, slowDuration: 0, chainCount: 0,
+        sheepDuration: [2800, 3600, 4800],
+        contagionRange: [65, 80, 95],
+        contagionFalloff: 0.35
+    },
+    sheep_aura: {
+        name: '牧羊圣域', icon: '✨',
+        cost: null, upgradeCost: [150, 280], evolveCost: 300,
+        damage: [0, 0, 0], range: [105, 120, 135], cooldown: [2600, 2300, 2000],
+        color: '#F5E6CC', bulletColor: '#FFF8E7', bulletSpeed: 0,
+        splash: 0, slowFactor: 0, slowDuration: 0, chainCount: 0,
+        auraSheepDuration: [1600, 2200, 3000]
+    },
     missile: {
         name: '导弹塔', icon: '🚀',
         cost: 250, upgradeCost: [200, 400],
@@ -547,6 +574,11 @@ const EVOLVE_OPTIONS = {
         { type: 'tesla_chain', label: '雷霆万钧', icon: '⚡', desc: '递增连锁', color: '#DAA520' },
         { type: 'tesla_charge', label: '天雷裁决', icon: '🔱', desc: '蓄力天雷', color: '#7B68EE' },
         { type: 'tesla_emp', label: '雷殛领域', icon: '🌀', desc: '削弱防御', color: '#6C5CE7' }
+    ],
+    sheep: [
+        { type: 'sheep_turncoat', label: '魅惑反戈', icon: '🐺', desc: '策反攻击', color: '#9B59B6' },
+        { type: 'sheep_contagion', label: '羊群蔓延', icon: '🐑', desc: '传染蔓延', color: '#27AE60' },
+        { type: 'sheep_aura', label: '牧羊圣域', icon: '✨', desc: '化羊光环', color: '#F5E6CC' }
     ]
 };
 
@@ -880,7 +912,11 @@ function towerStats(t) {
         chargeMaxTime: Array.isArray(def.chargeMaxTime) ? def.chargeMaxTime[lv] : (def.chargeMaxTime || 0),
         chargeDmgMultiplier: Array.isArray(def.chargeDmgMultiplier) ? def.chargeDmgMultiplier[lv] : (def.chargeDmgMultiplier || 0),
         vulnFactor: Array.isArray(def.vulnFactor) ? def.vulnFactor[lv] : (def.vulnFactor || 0),
-        vulnDuration: Array.isArray(def.vulnDuration) ? def.vulnDuration[lv] : (def.vulnDuration || 0)
+        vulnDuration: Array.isArray(def.vulnDuration) ? def.vulnDuration[lv] : (def.vulnDuration || 0),
+        turncoatDamage: Array.isArray(def.turncoatDamage) ? def.turncoatDamage[lv] : (def.turncoatDamage || 0),
+        contagionRange: Array.isArray(def.contagionRange) ? def.contagionRange[lv] : (def.contagionRange || 0),
+        contagionFalloff: def.contagionFalloff || 0,
+        auraSheepDuration: Array.isArray(def.auraSheepDuration) ? def.auraSheepDuration[lv] : (def.auraSheepDuration || 0)
     };
 }
 
@@ -927,6 +963,7 @@ function towerAcquireTarget(t) {
     let bestProgress = -1;
     for (const e of game.enemies) {
         if (!e.alive) continue;
+        if (e.isTurncoat) continue;
         const d = dist(t, e);
         if (d > st.range) continue;
         if (e.waypointIndex > bestProgress || (e.waypointIndex === bestProgress && e.hp < (best ? best.hp : Infinity))) {
@@ -959,7 +996,7 @@ function updateTowers(dt) {
         if (t.type === 'ice_aura') {
             const st = towerStats(t);
             for (const e of game.enemies) {
-                if (!e.alive) continue;
+                if (!e.alive || e.isTurncoat) continue;
                 if (dist(t, e) <= st.range) {
                     applySlow(e, st.auraSlowFactor, st.cooldown + 200);
                 }
@@ -971,7 +1008,7 @@ function updateTowers(dt) {
         if (t.type === 'fire_ignite') {
             const st = towerStats(t);
             for (const e of game.enemies) {
-                if (!e.alive) continue;
+                if (!e.alive || e.isTurncoat) continue;
                 if (dist(t, e) <= st.range) {
                     createFireZone(e.x, e.y, st.igniteFlameRadius, Math.floor(10 + st.igniteFlameRadius * 0.3), st.igniteFlameDuration, st.igniteFlameTickInterval);
                     createFireIgnition(e.x, e.y, st.igniteFlameRadius * 0.6);
@@ -980,11 +1017,29 @@ function updateTowers(dt) {
             t.cooldown = st.cooldown;
             continue;
         }
+        // Sheep aura — passive transformation pulse
+        if (t.type === 'sheep_aura') {
+            const st = towerStats(t);
+            const candidates = [];
+            for (const e of game.enemies) {
+                if (!e.alive || e.isSheep || e.isTurncoat) continue;
+                if (dist(t, e) <= st.range) candidates.push(e);
+            }
+            if (candidates.length > 0) {
+                const target = candidates[Math.floor(Math.random() * candidates.length)];
+                target.isSheep = true;
+                target.sheepTimer = st.auraSheepDuration;
+                applySlow(target, 0.25, st.auraSheepDuration);
+                createSheepTransform(target.x, target.y);
+            }
+            t.cooldown = st.cooldown;
+            continue;
+        }
         // EMP pulse — passive vulnerability aura
         if (t.type === 'tesla_emp') {
             const st = towerStats(t);
             for (const e of game.enemies) {
-                if (!e.alive) continue;
+                if (!e.alive || e.isTurncoat) continue;
                 if (dist(t, e) <= st.range) {
                     e.vulnFactor = Math.max(e.vulnFactor, st.vulnFactor);
                     e.vulnTimer = Math.max(e.vulnTimer, st.cooldown + 200);
@@ -1018,7 +1073,7 @@ function updateTowers(dt) {
                 const targets = [target];
                 for (const e of game.enemies) {
                     if (targets.length >= st.multiShot) break;
-                    if (!e.alive || e === target) continue;
+                    if (!e.alive || e === target || e.isTurncoat) continue;
                     if (dist(t, e) <= st.range) {
                         targets.push(e);
                     }
@@ -1080,6 +1135,8 @@ function createEnemy(type, waveNum) {
         slowFactor: 1,
         isSheep: false,
         sheepTimer: 0,
+        isTurncoat: false,
+        turncoatDmg: 0,
         knockbackVx: 0,
         knockbackVy: 0,
         knockbackTimer: 0,
@@ -1107,6 +1164,8 @@ function updateEnemies(dt) {
             e.sheepTimer -= dtMs;
             if (e.sheepTimer <= 0) {
                 e.isSheep = false;
+                e.isTurncoat = false;
+                e.turncoatDmg = 0;
             }
         }
 
@@ -1143,9 +1202,47 @@ function updateEnemies(dt) {
             }
         }
 
-        // Move along waypoints with lane offset (spread across path width)
+        // Move along waypoints — turncoats go backwards
         if (e.knockbackTimer > 0) continue;
         if (e.waypointIndex >= WAYPOINTS.length) continue;
+
+        if (e.isTurncoat) {
+            // Move backward along path toward enemy spawn
+            if (e.waypointIndex <= 0) {
+                e.alive = false;
+                continue;
+            }
+            const prevWp = WAYPOINTS[e.waypointIndex - 1];
+            const dx = prevWp.x - e.x;
+            const dy = prevWp.y - e.y;
+            const d = Math.sqrt(dx * dx + dy * dy);
+            const moveSpeed = 55 * dt;
+            if (d <= moveSpeed + 1) {
+                e.x = prevWp.x;
+                e.y = prevWp.y;
+                e.waypointIndex--;
+                if (e.waypointIndex <= 0) {
+                    e.alive = false;
+                }
+            } else {
+                e.x += (dx / d) * moveSpeed;
+                e.y += (dy / d) * moveSpeed;
+            }
+            // Collision damage with normal enemies
+            for (const other of game.enemies) {
+                if (!other.alive || other === e) continue;
+                if (other.isSheep || other.isTurncoat) continue;
+                const cdist = Math.sqrt((other.x - e.x) ** 2 + (other.y - e.y) ** 2);
+                if (cdist < e.size + other.size + 2) {
+                    dealDamage(other, e.turncoatDmg);
+                    createHitSpark(other.x, other.y, '#9B59B6');
+                    e.alive = false;
+                    break;
+                }
+            }
+            continue;
+        }
+
         const wp = WAYPOINTS[e.waypointIndex];
         // Segment direction approaching this waypoint
         let segDx, segDy;
@@ -1285,6 +1382,9 @@ function createProjectile(tower, target) {
         detonateDmg: st.detonateDmg,
         detonateRadius: st.detonateRadius,
         chainDmgBoost: st.chainDmgBoost,
+        turncoatDamage: st.turncoatDamage,
+        contagionRange: st.contagionRange,
+        contagionFalloff: st.contagionFalloff,
         towerId: tower.id
     };
     // Missile: vertical launch then arc toward target
@@ -1349,7 +1449,7 @@ function updateProjectiles(dt) {
             }
             // Check collision with any unhit enemy along the path
             for (const e of game.enemies) {
-                if (!e.alive) continue;
+                if (!e.alive || e.isTurncoat) continue;
                 if (p.pierceHitIds.has(e.id)) continue;
                 if (dist(p, e) <= e.size + 5) {
                     dealDamage(e, p.damage);
@@ -1378,7 +1478,7 @@ function updateProjectiles(dt) {
             p.progress += p.speed * dt;
             // Check collision with enemies
             for (const e of game.enemies) {
-                if (!e.alive) continue;
+                if (!e.alive || e.isTurncoat) continue;
                 if (dist(p, e) <= e.size + 4) {
                     dealDamage(e, p.damage);
                     createHitSpark(e.x, e.y, '#FFAA00');
@@ -1473,7 +1573,7 @@ function handleImpact(p) {
     if (p.type === 'missile') {
         createMissileExplosion(p.x, p.y, p.splashRadius);
         for (const e of game.enemies) {
-            if (!e.alive) continue;
+            if (!e.alive || e.isTurncoat) continue;
             const d = dist({ x: p.x, y: p.y }, e);
             if (d <= p.splashRadius) {
                 const dmg = Math.floor(p.damage * (1 - (d / p.splashRadius) * 0.5));
@@ -1493,14 +1593,33 @@ function handleImpact(p) {
         return;
     }
 
-    // Sheep — transform target into a helpless sheep
-    if (p.type === 'sheep') {
+    // Sheep & variants — transform target into a helpless sheep
+    if (p.type === 'sheep' || p.type === 'sheep_turncoat' || p.type === 'sheep_contagion') {
         if (!p.target || !p.target.alive) return;
         dealDamage(p.target, p.damage);
         applySlow(p.target, 0.25, p.sheepDuration);
         p.target.isSheep = true;
         p.target.sheepTimer = p.sheepDuration;
+        if (p.type === 'sheep_turncoat') {
+            p.target.isTurncoat = true;
+            p.target.turncoatDmg = p.turncoatDamage;
+        }
         createSheepTransform(p.target.x, p.target.y);
+        // Contagion — spread sheep to nearby enemies with reduced duration
+        if (p.type === 'sheep_contagion' && p.contagionRange > 0) {
+            for (const e of game.enemies) {
+                if (!e.alive || e === p.target) continue;
+                if (e.isSheep) continue;
+                const cdist = Math.sqrt((e.x - p.target.x) ** 2 + (e.y - p.target.y) ** 2);
+                if (cdist <= p.contagionRange) {
+                    const contagionDuration = Math.floor(p.sheepDuration * p.contagionFalloff);
+                    e.isSheep = true;
+                    e.sheepTimer = Math.max(e.sheepTimer || 0, contagionDuration);
+                    applySlow(e, 0.25, contagionDuration);
+                    createSheepTransform(e.x, e.y);
+                }
+            }
+        }
         return;
     }
 
@@ -1518,7 +1637,7 @@ function handleImpact(p) {
     if (p.splashRadius > 0) {
         // Splash damage (cannon, ice_splash & variants)
         for (const e of game.enemies) {
-            if (!e.alive) continue;
+            if (!e.alive || e.isTurncoat) continue;
             const d = dist(p.target, e);
             if (d <= p.splashRadius) {
                 const dmg = e === p.target ? p.damage : Math.floor(p.damage * p.splashDmgPct);
@@ -1652,7 +1771,7 @@ function chainLightning(sourceEnemy, baseDmg, remainingChains, chainRange, fallo
     let nearest = null;
     let nearestDist = Infinity;
     for (const e of game.enemies) {
-        if (!e.alive || visited.has(e.id)) continue;
+        if (!e.alive || visited.has(e.id) || e.isTurncoat) continue;
         const d = dist(sourceEnemy, e);
         if (d <= chainRange && d < nearestDist) {
             nearest = e;
@@ -1676,8 +1795,10 @@ function dealDamage(enemy, dmg) {
     if (enemy.hp <= 0) {
         enemy.hp = 0;
         enemy.alive = false;
-        game.gold += enemy.reward;
-        game.score += enemy.reward * 10;
+        if (!enemy.isTurncoat) {
+            game.gold += enemy.reward;
+            game.score += enemy.reward * 10;
+        }
         createDeathExplosion(enemy.x, enemy.y, enemy.size, enemy.color);
         updateHUD();
         updateTowerButtons();
@@ -1825,7 +1946,7 @@ function createDetonateExplosion(x, y, dmg, radius) {
     createFireIgnition(x, y, radius * 0.6);
     // Damage nearby enemies
     for (const e of game.enemies) {
-        if (!e.alive) continue;
+        if (!e.alive || e.isTurncoat) continue;
         const d = dist({ x, y }, e);
         if (d <= radius) {
             const falloff = 1 - (d / radius) * 0.5;
@@ -1970,7 +2091,7 @@ function updateFireZones(dt) {
         fz.tickTimer -= dtMs;
         while (fz.tickTimer <= 0) {
             for (const e of game.enemies) {
-                if (!e.alive) continue;
+                if (!e.alive || e.isTurncoat) continue;
                 if (dist(fz, e) <= fz.radius) {
                     dealDamage(e, fz.damage);
                 }
@@ -2379,6 +2500,9 @@ function drawTower(t) {
         case 'fire_detonate': drawFireDetonateTower(t, st, lv); break;
         case 'knockback': drawKnockbackTower(t, st, lv); break;
         case 'sheep': drawSheepTower(t, st, lv); break;
+        case 'sheep_turncoat': drawSheepTurncoatTower(t, st, lv); break;
+        case 'sheep_contagion': drawSheepContagionTower(t, st, lv); break;
+        case 'sheep_aura': drawSheepAuraTower(t, st, lv); break;
         case 'missile': drawMissileTower(t, st, lv); break;
         case 'laser': drawLaserTower(t, st, lv); break;
     }
@@ -4849,6 +4973,397 @@ function drawSheepTower(t, st, lv) {
     ctx.restore();
 }
 
+// ===== SHEEP TURNCOAT TOWER — Dark corrupted sheep pen with twisted energy =====
+function drawSheepTurncoatTower(t, st, lv) {
+    const bw = 8 + lv;
+    const h = 15 + lv * 3;
+    const time = Date.now() / 1000;
+
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.beginPath();
+    ctx.ellipse(0, 5, bw + 3, bw * 0.35, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Dark twisted base
+    const baseGrad = ctx.createLinearGradient(0, 2, 0, bw + 3);
+    baseGrad.addColorStop(0, '#3A2040');
+    baseGrad.addColorStop(1, '#1A1020');
+    ctx.fillStyle = baseGrad;
+    ctx.beginPath();
+    ctx.ellipse(0, 4, bw + 3, bw * 0.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Twisted dark fence posts
+    ctx.fillStyle = '#4A3060';
+    for (let i = 0; i < 5; i++) {
+        const a = (i / 5) * Math.PI * 2 + Math.sin(time * 0.5 + i) * 0.1;
+        const fx = Math.cos(a) * (bw + 2);
+        const fy = Math.sin(a) * bw * 0.3 + 4;
+        ctx.fillRect(fx - 1.5, fy - 7, 3, 8);
+        ctx.fillStyle = '#6B3A8A';
+        ctx.fillRect(fx - 0.5, fy - 7, 1, 8);
+        ctx.fillStyle = '#4A3060';
+    }
+    // Barbed wire
+    ctx.strokeStyle = '#8B7D7B';
+    ctx.lineWidth = 0.8;
+    ctx.setLineDash([3, 2]);
+    ctx.beginPath();
+    for (let i = 0; i <= 5; i++) {
+        const a = (i / 5) * Math.PI * 2;
+        const fx = Math.cos(a) * (bw + 2);
+        const fy = Math.sin(a) * bw * 0.3 + 4;
+        if (i === 0) ctx.moveTo(fx, fy - 3);
+        else ctx.lineTo(fx, fy - 3);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Dark pillar
+    const pillarGrad = ctx.createLinearGradient(-3, 0, 3, 0);
+    pillarGrad.addColorStop(0, '#4A2550');
+    pillarGrad.addColorStop(0.5, '#6B3A6B');
+    pillarGrad.addColorStop(1, '#3A1A40');
+    ctx.fillStyle = pillarGrad;
+    ctx.fillRect(-4, -h * 0.5, 8, h * 0.5 + 5);
+    ctx.strokeStyle = '#2A0A30';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(-4, -h * 0.5, 8, h * 0.5 + 5);
+
+    // Corrupted rune on pillar
+    ctx.fillStyle = '#FF4466';
+    ctx.beginPath();
+    ctx.moveTo(0, -h * 0.3);
+    ctx.lineTo(-3, -h * 0.15);
+    ctx.lineTo(0, -h * 0.2);
+    ctx.lineTo(3, -h * 0.15);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(0, -h * 0.05);
+    ctx.lineTo(-3, -h * 0.2);
+    ctx.lineTo(0, -h * 0.15);
+    ctx.lineTo(3, -h * 0.2);
+    ctx.closePath();
+    ctx.fill();
+
+    // Dark wool dome
+    const domeY = -h * 0.5;
+    const domeR = bw - 1;
+    const woolGrad = ctx.createRadialGradient(0, domeY - 2, domeR * 0.1, 0, domeY, domeR);
+    woolGrad.addColorStop(0, '#7B5B8A');
+    woolGrad.addColorStop(0.5, '#5B3A6B');
+    woolGrad.addColorStop(1, '#3A1A4A');
+    ctx.fillStyle = woolGrad;
+    ctx.beginPath();
+    ctx.arc(0, domeY, domeR, Math.PI, 0);
+    ctx.fill();
+
+    // Spiky wool bumps
+    for (let i = 0; i < 8; i++) {
+        const a = Math.PI + (i / 7) * Math.PI;
+        const bx = Math.cos(a) * domeR * 0.85;
+        const by = domeY + Math.sin(a) * domeR * 0.85;
+        ctx.fillStyle = '#8B5B9A';
+        ctx.beginPath();
+        ctx.arc(bx, by, 2.5 + Math.sin(i * 3) * 1, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // Menacing particles
+    for (let i = 0; i < lv + 2; i++) {
+        const px = Math.sin(time * 1.5 + i * 2.3) * (bw + 2);
+        const py = domeY - 4 - i * 5 + Math.cos(time * 1.9 + i * 1.4) * 4;
+        const pa = 0.3 + Math.sin(time * 2.5 + i) * 0.15;
+        ctx.fillStyle = `rgba(255,50,80,${pa})`;
+        ctx.beginPath();
+        ctx.arc(px, py, 2 + Math.sin(time + i) * 0.8, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // Wand barrel — dark and twisted
+    ctx.save();
+    ctx.rotate(t.angle);
+    ctx.fillStyle = '#4A2060';
+    ctx.fillRect(3, -1.5, domeR + 4, 3);
+    ctx.fillStyle = '#8B3A6B';
+    ctx.beginPath();
+    ctx.arc(domeR + 5, 0, 3.5, 0, Math.PI * 2);
+    ctx.fill();
+    // Red glow at tip
+    const glowAlpha = 0.4 + Math.sin(time * 5) * 0.2;
+    ctx.fillStyle = `rgba(255,60,60,${glowAlpha})`;
+    ctx.beginPath();
+    ctx.arc(domeR + 5, 0, 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+}
+
+// ===== SHEEP CONTAGION TOWER — Green spreading vine theme =====
+function drawSheepContagionTower(t, st, lv) {
+    const bw = 8 + lv;
+    const h = 15 + lv * 3;
+    const time = Date.now() / 1000;
+
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.25)';
+    ctx.beginPath();
+    ctx.ellipse(0, 5, bw + 3, bw * 0.35, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Mossy mound base
+    const mossGrad = ctx.createLinearGradient(0, 0, 0, bw + 3);
+    mossGrad.addColorStop(0, '#5B8C3E');
+    mossGrad.addColorStop(1, '#2E5A1E');
+    ctx.fillStyle = mossGrad;
+    ctx.beginPath();
+    ctx.ellipse(0, 4, bw + 3, bw * 0.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Vine-covered fence
+    ctx.fillStyle = '#7B6B4A';
+    for (let i = 0; i < 5; i++) {
+        const a = (i / 5) * Math.PI * 2;
+        const fx = Math.cos(a) * (bw + 1);
+        const fy = Math.sin(a) * bw * 0.3 + 4;
+        ctx.fillRect(fx - 1, fy - 7, 2.5, 7);
+    }
+    // Spreading vines from fence
+    ctx.strokeStyle = '#4CAF50';
+    ctx.lineWidth = 1.2;
+    for (let i = 0; i < 3; i++) {
+        const a = (i / 3) * Math.PI * 2 + time * 0.3;
+        const sx = Math.cos(a) * (bw + 3);
+        const sy = Math.sin(a) * bw * 0.3 + 3;
+        ctx.beginPath();
+        ctx.moveTo(sx, sy);
+        const ex = sx + Math.cos(a + 0.5) * 14;
+        const ey = sy + Math.sin(a + 0.5) * 8;
+        ctx.quadraticCurveTo(sx + Math.cos(a) * 8, sy - 5, ex, ey);
+        ctx.stroke();
+        // Tiny leaf
+        ctx.fillStyle = '#7BCB5A';
+        ctx.beginPath();
+        ctx.arc(ex, ey, 3, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // Central pillar — earthy green
+    const pillarGrad = ctx.createLinearGradient(-3, 0, 3, 0);
+    pillarGrad.addColorStop(0, '#6B8B4A');
+    pillarGrad.addColorStop(0.5, '#8BAA6B');
+    pillarGrad.addColorStop(1, '#5A7B3A');
+    ctx.fillStyle = pillarGrad;
+    ctx.fillRect(-4, -h * 0.5, 8, h * 0.5 + 5);
+    ctx.strokeStyle = '#4A6B2A';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(-4, -h * 0.5, 8, h * 0.5 + 5);
+
+    // Climbing vine on pillar
+    ctx.strokeStyle = '#5BAA3B';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let yi = -h * 0.5; yi < 5; yi += 5) {
+        const vx = Math.sin(yi * 0.3 + time) * 4;
+        if (yi === -h * 0.5) ctx.moveTo(vx, yi);
+        else ctx.lineTo(vx, yi);
+    }
+    ctx.stroke();
+
+    // Spread symbol (concentric rings)
+    ctx.strokeStyle = '#7BCB5A';
+    ctx.lineWidth = 1;
+    for (let r = 3; r <= 7; r += 2) {
+        ctx.beginPath();
+        ctx.arc(0, -h * 0.15, r, 0, Math.PI * 2);
+        ctx.stroke();
+    }
+    ctx.fillStyle = '#A9DFBF';
+    ctx.beginPath();
+    ctx.arc(0, -h * 0.15, 2, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Green wool dome
+    const domeY = -h * 0.5;
+    const domeR = bw - 1;
+    const woolGrad = ctx.createRadialGradient(0, domeY - 2, domeR * 0.1, 0, domeY, domeR);
+    woolGrad.addColorStop(0, '#D0F0C0');
+    woolGrad.addColorStop(0.5, '#A0D890');
+    woolGrad.addColorStop(1, '#6BAA5B');
+    ctx.fillStyle = woolGrad;
+    ctx.beginPath();
+    ctx.arc(0, domeY, domeR, Math.PI, 0);
+    ctx.fill();
+
+    // Fluffy wool bumps
+    for (let i = 0; i < 8; i++) {
+        const a = Math.PI + (i / 7) * Math.PI;
+        const bx = Math.cos(a) * domeR * 0.85;
+        const by = domeY + Math.sin(a) * domeR * 0.85;
+        ctx.fillStyle = '#C8E8B0';
+        ctx.beginPath();
+        ctx.arc(bx, by, 3 + Math.sin(i * 2.5) * 1.2, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // Floating spores
+    for (let i = 0; i < lv + 3; i++) {
+        const px = Math.sin(time * 1.1 + i * 1.8) * (bw + 5);
+        const py = domeY - 3 - i * 4 + Math.cos(time * 1.5 + i * 1.1) * 5;
+        const pa = 0.35 + Math.sin(time * 1.8 + i) * 0.2;
+        ctx.fillStyle = `rgba(160,240,140,${pa})`;
+        ctx.beginPath();
+        ctx.arc(px, py, 2 + Math.sin(time + i) * 0.7, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // Wand barrel
+    ctx.save();
+    ctx.rotate(t.angle);
+    ctx.fillStyle = '#7BAA5B';
+    ctx.fillRect(3, -1.5, domeR + 4, 3);
+    ctx.fillStyle = '#A9DF8B';
+    ctx.beginPath();
+    ctx.arc(domeR + 5, 0, 3.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+}
+
+// ===== SHEEP AURA TOWER — Golden peaceful shepherd sanctuary =====
+function drawSheepAuraTower(t, st, lv) {
+    const bw = 9 + lv;
+    const h = 16 + lv * 3;
+    const time = Date.now() / 1000;
+
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.2)';
+    ctx.beginPath();
+    ctx.ellipse(0, 5, bw + 4, bw * 0.35, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Golden halo ring (pulsing)
+    const haloAlpha = 0.3 + Math.sin(time * 1.5) * 0.1;
+    ctx.strokeStyle = `rgba(240,220,180,${haloAlpha})`;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 3]);
+    ctx.beginPath();
+    ctx.arc(0, -h * 0.3, bw + 5, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    // Second thinner halo
+    ctx.strokeStyle = `rgba(255,235,200,${haloAlpha * 0.7})`;
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 5]);
+    ctx.beginPath();
+    ctx.arc(0, -h * 0.3, bw + 9, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Cream stone base
+    const baseGrad = ctx.createLinearGradient(0, 0, 0, bw + 3);
+    baseGrad.addColorStop(0, '#E8D8B8');
+    baseGrad.addColorStop(1, '#C8B898');
+    ctx.fillStyle = baseGrad;
+    ctx.beginPath();
+    ctx.ellipse(0, 4, bw + 3, bw * 0.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Decorative fence — white painted wood
+    ctx.fillStyle = '#F0E8D8';
+    for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * Math.PI * 2;
+        const fx = Math.cos(a) * (bw + 2);
+        const fy = Math.sin(a) * bw * 0.3 + 4;
+        ctx.fillRect(fx - 1.2, fy - 6, 2.5, 6);
+        // Small golden tops
+        ctx.fillStyle = '#D4AF37';
+        ctx.beginPath();
+        ctx.arc(fx, fy - 6, 1.8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#F0E8D8';
+    }
+
+    // Central pillar — soft cream marble
+    const pillarGrad = ctx.createLinearGradient(-3, 0, 3, 0);
+    pillarGrad.addColorStop(0, '#E0D5C0');
+    pillarGrad.addColorStop(0.5, '#F5EDE0');
+    pillarGrad.addColorStop(1, '#D5C8B0');
+    ctx.fillStyle = pillarGrad;
+    ctx.fillRect(-4, -h * 0.4, 8, h * 0.4 + 5);
+    ctx.strokeStyle = '#C0B090';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(-4, -h * 0.4, 8, h * 0.4 + 5);
+
+    // Shepherd's crook symbol
+    ctx.strokeStyle = '#D4AF37';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(0, -h * 0.1);
+    ctx.lineTo(0, -h * 0.3);
+    ctx.quadraticCurveTo(3, -h * 0.38, 1.5, -h * 0.42);
+    ctx.stroke();
+    // Small star at crook top
+    const starAlpha = 0.6 + Math.sin(time * 3) * 0.3;
+    ctx.fillStyle = `rgba(255,215,0,${starAlpha})`;
+    ctx.beginPath();
+    ctx.arc(1.5, -h * 0.43, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Golden wool dome
+    const domeY = -h * 0.4;
+    const domeR = bw;
+    const woolGrad = ctx.createRadialGradient(0, domeY - 2, domeR * 0.1, 0, domeY, domeR);
+    woolGrad.addColorStop(0, '#FFFEF5');
+    woolGrad.addColorStop(0.4, '#F5ECD8');
+    woolGrad.addColorStop(1, '#E0D0B0');
+    ctx.fillStyle = woolGrad;
+    ctx.beginPath();
+    ctx.arc(0, domeY, domeR, Math.PI, 0);
+    ctx.fill();
+
+    // Fluffy golden wool bumps
+    for (let i = 0; i < 8; i++) {
+        const a = Math.PI + (i / 7) * Math.PI;
+        const bx = Math.cos(a) * domeR * 0.85;
+        const by = domeY + Math.sin(a) * domeR * 0.85;
+        ctx.fillStyle = '#FFFEF0';
+        ctx.beginPath();
+        ctx.arc(bx, by, 3.5 + Math.sin(i * 2.5) * 1.2, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // Peaceful floating light motes
+    for (let i = 0; i < lv + 3; i++) {
+        const px = Math.sin(time * 0.9 + i * 1.7) * (bw + 6);
+        const py = domeY - 6 - i * 5 + Math.cos(time * 1.3 + i * 1.5) * 5;
+        const pa = 0.4 + Math.sin(time * 1.5 + i) * 0.2;
+        ctx.fillStyle = `rgba(255,240,210,${pa})`;
+        ctx.beginPath();
+        ctx.arc(px, py, 2 + Math.sin(time + i) * 0.8, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // Wand barrel — golden shepherd's staff
+    ctx.save();
+    ctx.rotate(t.angle);
+    ctx.fillStyle = '#D4AF37';
+    ctx.fillRect(3, -1.5, domeR + 4, 2.5);
+    ctx.strokeStyle = '#B8941F';
+    ctx.lineWidth = 0.5;
+    ctx.strokeRect(3, -1.5, domeR + 4, 2.5);
+    // Curved crook at tip
+    ctx.fillStyle = '#E8C84A';
+    ctx.beginPath();
+    ctx.arc(domeR + 5, 0, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = `rgba(255,240,200,0.5)`;
+    ctx.beginPath();
+    ctx.arc(domeR + 5, 0, 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+}
+
 // ===== MISSILE TOWER — Military silo with long-range missiles =====
 function drawMissileTower(t, st, lv) {
     const bw = 10 + lv;
@@ -5218,11 +5733,13 @@ function drawEnemy(e) {
     ctx.save();
     ctx.translate(e.x, e.y);
 
-    // Sheep transformation — draw cute white sheep
+    // Sheep transformation — draw cute white sheep or turncoat wolf-sheep
     if (e.isSheep) {
         const woolY = -e.size * 0.2;
+        const isTurncoat = e.isTurncoat;
+
         // Woolly body (fluffy cloud-like)
-        ctx.fillStyle = '#FEFEFE';
+        ctx.fillStyle = isTurncoat ? '#5B3A7A' : '#FEFEFE';
         for (let i = 0; i < 7; i++) {
             const a = (i / 7) * Math.PI * 2;
             const r = e.size * (0.7 + 0.15 * Math.sin(i * 3 + Date.now() / 400));
@@ -5230,47 +5747,89 @@ function drawEnemy(e) {
             ctx.arc(Math.cos(a) * r * 0.8, woolY + Math.sin(a) * r * 0.6, e.size * 0.45, 0, Math.PI * 2);
             ctx.fill();
         }
-        ctx.fillStyle = '#F8F8F8';
+        ctx.fillStyle = isTurncoat ? '#6B3A8A' : '#F8F8F8';
         ctx.beginPath();
         ctx.ellipse(0, woolY, e.size * 0.85, e.size * 0.55, 0, 0, Math.PI * 2);
         ctx.fill();
-        ctx.strokeStyle = '#DDD';
+        ctx.strokeStyle = isTurncoat ? '#4A2060' : '#DDD';
         ctx.lineWidth = 1;
         ctx.stroke();
 
         // Sheep head
         const headX = e.size * 0.5;
         const headY = woolY - e.size * 0.4;
-        ctx.fillStyle = '#333';
+        ctx.fillStyle = isTurncoat ? '#2A1030' : '#333';
         ctx.beginPath();
         ctx.ellipse(headX, headY, e.size * 0.28, e.size * 0.3, 0, 0, Math.PI * 2);
         ctx.fill();
 
-        // Ears
-        ctx.fillStyle = '#444';
-        ctx.beginPath(); ctx.ellipse(headX - 2, headY - 4, 3, 5, -0.3, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.ellipse(headX + 2, headY - 4, 3, 5, 0.3, 0, Math.PI * 2); ctx.fill();
-
-        // Eyes
-        ctx.fillStyle = '#FFF';
-        ctx.beginPath(); ctx.arc(headX - 1.5, headY - 1, 1.8, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc(headX + 1.5, headY - 1, 1.8, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = '#000';
-        ctx.beginPath(); ctx.arc(headX - 1.5, headY - 1, 0.8, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc(headX + 1.5, headY - 1, 0.8, 0, Math.PI * 2); ctx.fill();
+        if (isTurncoat) {
+            // Horns (curved, menacing)
+            ctx.fillStyle = '#8B7D6B';
+            ctx.beginPath();
+            ctx.moveTo(headX - 2, headY - 4);
+            ctx.quadraticCurveTo(headX - 8, headY - 12, headX - 4, headY - 14);
+            ctx.quadraticCurveTo(headX - 2, headY - 10, headX - 1, headY - 5);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.moveTo(headX + 2, headY - 4);
+            ctx.quadraticCurveTo(headX + 8, headY - 12, headX + 4, headY - 14);
+            ctx.quadraticCurveTo(headX + 2, headY - 10, headX + 1, headY - 5);
+            ctx.fill();
+            // Glowing red eyes
+            ctx.fillStyle = '#FF0000';
+            ctx.beginPath(); ctx.arc(headX - 1.5, headY - 1, 2, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(headX + 1.5, headY - 1, 2, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#FF6666';
+            ctx.beginPath(); ctx.arc(headX - 1.5, headY - 1, 1, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(headX + 1.5, headY - 1, 1, 0, Math.PI * 2); ctx.fill();
+            // Fangs
+            ctx.fillStyle = '#FFF';
+            ctx.beginPath();
+            ctx.moveTo(headX + 2, headY + 2);
+            ctx.lineTo(headX + 4, headY + 6);
+            ctx.lineTo(headX + 3, headY + 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.moveTo(headX - 2, headY + 2);
+            ctx.lineTo(headX - 4, headY + 6);
+            ctx.lineTo(headX - 3, headY + 2);
+            ctx.fill();
+        } else {
+            // Ears
+            ctx.fillStyle = '#444';
+            ctx.beginPath(); ctx.ellipse(headX - 2, headY - 4, 3, 5, -0.3, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.ellipse(headX + 2, headY - 4, 3, 5, 0.3, 0, Math.PI * 2); ctx.fill();
+            // Eyes
+            ctx.fillStyle = '#FFF';
+            ctx.beginPath(); ctx.arc(headX - 1.5, headY - 1, 1.8, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(headX + 1.5, headY - 1, 1.8, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#000';
+            ctx.beginPath(); ctx.arc(headX - 1.5, headY - 1, 0.8, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(headX + 1.5, headY - 1, 0.8, 0, Math.PI * 2); ctx.fill();
+        }
 
         // Tiny legs
-        ctx.fillStyle = '#333';
+        ctx.fillStyle = isTurncoat ? '#1A0A20' : '#333';
         for (let lx = -3; lx <= 3; lx += 6) {
             ctx.fillRect(lx - 1, woolY + e.size * 0.3, 2, e.size * 0.3);
         }
 
-        // "zzZ" floating text
-        const zAlpha = 0.5 + Math.sin(Date.now() / 500) * 0.3;
-        ctx.fillStyle = `rgba(200,180,255,${zAlpha})`;
-        ctx.font = `${e.size * 0.7}px sans-serif`;
-        ctx.fillText('z', e.size * 0.4, -e.size * 0.8 - Math.sin(Date.now() / 300) * 3);
-        ctx.fillText('Z', e.size * 0.2, -e.size * 1.2 - Math.sin(Date.now() / 350) * 3);
+        if (isTurncoat) {
+            // Rage particles
+            const rAlpha = 0.5 + Math.sin(Date.now() / 300) * 0.3;
+            ctx.fillStyle = `rgba(255,80,80,${rAlpha})`;
+            ctx.font = `bold ${e.size * 0.6}px sans-serif`;
+            ctx.fillText('⚡', e.size * 0.3, -e.size * 0.8 - Math.sin(Date.now() / 250) * 3);
+            ctx.fillText('💢', -e.size * 0.5, -e.size * 1.1 - Math.sin(Date.now() / 300) * 2);
+        } else {
+            // "zzZ" floating text
+            const zAlpha = 0.5 + Math.sin(Date.now() / 500) * 0.3;
+            ctx.fillStyle = `rgba(200,180,255,${zAlpha})`;
+            ctx.font = `${e.size * 0.7}px sans-serif`;
+            ctx.fillText('z', e.size * 0.4, -e.size * 0.8 - Math.sin(Date.now() / 300) * 3);
+            ctx.fillText('Z', e.size * 0.2, -e.size * 1.2 - Math.sin(Date.now() / 350) * 3);
+        }
 
         // Health bar for sheep
         const sheepBarW = e.size * 2.5;
@@ -5280,7 +5839,7 @@ function drawEnemy(e) {
         ctx.fillRect(-sheepBarW / 2, sheepBarY, sheepBarW, sheepBarH);
         const sheepHpPct = e.hp / e.maxHp;
         const sheepHpColor = sheepHpPct > 0.5 ? '#2ecc71' : sheepHpPct > 0.25 ? '#f39c12' : '#e74c3c';
-        ctx.fillStyle = sheepHpColor;
+        ctx.fillStyle = isTurncoat ? '#9B59B6' : sheepHpColor;
         ctx.fillRect(-sheepBarW / 2, sheepBarY, sheepBarW * sheepHpPct, sheepBarH);
 
         ctx.restore();
@@ -5477,19 +6036,29 @@ function drawProjectile(p) {
         ctx.fill();
 
         ctx.restore();
-    } else if (p.type === 'sheep') {
-        // Sparkly pink/purple orb
+    } else if (p.type === 'sheep' || p.type === 'sheep_turncoat' || p.type === 'sheep_contagion') {
+        // Orb based on sheep variant
+        let innerColor, outerColor;
+        if (p.type === 'sheep_turncoat') {
+            innerColor = '#FF6688'; outerColor = 'rgba(155,50,100,0)';
+            ctx.fillStyle = 'rgba(180,60,100,0.25)';
+        } else if (p.type === 'sheep_contagion') {
+            innerColor = '#A0F0B0'; outerColor = 'rgba(40,150,60,0)';
+            ctx.fillStyle = 'rgba(60,180,100,0.25)';
+        } else {
+            innerColor = '#F0D0FF'; outerColor = 'rgba(200,160,240,0)';
+            ctx.fillStyle = 'rgba(240,200,255,0.35)';
+        }
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 10, 0, Math.PI * 2);
+        ctx.fill();
         const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, 5);
         grad.addColorStop(0, '#FFFFFF');
-        grad.addColorStop(0.4, '#F0D0FF');
-        grad.addColorStop(1, 'rgba(200,160,240,0)');
+        grad.addColorStop(0.4, innerColor);
+        grad.addColorStop(1, outerColor);
         ctx.fillStyle = grad;
         ctx.beginPath();
         ctx.arc(p.x, p.y, 6, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = 'rgba(240,200,255,0.35)';
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, 10, 0, Math.PI * 2);
         ctx.fill();
     } else if (p.type === 'archer_pierce') {
         // Piercing arrow — sleek violet with trail
@@ -5913,7 +6482,11 @@ function showTowerInfo(t) {
         (st.chainDmgBoost > 0 ? '<div class="stat-row"><span>连锁增伤</span><span>+' + Math.round(st.chainDmgBoost * 100) + '%/跳</span></div>' : '') +
         (st.chargeMaxTime > 0 ? '<div class="stat-row"><span>最大蓄力</span><span>' + (st.chargeMaxTime / 1000).toFixed(1) + 's</span></div>' : '') +
         (st.chargeDmgMultiplier > 0 ? '<div class="stat-row"><span>蓄力倍率</span><span>' + st.chargeDmgMultiplier.toFixed(1) + 'x</span></div>' : '') +
-        (st.vulnFactor > 0 ? '<div class="stat-row"><span>易伤加成</span><span>+' + Math.round(st.vulnFactor * 100) + '%</span></div>' : '');
+        (st.vulnFactor > 0 ? '<div class="stat-row"><span>易伤加成</span><span>+' + Math.round(st.vulnFactor * 100) + '%</span></div>' : '') +
+        (st.turncoatDamage > 0 ? '<div class="stat-row"><span>反戈伤害</span><span>' + st.turncoatDamage + '</span></div>' : '') +
+        (st.contagionRange > 0 ? '<div class="stat-row"><span>传染范围</span><span>' + st.contagionRange + 'px</span></div>' : '') +
+        (st.contagionFalloff > 0 ? '<div class="stat-row"><span>传染衰减</span><span>' + Math.round(st.contagionFalloff * 100) + '%</span></div>' : '') +
+        (st.auraSheepDuration > 0 ? '<div class="stat-row"><span>光环化羊</span><span>' + (st.auraSheepDuration / 1000).toFixed(1) + 's</span></div>' : '');
 
     // Branch evolution — dynamic based on tower type
     const evolveDiv = document.getElementById('evolve-btns');
