@@ -431,6 +431,30 @@ const TOWER_DEFS = {
         color: '#B8860B', bulletColor: '#FFE44D', bulletSpeed: 9999,
         splash: 0, slowFactor: 0, slowDuration: 0, chainCount: [3, 4, 5], chainRange: [80, 90, 100], chainFalloff: 0.3
     },
+    fire_focus: {
+        name: '焚天烈焰', icon: '🔥',
+        cost: null, upgradeCost: [160, 340], evolveCost: 280,
+        damage: [22, 38, 60], range: [130, 145, 165], cooldown: [900, 750, 600],
+        color: '#C0392B', bulletColor: '#FFAA00', bulletSpeed: 400,
+        splash: 0, slowFactor: 0, slowDuration: 0, chainCount: 0,
+        focusDmgPerStack: 0.25, focusMaxStacks: [3, 4, 5]
+    },
+    fire_ignite: {
+        name: '燎原星火', icon: '✨',
+        cost: null, upgradeCost: [160, 330], evolveCost: 280,
+        damage: [0, 0, 0], range: [100, 115, 130], cooldown: [2800, 2400, 2000],
+        color: '#E67E22', bulletColor: '#FFC300', bulletSpeed: 0,
+        splash: 0, slowFactor: 0, slowDuration: 0, chainCount: 0,
+        igniteFlameRadius: [35, 40, 45], igniteFlameDuration: [2500, 3000, 3600], igniteFlameTickInterval: 400
+    },
+    fire_detonate: {
+        name: '炎爆余烬', icon: '💢',
+        cost: null, upgradeCost: [170, 350], evolveCost: 280,
+        damage: [18, 30, 48], range: [105, 115, 130], cooldown: [1800, 1500, 1200],
+        color: '#D35400', bulletColor: '#FF5733', bulletSpeed: 300,
+        splash: [30, 40, 50], slowFactor: 0, slowDuration: 0, chainCount: 0, splashDmgPct: 0.5,
+        detonateDmg: [55, 90, 140], detonateRadius: [65, 75, 85]
+    },
     fire: {
         name: '火塔', icon: '🔥',
         cost: 180, upgradeCost: [140, 280],
@@ -489,6 +513,11 @@ const EVOLVE_OPTIONS = {
         { type: 'ice_splash', label: '凛冬之息', icon: '❄️', desc: '冰霜溅射', color: '#6DB9DE' },
         { type: 'ice_freeze', label: '霜晶制裁', icon: '🧊', desc: '三击冻结', color: '#2E86C1' },
         { type: 'ice_aura', label: '绝对零度', icon: '🫧', desc: '减速光环', color: '#A9CCE3' }
+    ],
+    fire: [
+        { type: 'fire_focus', label: '焚天烈焰', icon: '🔥', desc: '聚焦递增', color: '#C0392B' },
+        { type: 'fire_ignite', label: '燎原星火', icon: '✨', desc: '范围点燃', color: '#E67E22' },
+        { type: 'fire_detonate', label: '炎爆余烬', icon: '💢', desc: '击杀爆炸', color: '#D35400' }
     ]
 };
 
@@ -762,7 +791,9 @@ function createTower(type, col, row) {
         totalInvested: def.cost,
         target: null,
         freezeTargetId: null,
-        freezeStack: 0
+        freezeStack: 0,
+        focusTargetId: null,
+        focusStack: 0
     };
 }
 
@@ -807,7 +838,14 @@ function towerStats(t) {
         freezeStacks: def.freezeStacks || 0,
         freezeDuration: Array.isArray(def.freezeDuration) ? def.freezeDuration[lv] : (def.freezeDuration || 0),
         pierceCount: Array.isArray(def.pierceCount) ? def.pierceCount[lv] : (def.pierceCount || 0),
-        pierceFalloff: def.pierceFalloff || 0
+        pierceFalloff: def.pierceFalloff || 0,
+        focusDmgPerStack: def.focusDmgPerStack || 0,
+        focusMaxStacks: Array.isArray(def.focusMaxStacks) ? def.focusMaxStacks[lv] : (def.focusMaxStacks || 0),
+        igniteFlameRadius: Array.isArray(def.igniteFlameRadius) ? def.igniteFlameRadius[lv] : (def.igniteFlameRadius || 0),
+        igniteFlameDuration: Array.isArray(def.igniteFlameDuration) ? def.igniteFlameDuration[lv] : (def.igniteFlameDuration || 0),
+        igniteFlameTickInterval: def.igniteFlameTickInterval || 0,
+        detonateDmg: Array.isArray(def.detonateDmg) ? def.detonateDmg[lv] : (def.detonateDmg || 0),
+        detonateRadius: Array.isArray(def.detonateRadius) ? def.detonateRadius[lv] : (def.detonateRadius || 0)
     };
 }
 
@@ -894,10 +932,32 @@ function updateTowers(dt) {
             t.cooldown = st.cooldown;
             continue;
         }
+        // Ignite pulse — creates fire zones under enemies in range
+        if (t.type === 'fire_ignite') {
+            const st = towerStats(t);
+            for (const e of game.enemies) {
+                if (!e.alive) continue;
+                if (dist(t, e) <= st.range) {
+                    createFireZone(e.x, e.y, st.igniteFlameRadius, Math.floor(10 + st.igniteFlameRadius * 0.3), st.igniteFlameDuration, st.igniteFlameTickInterval);
+                    createFireIgnition(e.x, e.y, st.igniteFlameRadius * 0.6);
+                }
+            }
+            t.cooldown = st.cooldown;
+            continue;
+        }
         const target = towerAcquireTarget(t);
         if (target) {
             const st = towerStats(t);
             t.angle = angleTo(t, target);
+            // Focus stacking — fire_focus ramps damage on same target
+            if (st.focusMaxStacks > 0) {
+                if (t.focusTargetId === target.id) {
+                    t.focusStack = Math.min(t.focusStack + 1, st.focusMaxStacks);
+                } else {
+                    t.focusTargetId = target.id;
+                    t.focusStack = 1;
+                }
+            }
             if (st.multiShot > 0) {
                 // Fire multiple arrows at different targets
                 const targets = [target];
@@ -916,6 +976,10 @@ function updateTowers(dt) {
                 // Laser link damage boost
                 if (t.type === 'laser' && t.linkedCount > 0) {
                     p.linkBoost = 1 + t.linkedCount * TOWER_DEFS.laser.linkDmgBoost;
+                }
+                // Focus damage ramp
+                if (st.focusMaxStacks > 0 && t.focusStack > 0) {
+                    p.damage = Math.floor(p.damage * (1 + (t.focusStack - 1) * st.focusDmgPerStack));
                 }
             }
             t.cooldown = st.cooldown;
@@ -1132,7 +1196,6 @@ function createProjectile(tower, target) {
         alive: true,
         towerX: tower.x,
         towerY: tower.y,
-        towerId: tower.id,
         critChance: st.critChance,
         critMultiplier: st.critMultiplier,
         shrapnelCount: st.shrapnelCount,
@@ -1144,7 +1207,12 @@ function createProjectile(tower, target) {
         freezeDuration: st.freezeDuration,
         auraSlowFactor: st.auraSlowFactor,
         pierceCount: st.pierceCount,
-        pierceFalloff: st.pierceFalloff
+        pierceFalloff: st.pierceFalloff,
+        focusDmgPerStack: st.focusDmgPerStack,
+        focusMaxStacks: st.focusMaxStacks,
+        detonateDmg: st.detonateDmg,
+        detonateRadius: st.detonateRadius,
+        towerId: tower.id
     };
     // Missile: vertical launch then arc toward target
     if (tower.type === 'missile') {
@@ -1411,6 +1479,10 @@ function handleImpact(p) {
         if (p.shrapnelCount > 0) {
             spawnShrapnel(p);
         }
+        // Detonate — on-kill explosion
+        if (p.detonateDmg > 0 && p.detonateRadius > 0 && p.target && !p.target.alive) {
+            createDetonateExplosion(p.target.x, p.target.y, p.detonateDmg, p.detonateRadius);
+        }
     } else if (p.slowFactor > 0) {
         // Ice / freeze slow
         dealDamage(p.target, p.damage);
@@ -1648,6 +1720,41 @@ function createCritSpark(x, y, multiplier) {
             color: '#FFF',
             size: 3 + Math.random() * 5
         });
+    }
+}
+
+function createDetonateExplosion(x, y, dmg, radius) {
+    // Big fiery explosion
+    for (let i = 0; i < 20; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 80 + Math.random() * 200;
+        game.particles.push({
+            x, y,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            life: 0.3 + Math.random() * 0.5,
+            maxLife: 0.8,
+            color: Math.random() < 0.5 ? '#FF5733' : '#FFC300',
+            size: 2 + Math.random() * 5
+        });
+    }
+    // Fire ring shockwave
+    game.particles.push({
+        x, y, vx: 0, vy: 0,
+        life: 0.45, maxLife: 0.45,
+        color: '#FF4400', size: radius * 0.7, ring: true
+    });
+    // Fire zone at explosion point
+    createFireZone(x, y, radius * 0.5, Math.floor(dmg * 0.4), 2000, 400);
+    createFireIgnition(x, y, radius * 0.6);
+    // Damage nearby enemies
+    for (const e of game.enemies) {
+        if (!e.alive) continue;
+        const d = dist({ x, y }, e);
+        if (d <= radius) {
+            const falloff = 1 - (d / radius) * 0.5;
+            dealDamage(e, Math.floor(dmg * falloff));
+        }
     }
 }
 
@@ -2188,6 +2295,9 @@ function drawTower(t) {
         case 'ice_aura': drawIceAuraTower(t, st, lv); break;
         case 'tesla': drawTeslaTower(t, st, lv); break;
         case 'fire': drawFireTower(t, st, lv); break;
+        case 'fire_focus': drawFireFocusTower(t, st, lv); break;
+        case 'fire_ignite': drawFireIgniteTower(t, st, lv); break;
+        case 'fire_detonate': drawFireDetonateTower(t, st, lv); break;
         case 'knockback': drawKnockbackTower(t, st, lv); break;
         case 'sheep': drawSheepTower(t, st, lv); break;
         case 'missile': drawMissileTower(t, st, lv); break;
@@ -3758,6 +3868,318 @@ function drawFireTower(t, st, lv) {
     }
 }
 
+// ===== FOCUS TOWER — Evolved fire: single-target inferno ramping =====
+function drawFireFocusTower(t, st, lv) {
+    const bw = 8 + lv;
+    const h = 18 + lv * 5;
+    const time = Date.now() / 1000;
+    const pulse = 0.5 + Math.sin(time * 4) * 0.5;
+    const focusStack = t.focusStack || 0;
+    const focusMax = st.focusMaxStacks;
+
+    // Dark obsidian base
+    const baseGrad = ctx.createLinearGradient(0, -2, 0, bw + 4);
+    baseGrad.addColorStop(0, '#3D1A1A');
+    baseGrad.addColorStop(0.5, '#2A0A0A');
+    baseGrad.addColorStop(1, '#1A0000');
+    ctx.fillStyle = baseGrad;
+    ctx.beginPath();
+    ctx.roundRect(-bw - 3, 1, (bw + 3) * 2, bw + 4, 3);
+    ctx.fill();
+    ctx.strokeStyle = '#8B0000';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Focus stack indicator — glowing runes
+    for (let i = 0; i < focusMax; i++) {
+        const rx = -bw + 2 + i * bw * 2 / (focusMax - 1 || 1);
+        const bright = i < focusStack;
+        ctx.fillStyle = bright ? '#FFD700' : 'rgba(255,200,50,0.2)';
+        ctx.shadowColor = bright ? '#FFAA00' : 'transparent';
+        ctx.shadowBlur = bright ? 5 : 0;
+        ctx.beginPath();
+        ctx.arc(rx, bw + 2, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowColor = 'transparent';
+        ctx.shadowBlur = 0;
+    }
+
+    // Iron pillar
+    ctx.fillStyle = '#5C2A1A';
+    ctx.fillRect(-3, -h * 0.2, 6, h * 0.2 + 2);
+
+    // Focusing lens / crystal chamber
+    const lensY = -h * 0.25;
+    const lensW = bw + 1;
+    ctx.fillStyle = '#3A1010';
+    ctx.beginPath();
+    ctx.arc(0, lensY, lensW, Math.PI, 0);
+    ctx.fill();
+    ctx.strokeStyle = '#C0392B';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Crystal lens
+    const lensGrad = ctx.createRadialGradient(0, lensY, 0, 0, lensY, lensW - 1);
+    lensGrad.addColorStop(0, '#FFE880');
+    lensGrad.addColorStop(0.3, '#FFAA00');
+    lensGrad.addColorStop(0.7, '#FF5500');
+    lensGrad.addColorStop(1, '#8B0000');
+    ctx.fillStyle = lensGrad;
+    ctx.beginPath();
+    ctx.ellipse(0, lensY - 1, lensW - 2, (lensW - 2) * 0.4, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Focused flame beam barrel
+    ctx.save();
+    ctx.rotate(t.angle);
+    ctx.fillStyle = '#4A1818';
+    ctx.fillRect(0, -2, bw + lv + 3, 4);
+    // Narrow intense flame at tip (intensity based on focus)
+    const flameIntensity = 0.3 + (focusStack / focusMax) * 0.5 + pulse * 0.2;
+    const flameGrad = ctx.createLinearGradient(bw + lv, 0, bw + lv + 8, 0);
+    flameGrad.addColorStop(0, `rgba(255,200,30,${flameIntensity})`);
+    flameGrad.addColorStop(0.5, `rgba(255,150,10,${flameIntensity * 0.8})`);
+    flameGrad.addColorStop(1, 'rgba(255,60,0,0)');
+    ctx.fillStyle = flameGrad;
+    ctx.beginPath();
+    ctx.moveTo(bw + lv + 3, -3);
+    ctx.lineTo(bw + lv + 10, 0);
+    ctx.lineTo(bw + lv + 3, 3);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+
+    // Heat shimmer around lens
+    ctx.fillStyle = `rgba(255,150,20,${0.1 + pulse * 0.08})`;
+    ctx.beginPath();
+    ctx.arc(0, lensY, lensW + 4, 0, Math.PI * 2);
+    ctx.fill();
+}
+
+// ===== IGNITE TOWER — Evolved fire: passive area ignition =====
+function drawFireIgniteTower(t, st, lv) {
+    const bw = 8 + lv;
+    const h = 14 + lv * 3;
+    const time = Date.now() / 1000;
+    const pulse = 0.5 + Math.sin(time * 2.5) * 0.5;
+
+    // Warm sandstone base
+    const baseGrad = ctx.createRadialGradient(0, 3, bw * 0.1, 0, 3, bw + 4);
+    baseGrad.addColorStop(0, 'rgba(255,200,80,0.5)');
+    baseGrad.addColorStop(0.5, 'rgba(230,150,30,0.3)');
+    baseGrad.addColorStop(1, 'rgba(200,100,20,0)');
+    ctx.fillStyle = baseGrad;
+    ctx.beginPath();
+    ctx.arc(0, 3, bw + 4, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Glowing heat ring
+    ctx.strokeStyle = `rgba(255,180,40,${0.2 + pulse * 0.15})`;
+    ctx.lineWidth = 2 + pulse;
+    ctx.beginPath();
+    ctx.arc(0, 2, bw + 2 + pulse * 3, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Outer dotted ring
+    ctx.setLineDash([3, 6]);
+    ctx.strokeStyle = `rgba(255,150,20,${0.1 + pulse * 0.1})`;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(0, 2, bw + 6, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Tower body — warm orange crystal
+    const bodyTop = -h * 0.55;
+    const tw = bw * 0.5;
+    const bodyGrad = ctx.createLinearGradient(-bw, 0, bw, 0);
+    bodyGrad.addColorStop(0, '#C0500A');
+    bodyGrad.addColorStop(0.3, '#E67E22');
+    bodyGrad.addColorStop(0.5, '#F5A623');
+    bodyGrad.addColorStop(0.7, '#E67E22');
+    bodyGrad.addColorStop(1, '#A0400A');
+    ctx.fillStyle = bodyGrad;
+    ctx.beginPath();
+    ctx.moveTo(-bw * 0.85, 0);
+    ctx.quadraticCurveTo(-tw - 1, -h * 0.25, -tw, bodyTop);
+    ctx.lineTo(tw, bodyTop);
+    ctx.quadraticCurveTo(tw + 1, -h * 0.25, bw * 0.85, 0);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#D35400';
+    ctx.lineWidth = 1.3;
+    ctx.stroke();
+
+    // Heat veins
+    for (let i = 1; i < 4; i++) {
+        const y = -i * h * 0.55 / 4;
+        ctx.strokeStyle = `rgba(255,255,200,${0.2 + pulse * 0.1})`;
+        ctx.lineWidth = 0.6;
+        ctx.beginPath();
+        const wAtY = bw * 0.85 - (bw * 0.85 - tw) * (i / 4);
+        ctx.moveTo(-wAtY + 1, y);
+        ctx.lineTo(wAtY - 1, y);
+        ctx.stroke();
+    }
+
+    // Glowing chamber
+    ctx.fillStyle = '#3A1000';
+    ctx.fillRect(-2.5, -h * 0.35, 5, 8);
+    ctx.fillStyle = `rgba(255,200,80,${0.5 + pulse * 0.3})`;
+    ctx.fillRect(-1.5, -h * 0.35 + 1, 3, 6);
+
+    // Dome roof — golden crystal
+    const roofGrad = ctx.createRadialGradient(0, bodyTop, tw * 0.2, 0, bodyTop - 1, tw + 2);
+    roofGrad.addColorStop(0, 'rgba(255,255,200,0.9)');
+    roofGrad.addColorStop(0.3, 'rgba(255,200,80,0.7)');
+    roofGrad.addColorStop(0.7, 'rgba(230,130,20,0.4)');
+    roofGrad.addColorStop(1, 'rgba(200,80,10,0)');
+    ctx.fillStyle = roofGrad;
+    ctx.beginPath();
+    ctx.arc(0, bodyTop, tw + 3, Math.PI, 0);
+    ctx.fill();
+
+    // Central flame orb (no barrel — passive)
+    const orbY = -h * 0.2;
+    ctx.shadowColor = 'rgba(255,180,40,0.7)';
+    ctx.shadowBlur = 10 + lv * 2;
+    const orbGrad = ctx.createRadialGradient(0, orbY - 2, 1, 0, orbY, 5 + lv);
+    orbGrad.addColorStop(0, '#FFE880');
+    orbGrad.addColorStop(0.3, '#FFAA00');
+    orbGrad.addColorStop(0.7, '#FF5500');
+    orbGrad.addColorStop(1, 'rgba(255,60,0,0)');
+    ctx.fillStyle = orbGrad;
+    ctx.beginPath();
+    ctx.arc(0, orbY, 5 + lv, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
+
+    // Floating sparks
+    for (let i = 0; i < lv + 3; i++) {
+        const a = time * 2 + i * Math.PI * 2 / (lv + 3);
+        const dist = bw + 5;
+        const sx = Math.cos(a) * dist;
+        const sy = orbY + Math.sin(a) * dist * 0.3;
+        ctx.fillStyle = `rgba(255,200,40,${0.4 + Math.sin(time * 4 + i) * 0.3})`;
+        ctx.beginPath();
+        ctx.arc(sx, sy, 1 + Math.random() * 0.5, 0, Math.PI * 2);
+        ctx.fill();
+    }
+}
+
+// ===== DETONATE TOWER — Evolved fire: on-kill explosion chain =====
+function drawFireDetonateTower(t, st, lv) {
+    const bw = 8 + lv;
+    const h = 15 + lv * 4;
+    const time = Date.now() / 1000;
+    const pulse = 0.5 + Math.sin(time * 3.5) * 0.5;
+
+    // Dark steel base
+    const baseGrad = ctx.createLinearGradient(0, -2, 0, bw + 4);
+    baseGrad.addColorStop(0, '#4A2A1A');
+    baseGrad.addColorStop(0.5, '#3A1A0A');
+    baseGrad.addColorStop(1, '#1A0800');
+    ctx.fillStyle = baseGrad;
+    ctx.beginPath();
+    ctx.roundRect(-bw - 3, 1, (bw + 3) * 2, bw + 4, 3);
+    ctx.fill();
+    ctx.strokeStyle = '#D35400';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Explosive charge indicators
+    for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * Math.PI * 2;
+        const cx = Math.cos(a) * (bw);
+        const cy = Math.sin(a) * (bw) + 3;
+        ctx.fillStyle = `rgba(255,100,20,${0.3 + pulse * 0.35})`;
+        ctx.beginPath();
+        ctx.arc(cx, cy, 2, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // Tower body — red-hot iron
+    const bodyTop = -h * 0.5;
+    const tw = bw * 0.55;
+    const bodyGrad = ctx.createLinearGradient(-bw, 0, bw, 0);
+    bodyGrad.addColorStop(0, '#6B1A0A');
+    bodyGrad.addColorStop(0.3, '#C0392B');
+    bodyGrad.addColorStop(0.5, '#D35400');
+    bodyGrad.addColorStop(0.7, '#A0301A');
+    bodyGrad.addColorStop(1, '#4A0A00');
+    ctx.fillStyle = bodyGrad;
+    ctx.beginPath();
+    ctx.moveTo(-bw * 0.85, 0);
+    ctx.lineTo(bw * 0.85, 0);
+    ctx.lineTo(tw, bodyTop);
+    ctx.lineTo(-tw, bodyTop);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#FF5733';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Thermal vents
+    for (let i = 1; i < 4; i++) {
+        const y = -i * h * 0.5 / 4;
+        ctx.strokeStyle = `rgba(255,140,20,${0.3 + pulse * 0.2})`;
+        ctx.lineWidth = 0.8;
+        ctx.beginPath();
+        const wAtY = bw * 0.85 - (bw * 0.85 - tw) * (i / 4);
+        ctx.moveTo(-wAtY + 1, y);
+        ctx.lineTo(wAtY - 1, y);
+        ctx.stroke();
+    }
+
+    // Charge chamber
+    ctx.fillStyle = '#1A0500';
+    ctx.fillRect(-3, -h * 0.3, 6, 10);
+    ctx.fillStyle = `rgba(255,80,20,${0.4 + pulse * 0.35})`;
+    ctx.fillRect(-2, -h * 0.3 + 1, 4, 8);
+
+    // Pointed roof — blast cap
+    const roofGrad = ctx.createLinearGradient(0, bodyTop, 0, -h);
+    roofGrad.addColorStop(0, '#D35400');
+    roofGrad.addColorStop(0.5, '#E67E22');
+    roofGrad.addColorStop(1, '#FFA030');
+    ctx.fillStyle = roofGrad;
+    ctx.beginPath();
+    ctx.moveTo(-tw - 2, bodyTop);
+    ctx.lineTo(tw + 2, bodyTop);
+    ctx.lineTo(0, -h);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#FF5733';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Blast cap tip
+    ctx.fillStyle = '#FFC300';
+    ctx.beginPath();
+    ctx.arc(0, -h, 3 + lv * 0.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Explosive barrel
+    ctx.save();
+    ctx.rotate(t.angle);
+    ctx.fillStyle = '#4A1A1A';
+    ctx.fillRect(2, -2.5, bw + lv + 3, 5);
+    ctx.fillStyle = '#8B3A2A';
+    ctx.fillRect(3, -1.5, bw + lv - 1, 3);
+    // Explosive tip
+    ctx.fillStyle = `rgba(255,100,20,${0.4 + pulse * 0.35})`;
+    ctx.beginPath();
+    ctx.arc(bw + lv + 2, 0, 4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = `rgba(255,200,50,${0.35 + pulse * 0.4})`;
+    ctx.beginPath();
+    ctx.arc(bw + lv + 2, 0, 2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+}
+
 // ===== KNOCKBACK TOWER — Shockwave emitter with piston hammer =====
 function drawKnockbackTower(t, st, lv) {
     const bw = 10 + lv;
@@ -5072,7 +5494,12 @@ function showTowerInfo(t) {
         (st.freezeStacks > 0 ? '<div class="stat-row"><span>冻结所需连击</span><span>' + st.freezeStacks + '次</span></div>' : '') +
         (st.freezeDuration > 0 && !st.stunDuration ? '<div class="stat-row"><span>冻结持续</span><span>' + (st.freezeDuration / 1000).toFixed(1) + 's</span></div>' : '') +
         (st.pierceCount > 0 ? '<div class="stat-row"><span>穿透次数</span><span>' + st.pierceCount + '次</span></div>' : '') +
-        (st.pierceFalloff > 0 ? '<div class="stat-row"><span>穿透衰减</span><span>' + Math.round(st.pierceFalloff * 100) + '%</span></div>' : '');
+        (st.pierceFalloff > 0 ? '<div class="stat-row"><span>穿透衰减</span><span>' + Math.round(st.pierceFalloff * 100) + '%</span></div>' : '') +
+        (st.focusMaxStacks > 0 ? '<div class="stat-row"><span>聚焦层数</span><span>' + st.focusMaxStacks + '层</span></div>' : '') +
+        (st.focusDmgPerStack > 0 ? '<div class="stat-row"><span>每层增伤</span><span>+' + Math.round(st.focusDmgPerStack * 100) + '%</span></div>' : '') +
+        (st.igniteFlameRadius > 0 ? '<div class="stat-row"><span>点燃范围</span><span>' + st.igniteFlameRadius + 'px</span></div>' : '') +
+        (st.detonateDmg > 0 ? '<div class="stat-row"><span>爆炸伤害</span><span>' + st.detonateDmg + '</span></div>' : '') +
+        (st.detonateRadius > 0 ? '<div class="stat-row"><span>爆炸范围</span><span>' + st.detonateRadius + 'px</span></div>' : '');
 
     // Branch evolution — dynamic based on tower type
     const evolveDiv = document.getElementById('evolve-btns');
@@ -5153,6 +5580,8 @@ function evolveSelectedIndex(index) {
     t.cooldown = 0;
     t.freezeTargetId = null;
     t.freezeStack = 0;
+    t.focusTargetId = null;
+    t.focusStack = 0;
     updateHUD();
     showTowerInfo(t);
 }
