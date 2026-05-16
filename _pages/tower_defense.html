@@ -355,6 +355,14 @@ const TOWER_DEFS = {
         splash: 0, slowFactor: 0, slowDuration: 0, chainCount: 0,
         multiShot: 3
     },
+    archer_pierce: {
+        name: '穿透射击', icon: '🏹',
+        cost: null, upgradeCost: [160, 330], evolveCost: 200,
+        damage: [30, 50, 80], range: [150, 165, 185], cooldown: [1000, 850, 700],
+        color: '#6C3483', bulletColor: '#D7BDE2', bulletSpeed: 600,
+        splash: 0, slowFactor: 0, slowDuration: 0, chainCount: 0,
+        pierceCount: [3, 4, 5], pierceFalloff: 0.25
+    },
     artillery: {
         name: '炮塔', icon: '💣',
         cost: 150, upgradeCost: [120, 240],
@@ -365,10 +373,9 @@ const TOWER_DEFS = {
     artillery_blast: {
         name: '焦土重炮', icon: '💥',
         cost: null, upgradeCost: [200, 400], evolveCost: 250,
-        damage: [70, 120, 190], range: [120, 130, 145], cooldown: [2400, 2100, 1800],
+        damage: [80, 135, 210], range: [120, 130, 145], cooldown: [2400, 2100, 1800],
         color: '#8B2500', bulletColor: '#FF4400', bulletSpeed: 220,
-        splash: [75, 90, 105], slowFactor: 0, slowDuration: 0, chainCount: 0, splashDmgPct: 0.65,
-        flameRadius: [40, 50, 60], flameDuration: [1800, 2200, 2800], flameTickInterval: 400
+        splash: [85, 100, 120], slowFactor: 0, slowDuration: 0, chainCount: 0, splashDmgPct: 0.75
     },
     artillery_shrapnel: {
         name: '破片风暴', icon: '💠',
@@ -381,13 +388,13 @@ const TOWER_DEFS = {
     artillery_concuss: {
         name: '震撼弹幕', icon: '💫',
         cost: null, upgradeCost: [180, 350], evolveCost: 250,
-        damage: [35, 60, 95], range: [115, 125, 140], cooldown: [1800, 1550, 1300],
+        damage: [30, 50, 80], range: [115, 125, 140], cooldown: [1800, 1550, 1300],
         color: '#4A6FA5', bulletColor: '#88CCFF', bulletSpeed: 280,
         splash: [60, 70, 80], slowFactor: 0, slowDuration: 0, chainCount: 0, splashDmgPct: 0.5,
-        stunFactor: 0.2, stunDuration: [1200, 1800, 2500]
+        stunFactor: 0.01, stunDuration: [350, 500, 700]
     },
     ice_splash: {
-        name: '极寒领域', icon: '❄️',
+        name: '凛冬之息', icon: '❄️',
         cost: null, upgradeCost: [150, 280], evolveCost: 250,
         damage: [12, 22, 38], range: [110, 120, 135], cooldown: [1100, 950, 800],
         color: '#6DB9DE', bulletColor: '#D6EAF8', bulletSpeed: 350,
@@ -395,7 +402,7 @@ const TOWER_DEFS = {
         splashDmgPct: 0.6
     },
     ice_freeze: {
-        name: '深冻之箭', icon: '🧊',
+        name: '霜晶制裁', icon: '🧊',
         cost: null, upgradeCost: [150, 280], evolveCost: 250,
         damage: [18, 32, 52], range: [115, 125, 140], cooldown: [1100, 950, 800],
         color: '#2E86C1', bulletColor: '#85C1E9', bulletSpeed: 380,
@@ -403,7 +410,7 @@ const TOWER_DEFS = {
         freezeStacks: 3, freezeDuration: [1800, 2400, 3000]
     },
     ice_aura: {
-        name: '冰霜光环', icon: '🫧',
+        name: '绝对零度', icon: '🫧',
         cost: null, upgradeCost: [150, 300], evolveCost: 250,
         damage: [0, 0, 0], range: [100, 115, 130], cooldown: [2000, 1800, 1600],
         color: '#A9CCE3', bulletColor: '#E8F4FD', bulletSpeed: 0,
@@ -470,7 +477,8 @@ const TOWER_DEFS = {
 const EVOLVE_OPTIONS = {
     archer: [
         { type: 'archer_crit', label: '致命一击', icon: '🎯', desc: '高伤暴击', color: '#DAA520' },
-        { type: 'archer_multi', label: '多重射击', icon: '🏹', desc: '三箭齐发', color: '#43A047' }
+        { type: 'archer_multi', label: '多重射击', icon: '🏹', desc: '三箭齐发', color: '#43A047' },
+        { type: 'archer_pierce', label: '穿透射击', icon: '💜', desc: '穿透衰减', color: '#6C3483' }
     ],
     artillery: [
         { type: 'artillery_blast', label: '焦土重炮', icon: '💥', desc: '大范围燃烧', color: '#FF5722' },
@@ -478,9 +486,9 @@ const EVOLVE_OPTIONS = {
         { type: 'artillery_concuss', label: '震撼弹幕', icon: '💫', desc: '眩晕减速', color: '#5DADE2' }
     ],
     ice: [
-        { type: 'ice_splash', label: '极寒领域', icon: '❄️', desc: '冰霜溅射', color: '#6DB9DE' },
-        { type: 'ice_freeze', label: '深冻之箭', icon: '🧊', desc: '三击冻结', color: '#2E86C1' },
-        { type: 'ice_aura', label: '冰霜光环', icon: '🫧', desc: '减速光环', color: '#A9CCE3' }
+        { type: 'ice_splash', label: '凛冬之息', icon: '❄️', desc: '冰霜溅射', color: '#6DB9DE' },
+        { type: 'ice_freeze', label: '霜晶制裁', icon: '🧊', desc: '三击冻结', color: '#2E86C1' },
+        { type: 'ice_aura', label: '绝对零度', icon: '🫧', desc: '减速光环', color: '#A9CCE3' }
     ]
 };
 
@@ -797,7 +805,9 @@ function towerStats(t) {
         stunDuration: Array.isArray(def.stunDuration) ? def.stunDuration[lv] : (def.stunDuration || 0),
         auraSlowFactor: Array.isArray(def.auraSlowFactor) ? def.auraSlowFactor[lv] : (def.auraSlowFactor || 0),
         freezeStacks: def.freezeStacks || 0,
-        freezeDuration: Array.isArray(def.freezeDuration) ? def.freezeDuration[lv] : (def.freezeDuration || 0)
+        freezeDuration: Array.isArray(def.freezeDuration) ? def.freezeDuration[lv] : (def.freezeDuration || 0),
+        pierceCount: Array.isArray(def.pierceCount) ? def.pierceCount[lv] : (def.pierceCount || 0),
+        pierceFalloff: def.pierceFalloff || 0
     };
 }
 
@@ -1132,7 +1142,9 @@ function createProjectile(tower, target) {
         stunDuration: st.stunDuration,
         freezeStacks: st.freezeStacks,
         freezeDuration: st.freezeDuration,
-        auraSlowFactor: st.auraSlowFactor
+        auraSlowFactor: st.auraSlowFactor,
+        pierceCount: st.pierceCount,
+        pierceFalloff: st.pierceFalloff
     };
     // Missile: vertical launch then arc toward target
     if (tower.type === 'missile') {
@@ -1147,6 +1159,12 @@ function createProjectile(tower, target) {
     // Laser: link boost placeholder (set by caller)
     if (tower.type === 'laser') {
         p.linkBoost = 1;
+    }
+    // Pierce: straight-line penetration with falloff
+    if (tower.type === 'archer_pierce') {
+        p.pierceRemaining = st.pierceCount;
+        p.pierceHitIds = new Set();
+        p.target = null; // flies straight, no tracking
     }
     game.projectiles.push(p);
     return p;
@@ -1170,6 +1188,42 @@ function updateProjectiles(dt) {
             } else {
                 p.x += (dx / d) * moveSpeed;
                 p.y += (dy / d) * moveSpeed;
+            }
+            continue;
+        }
+
+        // Pierce — straight-line penetration, hits multiple enemies
+        if (p.type === 'archer_pierce') {
+            const dx = p.targetX - p.x;
+            const dy = p.targetY - p.y;
+            const d = Math.sqrt(dx * dx + dy * dy);
+            const moveSpeed = p.speed * dt;
+            if (d <= moveSpeed + 2) {
+                p.x = p.targetX;
+                p.y = p.targetY;
+                p.alive = false;
+            } else {
+                p.x += (dx / d) * moveSpeed;
+                p.y += (dy / d) * moveSpeed;
+            }
+            // Check collision with any unhit enemy along the path
+            for (const e of game.enemies) {
+                if (!e.alive) continue;
+                if (p.pierceHitIds.has(e.id)) continue;
+                if (dist(p, e) <= e.size + 5) {
+                    dealDamage(e, p.damage);
+                    createHitSpark(e.x, e.y, '#D7BDE2');
+                    p.pierceHitIds.add(e.id);
+                    p.pierceRemaining--;
+                    p.damage = Math.floor(p.damage * (1 - p.pierceFalloff));
+                    if (p.pierceRemaining <= 0) {
+                        p.alive = false;
+                        break;
+                    }
+                }
+            }
+            if (p.alive && d <= moveSpeed + 2) {
+                p.alive = false;
             }
             continue;
         }
@@ -1341,15 +1395,15 @@ function handleImpact(p) {
         // Visual effect depends on variant
         if (p.stunFactor > 0) {
             createSplashRing(p.target.x, p.target.y, p.splashRadius, '#88CCFF');
-        } else if (p.flameRadius > 0) {
+        } else if (p.type === 'artillery_blast') {
             createSplashRing(p.target.x, p.target.y, p.splashRadius, '#FF4400');
         } else if (p.slowFactor > 0) {
             createSplashRing(p.target.x, p.target.y, p.splashRadius, '#AED6F1');
         } else {
             createSplashRing(p.target.x, p.target.y, p.splashRadius, '#e74c3c');
         }
-        // Blast — create fire zone on ground
-        if (p.flameRadius > 0 && p.flameDuration > 0) {
+        // Fire zone — only for fire tower, not blast
+        if (p.flameRadius > 0 && p.flameDuration > 0 && p.type === 'fire') {
             createFireZone(p.x, p.y, p.flameRadius, Math.floor(p.damage * 0.3), p.flameDuration, p.flameTickInterval);
             createFireIgnition(p.x, p.y, p.flameRadius);
         }
@@ -2123,6 +2177,7 @@ function drawTower(t) {
         case 'archer': drawArcherTower(t, st, lv); break;
         case 'archer_crit': drawCritTower(t, st, lv); break;
         case 'archer_multi': drawMultiTower(t, st, lv); break;
+        case 'archer_pierce': drawPierceTower(t, st, lv); break;
         case 'artillery': drawArtilleryTower(t, st, lv); break;
         case 'artillery_blast': drawBlastTower(t, st, lv); break;
         case 'artillery_shrapnel': drawShrapnelTower(t, st, lv); break;
@@ -2485,6 +2540,132 @@ function drawMultiTower(t, st, lv) {
     ctx.restore();
 }
 
+// ===== PIERCE TOWER — Evolved archer: armor-penetrating greatbow =====
+function drawPierceTower(t, st, lv) {
+    const b = 10 + lv * 2;
+    const h = 16 + lv * 5;
+    const time = Date.now() / 1000;
+    const pulse = 0.5 + Math.sin(time * 3) * 0.5;
+
+    // Reinforced stone foundation
+    ctx.fillStyle = '#4A3A5A';
+    ctx.beginPath();
+    ctx.arc(0, 6, b + 3, Math.PI, 0);
+    ctx.fill();
+    ctx.strokeStyle = '#2E1A3A';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Violet-rimmed platform
+    ctx.fillStyle = '#5B3A7A';
+    ctx.fillRect(-b - 2, 2, b * 2 + 4, 5);
+    ctx.fillStyle = '#7D3C98';
+    ctx.fillRect(-b, 3, b * 2, 3);
+
+    // Main tower body — sleek dark purple
+    const bodyTop = -h + 13;
+    const bw = b - 1;
+    const tw = b - 4;
+    const bodyGrad = ctx.createLinearGradient(-bw, 0, bw, 0);
+    bodyGrad.addColorStop(0, '#3D1A5E');
+    bodyGrad.addColorStop(0.3, '#6C3483');
+    bodyGrad.addColorStop(0.7, '#7D3C98');
+    bodyGrad.addColorStop(1, '#3D1A5E');
+    ctx.fillStyle = bodyGrad;
+    ctx.beginPath();
+    ctx.moveTo(-bw, 2);
+    ctx.lineTo(bw, 2);
+    ctx.lineTo(tw, bodyTop);
+    ctx.lineTo(-tw, bodyTop);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#2E1A3A';
+    ctx.lineWidth = 1.3;
+    ctx.stroke();
+
+    // Silver trim rings
+    for (let i = 0; i < 3; i++) {
+        const by = bodyTop + 6 + i * 6;
+        ctx.fillStyle = '#C0A0D0';
+        ctx.fillRect(-tw - 1, by, tw * 2 + 2, 1.2);
+    }
+
+    // Glowing observation window
+    const winY = bodyTop + 8;
+    ctx.fillStyle = '#1A0A2E';
+    ctx.beginPath();
+    ctx.roundRect(-3, winY, 6, 8, 2);
+    ctx.fill();
+    ctx.fillStyle = `rgba(180,140,220,${0.35 + pulse * 0.3})`;
+    ctx.fillRect(-2, winY + 1, 4, 6);
+
+    // Pointed dark roof
+    const roofGrad = ctx.createLinearGradient(0, bodyTop, 0, -h);
+    roofGrad.addColorStop(0, '#5B2C8E');
+    roofGrad.addColorStop(0.5, '#7D3C98');
+    roofGrad.addColorStop(1, '#2E1A4E');
+    ctx.fillStyle = roofGrad;
+    ctx.beginPath();
+    ctx.moveTo(-b - 2, bodyTop + 2);
+    ctx.lineTo(b + 2, bodyTop + 2);
+    ctx.lineTo(0, -h);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#9B59B6';
+    ctx.lineWidth = 1.6;
+    ctx.stroke();
+
+    // Roof accent lines
+    ctx.strokeStyle = '#6C3483';
+    ctx.lineWidth = 0.5;
+    for (let i = 1; i <= lv + 2; i++) {
+        const ry = bodyTop + 2 - i * (bodyTop + 2 + h) / (lv + 3);
+        const rw = b + 2 - (b + 2) * (i / (lv + 3)) * 0.35;
+        ctx.beginPath();
+        ctx.moveTo(-rw, ry);
+        ctx.lineTo(rw, ry);
+        ctx.stroke();
+    }
+
+    // Crystal finial
+    ctx.fillStyle = '#C39BD3';
+    ctx.fillRect(-1, -h, 2, -7);
+    ctx.shadowColor = 'rgba(195,155,211,0.7)';
+    ctx.shadowBlur = 6 + lv * 2;
+    ctx.fillStyle = '#E8DAEF';
+    ctx.beginPath();
+    ctx.arc(0, -h - 7, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
+
+    // Greatbow — long, aerodynamic, designed for penetration
+    ctx.save();
+    ctx.rotate(t.angle);
+    // Bow riser/grip
+    ctx.fillStyle = '#5B2C8E';
+    ctx.fillRect(3, -2.5, b + lv + 1, 5);
+    ctx.fillStyle = '#7D3C98';
+    ctx.fillRect(5, -1.5, b + lv - 3, 3);
+    // Long arrow shaft (loaded)
+    ctx.fillStyle = '#C39BD3';
+    ctx.fillRect(b + lv - 1, -0.8, 12, 1.6);
+    // Broadhead tip — glowing violet
+    ctx.fillStyle = `rgba(195,155,211,${0.7 + pulse * 0.3})`;
+    ctx.beginPath();
+    ctx.moveTo(b + lv + 11, -3);
+    ctx.lineTo(b + lv + 11, 3);
+    ctx.lineTo(b + lv + 16, 0);
+    ctx.closePath();
+    ctx.fill();
+    // Piercing glow on tip
+    ctx.fillStyle = `rgba(232,218,239,${0.5 + pulse * 0.4})`;
+    ctx.beginPath();
+    ctx.arc(b + lv + 13, 0, 3.5 + pulse, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+}
+
 // ===== ARTILLERY TOWER — Kingdom Rush Dwarven Bombard =====
 function drawArtilleryTower(t, st, lv) {
     const r = 13 + lv * 1.5;
@@ -2584,7 +2765,7 @@ function drawArtilleryTower(t, st, lv) {
     }
 }
 
-// ===== BLAST TOWER — Evolved artillery: scorched-earth bombard =====
+// ===== BLAST TOWER — Evolved artillery: high-explosive bombard =====
 function drawBlastTower(t, st, lv) {
     const r = 13 + lv * 1.5;
     const time = Date.now() / 1000;
@@ -2603,15 +2784,18 @@ function drawBlastTower(t, st, lv) {
     ctx.lineWidth = 2.5;
     ctx.stroke();
 
-    // Glowing ember vents on platform
-    for (let i = 0; i < 6; i++) {
-        const a = (i / 6) * Math.PI * 2;
+    // Reinforcing bolts on platform
+    for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2;
         const vx = Math.cos(a) * (r - 3);
         const vy = Math.sin(a) * (r - 3);
-        ctx.fillStyle = `rgba(255,80,10,${0.3 + pulse * 0.4})`;
+        ctx.fillStyle = '#666';
         ctx.beginPath();
-        ctx.arc(vx, vy, 2, 0, Math.PI * 2);
+        ctx.arc(vx, vy, 2.5, 0, Math.PI * 2);
         ctx.fill();
+        ctx.strokeStyle = '#444';
+        ctx.lineWidth = 0.8;
+        ctx.stroke();
     }
 
     // Reinforced iron barrel base
@@ -2628,16 +2812,7 @@ function drawBlastTower(t, st, lv) {
     ctx.lineWidth = 1.5;
     ctx.stroke();
 
-    // Iron ring bolts
-    ctx.fillStyle = '#666';
-    for (let i = 0; i < 8; i++) {
-        const a = (i / 8) * Math.PI * 2;
-        ctx.beginPath();
-        ctx.arc(Math.cos(a) * (innerR - 2), Math.sin(a) * (innerR - 2), 1.5, 0, Math.PI * 2);
-        ctx.fill();
-    }
-
-    // Heavy cannon barrel — thicker, menacing
+    // Heavy cannon barrel — thick, single-blast design
     const ir = innerR - 2;
     ctx.save();
     ctx.rotate(t.angle);
@@ -2647,23 +2822,26 @@ function drawBlastTower(t, st, lv) {
     barrelGrad.addColorStop(0.7, '#7B4A20');
     barrelGrad.addColorStop(1, '#4A1A08');
     ctx.fillStyle = barrelGrad;
-    ctx.fillRect(0, -ir * 0.55, r + lv + 6, ir * 1.1);
+    ctx.fillRect(0, -ir * 0.55, r + lv + 4, ir * 1.1);
     // Barrel rings
     ctx.fillStyle = '#444';
     ctx.fillRect(r * 0.4, -ir * 0.6, 3, ir * 1.2);
     ctx.fillRect(r * 0.8, -ir * 0.6, 3, ir * 1.2);
-    // Muzzle glow
-    ctx.fillStyle = `rgba(255,80,10,${0.2 + pulse * 0.3})`;
+    // Flared muzzle
+    ctx.fillStyle = '#5C3020';
     ctx.beginPath();
-    ctx.arc(r + lv + 6, 0, ir * 0.7, 0, Math.PI * 2);
+    ctx.moveTo(r + lv + 4, -ir * 0.7);
+    ctx.lineTo(r + lv + 8, -ir * 0.45);
+    ctx.lineTo(r + lv + 8, ir * 0.45);
+    ctx.lineTo(r + lv + 4, ir * 0.7);
+    ctx.closePath();
+    ctx.fill();
+    // Explosive muzzle glow
+    ctx.fillStyle = `rgba(255,120,20,${0.15 + pulse * 0.25})`;
+    ctx.beginPath();
+    ctx.arc(r + lv + 6, 0, ir * 0.8, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
-
-    // Flame aura around tower
-    ctx.fillStyle = `rgba(255,100,20,${0.08 + pulse * 0.06})`;
-    ctx.beginPath();
-    ctx.arc(0, 0, r + 4, 0, Math.PI * 2);
-    ctx.fill();
 }
 
 // ===== SHRAPNEL TOWER — Evolved artillery: fragmentation bombard =====
@@ -2736,11 +2914,11 @@ function drawShrapnelTower(t, st, lv) {
     }
 }
 
-// ===== CONCUSS TOWER — Evolved artillery: shockwave bombard =====
+// ===== CONCUSS TOWER — Evolved artillery: concussive stun bombard =====
 function drawConcussTower(t, st, lv) {
     const r = 13 + lv * 1.5;
     const time = Date.now() / 1000;
-    const pulse = 0.5 + Math.sin(time * 3) * 0.5;
+    const pulse = 0.5 + Math.sin(time * 8) * 0.5; // faster pulse = stun burst feel
 
     // Blue-steel platform
     const platGrad = ctx.createLinearGradient(0, -r, 0, r);
@@ -2755,13 +2933,14 @@ function drawConcussTower(t, st, lv) {
     ctx.lineWidth = 2;
     ctx.stroke();
 
-    // Shockwave rings on platform
+    // Concentric shockwave rings on platform
     const innerR = r - 4;
     for (let i = 1; i <= 3; i++) {
-        ctx.strokeStyle = `rgba(136,204,255,${0.15 + pulse * 0.1})`;
-        ctx.lineWidth = 1;
+        const ringRad = innerR * i * 0.3 + pulse * (4 - i);
+        ctx.strokeStyle = `rgba(200,230,255,${0.2 + pulse * 0.15})`;
+        ctx.lineWidth = 1 + (1 - pulse) * 0.5;
         ctx.beginPath();
-        ctx.arc(0, 0, innerR * i * 0.3, 0, Math.PI * 2);
+        ctx.arc(0, 0, ringRad, 0, Math.PI * 2);
         ctx.stroke();
     }
     ctx.fillStyle = '#3A5A8A';
@@ -2772,17 +2951,17 @@ function drawConcussTower(t, st, lv) {
     ctx.lineWidth = 1;
     ctx.stroke();
 
-    // Energy coil winding around core
+    // Energy coil segments
     for (let i = 0; i < 6; i++) {
         const a = (i / 6) * Math.PI * 2;
-        ctx.strokeStyle = `rgba(136,204,255,${0.4 + pulse * 0.3})`;
+        ctx.strokeStyle = `rgba(180,220,255,${0.3 + pulse * 0.4})`;
         ctx.lineWidth = 1.2;
         ctx.beginPath();
         ctx.arc(0, 0, innerR - 2, a, a + 0.6);
         ctx.stroke();
     }
 
-    // Concussive barrel — flared muzzle
+    // Concussive barrel — flared muzzle brake
     const ir = innerR - 2;
     ctx.save();
     ctx.rotate(t.angle);
@@ -2801,19 +2980,18 @@ function drawConcussTower(t, st, lv) {
     ctx.lineTo(r + lv + 2, ir * 0.7);
     ctx.closePath();
     ctx.fill();
-    // Shockwave pulse at muzzle
-    ctx.strokeStyle = `rgba(136,204,255,${0.3 + pulse * 0.4})`;
-    ctx.lineWidth = 2;
+    // Sharp shockwave burst at muzzle
+    ctx.strokeStyle = `rgba(200,230,255,${0.3 + pulse * 0.5})`;
+    ctx.lineWidth = 2.5;
     ctx.beginPath();
-    ctx.arc(r + lv + 5, 0, ir * 0.6, 0, Math.PI * 2);
+    ctx.arc(r + lv + 4, 0, ir * 0.5 + pulse * 2, 0, Math.PI * 2);
     ctx.stroke();
-    ctx.restore();
-
-    // Pulsing aura
-    ctx.fillStyle = `rgba(100,180,255,${0.06 + pulse * 0.05})`;
+    // Inner bright flash
+    ctx.fillStyle = `rgba(255,255,255,${0.3 + pulse * 0.5})`;
     ctx.beginPath();
-    ctx.arc(0, 0, r + 4, 0, Math.PI * 2);
+    ctx.arc(r + lv + 4, 0, ir * 0.25, 0, Math.PI * 2);
     ctx.fill();
+    ctx.restore();
 }
 
 // ===== ICE TOWER — Frost crystal spire with chilling aura =====
@@ -4481,6 +4659,62 @@ function drawProjectile(p) {
         ctx.beginPath();
         ctx.arc(p.x, p.y, 10, 0, Math.PI * 2);
         ctx.fill();
+    } else if (p.type === 'archer_pierce') {
+        // Piercing arrow — sleek violet with trail
+        const pAngle = Math.atan2(p.targetY - p.startY, p.targetX - p.startX);
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(pAngle);
+        // Outer glow
+        ctx.fillStyle = 'rgba(180,130,220,0.3)';
+        ctx.beginPath();
+        ctx.arc(0, 0, 9, 0, Math.PI * 2);
+        ctx.fill();
+        // Arrow shaft
+        ctx.fillStyle = '#8E6BB8';
+        ctx.fillRect(-6, -1, 14, 2);
+        // Arrowhead
+        ctx.fillStyle = '#C39BD3';
+        ctx.beginPath();
+        ctx.moveTo(8, -2.5);
+        ctx.lineTo(8, 2.5);
+        ctx.lineTo(12, 0);
+        ctx.closePath();
+        ctx.fill();
+        // Glowing tip
+        ctx.fillStyle = '#E8DAEF';
+        ctx.beginPath();
+        ctx.arc(11, 0, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+        // Fletching
+        ctx.fillStyle = '#7D5DA0';
+        ctx.beginPath();
+        ctx.moveTo(-6, -1);
+        ctx.lineTo(-10, -3);
+        ctx.lineTo(-8, 0);
+        ctx.closePath();
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(-6, 1);
+        ctx.lineTo(-10, 3);
+        ctx.lineTo(-8, 0);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+    } else if (p.type === 'archer' || p.type === 'archer_crit' || p.type === 'archer_multi') {
+        // Small arrow for archer family
+        const aAngle = p.target ? Math.atan2(p.target.y - p.y, p.target.x - p.x) : 0;
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(aAngle);
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.moveTo(6, 0);
+        ctx.lineTo(-2, -2);
+        ctx.lineTo(-2, 2);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
     } else {
         ctx.fillStyle = p.color;
         ctx.beginPath();
@@ -4836,7 +5070,9 @@ function showTowerInfo(t) {
         (st.stunDuration > 0 ? '<div class="stat-row"><span>眩晕持续</span><span>' + (st.stunDuration / 1000).toFixed(1) + 's</span></div>' : '') +
         (st.auraSlowFactor > 0 ? '<div class="stat-row"><span>光环减速</span><span>' + Math.round(st.auraSlowFactor * 100) + '%</span></div>' : '') +
         (st.freezeStacks > 0 ? '<div class="stat-row"><span>冻结所需连击</span><span>' + st.freezeStacks + '次</span></div>' : '') +
-        (st.freezeDuration > 0 && !st.stunDuration ? '<div class="stat-row"><span>冻结持续</span><span>' + (st.freezeDuration / 1000).toFixed(1) + 's</span></div>' : '');
+        (st.freezeDuration > 0 && !st.stunDuration ? '<div class="stat-row"><span>冻结持续</span><span>' + (st.freezeDuration / 1000).toFixed(1) + 's</span></div>' : '') +
+        (st.pierceCount > 0 ? '<div class="stat-row"><span>穿透次数</span><span>' + st.pierceCount + '次</span></div>' : '') +
+        (st.pierceFalloff > 0 ? '<div class="stat-row"><span>穿透衰减</span><span>' + Math.round(st.pierceFalloff * 100) + '%</span></div>' : '');
 
     // Branch evolution — dynamic based on tower type
     const evolveDiv = document.getElementById('evolve-btns');
