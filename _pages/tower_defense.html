@@ -168,6 +168,23 @@ title: "塔防战争"
         #upgrade-btn { background: var(--btn-blue); }
         #upgrade-btn:disabled { background: #555; opacity: 0.5; cursor: not-allowed; }
         #sell-btn { background: var(--btn-red); }
+        #evolve-btns { display: flex; gap: 6px; margin-bottom: 6px; }
+        .evolve-btn {
+            flex: 1; padding: 7px 10px; border: none; border-radius: 6px;
+            color: #fff; font-size: 13px; font-weight: bold; cursor: pointer;
+            transition: transform 0.15s; white-space: nowrap;
+        }
+        .evolve-btn:hover { transform: scale(1.04); }
+        .evolve-btn:disabled { background: #555; opacity: 0.5; cursor: not-allowed; transform: none; }
+        .evolve-btn.crit-btn {
+            background: linear-gradient(135deg, #8B6914, #DAA520);
+            box-shadow: 0 0 8px rgba(218,165,32,0.4);
+        }
+        .evolve-btn.multi-btn {
+            background: linear-gradient(135deg, #2E7D32, #43A047);
+            box-shadow: 0 0 8px rgba(67,160,71,0.4);
+        }
+        .evolve-cost { opacity: 0.8; font-size: 11px; }
 
         /* -- Overlay -- */
         #overlay {
@@ -284,6 +301,14 @@ title: "塔防战争"
 <div id="tower-info-panel">
     <h3 id="tip-tower-name"></h3>
     <div id="tip-stats"></div>
+    <div id="evolve-btns" style="display:none;">
+        <button class="evolve-btn crit-btn" onclick="evolveSelectedTower('archer_crit')">
+            <span>🎯</span> 致命一击 <span class="evolve-cost">200💰</span>
+        </button>
+        <button class="evolve-btn multi-btn" onclick="evolveSelectedTower('archer_multi')">
+            <span>🏹</span> 多重射击 <span class="evolve-cost">200💰</span>
+        </button>
+    </div>
     <button id="upgrade-btn" onclick="upgradeSelectedTower()">升级</button>
     <button id="sell-btn" onclick="sellSelectedTower()">出售</button>
 </div>
@@ -315,6 +340,22 @@ const TOWER_DEFS = {
         damage: [15, 30, 50], range: [130, 145, 160], cooldown: [500, 420, 350],
         color: '#7B8D3C', bulletColor: '#D4C898', bulletSpeed: 450,
         splash: 0, slowFactor: 0, slowDuration: 0, chainCount: 0
+    },
+    archer_crit: {
+        name: '致命一击', icon: '🎯',
+        cost: null, upgradeCost: [180, 360], evolveCost: 200,
+        damage: [90, 140, 210], range: [160, 175, 190], cooldown: [900, 750, 600],
+        color: '#8B6914', bulletColor: '#FFD700', bulletSpeed: 550,
+        splash: 0, slowFactor: 0, slowDuration: 0, chainCount: 0,
+        critChance: 0.35, critMultiplier: 3
+    },
+    archer_multi: {
+        name: '多重射击', icon: '🏹',
+        cost: null, upgradeCost: [140, 280], evolveCost: 200,
+        damage: [25, 40, 60], range: [140, 155, 170], cooldown: [380, 310, 240],
+        color: '#2E7D32', bulletColor: '#7CFC00', bulletSpeed: 500,
+        splash: 0, slowFactor: 0, slowDuration: 0, chainCount: 0,
+        multiShot: 3
     },
     artillery: {
         name: '炮塔', icon: '💣',
@@ -677,7 +718,11 @@ function towerStats(t) {
         bulletSpeed: def.bulletSpeed,
         name: def.name,
         icon: def.icon,
-        upgradeCost: t.level < 3 ? def.upgradeCost[t.level - 1] : null
+        upgradeCost: t.level < 3 ? def.upgradeCost[t.level - 1] : null,
+        evolveCost: def.evolveCost || 0,
+        critChance: def.critChance || 0,
+        critMultiplier: def.critMultiplier || 0,
+        multiShot: def.multiShot || 0
     };
 }
 
@@ -756,10 +801,25 @@ function updateTowers(dt) {
         if (target) {
             const st = towerStats(t);
             t.angle = angleTo(t, target);
-            const p = createProjectile(t, target);
-            // Laser link damage boost
-            if (t.type === 'laser' && t.linkedCount > 0) {
-                p.linkBoost = 1 + t.linkedCount * TOWER_DEFS.laser.linkDmgBoost;
+            if (st.multiShot > 0) {
+                // Fire multiple arrows at different targets
+                const targets = [target];
+                for (const e of game.enemies) {
+                    if (targets.length >= st.multiShot) break;
+                    if (!e.alive || e === target) continue;
+                    if (dist(t, e) <= st.range) {
+                        targets.push(e);
+                    }
+                }
+                for (const tg of targets) {
+                    createProjectile(t, tg);
+                }
+            } else {
+                const p = createProjectile(t, target);
+                // Laser link damage boost
+                if (t.type === 'laser' && t.linkedCount > 0) {
+                    p.linkBoost = 1 + t.linkedCount * TOWER_DEFS.laser.linkDmgBoost;
+                }
             }
             t.cooldown = st.cooldown;
         }
@@ -974,7 +1034,9 @@ function createProjectile(tower, target) {
         progress: 0,
         alive: true,
         towerX: tower.x,
-        towerY: tower.y
+        towerY: tower.y,
+        critChance: st.critChance,
+        critMultiplier: st.critMultiplier
     };
     // Missile: vertical launch then arc toward target
     if (tower.type === 'missile') {
@@ -1161,9 +1223,19 @@ function handleImpact(p) {
         createLightningArc(p.towerX, p.towerY, p.target.x, p.target.y);
         chainLightning(p.target, p.damage, p.chainCount - 1, p.chainRange, p.chainFalloff, new Set([p.target.id]));
     } else {
-        // Arrow - single target
-        dealDamage(p.target, p.damage);
-        createHitSpark(p.target.x, p.target.y, '#f1c40f');
+        // Arrow - single target (with possible crit)
+        let dmg = p.damage;
+        let isCrit = false;
+        if (p.critChance > 0 && Math.random() < p.critChance) {
+            dmg = Math.floor(p.damage * p.critMultiplier);
+            isCrit = true;
+        }
+        dealDamage(p.target, dmg);
+        if (isCrit) {
+            createCritSpark(p.target.x, p.target.y, p.critMultiplier);
+        } else {
+            createHitSpark(p.target.x, p.target.y, '#f1c40f');
+        }
     }
 }
 
@@ -1275,6 +1347,42 @@ function createSplashRing(x, y, radius, color) {
         life: 0.5, maxLife: 0.5,
         color, size: radius, ring: true
     });
+}
+
+function createCritSpark(x, y, multiplier) {
+    // Dramatic golden burst for critical hits
+    for (let i = 0; i < 18; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 80 + Math.random() * 200;
+        game.particles.push({
+            x, y,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            life: 0.2 + Math.random() * 0.4,
+            maxLife: 0.6,
+            color: Math.random() < 0.5 ? '#FFD700' : '#FFA500',
+            size: 2 + Math.random() * 4
+        });
+    }
+    // Golden ring shockwave
+    game.particles.push({
+        x, y, vx: 0, vy: 0,
+        life: 0.4, maxLife: 0.4,
+        color: '#FFD700', size: 12 + multiplier * 5, ring: true
+    });
+    // Big damage text flash via bright particles
+    for (let i = 0; i < 5; i++) {
+        game.particles.push({
+            x: x + (Math.random() - 0.5) * 10,
+            y: y + (Math.random() - 0.5) * 10,
+            vx: (Math.random() - 0.5) * 30,
+            vy: -30 - Math.random() * 50,
+            life: 0.5 + Math.random() * 0.3,
+            maxLife: 0.8,
+            color: '#FFF',
+            size: 3 + Math.random() * 5
+        });
+    }
 }
 
 function createLightningArc(x1, y1, x2, y2) {
@@ -1765,6 +1873,8 @@ function drawTower(t) {
 
     switch (t.type) {
         case 'archer': drawArcherTower(t, st, lv); break;
+        case 'archer_crit': drawCritTower(t, st, lv); break;
+        case 'archer_multi': drawMultiTower(t, st, lv); break;
         case 'artillery': drawArtilleryTower(t, st, lv); break;
         case 'ice': drawIceTower(t, st, lv); break;
         case 'tesla': drawTeslaTower(t, st, lv); break;
@@ -1877,6 +1987,247 @@ function drawArcherTower(t, st, lv) {
     ctx.fillRect(3, -1, b + lv, 2.5);
     ctx.fillStyle = '#A07840';
     ctx.fillRect(b + lv - 3, -3, 8, 6);  // crossbow prod
+    ctx.restore();
+}
+
+// ===== CRIT TOWER — Evolved archer: golden sniper with devastating crits =====
+function drawCritTower(t, st, lv) {
+    const b = 10 + lv * 2;
+    const h = 14 + lv * 5;
+    const time = Date.now() / 1000;
+    const pulse = 0.5 + Math.sin(time * 4) * 0.5;
+
+    // Stone foundation ring — darker, reinforced
+    ctx.fillStyle = '#5A4A3A';
+    ctx.beginPath();
+    ctx.arc(0, 6, b + 3, Math.PI, 0);
+    ctx.fill();
+    ctx.strokeStyle = '#3A2A1A';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Golden-rimmed platform
+    ctx.fillStyle = '#8B6914';
+    ctx.fillRect(-b - 2, 2, b * 2 + 4, 5);
+    ctx.fillStyle = '#DAA520';
+    ctx.fillRect(-b, 3, b * 2, 3);
+
+    // Main tower body — taller, dark oak
+    const bodyTop = -h + 12;
+    const bw = b - 1;
+    const tw = b - 4;
+    const bodyGrad = ctx.createLinearGradient(-bw, 0, bw, 0);
+    bodyGrad.addColorStop(0, '#5C3A1E');
+    bodyGrad.addColorStop(0.3, '#8B5E3C');
+    bodyGrad.addColorStop(0.7, '#7A4E2C');
+    bodyGrad.addColorStop(1, '#4A2A10');
+    ctx.fillStyle = bodyGrad;
+    ctx.beginPath();
+    ctx.moveTo(-bw, 2);
+    ctx.lineTo(bw, 2);
+    ctx.lineTo(tw, bodyTop);
+    ctx.lineTo(-tw, bodyTop);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#3A1A08';
+    ctx.lineWidth = 1.3;
+    ctx.stroke();
+
+    // Gold trim bands
+    for (let i = 0; i < 3; i++) {
+        const by = bodyTop + 5 + i * 6;
+        ctx.fillStyle = '#DAA520';
+        ctx.fillRect(-tw - 1, by, tw * 2 + 2, 1.5);
+    }
+
+    // Lookout window — glowing
+    const winY = bodyTop + 8;
+    ctx.fillStyle = '#1A0A00';
+    ctx.beginPath();
+    ctx.roundRect(-4, winY, 8, 9, 2);
+    ctx.fill();
+    ctx.fillStyle = `rgba(255,200,50,${0.3 + pulse * 0.3})`;
+    ctx.fillRect(-3, winY + 1, 6, 7);
+
+    // Purple-gold roof
+    const roofGrad = ctx.createLinearGradient(0, bodyTop, 0, -h);
+    roofGrad.addColorStop(0, '#6B1C5A');
+    roofGrad.addColorStop(0.5, '#9B2D8A');
+    roofGrad.addColorStop(1, '#4A1040');
+    ctx.fillStyle = roofGrad;
+    ctx.beginPath();
+    ctx.moveTo(-b - 2, bodyTop + 2);
+    ctx.lineTo(b + 2, bodyTop + 2);
+    ctx.lineTo(0, -h);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#DAA520';
+    ctx.lineWidth = 1.8;
+    ctx.stroke();
+
+    // Roof tile lines
+    ctx.strokeStyle = '#7B1D6A';
+    ctx.lineWidth = 0.5;
+    for (let i = 1; i <= lv + 2; i++) {
+        const ry = bodyTop + 2 - i * (bodyTop + 2 + h) / (lv + 3);
+        const rw = b + 2 - (b + 2) * (i / (lv + 3)) * 0.4;
+        ctx.beginPath();
+        ctx.moveTo(-rw, ry);
+        ctx.lineTo(rw, ry);
+        ctx.stroke();
+    }
+
+    // Golden finial — shining
+    ctx.fillStyle = '#FFD700';
+    ctx.fillRect(-1, -h, 2, -8);
+    ctx.beginPath();
+    ctx.arc(0, -h - 8, 3, 0, Math.PI * 2);
+    ctx.fill();
+    // Finial glow
+    ctx.fillStyle = `rgba(255,215,0,${0.3 + pulse * 0.4})`;
+    ctx.beginPath();
+    ctx.arc(0, -h - 8, 7, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Large golden crossbow
+    ctx.save();
+    ctx.rotate(t.angle);
+    // Heavy barrel
+    ctx.fillStyle = '#3A1A08';
+    ctx.fillRect(4, -1.5, b + lv + 2, 3.5);
+    // Golden prod
+    const prodGrad = ctx.createLinearGradient(0, -5, 0, 5);
+    prodGrad.addColorStop(0, '#FFD700');
+    prodGrad.addColorStop(0.5, '#DAA520');
+    prodGrad.addColorStop(1, '#8B6914');
+    ctx.fillStyle = prodGrad;
+    ctx.fillRect(b + lv - 3, -4, 10, 8);
+    // Glowing arrow tip
+    ctx.fillStyle = `rgba(255,215,0,${0.6 + pulse * 0.4})`;
+    ctx.beginPath();
+    ctx.moveTo(b + lv + 7, -2);
+    ctx.lineTo(b + lv + 7, 2);
+    ctx.lineTo(b + lv + 14, 0);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+}
+
+// ===== MULTI TOWER — Evolved archer: rapid-fire triple crossbow =====
+function drawMultiTower(t, st, lv) {
+    const b = 10 + lv * 2;
+    const h = 12 + lv * 3;
+    const time = Date.now() / 1000;
+
+    // Stone foundation
+    ctx.fillStyle = '#6B8A5A';
+    ctx.beginPath();
+    ctx.arc(0, 6, b + 3, Math.PI, 0);
+    ctx.fill();
+    ctx.strokeStyle = '#4A6A3A';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Green-trimmed platform
+    ctx.fillStyle = '#2E7D32';
+    ctx.fillRect(-b - 2, 2, b * 2 + 4, 5);
+    ctx.fillStyle = '#43A047';
+    ctx.fillRect(-b, 2, b * 2, 3);
+
+    // Main tower body — lighter, agile
+    const bodyTop = -h + 10;
+    const bw = b - 2;
+    const tw = b - 4;
+    const bodyGrad = ctx.createLinearGradient(-bw, 0, bw, 0);
+    bodyGrad.addColorStop(0, '#5A8A4A');
+    bodyGrad.addColorStop(0.5, '#7AAA6A');
+    bodyGrad.addColorStop(1, '#4A7A3A');
+    ctx.fillStyle = bodyGrad;
+    ctx.beginPath();
+    ctx.moveTo(-bw, 2);
+    ctx.lineTo(bw, 2);
+    ctx.lineTo(tw, bodyTop);
+    ctx.lineTo(-tw, bodyTop);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#3A6A2A';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Vine decor on body
+    ctx.strokeStyle = '#8BC34A';
+    ctx.lineWidth = 0.7;
+    ctx.beginPath();
+    ctx.moveTo(-tw + 3, bodyTop + 2);
+    ctx.quadraticCurveTo(-tw - 3, bodyTop / 2, -tw + 4, bodyTop / 2 + 5);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(tw - 3, bodyTop + 2);
+    ctx.quadraticCurveTo(tw + 3, bodyTop / 2, tw - 4, bodyTop / 2 + 5);
+    ctx.stroke();
+
+    // Lookout window
+    const winY = bodyTop + 8;
+    ctx.fillStyle = '#1A3A10';
+    ctx.beginPath();
+    ctx.roundRect(-4, winY, 8, 7, 2);
+    ctx.fill();
+    ctx.fillStyle = '#4CAF50';
+    ctx.fillRect(-3, winY + 1, 6, 5);
+
+    // Green-silver roof
+    const roofGrad = ctx.createLinearGradient(0, bodyTop, 0, -h);
+    roofGrad.addColorStop(0, '#1B5E20');
+    roofGrad.addColorStop(0.5, '#388E3C');
+    roofGrad.addColorStop(1, '#0A3A10');
+    ctx.fillStyle = roofGrad;
+    ctx.beginPath();
+    ctx.moveTo(-b - 2, bodyTop + 2);
+    ctx.lineTo(b + 2, bodyTop + 2);
+    ctx.lineTo(0, -h);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#66BB6A';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Roof tile lines
+    ctx.strokeStyle = '#2E7D32';
+    ctx.lineWidth = 0.5;
+    for (let i = 1; i <= lv + 1; i++) {
+        const ry = bodyTop + 2 - i * (bodyTop + 2 + h) / (lv + 2);
+        const rw = b + 2 - (b + 2) * (i / (lv + 2)) * 0.5;
+        ctx.beginPath();
+        ctx.moveTo(-rw, ry);
+        ctx.lineTo(rw, ry);
+        ctx.stroke();
+    }
+
+    // Triple arrow finial
+    for (let i = -1; i <= 1; i++) {
+        ctx.fillStyle = '#7CFC00';
+        ctx.fillRect(i * 3 - 0.8, -h, 1.6, -7);
+        ctx.fillStyle = '#FFF';
+        ctx.beginPath();
+        ctx.moveTo(i * 3 - 1.5, -h - 7);
+        ctx.lineTo(i * 3 + 1.5, -h - 7);
+        ctx.lineTo(i * 3, -h - 13);
+        ctx.closePath();
+        ctx.fill();
+    }
+
+    // Triple crossbow barrels
+    ctx.save();
+    ctx.rotate(t.angle);
+    ctx.fillStyle = '#3A6A2A';
+    for (let i = -1; i <= 1; i++) {
+        ctx.fillRect(5, -1 + i * 5, b + lv - 2, 2);
+    }
+    // Triple prods
+    ctx.fillStyle = '#4CAF50';
+    for (let i = -1; i <= 1; i++) {
+        ctx.fillRect(b + lv - 3, -3 + i * 5, 7, 5);
+    }
     ctx.restore();
 }
 
@@ -3570,15 +3921,31 @@ function showTowerInfo(t) {
         (st.arcHeight > 0 ? '<div class="stat-row"><span>导弹弧线</span><span>是</span></div>' : '') +
         (st.knockbackDist > 0 ? '<div class="stat-row"><span>击退距离</span><span>' + st.knockbackDist + 'px</span></div>' : '') +
         (st.linkRange > 0 ? '<div class="stat-row"><span>链接范围</span><span>' + st.linkRange + 'px</span></div>' : '') +
-        (st.linkRange > 0 && t.linkedCount > 0 ? '<div class="stat-row"><span>已链接</span><span>' + t.linkedCount + '个 (+' + Math.round(t.linkedCount * st.linkDmgBoost * 100) + '%伤害)</span></div>' : '');
+        (st.linkRange > 0 && t.linkedCount > 0 ? '<div class="stat-row"><span>已链接</span><span>' + t.linkedCount + '个 (+' + Math.round(t.linkedCount * st.linkDmgBoost * 100) + '%伤害)</span></div>' : '') +
+        (st.critChance > 0 ? '<div class="stat-row"><span>暴击率</span><span>' + Math.round(st.critChance * 100) + '%</span></div>' : '') +
+        (st.critMultiplier > 0 ? '<div class="stat-row"><span>暴击倍率</span><span>' + st.critMultiplier + 'x</span></div>' : '') +
+        (st.multiShot > 0 ? '<div class="stat-row"><span>多重射击</span><span>' + st.multiShot + '支箭</span></div>' : '');
 
+    // Branch evolution for archer Lv3
+    const evolveDiv = document.getElementById('evolve-btns');
     const upBtn = document.getElementById('upgrade-btn');
-    if (t.level >= 3) {
+    if (t.type === 'archer' && t.level >= 3) {
+        evolveDiv.style.display = 'flex';
+        const critBtn = evolveDiv.querySelector('.crit-btn');
+        const multiBtn = evolveDiv.querySelector('.multi-btn');
+        critBtn.disabled = game.gold < TOWER_DEFS.archer_crit.evolveCost;
+        multiBtn.disabled = game.gold < TOWER_DEFS.archer_multi.evolveCost;
         upBtn.textContent = '已满级';
         upBtn.disabled = true;
     } else {
-        upBtn.textContent = '升级 (' + st.upgradeCost + '💰)';
-        upBtn.disabled = game.gold < st.upgradeCost;
+        evolveDiv.style.display = 'none';
+        if (t.level >= 3) {
+            upBtn.textContent = '已满级';
+            upBtn.disabled = true;
+        } else {
+            upBtn.textContent = '升级 (' + st.upgradeCost + '💰)';
+            upBtn.disabled = game.gold < st.upgradeCost;
+        }
     }
 
     const sellBtn = document.getElementById('sell-btn');
@@ -3606,6 +3973,22 @@ function hideTowerInfo() {
 
 function upgradeSelectedTower() {
     if (game.selectedTower) upgradeTower(game.selectedTower);
+}
+
+function evolveSelectedTower(newType) {
+    if (!game.selectedTower) return;
+    const t = game.selectedTower;
+    if (t.type !== 'archer' || t.level < 3) return;
+    const def = TOWER_DEFS[newType];
+    if (!def || !def.evolveCost) return;
+    if (game.gold < def.evolveCost) return;
+    game.gold -= def.evolveCost;
+    t.type = newType;
+    t.level = 1;
+    t.totalInvested += def.evolveCost;
+    t.cooldown = 0;
+    updateHUD();
+    showTowerInfo(t);
 }
 
 function sellSelectedTower() {
