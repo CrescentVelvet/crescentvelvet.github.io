@@ -460,6 +460,9 @@ title: "塔防战争"
         <button class="tower-btn" data-type="laser" onclick="selectTowerType('laser')">
             <span class="tower-icon">🔆</span><span class="tower-name">激光塔</span><span class="tower-cost">200💰</span>
         </button>
+        <button class="tower-btn" data-type="magnet" onclick="selectTowerType('magnet')">
+            <span class="tower-icon">🧲</span><span class="tower-name">磁塔</span><span class="tower-cost">80💰</span>
+        </button>
     </div>
 </div>
 
@@ -810,6 +813,61 @@ const TOWER_DEFS = {
         splash: 0, slowFactor: 0, slowDuration: 0,
         chainCount: [2, 3, 4], chainRange: 110, chainFalloff: 0.25,
         linkRange: 120, linkDmgBoost: 0.1
+    },
+    magnet: {
+        name: '磁塔', icon: '🧲',
+        cost: 80, upgradeCost: [100, 200],
+        damage: [8, 14, 24], range: [130, 145, 160], cooldown: [1800, 1600, 1400],
+        color: '#6C5CE7', bulletColor: '#A8A0FF', bulletSpeed: 420,
+        splash: 0, slowFactor: 0, slowDuration: 0, chainCount: 0,
+        magnetizeDuration: [3000, 4000, 5000],
+        magnetizePullRange: [80, 90, 100],
+        magnetizePullStrength: [18, 22, 25],
+        magnetizeCollisionDmg: [20, 35, 55]
+    },
+    magnet_emp: {
+        name: '电磁脉冲', icon: '💥',
+        cost: null, upgradeCost: [150, 280], evolveCost: 300,
+        damage: [18, 30, 48], range: [140, 155, 170], cooldown: [2200, 2000, 1800],
+        color: '#FF6B35', bulletColor: '#FFAA66', bulletSpeed: 420,
+        splash: 0, slowFactor: 0, slowDuration: 0, chainCount: 0,
+        magnetizeDuration: [4000, 5000, 6000],
+        magnetizePullRange: [80, 90, 100],
+        magnetizePullStrength: [15, 18, 20],
+        magnetizeCollisionDmg: [15, 25, 38],
+        empRadius: [75, 90, 110],
+        empStunDuration: [400, 600, 800],
+        empVulnFactor: [0.15, 0.20, 0.25],
+        empVulnDuration: [2500, 3500, 4500],
+        empInterval: [5000, 4500, 4000]
+    },
+    magnet_polarity: {
+        name: '极性罗网', icon: '🔀',
+        cost: null, upgradeCost: [150, 300], evolveCost: 300,
+        damage: [6, 10, 16], range: [130, 140, 155], cooldown: [1600, 1400, 1200],
+        color: '#9B59B6', bulletColor: '#D7BDE2', bulletSpeed: 380,
+        splash: 0, slowFactor: 0, slowDuration: 0, chainCount: 0,
+        magnetizeDuration: [4000, 5000, 6000],
+        magnetizePullRange: [90, 105, 125],
+        magnetizePullStrength: [18, 24, 32],
+        polarityOppositePull: [35, 50, 70],
+        polaritySameRepel: [18, 25, 32],
+        magnetizeCollisionDmg: [28, 45, 68]
+    },
+    magnet_storm: {
+        name: '磁暴链环', icon: '⛓️',
+        cost: null, upgradeCost: [150, 280], evolveCost: 300,
+        damage: [10, 18, 30], range: [125, 135, 150], cooldown: [1700, 1500, 1300],
+        color: '#E65100', bulletColor: '#FF8F00', bulletSpeed: 390,
+        splash: 0, slowFactor: 0, slowDuration: 0, chainCount: 0,
+        magnetizeDuration: [3500, 4500, 5500],
+        magnetizePullRange: [75, 85, 95],
+        magnetizePullStrength: [16, 20, 24],
+        magnetizeCollisionDmg: [12, 20, 32],
+        stormSenseRange: [90, 105, 120],
+        stormSenseDmg: [6, 9, 12],
+        stormSenseInterval: 500,
+        stormDeathPulseRange: [85, 100, 120]
     }
 };
 
@@ -859,6 +917,11 @@ const EVOLVE_OPTIONS = {
         { type: 'wind_vortex', label: '涡流之眼', icon: '🌀', desc: '龙卷牵引', color: '#4A9E95' },
         { type: 'wind_gust', label: '飓风过境', icon: '💨', desc: '全图狂风', color: '#7EC8BF' },
         { type: 'wind_aura', label: '无常风域', icon: '💫', desc: '乱速领域', color: '#A8D8D0' }
+    ],
+    magnet: [
+        { type: 'magnet_emp', label: '电磁脉冲', icon: '💥', desc: 'EMP破甲', color: '#FF6B35' },
+        { type: 'magnet_polarity', label: '极性罗网', icon: '🔀', desc: '极性聚怪', color: '#9B59B6' },
+        { type: 'magnet_storm', label: '磁暴链环', icon: '⛓️', desc: '连锁磁暴', color: '#E65100' }
     ]
 };
 
@@ -1218,7 +1281,22 @@ function towerStats(t) {
         nukeZoneRadius: Array.isArray(def.nukeZoneRadius) ? def.nukeZoneRadius[lv] : (def.nukeZoneRadius || 0),
         nukeZoneDmg: Array.isArray(def.nukeZoneDmg) ? def.nukeZoneDmg[lv] : (def.nukeZoneDmg || 0),
         nukeZoneInterval: def.nukeZoneInterval || 0,
-        precisionTracking: def.precisionTracking || false
+        precisionTracking: def.precisionTracking || false,
+        magnetizeDuration: Array.isArray(def.magnetizeDuration) ? def.magnetizeDuration[lv] : (def.magnetizeDuration || 0),
+        magnetizePullRange: Array.isArray(def.magnetizePullRange) ? def.magnetizePullRange[lv] : (def.magnetizePullRange || 0),
+        magnetizePullStrength: Array.isArray(def.magnetizePullStrength) ? def.magnetizePullStrength[lv] : (def.magnetizePullStrength || 0),
+        magnetizeCollisionDmg: Array.isArray(def.magnetizeCollisionDmg) ? def.magnetizeCollisionDmg[lv] : (def.magnetizeCollisionDmg || 0),
+        empRadius: Array.isArray(def.empRadius) ? def.empRadius[lv] : (def.empRadius || 0),
+        empStunDuration: Array.isArray(def.empStunDuration) ? def.empStunDuration[lv] : (def.empStunDuration || 0),
+        empVulnFactor: Array.isArray(def.empVulnFactor) ? def.empVulnFactor[lv] : (def.empVulnFactor || 0),
+        empVulnDuration: Array.isArray(def.empVulnDuration) ? def.empVulnDuration[lv] : (def.empVulnDuration || 0),
+        empInterval: Array.isArray(def.empInterval) ? def.empInterval[lv] : (def.empInterval || 0),
+        polarityOppositePull: Array.isArray(def.polarityOppositePull) ? def.polarityOppositePull[lv] : (def.polarityOppositePull || 0),
+        polaritySameRepel: Array.isArray(def.polaritySameRepel) ? def.polaritySameRepel[lv] : (def.polaritySameRepel || 0),
+        stormSenseRange: Array.isArray(def.stormSenseRange) ? def.stormSenseRange[lv] : (def.stormSenseRange || 0),
+        stormSenseDmg: Array.isArray(def.stormSenseDmg) ? def.stormSenseDmg[lv] : (def.stormSenseDmg || 0),
+        stormSenseInterval: def.stormSenseInterval || 0,
+        stormDeathPulseRange: Array.isArray(def.stormDeathPulseRange) ? def.stormDeathPulseRange[lv] : (def.stormDeathPulseRange || 0)
     };
 }
 
@@ -1555,7 +1633,24 @@ function createEnemy(type, waveNum) {
         knockbackTimer: 0,
         vulnFactor: 0,
         vulnTimer: 0,
-        craterDmgAmp: 1
+        craterDmgAmp: 1,
+        magnetizeTimer: 0,
+        magnetizePullRange: 0,
+        magnetizePullStrength: 0,
+        magnetizeCollisionDmg: 0,
+        magnetizePolarity: 0,
+        magnetizeCollisionCooldown: 0,
+        magnetizeEmpTimer: 0,
+        magnetizeEmpInterval: 0,
+        magnetizeEmpRadius: 0,
+        magnetizeEmpStunDuration: 0,
+        magnetizeEmpVulnFactor: 0,
+        magnetizeEmpVulnDuration: 0,
+        magnetizeStormTimer: 0,
+        magnetizeStormSenseRange: 0,
+        magnetizeStormSenseDmg: 0,
+        magnetizeStormInterval: 0,
+        magnetizeStormDeathPulseRange: 0
     };
 }
 
@@ -1691,6 +1786,95 @@ function updateEnemies(dt) {
             e.y += (dy / d) * moveSpeed;
         }
     }
+    // Magnetic update pass — attraction, collision, EMP, storm
+    const magnetized = game.enemies.filter(e => e.alive && e.magnetizeTimer > 0);
+    if (magnetized.length > 0) {
+        // Assign polarity to newly magnetized enemies that don't have one yet
+        const polEnemies = magnetized.filter(e => e.magnetizePolarity !== 0);
+        for (const e of magnetized) {
+            e.magnetizeTimer -= dtMs;
+            e.magnetizeCollisionCooldown = Math.max(0, e.magnetizeCollisionCooldown - dtMs);
+            // EMP timer
+            if (e.magnetizeEmpInterval > 0) {
+                e.magnetizeEmpTimer -= dtMs;
+                while (e.magnetizeEmpTimer <= 0) {
+                    e.magnetizeEmpTimer += e.magnetizeEmpInterval;
+                    for (const other of game.enemies) {
+                        if (!other.alive || other.isTurncoat) continue;
+                        if (dist(e, other) <= e.magnetizeEmpRadius) {
+                            dealDamage(other, Math.floor(12 + e.magnetizeEmpRadius * 0.15));
+                            if (e.magnetizeEmpStunDuration > 0) applySlow(other, 0.15, e.magnetizeEmpStunDuration);
+                            if (e.magnetizeEmpVulnFactor > 0) {
+                                other.vulnFactor = Math.max(other.vulnFactor || 0, e.magnetizeEmpVulnFactor);
+                                other.vulnTimer = Math.max(other.vulnTimer || 0, e.magnetizeEmpVulnDuration);
+                            }
+                        }
+                    }
+                    createImpactBurst(e.x, e.y, e.magnetizeEmpRadius * 0.7, 'nuke');
+                }
+            }
+            // Storm induction timer
+            if (e.magnetizeStormInterval > 0) {
+                e.magnetizeStormTimer -= dtMs;
+                while (e.magnetizeStormTimer <= 0) {
+                    e.magnetizeStormTimer += e.magnetizeStormInterval;
+                    let nearbyCount = 0;
+                    for (const other of magnetized) {
+                        if (other.id === e.id) continue;
+                        if (dist(e, other) <= e.magnetizeStormSenseRange) nearbyCount++;
+                    }
+                    if (nearbyCount > 0) {
+                        dealDamage(e, Math.floor(e.magnetizeStormSenseDmg * nearbyCount));
+                        createHitSpark(e.x, e.y, '#FF8F00');
+                    }
+                }
+            }
+        }
+        // Mutual attraction between magnetized enemies
+        for (let i = 0; i < magnetized.length; i++) {
+            const a = magnetized[i];
+            if (!a.alive) continue;
+            for (let j = i + 1; j < magnetized.length; j++) {
+                const b = magnetized[j];
+                if (!b.alive) continue;
+                const d = dist(a, b);
+                const pullRange = Math.max(a.magnetizePullRange, b.magnetizePullRange);
+                if (d <= pullRange && d > 4) {
+                    let pullStrength;
+                    if (a.magnetizePolarity !== 0 && b.magnetizePolarity !== 0 && a.magnetizePolarity !== b.magnetizePolarity) {
+                        pullStrength = Math.max(a.magnetizePullStrength, b.magnetizePullStrength) * 2.0;
+                    } else if (a.magnetizePolarity !== 0 && b.magnetizePolarity !== 0 && a.magnetizePolarity === b.magnetizePolarity) {
+                        pullStrength = -(Math.max(a.magnetizePullStrength, b.magnetizePullStrength) * 0.6);
+                    } else {
+                        pullStrength = (a.magnetizePullStrength + b.magnetizePullStrength) / 2;
+                    }
+                    const force = pullStrength * dt * (1 - d / pullRange);
+                    const dx = (b.x - a.x) / d;
+                    const dy = (b.y - a.y) / d;
+                    if (pullStrength > 0) {
+                        a.x += dx * force * 0.5;
+                        a.y += dy * force * 0.5;
+                        b.x -= dx * force * 0.5;
+                        b.y -= dy * force * 0.5;
+                    } else {
+                        a.x -= dx * Math.abs(force) * 0.5;
+                        a.y -= dy * Math.abs(force) * 0.5;
+                        b.x += dx * Math.abs(force) * 0.5;
+                        b.y += dy * Math.abs(force) * 0.5;
+                    }
+                }
+                // Collision damage
+                if (d < a.size + b.size + 2 && a.magnetizeCollisionCooldown <= 0 && b.magnetizeCollisionCooldown <= 0) {
+                    const cdmg = Math.floor((a.magnetizeCollisionDmg + b.magnetizeCollisionDmg) / 2);
+                    dealDamage(a, cdmg);
+                    dealDamage(b, Math.floor(cdmg * 0.5));
+                    a.magnetizeCollisionCooldown = 800;
+                    b.magnetizeCollisionCooldown = 800;
+                    createHitSpark((a.x + b.x) / 2, (a.y + b.y) / 2, '#A8A0FF');
+                }
+            }
+        }
+    }
     // Remove dead/escaped
     game.enemies = game.enemies.filter(e => e.alive);
 }
@@ -1711,6 +1895,33 @@ function applySlow(enemy, factor, duration) {
     enemy.slowFactor = Math.min(enemy.slowFactor, factor);
     enemy.currentSpeed = enemy.speed * enemy.slowFactor;
     enemy.slowTimer = Math.max(enemy.slowTimer, duration);
+}
+
+function applyMagnetize(enemy, p) {
+    enemy.magnetizeTimer = Math.max(enemy.magnetizeTimer, p.magnetizeDuration);
+    enemy.magnetizePullRange = p.magnetizePullRange;
+    enemy.magnetizePullStrength = p.magnetizePullStrength;
+    enemy.magnetizeCollisionDmg = p.magnetizeCollisionDmg;
+    enemy.magnetizeCollisionCooldown = 0;
+    if (p.empRadius > 0) {
+        enemy.magnetizeEmpTimer = Math.max(enemy.magnetizeEmpTimer || 0, p.empInterval);
+        enemy.magnetizeEmpInterval = p.empInterval;
+        enemy.magnetizeEmpRadius = p.empRadius;
+        enemy.magnetizeEmpStunDuration = p.empStunDuration;
+        enemy.magnetizeEmpVulnFactor = p.empVulnFactor;
+        enemy.magnetizeEmpVulnDuration = p.empVulnDuration;
+    }
+    if (p.polarityOppositePull > 0 && enemy.magnetizePolarity === 0) {
+        const magnetized = game.enemies.filter(e => e.alive && e.magnetizeTimer > 0 && e.magnetizePolarity !== 0);
+        enemy.magnetizePolarity = (magnetized.length % 2 === 0) ? 1 : -1;
+    }
+    if (p.stormSenseRange > 0) {
+        enemy.magnetizeStormTimer = Math.max(enemy.magnetizeStormTimer || 0, p.stormSenseInterval);
+        enemy.magnetizeStormSenseRange = p.stormSenseRange;
+        enemy.magnetizeStormSenseDmg = p.stormSenseDmg;
+        enemy.magnetizeStormInterval = p.stormSenseInterval;
+        enemy.magnetizeStormDeathPulseRange = p.stormDeathPulseRange;
+    }
 }
 
 function applyKnockback(enemy, distance) {
@@ -1877,6 +2088,21 @@ function createProjectile(tower, target) {
         nukeZoneDmg: st.nukeZoneDmg,
         nukeZoneInterval: st.nukeZoneInterval,
         precisionTracking: st.precisionTracking,
+        magnetizeDuration: st.magnetizeDuration,
+        magnetizePullRange: st.magnetizePullRange,
+        magnetizePullStrength: st.magnetizePullStrength,
+        magnetizeCollisionDmg: st.magnetizeCollisionDmg,
+        empRadius: st.empRadius,
+        empStunDuration: st.empStunDuration,
+        empVulnFactor: st.empVulnFactor,
+        empVulnDuration: st.empVulnDuration,
+        empInterval: st.empInterval,
+        polarityOppositePull: st.polarityOppositePull,
+        polaritySameRepel: st.polaritySameRepel,
+        stormSenseRange: st.stormSenseRange,
+        stormSenseDmg: st.stormSenseDmg,
+        stormSenseInterval: st.stormSenseInterval,
+        stormDeathPulseRange: st.stormDeathPulseRange,
         towerId: tower.id
     };
     // Missile & variants: vertical launch then arc toward target
@@ -2145,6 +2371,10 @@ function updateProjectiles(dt) {
                             contagionRange: 0, contagionFalloff: 0,
                             clusterCount: 0, clusterDmgPct: 0, clusterSplitPct: 0,
                             nukeZoneDuration: 0, nukeZoneRadius: 0, nukeZoneDmg: 0, nukeZoneInterval: 0,
+                            magnetizeDuration: 0, magnetizePullRange: 0, magnetizePullStrength: 0, magnetizeCollisionDmg: 0,
+                            empRadius: 0, empStunDuration: 0, empVulnFactor: 0, empVulnDuration: 0, empInterval: 0,
+                            polarityOppositePull: 0, polaritySameRepel: 0,
+                            stormSenseRange: 0, stormSenseDmg: 0, stormSenseInterval: 0, stormDeathPulseRange: 0,
                             precisionTracking: false,
                             towerId: p.towerId
                         };
@@ -2461,6 +2691,11 @@ function handleImpact(p) {
             createFireZone(p.target.x, p.target.y, p.flameRadius, Math.floor(p.damage * 0.35), p.flameDuration, p.flameTickInterval);
             createFireIgnition(p.target.x, p.target.y, p.flameRadius);
         }
+        // Magnetic tower — apply magnetize to target
+        if (p.magnetizeDuration > 0) {
+            applyMagnetize(p.target, p);
+            createHitSpark(p.target.x, p.target.y, p.color || '#A8A0FF');
+        }
     }
 }
 
@@ -2497,6 +2732,10 @@ function spawnShrapnel(p) {
             gustInterval: 0, gustDamage: 0,
             auraSpeedMin: 0, auraSpeedMax: 0, auraFlipInterval: 0,
             arcHeight: 0,
+            magnetizeDuration: 0, magnetizePullRange: 0, magnetizePullStrength: 0, magnetizeCollisionDmg: 0,
+            empRadius: 0, empStunDuration: 0, empVulnFactor: 0, empVulnDuration: 0, empInterval: 0,
+            polarityOppositePull: 0, polaritySameRepel: 0,
+            stormSenseRange: 0, stormSenseDmg: 0, stormSenseInterval: 0, stormDeathPulseRange: 0,
             flightDistance: p.shrapnelRange,
             progress: 0,
             alive: true,
@@ -2544,6 +2783,27 @@ function dealDamage(enemy, dmg) {
     enemy.hp -= dmg;
     if (enemy.hp <= 0) {
         enemy.hp = 0;
+        // Storm death pulse — spread magnetization on death
+        if (enemy.magnetizeStormDeathPulseRange > 0) {
+            const pulseRange = enemy.magnetizeStormDeathPulseRange;
+            for (const other of game.enemies) {
+                if (!other.alive || other.id === enemy.id || other.isTurncoat) continue;
+                if (dist(enemy, other) <= pulseRange) {
+                    if (other.magnetizeTimer <= 0) {
+                        other.magnetizeTimer = 2500;
+                        other.magnetizePullRange = enemy.magnetizePullRange || 80;
+                        other.magnetizePullStrength = enemy.magnetizePullStrength || 16;
+                        other.magnetizeCollisionDmg = enemy.magnetizeCollisionDmg || 15;
+                        other.magnetizeStormTimer = enemy.magnetizeStormInterval || 500;
+                        other.magnetizeStormSenseRange = enemy.magnetizeStormSenseRange || 90;
+                        other.magnetizeStormSenseDmg = enemy.magnetizeStormSenseDmg || 6;
+                        other.magnetizeStormInterval = enemy.magnetizeStormInterval || 500;
+                        other.magnetizeStormDeathPulseRange = enemy.magnetizeStormDeathPulseRange;
+                    }
+                }
+            }
+            createImpactBurst(enemy.x, enemy.y, pulseRange * 0.5, 'nuke');
+        }
         enemy.alive = false;
         if (!enemy.isTurncoat) {
             game.gold += enemy.reward;
@@ -3166,21 +3426,125 @@ function drawClusterCrater(cz, alpha) {
     }
 }
 
-// 战术核弹弹坑 — huge deep oval crater with raised rim
+// 战术核弹蘑菇云 — towering mushroom cloud with fireball base, stem, and expanding cap
 function drawNukeCrater(cz, alpha) {
-    const { x, y, radius: rx, radiusY: ry } = cz;
-    // Shadow
-    drawOvalCrater(x + 2, y + 2, rx, ry, `rgba(70,40,20,${0.65 * alpha})`);
-    // Main deep crater
-    drawOvalCrater(x, y, rx, ry, `rgba(110,70,35,${0.55 * alpha})`);
-    // Inner deeper
-    drawOvalCrater(x, y, rx * 0.6, ry * 0.6, `rgba(60,30,10,${0.3 * alpha})`);
-    // Raised rim
-    ctx.strokeStyle = `rgba(140,100,60,${0.4 * alpha})`;
-    ctx.lineWidth = 2.5 * alpha;
+    const { x, y, radius: rx } = cz;
+    const life = cz.duration / cz.maxDuration; // 1.0 → 0.0
+    // Growth phase (first 15%), sustain (next 40%), fade (last 45%)
+    const growScale = Math.min(1, (1 - life) / 0.15); // 0→1 during first 15%
+    const sustainAlpha = life > 0.85 ? 1 : (life > 0.4 ? 1 : life / 0.4);
+    const s = growScale * sustainAlpha;
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+
+    // Ground fireball base
+    const fireGrad = ctx.createRadialGradient(x, y, 0, x, y, rx * 1.8 * s);
+    fireGrad.addColorStop(0, 'rgba(255,255,255,0.9)');
+    fireGrad.addColorStop(0.15, 'rgba(255,200,50,0.7)');
+    fireGrad.addColorStop(0.4, 'rgba(255,80,20,0.4)');
+    fireGrad.addColorStop(0.7, 'rgba(180,30,0,0.15)');
+    fireGrad.addColorStop(1, 'rgba(80,10,0,0)');
+    ctx.fillStyle = fireGrad;
     ctx.beginPath();
-    ctx.ellipse(x, y, rx * 1.05, ry * 1.05, 0, 0, Math.PI * 2);
+    ctx.arc(x, y, rx * 1.8 * s, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Mushroom stem — rising column from fireball
+    const stemBaseY = y;
+    const stemTopY = y - rx * 3.8 * s;
+    const stemBaseW = rx * 0.35 * s;
+    const stemTopW = rx * 0.9 * s;
+
+    // Stem shadow (darker outer)
+    ctx.fillStyle = `rgba(60,40,30,${0.7 * alpha})`;
+    ctx.beginPath();
+    ctx.moveTo(x - stemBaseW * 1.1, stemBaseY);
+    ctx.quadraticCurveTo(x - stemTopW * 1.05, (stemBaseY + stemTopY) * 0.5, x - stemTopW * 1.1, stemTopY);
+    ctx.lineTo(x + stemTopW * 1.1, stemTopY);
+    ctx.quadraticCurveTo(x + stemTopW * 1.05, (stemBaseY + stemTopY) * 0.5, x + stemBaseW * 1.1, stemBaseY);
+    ctx.closePath();
+    ctx.fill();
+
+    // Stem core (hot smoke rising)
+    const stemGrad = ctx.createLinearGradient(x, stemBaseY, x, stemTopY);
+    stemGrad.addColorStop(0, `rgba(200,100,40,${0.8 * alpha})`);
+    stemGrad.addColorStop(0.3, `rgba(150,70,30,${0.7 * alpha})`);
+    stemGrad.addColorStop(0.6, `rgba(100,50,25,${0.6 * alpha})`);
+    stemGrad.addColorStop(1, `rgba(70,35,20,${0.4 * alpha})`);
+    ctx.fillStyle = stemGrad;
+    ctx.beginPath();
+    ctx.moveTo(x - stemBaseW, stemBaseY);
+    ctx.quadraticCurveTo(x - stemTopW, (stemBaseY + stemTopY) * 0.5, x - stemTopW, stemTopY);
+    ctx.lineTo(x + stemTopW, stemTopY);
+    ctx.quadraticCurveTo(x + stemTopW, (stemBaseY + stemTopY) * 0.5, x + stemBaseW, stemBaseY);
+    ctx.closePath();
+    ctx.fill();
+
+    // Mushroom cap — the iconic wide top
+    const capY = stemTopY;
+    const capRX = rx * 2.2 * s;
+    const capRY = rx * 0.7 * s;
+
+    // Cap outer (dark smoke)
+    const capGradOuter = ctx.createRadialGradient(x, capY - capRY * 0.2, capRX * 0.3, x, capY, capRX);
+    capGradOuter.addColorStop(0, `rgba(80,50,30,${0.8 * alpha})`);
+    capGradOuter.addColorStop(0.5, `rgba(55,30,15,${0.7 * alpha})`);
+    capGradOuter.addColorStop(1, `rgba(30,15,5,${0})`);
+    ctx.fillStyle = capGradOuter;
+    ctx.beginPath();
+    ctx.ellipse(x, capY, capRX, capRY, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Cap inner (billowing hot center)
+    const capGradInner = ctx.createRadialGradient(x, capY - capRY * 0.15, capRX * 0.15, x, capY, capRX * 0.7);
+    capGradInner.addColorStop(0, `rgba(180,100,50,${0.7 * alpha})`);
+    capGradInner.addColorStop(0.5, `rgba(120,60,30,${0.5 * alpha})`);
+    capGradInner.addColorStop(1, `rgba(60,30,15,${0})`);
+    ctx.fillStyle = capGradInner;
+    ctx.beginPath();
+    ctx.ellipse(x, capY, capRX * 0.7, capRY * 0.85, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Cap ring — the "rolling" edge of the mushroom
+    ctx.strokeStyle = `rgba(200,150,100,${0.35 * alpha})`;
+    ctx.lineWidth = 2.5 * s;
+    ctx.beginPath();
+    ctx.ellipse(x, capY, capRX, capRY, 0, 0, Math.PI * 2);
     ctx.stroke();
+
+    // Small secondary puffs around the cap edge
+    for (let i = 0; i < 5; i++) {
+        const pa = (i / 5) * Math.PI * 2 + life * 0.5;
+        const ppx = x + Math.cos(pa) * capRX * 0.85;
+        const ppy = capY + Math.sin(pa) * capRY * 0.85;
+        const puffGrad = ctx.createRadialGradient(ppx, ppy, 0, ppx, ppy, rx * 0.35 * s);
+        puffGrad.addColorStop(0, `rgba(100,70,50,${0.5 * alpha})`);
+        puffGrad.addColorStop(1, `rgba(60,35,20,${0})`);
+        ctx.fillStyle = puffGrad;
+        ctx.beginPath();
+        ctx.arc(ppx, ppy, rx * 0.35 * s, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // Bright flash core at ground zero
+    const coreGrad = ctx.createRadialGradient(x, y, 0, x, y, rx * 0.6 * s);
+    coreGrad.addColorStop(0, `rgba(255,255,240,${0.85 * alpha})`);
+    coreGrad.addColorStop(0.3, `rgba(255,200,60,${0.5 * alpha})`);
+    coreGrad.addColorStop(1, `rgba(255,100,20,${0})`);
+    ctx.fillStyle = coreGrad;
+    ctx.beginPath();
+    ctx.arc(x, y, rx * 0.6 * s, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Shockwave ring
+    ctx.strokeStyle = `rgba(255,200,150,${0.4 * alpha * sustainAlpha})`;
+    ctx.lineWidth = 1.5 * s;
+    ctx.beginPath();
+    ctx.arc(x, y, rx * 1.1 + (1 - life) * rx * 0.6, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.restore();
 }
 
 // 默认炮塔弹坑
@@ -3729,6 +4093,10 @@ function drawTower(t) {
         case 'laser_core': drawLaserCoreTower(t, st, lv); break;
         case 'laser_resonance': drawLaserResonanceTower(t, st, lv); break;
         case 'laser_refract': drawLaserRefractTower(t, st, lv); break;
+        case 'magnet': drawMagnetTower(t, st, lv); break;
+        case 'magnet_emp': drawMagnetEmpTower(t, st, lv); break;
+        case 'magnet_polarity': drawMagnetPolarityTower(t, st, lv); break;
+        case 'magnet_storm': drawMagnetStormTower(t, st, lv); break;
     }
 
     ctx.restore();
@@ -7876,6 +8244,253 @@ function drawLaserRefractTower(t, st, lv) {
     }
 }
 
+// ===== MAGNET TOWER — metallic platform with magnetic core & copper coil =====
+function drawMagnetTower(t, st, lv) {
+    const bw = 9 + lv;
+    const coreY = -bw * 0.3;
+    const time = Date.now() / 1000;
+    const pulse = 0.7 + Math.sin(time * 2.5) * 0.3;
+
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.beginPath();
+    ctx.ellipse(0, 4, bw + 3, bw * 0.4, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Metallic base
+    const baseGrad = ctx.createLinearGradient(0, 0, 0, bw + 2);
+    baseGrad.addColorStop(0, '#7E8A98');
+    baseGrad.addColorStop(0.5, '#5A6570');
+    baseGrad.addColorStop(1, '#3A4550');
+    ctx.fillStyle = baseGrad;
+    ctx.beginPath();
+    ctx.roundRect(-bw - 2, 1, (bw + 2) * 2, bw + 4, 3);
+    ctx.fill();
+    ctx.strokeStyle = '#A0B0C0';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Copper coil ring
+    ctx.strokeStyle = `rgba(220,140,80,${0.4 + pulse * 0.2})`;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.ellipse(0, 2, bw + 1, bw * 0.35, 0, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Central magnetic core — glowing sphere
+    const coreGrad = ctx.createRadialGradient(0, coreY, bw * 0.05, 0, coreY, bw * 0.6);
+    coreGrad.addColorStop(0, '#FFFFFF');
+    coreGrad.addColorStop(0.2, '#A8A0FF');
+    coreGrad.addColorStop(0.6, '#6C5CE7');
+    coreGrad.addColorStop(1, '#3A3080');
+    ctx.fillStyle = coreGrad;
+    ctx.beginPath();
+    ctx.arc(0, coreY, bw * 0.6, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Core glow
+    ctx.fillStyle = `rgba(160,140,255,${0.15 + pulse * 0.1})`;
+    ctx.beginPath();
+    ctx.arc(0, coreY, bw * 0.85, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Field lines around core (4 arcs)
+    ctx.strokeStyle = `rgba(160,140,255,${0.2 + pulse * 0.15})`;
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 4; i++) {
+        const fa = (i / 4) * Math.PI * 2 + Math.sin(time * 1.5) * 0.3;
+        ctx.beginPath();
+        ctx.arc(Math.cos(fa) * bw * 0.3, coreY + Math.sin(fa) * bw * 0.25, bw * 0.5, fa - 0.4, fa + 0.4);
+        ctx.stroke();
+    }
+}
+
+// ===== MAGNET EMP TOWER — orange pulse core with antenna =====
+function drawMagnetEmpTower(t, st, lv) {
+    const bw = 10 + lv;
+    const time = Date.now() / 1000;
+    const pulse = 0.6 + Math.sin(time * 3) * 0.4;
+
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.beginPath();
+    ctx.ellipse(0, 4, bw + 3, bw * 0.4, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Dark metallic base
+    const baseGrad = ctx.createLinearGradient(0, 0, 0, bw + 2);
+    baseGrad.addColorStop(0, '#5A5050');
+    baseGrad.addColorStop(0.5, '#4A3A30');
+    baseGrad.addColorStop(1, '#2A1A10');
+    ctx.fillStyle = baseGrad;
+    ctx.beginPath();
+    ctx.roundRect(-bw - 2, 1, (bw + 2) * 2, bw + 4, 3);
+    ctx.fill();
+    ctx.strokeStyle = '#8A7060';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // EMP antenna rod
+    const antH = bw * 1.8;
+    ctx.fillStyle = '#6A5A4A';
+    ctx.fillRect(-2.5, -antH, 5, antH);
+    ctx.strokeStyle = '#8A7A6A';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(-2.5, -antH, 5, antH);
+
+    // Antenna coil rings
+    for (let i = 0; i < 3; i++) {
+        const ry = -antH + i * antH * 0.35 + antH * 0.15;
+        ctx.strokeStyle = `rgba(255,180,100,${0.4 + pulse * 0.3})`;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.ellipse(0, ry, bw * 0.4 + i * 1.5, bw * 0.12, 0, 0, Math.PI * 2);
+        ctx.stroke();
+    }
+
+    // EMP core — pulsing orange orb
+    const coreGrad = ctx.createRadialGradient(0, 0, bw * 0.05, 0, 0, bw * 0.5);
+    coreGrad.addColorStop(0, '#FFFFFF');
+    coreGrad.addColorStop(0.15, '#FFCC88');
+    coreGrad.addColorStop(0.5, '#FF6B35');
+    coreGrad.addColorStop(1, '#993010');
+    ctx.fillStyle = coreGrad;
+    ctx.beginPath();
+    ctx.arc(0, 0, bw * 0.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // EMP shockwave ring
+    ctx.strokeStyle = `rgba(255,140,60,${0.25 + pulse * 0.2})`;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(0, 0, bw * 0.7 + pulse * 3, 0, Math.PI * 2);
+    ctx.stroke();
+}
+
+// ===== MAGNET POLARITY TOWER — purple/pink dual-polarity core =====
+function drawMagnetPolarityTower(t, st, lv) {
+    const bw = 9 + lv;
+    const time = Date.now() / 1000;
+    const pulse = 0.6 + Math.sin(time * 2.8) * 0.4;
+
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.beginPath();
+    ctx.ellipse(0, 4, bw + 3, bw * 0.4, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Base
+    const baseGrad = ctx.createLinearGradient(0, 0, 0, bw + 2);
+    baseGrad.addColorStop(0, '#6A5A7A');
+    baseGrad.addColorStop(0.5, '#4A3A5A');
+    baseGrad.addColorStop(1, '#2A1A3A');
+    ctx.fillStyle = baseGrad;
+    ctx.beginPath();
+    ctx.roundRect(-bw - 2, 1, (bw + 2) * 2, bw + 4, 3);
+    ctx.fill();
+    ctx.strokeStyle = '#9A8AB0';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Dual polarity orbs — purple (N) and pink (S)
+    const sepY = -bw * 0.4;
+    for (let i = -1; i <= 1; i += 2) {
+        const ox = i * bw * 0.35;
+        const color1 = i === 1 ? '#C080F0' : '#F080C0';
+        const color2 = i === 1 ? '#7B3FA0' : '#C04080';
+        const grad = ctx.createRadialGradient(ox, sepY, bw * 0.03, ox, sepY, bw * 0.38);
+        grad.addColorStop(0, '#FFFFFF');
+        grad.addColorStop(0.25, color1);
+        grad.addColorStop(0.7, color2);
+        grad.addColorStop(1, i === 1 ? '#3A1050' : '#500030');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(ox, sepY, bw * 0.38, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // Polarity connection arc between orbs
+    ctx.strokeStyle = `rgba(220,160,240,${0.2 + pulse * 0.15})`;
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath();
+    ctx.arc(0, sepY, bw * 0.35, -1.2, 1.2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // N/S labels glow
+    ctx.fillStyle = `rgba(255,255,255,${0.5 + pulse * 0.3})`;
+    ctx.font = `${bw * 0.45}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.fillText('N', bw * 0.35, sepY + bw * 0.15);
+    ctx.fillText('S', -bw * 0.35, sepY + bw * 0.15);
+}
+
+// ===== MAGNET STORM TOWER — dark orange chained core =====
+function drawMagnetStormTower(t, st, lv) {
+    const bw = 9 + lv;
+    const time = Date.now() / 1000;
+    const pulse = 0.6 + Math.sin(time * 3.5) * 0.4;
+
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.beginPath();
+    ctx.ellipse(0, 4, bw + 3, bw * 0.4, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Dark industrial base
+    const baseGrad = ctx.createLinearGradient(0, 0, 0, bw + 2);
+    baseGrad.addColorStop(0, '#5A4A3A');
+    baseGrad.addColorStop(0.5, '#3A2A1A');
+    baseGrad.addColorStop(1, '#1A0A00');
+    ctx.fillStyle = baseGrad;
+    ctx.beginPath();
+    ctx.roundRect(-bw - 2, 1, (bw + 2) * 2, bw + 4, 3);
+    ctx.fill();
+    ctx.strokeStyle = '#8A6A40';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Storm core — pulsing dark orange
+    const coreGrad = ctx.createRadialGradient(0, -bw * 0.2, bw * 0.03, 0, -bw * 0.1, bw * 0.55);
+    coreGrad.addColorStop(0, '#FFF8E0');
+    coreGrad.addColorStop(0.2, '#FFBB44');
+    coreGrad.addColorStop(0.55, '#E65100');
+    coreGrad.addColorStop(1, '#7A2A00');
+    ctx.fillStyle = coreGrad;
+    ctx.beginPath();
+    ctx.arc(0, -bw * 0.1, bw * 0.55, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Chain links around core (3 orbiting small orbs)
+    for (let i = 0; i < 3; i++) {
+        const ca = time * 2 + i * Math.PI * 2 / 3;
+        const cr = bw * 0.7;
+        const cx = Math.cos(ca) * cr;
+        const cy = -bw * 0.1 + Math.sin(ca) * cr * 0.3;
+        ctx.fillStyle = `rgba(255,160,40,${0.5 + Math.sin(time * 5 + i) * 0.3})`;
+        ctx.beginPath();
+        ctx.arc(cx, cy, bw * 0.1, 0, Math.PI * 2);
+        ctx.fill();
+        // Connect to core
+        ctx.strokeStyle = `rgba(255,140,30,${0.15 + pulse * 0.1})`;
+        ctx.lineWidth = 0.8;
+        ctx.beginPath();
+        ctx.moveTo(0, -bw * 0.1);
+        ctx.lineTo(cx, cy);
+        ctx.stroke();
+    }
+
+    // Induction rings
+    for (let i = 0; i < 2; i++) {
+        ctx.strokeStyle = `rgba(255,120,30,${0.15 + pulse * 0.1 - i * 0.05})`;
+        ctx.lineWidth = 1.5 - i * 0.5;
+        ctx.beginPath();
+        ctx.arc(0, -bw * 0.1, bw * 0.75 + i * 4 + pulse * 2, 0, Math.PI * 2);
+        ctx.stroke();
+    }
+}
+
 function drawEnemy(e) {
     if (!e.alive) return;
     ctx.save();
@@ -8006,140 +8621,172 @@ function drawEnemy(e) {
     const isBoss = e.type === 'boss';
     const isTank = e.type === 'tank';
     const isFast = e.type === 'fast';
-    const isNormal = e.type === 'normal';
     const time = Date.now() / 1000;
 
-    // Movement direction angle (based on current speed direction or path)
-    let facingAngle = 0;
-    if (e.knockbackTimer > 0 && (Math.abs(e.knockbackVx) > 0.1 || Math.abs(e.knockbackVy) > 0.1)) {
-        facingAngle = Math.atan2(e.knockbackVy, e.knockbackVx);
-    } else {
-        // Face toward next waypoint
-        const wp = WAYPOINTS[Math.min(e.waypointIndex, WAYPOINTS.length - 1)];
-        const dx = wp.x - e.x;
-        const dy = wp.y - e.y;
-        facingAngle = Math.atan2(dy, dx);
-    }
-
     ctx.save();
-    if (!isNormal) ctx.rotate(facingAngle);
 
     const s = e.size;
 
     if (isBoss) {
         // === BOSS — cute chibi demon lord ===
-        // Soft aura glow
+        // Soft pink aura glow
         ctx.shadowColor = '#FFB0B0';
-        ctx.shadowBlur = 6 + Math.sin(time * 2.5) * 3;
+        ctx.shadowBlur = 8 + Math.sin(time * 2.5) * 3;
 
-        // Body — soft round chibi shape
-        const bodyGrad = ctx.createRadialGradient(-s*0.08, -s*0.15, s*0.05, 0, s*0.1, s);
-        bodyGrad.addColorStop(0, '#FF6B6B');
-        bodyGrad.addColorStop(0.5, '#E04040');
+        // Cute bat-like wings (behind body)
+        ctx.fillStyle = '#E04040';
+        ctx.beginPath();
+        ctx.ellipse(-s*0.72, -s*0.35, s*0.25, s*0.45, -0.35, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.ellipse(s*0.72, -s*0.35, s*0.25, s*0.45, 0.35, 0, Math.PI * 2);
+        ctx.fill();
+        // Wing inner membrane highlight
+        ctx.fillStyle = '#F06060';
+        ctx.beginPath();
+        ctx.ellipse(-s*0.7, -s*0.3, s*0.14, s*0.3, -0.3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.ellipse(s*0.7, -s*0.3, s*0.14, s*0.3, 0.3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#C03030';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        // Body — soft round chibi shape with richer gradient
+        const bodyGrad = ctx.createRadialGradient(-s*0.06, -s*0.18, s*0.05, 0, s*0.1, s*1.05);
+        bodyGrad.addColorStop(0, '#FF7B7B');
+        bodyGrad.addColorStop(0.35, '#F04848');
+        bodyGrad.addColorStop(0.7, '#C03030');
         bodyGrad.addColorStop(1, '#801818');
         ctx.fillStyle = bodyGrad;
         ctx.beginPath();
         ctx.arc(0, s*0.05, s, 0, Math.PI * 2);
         ctx.fill();
         ctx.strokeStyle = '#FF9999';
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 2.2;
         ctx.stroke();
 
-        // Soft tummy highlight
-        const tummyGrad = ctx.createRadialGradient(0, s*0.2, s*0.05, 0, s*0.15, s*0.55);
-        tummyGrad.addColorStop(0, 'rgba(255,200,180,0.4)');
+        // Soft tummy highlight (wider, softer)
+        const tummyGrad = ctx.createRadialGradient(0, s*0.25, s*0.08, 0, s*0.15, s*0.58);
+        tummyGrad.addColorStop(0, 'rgba(255,210,190,0.45)');
+        tummyGrad.addColorStop(0.5, 'rgba(255,180,160,0.2)');
         tummyGrad.addColorStop(1, 'rgba(255,150,150,0)');
         ctx.fillStyle = tummyGrad;
         ctx.beginPath();
-        ctx.arc(0, s*0.1, s*0.55, 0, Math.PI * 2);
+        ctx.arc(0, s*0.15, s*0.55, 0, Math.PI * 2);
         ctx.fill();
 
-        // Tiny cute horns (not menacing)
-        ctx.fillStyle = '#E8C8A0';
+        // Tiny cute horns — smoother curve, warmer tone
+        ctx.fillStyle = '#F0D0B0';
         // Left horn
         ctx.beginPath();
-        ctx.moveTo(-s*0.3, -s*0.55);
-        ctx.quadraticCurveTo(-s*0.45, -s*1.0, -s*0.25, -s*1.1);
-        ctx.quadraticCurveTo(-s*0.2, -s*0.9, -s*0.1, -s*0.55);
+        ctx.moveTo(-s*0.28, -s*0.55);
+        ctx.quadraticCurveTo(-s*0.48, -s*0.95, -s*0.22, -s*1.08);
+        ctx.quadraticCurveTo(-s*0.15, -s*0.85, -s*0.08, -s*0.55);
         ctx.fill();
         ctx.strokeStyle = '#C8A888';
         ctx.lineWidth = 0.8;
         ctx.stroke();
         // Right horn
         ctx.beginPath();
-        ctx.moveTo(s*0.3, -s*0.55);
-        ctx.quadraticCurveTo(s*0.45, -s*1.0, s*0.25, -s*1.1);
-        ctx.quadraticCurveTo(s*0.2, -s*0.9, s*0.1, -s*0.55);
+        ctx.moveTo(s*0.28, -s*0.55);
+        ctx.quadraticCurveTo(s*0.48, -s*0.95, s*0.22, -s*1.08);
+        ctx.quadraticCurveTo(s*0.15, -s*0.85, s*0.08, -s*0.55);
         ctx.fill();
         ctx.stroke();
 
-        // Tiny crown between horns
+        // Wider crown with 5 points
         ctx.fillStyle = '#FFD700';
         ctx.beginPath();
-        ctx.moveTo(-s*0.15, -s*0.7);
-        ctx.lineTo(-s*0.1, -s*0.95);
-        ctx.lineTo(0, -s*0.82);
-        ctx.lineTo(s*0.1, -s*0.95);
-        ctx.lineTo(s*0.15, -s*0.7);
+        ctx.moveTo(-s*0.2, -s*0.68);
+        ctx.lineTo(-s*0.18, -s*0.92);
+        ctx.lineTo(-s*0.08, -s*0.8);
+        ctx.lineTo(0, -s*0.96);
+        ctx.lineTo(s*0.08, -s*0.8);
+        ctx.lineTo(s*0.18, -s*0.92);
+        ctx.lineTo(s*0.2, -s*0.68);
         ctx.closePath();
         ctx.fill();
         ctx.strokeStyle = '#B8960B';
-        ctx.lineWidth = 0.6;
+        ctx.lineWidth = 0.7;
         ctx.stroke();
-        // Crown jewel
+        // Crown jewels — 3 gems
         ctx.fillStyle = '#FF88AA';
-        ctx.beginPath();
-        ctx.arc(0, -s*0.8, s*0.08, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.beginPath(); ctx.arc(0, -s*0.82, s*0.07, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(-s*0.1, -s*0.82, s*0.05, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(s*0.1, -s*0.82, s*0.05, 0, Math.PI * 2); ctx.fill();
 
-        // BIG sparkly cute eyes
+        // BIG sparkly cute eyes — slightly larger
         const eyeBob = Math.sin(time * 3) * 0.02;
         // Eye whites
         ctx.fillStyle = '#FFF';
-        ctx.beginPath(); ctx.arc(s*0.28, -s*0.15, s*0.2, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc(-s*0.28, -s*0.15, s*0.2, 0, Math.PI * 2); ctx.fill();
-        // Irises — big colorful
-        ctx.fillStyle = '#FF5588';
-        ctx.beginPath(); ctx.arc(s*0.3, -s*0.13 + eyeBob, s*0.14, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc(-s*0.26, -s*0.13 + eyeBob, s*0.14, 0, Math.PI * 2); ctx.fill();
-        // Pupils — big dark
+        ctx.beginPath(); ctx.arc(s*0.26, -s*0.14, s*0.22, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(-s*0.26, -s*0.14, s*0.22, 0, Math.PI * 2); ctx.fill();
+        // Irises — deeper pink
+        ctx.fillStyle = '#FF4488';
+        ctx.beginPath(); ctx.arc(s*0.28, -s*0.12 + eyeBob, s*0.15, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(-s*0.24, -s*0.12 + eyeBob, s*0.15, 0, Math.PI * 2); ctx.fill();
+        // Pupils
         ctx.fillStyle = '#1A0A20';
-        ctx.beginPath(); ctx.arc(s*0.32, -s*0.12 + eyeBob, s*0.08, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc(-s*0.24, -s*0.12 + eyeBob, s*0.08, 0, Math.PI * 2); ctx.fill();
-        // Eye sparkles — key cute factor!
+        ctx.beginPath(); ctx.arc(s*0.3, -s*0.11 + eyeBob, s*0.09, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(-s*0.22, -s*0.11 + eyeBob, s*0.09, 0, Math.PI * 2); ctx.fill();
+        // Eye sparkles — 4 per eye
         ctx.fillStyle = '#FFF';
-        ctx.beginPath(); ctx.arc(s*0.35, -s*0.18 + eyeBob, s*0.05, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc(s*0.28, -s*0.08 + eyeBob, s*0.03, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc(-s*0.21, -s*0.18 + eyeBob, s*0.05, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc(-s*0.28, -s*0.08 + eyeBob, s*0.03, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(s*0.33, -s*0.18 + eyeBob, s*0.055, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(s*0.25, -s*0.06 + eyeBob, s*0.035, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(-s*0.19, -s*0.18 + eyeBob, s*0.055, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(-s*0.27, -s*0.06 + eyeBob, s*0.035, 0, Math.PI * 2); ctx.fill();
 
         // Blush cheeks
-        ctx.fillStyle = 'rgba(255,150,150,0.5)';
-        ctx.beginPath(); ctx.arc(s*0.45, s*0.1, s*0.12, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc(-s*0.45, s*0.1, s*0.12, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = 'rgba(255,140,140,0.55)';
+        ctx.beginPath(); ctx.arc(s*0.48, s*0.1, s*0.14, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(-s*0.48, s*0.1, s*0.14, 0, Math.PI * 2); ctx.fill();
 
         // Cute tiny mouth — 'w' shape
         ctx.strokeStyle = '#801818';
-        ctx.lineWidth = 0.8;
+        ctx.lineWidth = 0.9;
         ctx.beginPath();
         ctx.moveTo(-s*0.1, s*0.2);
-        ctx.quadraticCurveTo(-s*0.05, s*0.28, 0, s*0.22);
-        ctx.quadraticCurveTo(s*0.05, s*0.28, s*0.1, s*0.2);
+        ctx.quadraticCurveTo(-s*0.05, s*0.3, 0, s*0.23);
+        ctx.quadraticCurveTo(s*0.05, s*0.3, s*0.1, s*0.2);
         ctx.stroke();
 
         // Tiny arms at sides
         ctx.fillStyle = '#E04040';
-        ctx.beginPath(); ctx.arc(-s*0.85, s*0.1, s*0.18, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc(s*0.85, s*0.1, s*0.18, 0, Math.PI * 2); ctx.fill();
-        // Tiny hands
+        ctx.beginPath(); ctx.arc(-s*0.82, s*0.12, s*0.18, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(s*0.82, s*0.12, s*0.18, 0, Math.PI * 2); ctx.fill();
+        // Tiny hands with fingers (cute round nubs)
         ctx.fillStyle = '#FFCCAA';
-        ctx.beginPath(); ctx.arc(-s*0.9, s*0.2, s*0.08, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc(s*0.9, s*0.2, s*0.08, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(-s*0.88, s*0.22, s*0.09, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(s*0.88, s*0.22, s*0.09, 0, Math.PI * 2); ctx.fill();
 
         // Tiny feet at bottom
         ctx.fillStyle = '#801818';
         ctx.beginPath(); ctx.arc(-s*0.3, s*0.85, s*0.2, 0, Math.PI * 2); ctx.fill();
         ctx.beginPath(); ctx.arc(s*0.3, s*0.85, s*0.2, 0, Math.PI * 2); ctx.fill();
+        // Toe beans on feet
+        ctx.fillStyle = '#FFAAAA';
+        ctx.beginPath(); ctx.arc(-s*0.3, s*0.82, s*0.06, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(s*0.3, s*0.82, s*0.06, 0, Math.PI * 2); ctx.fill();
+
+        // Cute demon tail (right side, heart tip)
+        ctx.strokeStyle = '#E04040';
+        ctx.lineWidth = s*0.12;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(s*0.7, s*0.5);
+        ctx.quadraticCurveTo(s*1.1, s*0.6, s*1.0, s*0.9);
+        ctx.stroke();
+        ctx.lineCap = 'butt';
+        // Heart tip on tail
+        ctx.fillStyle = '#FF6B6B';
+        ctx.beginPath();
+        const htx = s*1.0, hty = s*0.92;
+        ctx.moveTo(htx, hty + s*0.05);
+        ctx.bezierCurveTo(htx - s*0.07, hty - s*0.02, htx - s*0.07, hty + s*0.06, htx, hty + s*0.1);
+        ctx.bezierCurveTo(htx + s*0.07, hty + s*0.06, htx + s*0.07, hty - s*0.02, htx, hty + s*0.05);
+        ctx.fill();
 
         ctx.shadowBlur = 0;
 
@@ -8147,189 +8794,237 @@ function drawEnemy(e) {
         // === TANK — cute chibi armored guardian ===
         const tankEyeBob = Math.sin(time * 2.5) * 0.02;
 
-        // Soft body gradient (pastel purple)
-        const tankBodyGrad = ctx.createRadialGradient(-s*0.05, -s*0.1, s*0.05, 0, 0, s);
-        tankBodyGrad.addColorStop(0, '#C9A0DC');
-        tankBodyGrad.addColorStop(0.5, '#9B59B6');
-        tankBodyGrad.addColorStop(1, '#6C3483');
+        // Soft body gradient (pastel purple) with more depth
+        const tankBodyGrad = ctx.createRadialGradient(-s*0.04, -s*0.12, s*0.05, 0, s*0.05, s*0.95);
+        tankBodyGrad.addColorStop(0, '#D4B0E8');
+        tankBodyGrad.addColorStop(0.4, '#A870C8');
+        tankBodyGrad.addColorStop(0.75, '#7D3C98');
+        tankBodyGrad.addColorStop(1, '#5B2870');
         ctx.fillStyle = tankBodyGrad;
         ctx.beginPath();
         ctx.arc(0, s*0.05, s*0.9, 0, Math.PI * 2);
         ctx.fill();
         ctx.strokeStyle = '#D4B8E8';
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 2.2;
         ctx.stroke();
 
-        // Tummy highlight
-        const tankTummyGrad = ctx.createRadialGradient(0, s*0.2, s*0.05, 0, s*0.1, s*0.5);
-        tankTummyGrad.addColorStop(0, 'rgba(255,220,255,0.35)');
+        // Tummy highlight (broader, softer)
+        const tankTummyGrad = ctx.createRadialGradient(0, s*0.22, s*0.06, 0, s*0.12, s*0.52);
+        tankTummyGrad.addColorStop(0, 'rgba(255,230,255,0.4)');
         tankTummyGrad.addColorStop(1, 'rgba(200,150,220,0)');
         ctx.fillStyle = tankTummyGrad;
         ctx.beginPath();
-        ctx.arc(0, s*0.1, s*0.5, 0, Math.PI * 2);
+        ctx.arc(0, s*0.12, s*0.5, 0, Math.PI * 2);
         ctx.fill();
 
-        // Cute helmet (rounded dome on top)
+        // Cute helmet — rounded dome with brim
+        // Dome
         ctx.fillStyle = '#8E6BB8';
         ctx.beginPath();
-        ctx.arc(0, -s*0.3, s*0.55, Math.PI, 0);
+        ctx.arc(0, -s*0.28, s*0.52, Math.PI, 0.08);
         ctx.fill();
         ctx.strokeStyle = '#B8A0D0';
-        ctx.lineWidth = 1.2;
+        ctx.lineWidth = 1.4;
         ctx.stroke();
-        // Helmet plume (cute fluffy pom-pom)
+        // Helmet brim
+        ctx.fillStyle = '#7D5AA8';
+        ctx.beginPath();
+        ctx.ellipse(0, -s*0.2, s*0.58, s*0.1, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#B8A0D0';
+        ctx.lineWidth = 0.8;
+        ctx.stroke();
+        // Brim highlight
+        ctx.fillStyle = '#A080C8';
+        ctx.beginPath();
+        ctx.ellipse(0, -s*0.22, s*0.48, s*0.05, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Fluffy pom-pom on top (3 circles)
         ctx.fillStyle = '#FF99BB';
-        ctx.beginPath();
-        ctx.arc(0, -s*0.72, s*0.16, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.arc(s*0.07, -s*0.58, s*0.11, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.beginPath(); ctx.arc(0, -s*0.67, s*0.14, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(-s*0.1, -s*0.6, s*0.1, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(s*0.1, -s*0.6, s*0.1, 0, Math.PI * 2); ctx.fill();
+        // Pom-pom highlight
+        ctx.fillStyle = '#FFCCDD';
+        ctx.beginPath(); ctx.arc(-s*0.03, -s*0.7, s*0.06, 0, Math.PI * 2); ctx.fill();
+
+        // Subtle armor shoulder pads
+        ctx.fillStyle = '#A870C8';
+        ctx.beginPath(); ctx.ellipse(-s*0.72, -s*0.12, s*0.2, s*0.15, -0.1, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(s*0.72, -s*0.12, s*0.2, s*0.15, 0.1, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = '#C8A0E0';
+        ctx.lineWidth = 0.8;
+        ctx.stroke();
 
         // Big sparkly cute eyes
         ctx.fillStyle = '#FFF';
-        ctx.beginPath(); ctx.arc(-s*0.25, -s*0.1, s*0.18, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc(s*0.25, -s*0.1, s*0.18, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = '#7D3C98';
-        ctx.beginPath(); ctx.arc(-s*0.23, -s*0.08 + tankEyeBob, s*0.12, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc(s*0.27, -s*0.08 + tankEyeBob, s*0.12, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(-s*0.24, -s*0.08, s*0.19, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(s*0.24, -s*0.08, s*0.19, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#9B59B6';
+        ctx.beginPath(); ctx.arc(-s*0.22, -s*0.06 + tankEyeBob, s*0.13, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(s*0.26, -s*0.06 + tankEyeBob, s*0.13, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = '#1A0A20';
-        ctx.beginPath(); ctx.arc(-s*0.21, -s*0.07 + tankEyeBob, s*0.07, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc(s*0.29, -s*0.07 + tankEyeBob, s*0.07, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(-s*0.2, -s*0.05 + tankEyeBob, s*0.075, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(s*0.28, -s*0.05 + tankEyeBob, s*0.075, 0, Math.PI * 2); ctx.fill();
         // Eye sparkles
         ctx.fillStyle = '#FFF';
-        ctx.beginPath(); ctx.arc(-s*0.18, -s*0.13 + tankEyeBob, s*0.04, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc(s*0.32, -s*0.13 + tankEyeBob, s*0.04, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc(-s*0.27, -s*0.05 + tankEyeBob, s*0.025, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc(s*0.23, -s*0.05 + tankEyeBob, s*0.025, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(-s*0.17, -s*0.11 + tankEyeBob, s*0.045, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(s*0.31, -s*0.11 + tankEyeBob, s*0.045, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(-s*0.26, -s*0.03 + tankEyeBob, s*0.028, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(s*0.22, -s*0.03 + tankEyeBob, s*0.028, 0, Math.PI * 2); ctx.fill();
 
         // Blush
-        ctx.fillStyle = 'rgba(255,150,180,0.45)';
-        ctx.beginPath(); ctx.arc(-s*0.42, s*0.1, s*0.1, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc(s*0.42, s*0.1, s*0.1, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = 'rgba(255,150,180,0.5)';
+        ctx.beginPath(); ctx.arc(-s*0.43, s*0.12, s*0.11, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(s*0.43, s*0.12, s*0.11, 0, Math.PI * 2); ctx.fill();
 
         // Cute w-mouth
         ctx.strokeStyle = '#5B2C6F';
-        ctx.lineWidth = 0.7;
+        ctx.lineWidth = 0.8;
         ctx.beginPath();
-        ctx.moveTo(-s*0.08, s*0.18);
-        ctx.quadraticCurveTo(0, s*0.25, s*0.08, s*0.18);
+        ctx.moveTo(-s*0.08, s*0.2);
+        ctx.quadraticCurveTo(0, s*0.28, s*0.08, s*0.2);
         ctx.stroke();
 
-        // Heart emblem on chest
+        // Heart emblem on chest — larger
         ctx.fillStyle = '#FF88AA';
         ctx.beginPath();
-        const thx = 0, thy = s*0.35;
-        ctx.moveTo(thx, thy + s*0.08);
-        ctx.bezierCurveTo(thx - s*0.12, thy - s*0.04, thx - s*0.12, thy + s*0.12, thx, thy + s*0.2);
-        ctx.bezierCurveTo(thx + s*0.12, thy + s*0.12, thx + s*0.12, thy - s*0.04, thx, thy + s*0.08);
+        const thx = 0, thy = s*0.38;
+        ctx.moveTo(thx, thy + s*0.1);
+        ctx.bezierCurveTo(thx - s*0.15, thy - s*0.05, thx - s*0.15, thy + s*0.14, thx, thy + s*0.24);
+        ctx.bezierCurveTo(thx + s*0.15, thy + s*0.14, thx + s*0.15, thy - s*0.05, thx, thy + s*0.1);
         ctx.fill();
+        // Heart shine
+        ctx.fillStyle = 'rgba(255,255,255,0.3)';
+        ctx.beginPath(); ctx.arc(-s*0.05, thy + s*0.02, s*0.04, 0, Math.PI * 2); ctx.fill();
 
-        // Tiny stub arms
-        ctx.fillStyle = '#9B59B6';
-        ctx.beginPath(); ctx.arc(-s*0.78, s*0.08, s*0.16, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc(s*0.78, s*0.08, s*0.16, 0, Math.PI * 2); ctx.fill();
+        // Tiny stub arms (with shoulder pads!)
+        ctx.fillStyle = '#A870C8';
+        ctx.beginPath(); ctx.arc(-s*0.78, s*0.08, s*0.17, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(s*0.78, s*0.08, s*0.17, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = '#C8A0E0';
+        ctx.lineWidth = 0.7;
+        ctx.stroke();
         // Tiny hands
-        ctx.fillStyle = '#E8C8D0';
-        ctx.beginPath(); ctx.arc(-s*0.84, s*0.18, s*0.07, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc(s*0.84, s*0.18, s*0.07, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#F0D8E8';
+        ctx.beginPath(); ctx.arc(-s*0.84, s*0.18, s*0.08, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(s*0.84, s*0.18, s*0.08, 0, Math.PI * 2); ctx.fill();
 
-        // Tiny feet
+        // Tiny feet with cute toe details
         ctx.fillStyle = '#6C3483';
-        ctx.beginPath(); ctx.ellipse(-s*0.25, s*0.78, s*0.18, s*0.14, 0, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.ellipse(s*0.25, s*0.78, s*0.18, s*0.14, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(-s*0.25, s*0.78, s*0.2, s*0.15, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(s*0.25, s*0.78, s*0.2, s*0.15, 0, 0, Math.PI * 2); ctx.fill();
+        // Toe highlights
+        ctx.fillStyle = '#D4B8E8';
+        ctx.beginPath(); ctx.arc(-s*0.25, s*0.75, s*0.05, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(s*0.25, s*0.75, s*0.05, 0, Math.PI * 2); ctx.fill();
 
     } else if (isFast) {
-        // === FAST — cute bunny-like wind scout ===
-        // Round chibi body
-        const fastBodyGrad = ctx.createRadialGradient(-s*0.05, -s*0.08, s*0.05, 0, 0, s*0.7);
-        fastBodyGrad.addColorStop(0, '#FFBB66');
-        fastBodyGrad.addColorStop(0.5, '#FF9933');
-        fastBodyGrad.addColorStop(1, '#E07020');
+        // === FAST — cute bunny-like wind spirit ===
+        // Round chibi body with richer gradient
+        const fastBodyGrad = ctx.createRadialGradient(-s*0.04, -s*0.1, s*0.05, 0, 0, s*0.68);
+        fastBodyGrad.addColorStop(0, '#FFC880');
+        fastBodyGrad.addColorStop(0.45, '#FF9933');
+        fastBodyGrad.addColorStop(0.8, '#E87820');
+        fastBodyGrad.addColorStop(1, '#C05810');
         ctx.fillStyle = fastBodyGrad;
         ctx.beginPath();
         ctx.arc(0, 0, s*0.65, 0, Math.PI * 2);
         ctx.fill();
         ctx.strokeStyle = '#E08040';
-        ctx.lineWidth = 1.2;
+        ctx.lineWidth = 1.3;
         ctx.stroke();
 
-        // Floppy bunny ears
-        ctx.fillStyle = '#FF9933';
-        ctx.beginPath();
-        ctx.ellipse(-s*0.18, -s*0.85, s*0.2, s*0.55, -0.25, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.ellipse(s*0.18, -s*0.85, s*0.2, s*0.55, 0.25, 0, Math.PI * 2);
-        ctx.fill();
-        // Inner ear pink
-        ctx.fillStyle = '#FFBBAA';
-        ctx.beginPath();
-        ctx.ellipse(-s*0.18, -s*0.85, s*0.1, s*0.38, -0.25, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.ellipse(s*0.18, -s*0.85, s*0.1, s*0.38, 0.25, 0, Math.PI * 2);
-        ctx.fill();
+        // Side fluff tufts (tiny wing-like)
+        ctx.fillStyle = '#FFBB77';
+        ctx.beginPath(); ctx.arc(-s*0.55, -s*0.1, s*0.15, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(s*0.55, -s*0.1, s*0.15, 0, Math.PI * 2); ctx.fill();
         ctx.strokeStyle = '#E08040';
         ctx.lineWidth = 0.6;
         ctx.stroke();
 
-        // Big sparkly cute eyes
+        // Floppy bunny ears — longer
+        ctx.fillStyle = '#FF9933';
+        ctx.beginPath();
+        ctx.ellipse(-s*0.2, -s*0.92, s*0.22, s*0.6, -0.3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.ellipse(s*0.2, -s*0.92, s*0.22, s*0.6, 0.3, 0, Math.PI * 2);
+        ctx.fill();
+        // Inner ear pink — more visible
+        ctx.fillStyle = '#FFBBA8';
+        ctx.beginPath();
+        ctx.ellipse(-s*0.2, -s*0.92, s*0.12, s*0.42, -0.3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.ellipse(s*0.2, -s*0.92, s*0.12, s*0.42, 0.3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#E08040';
+        ctx.lineWidth = 0.7;
+        ctx.stroke();
+
+        // BIG sparkly cute eyes — proportional to body
         ctx.fillStyle = '#FFF';
-        ctx.beginPath(); ctx.arc(-s*0.2, -s*0.05, s*0.19, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc(s*0.2, -s*0.05, s*0.19, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = '#552200';
-        ctx.beginPath(); ctx.arc(-s*0.18, -s*0.04, s*0.1, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc(s*0.22, -s*0.04, s*0.1, 0, Math.PI * 2); ctx.fill();
-        // Eye sparkles — two per eye for max cute
+        ctx.beginPath(); ctx.arc(-s*0.22, -s*0.06, s*0.21, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(s*0.22, -s*0.06, s*0.21, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#663310';
+        ctx.beginPath(); ctx.arc(-s*0.2, -s*0.05, s*0.11, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(s*0.24, -s*0.05, s*0.11, 0, Math.PI * 2); ctx.fill();
+        // Eye sparkles — two per eye
         ctx.fillStyle = '#FFF';
-        ctx.beginPath(); ctx.arc(-s*0.13, -s*0.09, s*0.045, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc(s*0.27, -s*0.09, s*0.045, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc(-s*0.23, -s*0.02, s*0.025, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc(s*0.17, -s*0.02, s*0.025, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(-s*0.15, -s*0.1, s*0.05, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(s*0.29, -s*0.1, s*0.05, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(-s*0.25, -s*0.02, s*0.03, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(s*0.19, -s*0.02, s*0.03, 0, Math.PI * 2); ctx.fill();
 
         // Blush
-        ctx.fillStyle = 'rgba(255,140,140,0.45)';
-        ctx.beginPath(); ctx.arc(-s*0.38, s*0.1, s*0.1, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc(s*0.38, s*0.1, s*0.1, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = 'rgba(255,140,140,0.5)';
+        ctx.beginPath(); ctx.arc(-s*0.42, s*0.1, s*0.12, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(s*0.42, s*0.1, s*0.12, 0, Math.PI * 2); ctx.fill();
 
         // Cute tiny mouth (w-shape)
         ctx.strokeStyle = '#993300';
-        ctx.lineWidth = 0.6;
+        ctx.lineWidth = 0.7;
         ctx.beginPath();
-        ctx.moveTo(-s*0.06, s*0.13);
-        ctx.quadraticCurveTo(0, s*0.2, s*0.06, s*0.13);
+        ctx.moveTo(-s*0.07, s*0.14);
+        ctx.quadraticCurveTo(0, s*0.22, s*0.07, s*0.14);
         ctx.stroke();
 
         // Tiny stub arms
         ctx.fillStyle = '#FF9933';
-        ctx.beginPath(); ctx.arc(-s*0.58, s*0.05, s*0.13, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc(s*0.58, s*0.05, s*0.13, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(-s*0.58, s*0.06, s*0.14, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(s*0.58, s*0.06, s*0.14, 0, Math.PI * 2); ctx.fill();
         // Tiny hands
         ctx.fillStyle = '#FFCCAA';
-        ctx.beginPath(); ctx.arc(-s*0.62, s*0.12, s*0.06, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc(s*0.62, s*0.12, s*0.06, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(-s*0.63, s*0.14, s*0.07, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(s*0.63, s*0.14, s*0.07, 0, Math.PI * 2); ctx.fill();
 
         // Tiny feet
         ctx.fillStyle = '#E07020';
-        ctx.beginPath(); ctx.ellipse(-s*0.2, s*0.54, s*0.16, s*0.12, 0, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.ellipse(s*0.2, s*0.54, s*0.16, s*0.12, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(-s*0.22, s*0.55, s*0.17, s*0.13, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(s*0.22, s*0.55, s*0.17, s*0.13, 0, 0, Math.PI * 2); ctx.fill();
 
-        // Cute poof tail behind
-        ctx.fillStyle = '#FFF';
+        // Cute poof tail (behind, right side)
+        ctx.fillStyle = '#FFF8F0';
         ctx.beginPath();
-        ctx.arc(-s*0.58, s*0.2, s*0.14, 0, Math.PI * 2);
+        ctx.arc(-s*0.55, s*0.2, s*0.16, 0, Math.PI * 2);
         ctx.fill();
         ctx.strokeStyle = '#FFCCAA';
-        ctx.lineWidth = 0.5;
+        ctx.lineWidth = 0.6;
         ctx.stroke();
+        // Tail inner fluff
+        ctx.fillStyle = '#FFEEDD';
+        ctx.beginPath();
+        ctx.arc(-s*0.53, s*0.18, s*0.08, 0, Math.PI * 2);
+        ctx.fill();
 
-        // Gentle wind swirls (instead of aggressive motion lines)
-        ctx.strokeStyle = 'rgba(255,200,160,0.35)';
+        // Gentle wind swirls (decorative)
+        ctx.strokeStyle = 'rgba(255,200,160,0.3)';
         ctx.lineWidth = 1;
         for (let ti = 0; ti < 2; ti++) {
-            const sx = -s*0.4 - ti * s*0.35;
-            const sy = (ti === 0 ? -s*0.15 : s*0.15) + Math.sin(time * 6 + ti) * 1;
+            const sx = -s*0.3 - ti * s*0.4;
+            const sy = (ti === 0 ? -s*0.15 : s*0.15) + Math.sin(time * 6 + ti) * 1.2;
             ctx.beginPath();
             ctx.arc(sx, sy, s*0.12, 0, Math.PI * 2);
             ctx.stroke();
@@ -8344,52 +9039,53 @@ function drawEnemy(e) {
         };
 
         // Shadow on ground
-        ctx.fillStyle = 'rgba(0,0,0,0.2)';
-        ctx.fillRect(-2.5 * ps, 5 * ps, 5 * ps, 1 * ps);
+        ctx.fillStyle = 'rgba(0,0,0,0.18)';
+        ctx.fillRect(-2 * ps, 5 * ps, 4 * ps, 0.8 * ps);
 
-        // Big round helmet — chibi head!
-        px(-3, -8, 6, 2, '#555555');   // helmet top dome
-        px(-4, -6, 8, 3, '#4A4A4A');   // helmet main wide part
-        px(-3, -3, 6, 1, '#555555');   // helmet brim
+        // Round helmet — extra wide chibi head
+        px(-3, -8, 6, 1.8, '#555555');   // helmet crown
+        px(-4, -6.2, 8, 0.8, '#4A4A4A');  // helmet top row
+        px(-4.5, -5.4, 9, 2.5, '#4A4A4A'); // helmet main (wider!)
+        px(-3.5, -2.9, 7, 0.7, '#555555'); // helmet brim
 
-        // Big sparkly pixel eyes
-        px(-2.5, -5, 2, 1.2, '#FFFFFF');   // left white
-        px( 0.5, -5, 2, 1.2, '#FFFFFF');   // right white
-        px(-2, -4.8, 1, 0.8, '#333333');    // left pupil
-        px( 1, -4.8, 1, 0.8, '#333333');    // right pupil
+        // Big sparkly pixel eyes (larger within helmet)
+        px(-3, -5, 2.2, 1.3, '#FFFFFF');   // left white
+        px( 0.8, -5, 2.2, 1.3, '#FFFFFF');  // right white
+        px(-2.5, -4.8, 1.2, 0.9, '#333333'); // left pupil
+        px( 1.3, -4.8, 1.2, 0.9, '#333333'); // right pupil
         // Eye sparkles
-        px(-1.5, -5.2, 0.5, 0.5, '#FFFFFF');
-        px( 1.5, -5.2, 0.5, 0.5, '#FFFFFF');
+        px(-2, -5.3, 0.6, 0.5, '#FFFFFF');
+        px( 2, -5.3, 0.6, 0.5, '#FFFFFF');
 
         // Blush cheeks (pink pixels)
-        px(-3.5, -3.8, 1.2, 0.8, '#FFAAAA');
-        px( 2.3, -3.8, 1.2, 0.8, '#FFAAAA');
+        px(-3.8, -3.8, 1.3, 0.9, '#FFAAAA');
+        px( 2.5, -3.8, 1.3, 0.9, '#FFAAAA');
 
-        // Face — skin tone (small strip under helmet)
-        px(-2, -3, 4, 1, '#E8C8A0');
+        // Face — skin tone
+        px(-2, -2.9, 4, 0.8, '#E8C8A0');
 
-        // Tiny body armor — shorter & rounder
-        px(-2.5, -2, 5, 2.5, '#D04040');
-        px(-1.5, -1.5, 3, 1, '#E86060');
+        // Tiny body armor — compact & round
+        px(-2.5, -2.1, 5, 2.5, '#D04040');
+        px(-1.2, -1.3, 2.4, 0.8, '#E86060');
 
         // Tiny stubby arms
-        px(-4, -2, 1.2, 1.5, '#A02020');
-        px( 2.8, -2, 1.2, 1.5, '#A02020');
+        px(-4.2, -2.1, 1.3, 1.6, '#B02828');
+        px( 2.9, -2.1, 1.3, 1.6, '#B02828');
         // Tiny hands
-        px(-4.2, -0.5, 1.2, 0.8, '#E8C8A0');
-        px( 3, -0.5, 1.2, 0.8, '#E8C8A0');
+        px(-4.3, -0.5, 1.3, 0.8, '#E8C8A0');
+        px( 3, -0.5, 1.3, 0.8, '#E8C8A0');
 
         // Belt
-        px(-2, 0.5, 4, 0.7, '#5A3A20');
-        px(-0.5, 0.5, 1, 0.7, '#DAA520');
+        px(-2.2, 0.4, 4.4, 0.7, '#5A3A20');
+        px(-0.5, 0.4, 1, 0.7, '#DAA520');
 
         // Short stubby legs
-        px(-1.5, 1.2, 1.5, 2, '#3A3A50');
-        px( 0, 1.2, 1.5, 2, '#3A3A50');
+        px(-1.8, 1.1, 1.6, 2.2, '#3A3A50');
+        px( 0.2, 1.1, 1.6, 2.2, '#3A3A50');
 
         // Tiny boots
-        px(-1.5, 3.2, 1.5, 1, '#333333');
-        px( 0, 3.2, 1.5, 1, '#333333');
+        px(-1.8, 3.3, 1.6, 0.9, '#333333');
+        px( 0.2, 3.3, 1.6, 0.9, '#333333');
     }
 
     ctx.restore();
@@ -9165,6 +9861,25 @@ function updateTowerButtons() {
             btn.classList.remove('selected');
         }
     });
+
+    // Also refresh the open tower info/upgrade panel if one is visible
+    const t = game.selectedTower;
+    if (t && document.getElementById('tower-info-panel').style.display === 'block') {
+        const st = towerStats(t);
+        const upBtn = document.getElementById('upgrade-btn');
+        const options = EVOLVE_OPTIONS[t.type];
+        if (options && t.level >= 3) {
+            for (let i = 0; i < 3; i++) {
+                const btn = document.getElementById('evolve-btn-' + i);
+                if (!btn || i >= options.length) continue;
+                const def = TOWER_DEFS[options[i].type];
+                btn.disabled = game.gold < def.evolveCost;
+            }
+            upBtn.disabled = true;
+        } else if (t.level < 3) {
+            upBtn.disabled = game.gold < st.upgradeCost;
+        }
+    }
 }
 
 function selectTowerType(type) {
@@ -9236,7 +9951,22 @@ function showTowerInfo(t) {
         (st.nukeZoneDuration > 0 ? '<div class="stat-row"><span>辐射持续</span><span>' + (st.nukeZoneDuration / 1000).toFixed(1) + 's</span></div>' : '') +
         (st.nukeZoneRadius > 0 ? '<div class="stat-row"><span>辐射范围</span><span>' + st.nukeZoneRadius + 'px</span></div>' : '') +
         (st.nukeZoneDmg > 0 ? '<div class="stat-row"><span>辐射伤害</span><span>' + st.nukeZoneDmg + '/跳</span></div>' : '') +
-        (st.precisionTracking ? '<div class="stat-row"><span>精准制导</span><span>是</span></div>' : '');
+        (st.precisionTracking ? '<div class="stat-row"><span>精准制导</span><span>是</span></div>' : '') +
+        (st.magnetizeDuration > 0 ? '<div class="stat-row"><span>磁化持续</span><span>' + (st.magnetizeDuration / 1000).toFixed(1) + 's</span></div>' : '') +
+        (st.magnetizePullRange > 0 ? '<div class="stat-row"><span>磁化范围</span><span>' + st.magnetizePullRange + 'px</span></div>' : '') +
+        (st.magnetizePullStrength > 0 ? '<div class="stat-row"><span>引力强度</span><span>' + st.magnetizePullStrength + '</span></div>' : '') +
+        (st.magnetizeCollisionDmg > 0 ? '<div class="stat-row"><span>碰撞伤害</span><span>' + st.magnetizeCollisionDmg + '</span></div>' : '') +
+        (st.empRadius > 0 ? '<div class="stat-row"><span>EMP范围</span><span>' + st.empRadius + 'px</span></div>' : '') +
+        (st.empStunDuration > 0 ? '<div class="stat-row"><span>EMP眩晕</span><span>' + (st.empStunDuration / 1000).toFixed(1) + 's</span></div>' : '') +
+        (st.empVulnFactor > 0 ? '<div class="stat-row"><span>破甲加成</span><span>+' + Math.round(st.empVulnFactor * 100) + '%</span></div>' : '') +
+        (st.empVulnDuration > 0 ? '<div class="stat-row"><span>破甲持续</span><span>' + (st.empVulnDuration / 1000).toFixed(1) + 's</span></div>' : '') +
+        (st.empInterval > 0 ? '<div class="stat-row"><span>EMP间隔</span><span>' + (st.empInterval / 1000).toFixed(1) + 's</span></div>' : '') +
+        (st.polarityOppositePull > 0 ? '<div class="stat-row"><span>异性引力</span><span>' + st.polarityOppositePull + '</span></div>' : '') +
+        (st.polaritySameRepel > 0 ? '<div class="stat-row"><span>同性斥力</span><span>' + st.polaritySameRepel + '</span></div>' : '') +
+        (st.stormSenseRange > 0 ? '<div class="stat-row"><span>感应范围</span><span>' + st.stormSenseRange + 'px</span></div>' : '') +
+        (st.stormSenseDmg > 0 ? '<div class="stat-row"><span>感应伤害</span><span>' + st.stormSenseDmg + '/跳</span></div>' : '') +
+        (st.stormSenseInterval > 0 ? '<div class="stat-row"><span>感应间隔</span><span>' + (st.stormSenseInterval / 1000).toFixed(1) + 's</span></div>' : '') +
+        (st.stormDeathPulseRange > 0 ? '<div class="stat-row"><span>死亡脉冲范围</span><span>' + st.stormDeathPulseRange + 'px</span></div>' : '');
 
     // Branch evolution — dynamic based on tower type
     const evolveDiv = document.getElementById('evolve-btns');
@@ -9373,6 +10103,10 @@ function getTowerSpecial(def) {
     if (def.clusterCount) parts.push('集束' + def.clusterCount[0] + '-' + def.clusterCount[2] + '子炸弹');
     if (def.nukeZoneDuration) parts.push('核爆区域' + def.nukeZoneDuration[0] / 1000 + '-' + def.nukeZoneDuration[2] / 1000 + 's ' + def.nukeZoneDmg[0] + '-' + def.nukeZoneDmg[2] + '/跳');
     if (def.linkRange) parts.push('链接' + def.linkRange + '范围 伤害+' + Math.round(def.linkDmgBoost * 100) + '%/链接');
+    if (def.magnetizeDuration) parts.push('磁化' + def.magnetizeDuration[0] / 1000 + '-' + def.magnetizeDuration[2] / 1000 + 's 引力' + def.magnetizePullStrength[0] + '-' + def.magnetizePullStrength[2]);
+    if (def.empRadius) parts.push('EMP脉冲' + def.empRadius[0] + '-' + def.empRadius[2] + '范围 破甲+' + Math.round(def.empVulnFactor[0] * 100) + '-' + Math.round(def.empVulnFactor[2] * 100) + '%');
+    if (def.polarityOppositePull) parts.push('异性引力' + def.polarityOppositePull[0] + '-' + def.polarityOppositePull[2] + ' 同性斥力' + def.polaritySameRepel[0] + '-' + def.polaritySameRepel[2]);
+    if (def.stormSenseRange) parts.push('感应伤害' + def.stormSenseRange[0] + '-' + def.stormSenseRange[2] + '范围 死亡脉冲磁化');
     return parts.join(' · ') || '-';
 }
 
@@ -9386,7 +10120,8 @@ function buildCompendiumHTML() {
         { key: 'wind', base: null },
         { key: 'sheep', base: 'sheep' },
         { key: 'missile', base: 'missile' },
-        { key: 'laser', base: 'laser' }
+        { key: 'laser', base: 'laser' },
+        { key: 'magnet', base: null }
     ];
 
     let html = '';
