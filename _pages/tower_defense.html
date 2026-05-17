@@ -831,6 +831,7 @@ const game = {
     projectiles: [],
     particles: [],
     fireZones: [],
+    craterZones: [],
     selectedType: null,
     selectedTower: null,
     hoverCol: -1,
@@ -1377,7 +1378,8 @@ function createEnemy(type, waveNum) {
         knockbackVy: 0,
         knockbackTimer: 0,
         vulnFactor: 0,
-        vulnTimer: 0
+        vulnTimer: 0,
+        craterDmgAmp: 1
     };
 }
 
@@ -1916,11 +1918,14 @@ function handleImpact(p) {
         return;
     }
 
-    // Missile & variants — big splash explosion at impact point
+    // Missile & variants — create persistent crater zone + explosion particles
     if (p.type === 'missile' || p.type === 'missile_cluster' || p.type === 'missile_nuke' || p.type === 'missile_precision') {
         const isNuke = p.type === 'missile_nuke';
+        const craterRadius = isNuke ? 20 : (p.type === 'missile_cluster' ? 18 : (p.type === 'missile_precision' ? 10 : 12));
+        createCraterZone(p.x, p.y, p.type, craterRadius);
+        // Explosion burst particles (no crater graphics, just debris + flash + dust)
+        createImpactBurst(p.x, p.y, p.splashRadius, isNuke ? 'nuke' : 'missile');
         if (isNuke) {
-            createNukeExplosion(p.x, p.y, p.splashRadius);
             // Lingering radiation zone
             if (p.nukeZoneDuration > 0) {
                 createFireZone(p.x, p.y, p.nukeZoneRadius, p.nukeZoneDmg, p.nukeZoneDuration, p.nukeZoneInterval);
@@ -1932,8 +1937,6 @@ function handleImpact(p) {
                 life: 0.35, maxLife: 0.35,
                 color: '#FFFFFF', size: Math.max(CANVAS_W, CANVAS_H), ring: true
             });
-        } else {
-            createMissileExplosion(p.x, p.y, p.splashRadius);
         }
         for (const e of game.enemies) {
             if (!e.alive || e.isTurncoat) continue;
@@ -2017,13 +2020,19 @@ function handleImpact(p) {
         }
         // Visual effect depends on variant
         if (p.stunFactor > 0) {
-            createSplashRing(p.target.x, p.target.y, p.splashRadius, '#88CCFF');
+            createCraterZone(p.target.x, p.target.y, 'artillery_concuss', 13);
+            createImpactBurst(p.target.x, p.target.y, p.splashRadius, 'concuss');
         } else if (p.type === 'artillery_blast') {
-            createSplashRing(p.target.x, p.target.y, p.splashRadius, '#FF4400');
+            createCraterZone(p.target.x, p.target.y, 'artillery_blast', 8);
+            createImpactBurst(p.target.x, p.target.y, p.splashRadius, 'blast');
+        } else if (p.type === 'artillery_shrapnel') {
+            createCraterZone(p.target.x, p.target.y, 'artillery_shrapnel', 15);
+            createImpactBurst(p.target.x, p.target.y, p.splashRadius, 'shrapnel');
         } else if (p.slowFactor > 0) {
             createSplashRing(p.target.x, p.target.y, p.splashRadius, '#AED6F1');
         } else {
-            createSplashRing(p.target.x, p.target.y, p.splashRadius, '#e74c3c');
+            createCraterZone(p.target.x, p.target.y, p.type === 'artillery' ? 'artillery' : 'artillery', 10);
+            createImpactBurst(p.target.x, p.target.y, p.splashRadius, 'default');
         }
         // Fire zone — only for fire tower, not blast
         if (p.flameRadius > 0 && p.flameDuration > 0 && p.type === 'fire') {
@@ -2153,6 +2162,9 @@ function chainLightning(sourceEnemy, baseDmg, remainingChains, chainRange, fallo
 function dealDamage(enemy, dmg) {
     if (enemy.vulnFactor > 0) {
         dmg = Math.floor(dmg * (1 + enemy.vulnFactor));
+    }
+    if (enemy.craterDmgAmp > 1) {
+        dmg = Math.floor(dmg * enemy.craterDmgAmp);
     }
     enemy.hp -= dmg;
     if (enemy.hp <= 0) {
@@ -2526,6 +2538,296 @@ function drawFireZones() {
     }
 }
 
+// ==================== CRATER ZONE SYSTEM ====================
+function createCraterZone(x, y, type, radius) {
+    const defs = {
+        // Artillery branches
+        artillery_blast:   { duration: 8000,  slowFactor: 0.85, dmgAmp: 0,    tripChance: 0 },
+        artillery_shrapnel:{ duration: 4000,  slowFactor: 0,    dmgAmp: 0,    tripChance: 0 },
+        artillery_concuss: { duration: 6000,  slowFactor: 0,    dmgAmp: 0,    tripChance: 0.2 },
+        artillery:         { duration: 5000,  slowFactor: 0,    dmgAmp: 0,    tripChance: 0 },
+        // Missile branches
+        missile_precision: { duration: 5000,  slowFactor: 0,    dmgAmp: 0,    tripChance: 0 },
+        missile_cluster:   { duration: 6000,  slowFactor: 0.90, dmgAmp: 0,    tripChance: 0 },
+        missile_nuke:      { duration: 12000, slowFactor: 0.75, dmgAmp: 0.10, tripChance: 0 },
+        missile:           { duration: 5000,  slowFactor: 0,    dmgAmp: 0,    tripChance: 0 }
+    };
+    const d = defs[type] || defs.artillery;
+
+    // Shrapnel: pre-generate pockmark offsets
+    let pockmarks = null;
+    if (type === 'artillery_shrapnel') {
+        pockmarks = [];
+        const count = 6 + Math.floor(Math.random() * 3);
+        for (let i = 0; i < count; i++) {
+            const a = Math.random() * Math.PI * 2;
+            const r = radius * (0.3 + Math.random() * 0.7);
+            pockmarks.push({ ox: Math.cos(a) * r, oy: Math.sin(a) * r, r: 2 + Math.random() * 3 });
+        }
+    }
+
+    // Cluster: pre-generate sub-crater positions
+    let subCraters = null;
+    if (type === 'missile_cluster') {
+        subCraters = [];
+        const count = 5 + Math.floor(Math.random() * 3);
+        for (let i = 0; i < count; i++) {
+            const a = Math.random() * Math.PI * 2;
+            const r = Math.random() * radius * 0.8;
+            subCraters.push({ ox: Math.cos(a) * r, oy: Math.sin(a) * r, r: 5 + Math.random() * 7 });
+        }
+    }
+
+    // Concuss: pre-generate crack lines
+    let cracks = null;
+    if (type === 'artillery_concuss') {
+        cracks = [];
+        const count = 4 + Math.floor(Math.random() * 3);
+        for (let i = 0; i < count; i++) {
+            const a = (i / count) * Math.PI * 2 + (Math.random() - 0.5) * 0.3;
+            const len = radius * (0.5 + Math.random() * 0.5);
+            cracks.push({ angle: a, length: len });
+        }
+    }
+
+    game.craterZones.push({
+        x, y, type, radius,
+        radiusY: (type === 'artillery_blast' || type === 'missile_nuke') ? radius * 0.65 : radius,
+        duration: d.duration,
+        maxDuration: d.duration,
+        slowFactor: d.slowFactor,
+        dmgAmp: d.dmgAmp,
+        tripChance: d.tripChance,
+        pockmarks,
+        subCraters,
+        cracks
+    });
+}
+
+function updateCraters(dt) {
+    const dtMs = dt * 1000;
+    // Reset per-frame crater effects on all enemies
+    for (const e of game.enemies) {
+        e.craterDmgAmp = 1;
+    }
+    for (const cz of game.craterZones) {
+        cz.duration -= dtMs;
+        if (cz.duration <= 0) continue;
+
+        for (const e of game.enemies) {
+            if (!e.alive || e.isTurncoat) continue;
+            // Check if enemy is inside the oval crater
+            const dx = (e.x - cz.x) / cz.radius;
+            const dy = (e.y - cz.y) / (cz.radiusY || cz.radius);
+            if (dx * dx + dy * dy > 1) continue;
+
+            // Apply slow — use applySlow with short duration so it expires when leaving crater
+            if (cz.slowFactor > 0 && cz.slowFactor < 1) {
+                applySlow(e, cz.slowFactor, 150);
+            }
+            // Apply damage amp (cumulative across overlapping craters)
+            if (cz.dmgAmp > 0) {
+                e.craterDmgAmp = Math.max(e.craterDmgAmp, 1 + cz.dmgAmp);
+            }
+            // Trip chance (concuss crater)
+            if (cz.tripChance > 0) {
+                if (!e.lastTripCheck) e.lastTripCheck = 0;
+                const now = performance.now();
+                if (now - e.lastTripCheck > 500) {
+                    e.lastTripCheck = now;
+                    if (Math.random() < cz.tripChance * dt) {
+                        applySlow(e, 0.05, 500);
+                    }
+                }
+            }
+        }
+    }
+    game.craterZones = game.craterZones.filter(cz => cz.duration > 0);
+}
+
+function drawCraters() {
+    for (const cz of game.craterZones) {
+        const lifeRatio = cz.duration / cz.maxDuration;
+        const alpha = Math.min(1, lifeRatio * 2.5);
+        ctx.save();
+        ctx.globalAlpha = alpha;
+
+        switch (cz.type) {
+            case 'artillery_blast':
+                drawBlastCrater(cz, alpha);
+                break;
+            case 'artillery_shrapnel':
+                drawShrapnelCrater(cz, alpha);
+                break;
+            case 'artillery_concuss':
+                drawConcussCrater(cz, alpha);
+                break;
+            case 'missile_precision':
+                drawPrecisionCrater(cz, alpha);
+                break;
+            case 'missile_cluster':
+                drawClusterCrater(cz, alpha);
+                break;
+            case 'missile_nuke':
+                drawNukeCrater(cz, alpha);
+                break;
+            case 'missile':
+                drawDefaultMissileCrater(cz, alpha);
+                break;
+            default:
+                drawDefaultArtilleryCrater(cz, alpha);
+                break;
+        }
+        ctx.restore();
+    }
+}
+
+function drawOvalCrater(cx, cy, rx, ry, color) {
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+    ctx.fill();
+}
+
+// 熔穿重炮弹坑 — small deep oval crater with molten slag center
+function drawBlastCrater(cz, alpha) {
+    const { x, y, radius: rx, radiusY: ry } = cz;
+    // Shadow
+    drawOvalCrater(x + 1, y + 1, rx, ry, `rgba(60,30,15,${0.6 * alpha})`);
+    // Main crater
+    drawOvalCrater(x, y, rx, ry, `rgba(90,50,25,${0.5 * alpha})`);
+    // Molten slag center (smaller, brighter)
+    drawOvalCrater(x, y, rx * 0.35, ry * 0.35, `rgba(200,120,40,${0.3 * alpha})`);
+    // Glowing rim
+    ctx.strokeStyle = `rgba(180,100,30,${0.25 * alpha})`;
+    ctx.lineWidth = 1.5 * alpha;
+    ctx.beginPath();
+    ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2);
+    ctx.stroke();
+}
+
+// 破片风暴弹坑 — shallow wide crater with scattered pockmarks
+function drawShrapnelCrater(cz, alpha) {
+    const { x, y, radius: rx, radiusY: ry, pockmarks } = cz;
+    // Shadow
+    drawOvalCrater(x + 1, y + 1, rx * 0.8, ry * 0.8, `rgba(50,40,30,${0.4 * alpha})`);
+    // Main shallow crater
+    drawOvalCrater(x, y, rx * 0.75, ry * 0.75, `rgba(80,65,50,${0.35 * alpha})`);
+    // Pockmarks
+    if (pockmarks) {
+        for (const pk of pockmarks) {
+            ctx.fillStyle = `rgba(60,45,35,${0.45 * alpha})`;
+            ctx.beginPath();
+            ctx.arc(x + pk.ox, y + pk.oy, pk.r, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+}
+
+// 震撼弹幕弹坑 — ring crater with raised center and radial cracks
+function drawConcussCrater(cz, alpha) {
+    const { x, y, radius: rx, radiusY: ry, cracks } = cz;
+    // Shadow ring
+    ctx.strokeStyle = `rgba(45,35,25,${0.5 * alpha})`;
+    ctx.lineWidth = 4 * alpha;
+    ctx.beginPath();
+    ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    // Main ring depression
+    ctx.strokeStyle = `rgba(75,60,45,${0.4 * alpha})`;
+    ctx.lineWidth = 3 * alpha;
+    ctx.beginPath();
+    ctx.ellipse(x, y, rx * 0.9, ry * 0.9, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    // Radial cracks
+    if (cracks) {
+        ctx.strokeStyle = `rgba(55,40,30,${0.55 * alpha})`;
+        ctx.lineWidth = 1.2 * alpha;
+        for (const ck of cracks) {
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(x + Math.cos(ck.angle) * ck.length, y + Math.sin(ck.angle) * ck.length);
+            ctx.stroke();
+        }
+    }
+    // Slightly raised center
+    ctx.fillStyle = `rgba(90,75,60,${0.15 * alpha})`;
+    ctx.beginPath();
+    ctx.arc(x, y, rx * 0.2, 0, Math.PI * 2);
+    ctx.fill();
+}
+
+// 精准导弹弹坑 — precise round crater with shockwave ring
+function drawPrecisionCrater(cz, alpha) {
+    const { x, y, radius: r } = cz;
+    // Shadow
+    ctx.fillStyle = `rgba(55,35,20,${0.55 * alpha})`;
+    ctx.beginPath(); ctx.arc(x + 1, y + 1, r * 0.55, 0, Math.PI * 2); ctx.fill();
+    // Main round crater
+    ctx.fillStyle = `rgba(95,65,35,${0.45 * alpha})`;
+    ctx.beginPath(); ctx.arc(x, y, r * 0.5, 0, Math.PI * 2); ctx.fill();
+    // Shockwave ring
+    ctx.strokeStyle = `rgba(120,80,40,${0.2 * alpha})`;
+    ctx.lineWidth = 1.5 * alpha;
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.stroke();
+}
+
+// 集束导弹弹坑 — cluster of small craters
+function drawClusterCrater(cz, alpha) {
+    const { x, y, radius: r, subCraters } = cz;
+    if (!subCraters) return;
+    // Faint overall shadow
+    ctx.fillStyle = `rgba(50,30,15,${0.15 * alpha})`;
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+    // Individual sub-craters
+    for (const sc of subCraters) {
+        const sx = x + sc.ox, sy = y + sc.oy, sr = sc.r;
+        ctx.fillStyle = `rgba(50,30,15,${0.45 * alpha})`;
+        ctx.beginPath(); ctx.arc(sx + 1, sy + 1, sr, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = `rgba(85,55,30,${0.35 * alpha})`;
+        ctx.beginPath(); ctx.arc(sx, sy, sr, 0, Math.PI * 2); ctx.fill();
+    }
+}
+
+// 战术核弹弹坑 — huge deep oval crater with raised rim
+function drawNukeCrater(cz, alpha) {
+    const { x, y, radius: rx, radiusY: ry } = cz;
+    // Shadow
+    drawOvalCrater(x + 2, y + 2, rx, ry, `rgba(70,40,20,${0.65 * alpha})`);
+    // Main deep crater
+    drawOvalCrater(x, y, rx, ry, `rgba(110,70,35,${0.55 * alpha})`);
+    // Inner deeper
+    drawOvalCrater(x, y, rx * 0.6, ry * 0.6, `rgba(60,30,10,${0.3 * alpha})`);
+    // Raised rim
+    ctx.strokeStyle = `rgba(140,100,60,${0.4 * alpha})`;
+    ctx.lineWidth = 2.5 * alpha;
+    ctx.beginPath();
+    ctx.ellipse(x, y, rx * 1.05, ry * 1.05, 0, 0, Math.PI * 2);
+    ctx.stroke();
+}
+
+// 默认炮塔弹坑
+function drawDefaultArtilleryCrater(cz, alpha) {
+    const { x, y, radius: r } = cz;
+    ctx.fillStyle = `rgba(55,40,20,${0.45 * alpha})`;
+    ctx.beginPath(); ctx.arc(x + 1, y + 1, r * 0.5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = `rgba(85,60,30,${0.35 * alpha})`;
+    ctx.beginPath(); ctx.arc(x, y, r * 0.5, 0, Math.PI * 2); ctx.fill();
+}
+
+// 默认导弹弹坑
+function drawDefaultMissileCrater(cz, alpha) {
+    const { x, y, radius: r } = cz;
+    ctx.fillStyle = `rgba(55,35,20,${0.5 * alpha})`;
+    ctx.beginPath(); ctx.arc(x + 1, y + 1, r * 0.5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = `rgba(90,60,30,${0.4 * alpha})`;
+    ctx.beginPath(); ctx.arc(x, y, r * 0.5, 0, Math.PI * 2); ctx.fill();
+    // Simple shockwave
+    ctx.strokeStyle = `rgba(110,70,35,${0.15 * alpha})`;
+    ctx.lineWidth = 1.2 * alpha;
+    ctx.beginPath(); ctx.arc(x, y, r * 0.8, 0, Math.PI * 2); ctx.stroke();
+}
+
 function spawnMissileTrail(p) {
     // Dense smoke puff behind missile
     let angle;
@@ -2565,106 +2867,51 @@ function spawnMissileTrail(p) {
     });
 }
 
-function createMissileExplosion(x, y, radius) {
-    // Big explosion flash
-    for (let i = 0; i < 25; i++) {
-        const angle = Math.random() * Math.PI * 2;
-        const speed = 40 + Math.random() * 180;
-        game.particles.push({
-            x, y,
-            vx: Math.cos(angle) * speed,
-            vy: Math.sin(angle) * speed - 20,
-            life: 0.3 + Math.random() * 0.7,
-            maxLife: 1.0,
-            color: Math.random() < 0.4 ? '#FFD700' : (Math.random() < 0.5 ? '#FF6B35' : '#E74C3C'),
-            size: 2 + Math.random() * 6
-        });
-    }
-    // Smoke ring
-    game.particles.push({
-        x, y, vx: 0, vy: 0,
-        life: 0.6, maxLife: 0.6,
-        color: '#888', size: radius, ring: true
-    });
-    // Central flash ring
-    game.particles.push({
-        x, y, vx: 0, vy: 0,
-        life: 0.25, maxLife: 0.25,
-        color: '#FFAA00', size: radius * 0.7, ring: true
-    });
-    // Rising smoke clouds
-    for (let i = 0; i < 6; i++) {
-        game.particles.push({
-            x: x + (Math.random() - 0.5) * radius * 0.6,
-            y: y - Math.random() * 10,
-            vx: (Math.random() - 0.5) * 20,
-            vy: -30 - Math.random() * 40,
-            life: 0.8 + Math.random() * 0.8,
-            maxLife: 1.6,
-            color: '#666',
-            size: 6 + Math.random() * 10,
-            smoke: true
-        });
-    }
-}
+// Impact burst particles — brief debris/flash/dust, crater itself is a persistent zone
+function createImpactBurst(x, y, radius, theme) {
+    const themes = {
+        blast:    { debris: ['#5C3A28','#4A2818','#6B3020','#8B4513'], flash: '#FFCC88', dust: '#6B5040' },
+        shrapnel: { debris: ['#909090','#B0B0B0','#787878','#A8A8A8'], flash: '#FFFFFF', dust: '#8A8A8A' },
+        concuss:  { debris: ['#6B6040','#8B7B50','#5A4A30','#7A6B45'], flash: '#DDCCAA', dust: '#8B7D6B' },
+        missile:  { debris: ['#5C4A38','#7A6050','#4A3828','#8B6B50'], flash: '#FFEECC', dust: '#8B7D6B' },
+        nuke:     { debris: ['#4A3020','#3A2010','#5C3820','#6B4030'], flash: '#FFFFFF', dust: '#5C4030' },
+        default:  { debris: ['#6B5B4F','#8B7355','#5C4A38','#7A6858'], flash: '#FFEECC', dust: '#8B7D6B' }
+    };
+    const t = themes[theme] || themes.default;
 
-function createNukeExplosion(x, y, radius) {
-    // Massive nuclear fireball
-    for (let i = 0; i < 50; i++) {
+    // Debris chunks flying outward
+    const count = theme === 'nuke' ? 35 : (theme === 'shrapnel' ? 28 : 18);
+    for (let i = 0; i < count; i++) {
         const angle = Math.random() * Math.PI * 2;
-        const speed = 60 + Math.random() * 300;
+        const speed = theme === 'nuke' ? 80 + Math.random() * 350 : 30 + Math.random() * 180;
         game.particles.push({
             x, y,
             vx: Math.cos(angle) * speed,
-            vy: Math.sin(angle) * speed - 40,
-            life: 0.4 + Math.random() * 1.2,
-            maxLife: 1.6,
-            color: Math.random() < 0.3 ? '#FFFFFF' : (Math.random() < 0.4 ? '#FFD700' : (Math.random() < 0.5 ? '#FF4500' : '#FF8C00')),
-            size: 3 + Math.random() * 10
+            vy: Math.sin(angle) * speed - (theme === 'nuke' ? 50 : 20),
+            life: 0.25 + Math.random() * 0.5,
+            maxLife: 0.75,
+            color: t.debris[Math.floor(Math.random() * t.debris.length)],
+            size: 1.5 + Math.random() * (theme === 'nuke' ? 7 : 4)
         });
     }
-    // Intense flash
+    // Impact flash
     game.particles.push({
         x, y, vx: 0, vy: 0,
-        life: 0.3, maxLife: 0.3,
-        color: '#FFFFFF', size: radius * 1.2, ring: true
+        life: theme === 'nuke' ? 0.3 : 0.18, maxLife: theme === 'nuke' ? 0.3 : 0.18,
+        color: t.flash, size: radius * (theme === 'nuke' ? 1.1 : 0.5)
     });
-    game.particles.push({
-        x, y, vx: 0, vy: 0,
-        life: 0.5, maxLife: 0.5,
-        color: '#FF6000', size: radius, ring: true
-    });
-    game.particles.push({
-        x, y, vx: 0, vy: 0,
-        life: 0.7, maxLife: 0.7,
-        color: '#FF0000', size: radius * 0.7, ring: true
-    });
-    // Rising mushroom cloud smoke
-    for (let i = 0; i < 18; i++) {
+    // Rising dust
+    const dustCount = theme === 'nuke' ? 14 : 4;
+    for (let i = 0; i < dustCount; i++) {
         game.particles.push({
             x: x + (Math.random() - 0.5) * radius * 0.5,
-            y: y - Math.random() * 20,
-            vx: (Math.random() - 0.5) * 30,
-            vy: -40 - Math.random() * 80,
-            life: 1.0 + Math.random() * 1.5,
-            maxLife: 2.5,
-            color: Math.random() < 0.5 ? '#444' : '#5A4030',
-            size: 8 + Math.random() * 16,
-            smoke: true
-        });
-    }
-    // Ground scorch ring
-    for (let i = 0; i < 8; i++) {
-        const a = (i / 8) * Math.PI * 2;
-        const dist = radius * (0.6 + Math.random() * 0.4);
-        game.particles.push({
-            x: x + Math.cos(a) * dist,
-            y: y + Math.sin(a) * dist,
-            vx: 0, vy: 0,
-            life: 1.0 + Math.random() * 1.0,
-            maxLife: 2.0,
-            color: '#332200',
-            size: 10 + Math.random() * 14,
+            y: y - Math.random() * 10,
+            vx: (Math.random() - 0.5) * (theme === 'nuke' ? 35 : 15),
+            vy: (theme === 'nuke' ? -50 : -20) - Math.random() * (theme === 'nuke' ? 80 : 35),
+            life: 0.6 + Math.random() * (theme === 'nuke' ? 1.5 : 0.7),
+            maxLife: theme === 'nuke' ? 2.5 : 1.3,
+            color: t.dust,
+            size: 5 + Math.random() * (theme === 'nuke' ? 14 : 8),
             smoke: true
         });
     }
@@ -7196,6 +7443,14 @@ function drawParticles() {
             ctx.lineTo(p.x2, p.y2);
             ctx.stroke();
             ctx.shadowBlur = 0;
+        } else if (p.spoke) {
+            // Radial spoke line — static, fades in place without expanding
+            ctx.strokeStyle = p.color;
+            ctx.lineWidth = p.size * alpha;
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(p.x + Math.cos(p.angle) * p.length, p.y + Math.sin(p.angle) * p.length);
+            ctx.stroke();
         } else if (p.smoke) {
             // Rising smoke cloud
             const progress = 1 - alpha;
@@ -7443,8 +7698,9 @@ function render() {
     // Layer 4: Enemies
     for (const e of game.enemies) drawEnemy(e);
 
-    // Layer 5: Fire zones (ground AoE)
+    // Layer 5: Fire zones & craters (ground AoE)
     drawFireZones();
+    drawCraters();
 
     // Layer 6: Projectiles
     for (const p of game.projectiles) drawProjectile(p);
@@ -7789,6 +8045,7 @@ function restartGame() {
     game.projectiles = [];
     game.particles = [];
     game.fireZones = [];
+    game.craterZones = [];
     game.selectedType = null;
     game.selectedTower = null;
     game.spawnQueue = [];
@@ -7979,8 +8236,9 @@ function gameLoop(timestamp) {
         updateProjectiles(0);
     }
 
-    // Fire zones always tick (even during idle — they burn out)
+    // Fire zones & craters always tick (even during idle — they burn out)
     updateFireZones(logicDt);
+    updateCraters(logicDt);
     updateParticles(dt);
 
     // Render every frame (always at 1x visual speed)
