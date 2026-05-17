@@ -782,6 +782,33 @@ const TOWER_DEFS = {
         color: '#C0392B', bulletColor: '#FF3333', bulletSpeed: 9999,
         splash: 0, slowFactor: 0, slowDuration: 0, chainCount: 0,
         linkRange: 120, linkDmgBoost: 0.2
+    },
+    laser_core: {
+        name: '聚能核心', icon: '☀️',
+        cost: null, upgradeCost: [200, 400], evolveCost: 350,
+        damage: [60, 110, 190], range: [155, 170, 190], cooldown: [2400, 2100, 1800],
+        color: '#E8391A', bulletColor: '#FF5533', bulletSpeed: 9999,
+        splash: 0, slowFactor: 0, slowDuration: 0, chainCount: 0,
+        linkRange: 135, linkDmgBoost: 0.55,
+        coreDmgPerLink: [0.55, 0.65, 0.8]
+    },
+    laser_resonance: {
+        name: '共鸣网络', icon: '📡',
+        cost: null, upgradeCost: [180, 360], evolveCost: 350,
+        damage: [28, 52, 88], range: [135, 150, 170], cooldown: [1400, 1200, 950],
+        color: '#E8A030', bulletColor: '#FFCC44', bulletSpeed: 9999,
+        splash: 0, slowFactor: 0, slowDuration: 0, chainCount: 0,
+        linkRange: 130, linkDmgBoost: 0.12,
+        resonanceShareRange: [true, true, true]
+    },
+    laser_refract: {
+        name: '折射光网', icon: '💠',
+        cost: null, upgradeCost: [180, 360], evolveCost: 350,
+        damage: [32, 58, 98], range: [140, 155, 170], cooldown: [1500, 1300, 1050],
+        color: '#D040C0', bulletColor: '#FF55EE', bulletSpeed: 9999,
+        splash: 0, slowFactor: 0, slowDuration: 0,
+        chainCount: [2, 3, 4], chainRange: 110, chainFalloff: 0.25,
+        linkRange: 120, linkDmgBoost: 0.1
     }
 };
 
@@ -816,6 +843,11 @@ const EVOLVE_OPTIONS = {
         { type: 'tesla_chain', label: '雷霆万钧', icon: '⚡', desc: '递增连锁', color: '#DAA520' },
         { type: 'tesla_charge', label: '天雷裁决', icon: '🔱', desc: '蓄力天雷', color: '#7B68EE' },
         { type: 'tesla_emp', label: '雷殛领域', icon: '🌀', desc: '削弱防御', color: '#6C5CE7' }
+    ],
+    laser: [
+        { type: 'laser_core', label: '聚能核心', icon: '☀️', desc: '能量汇聚', color: '#E8391A' },
+        { type: 'laser_resonance', label: '共鸣网络', icon: '📡', desc: '范围共享', color: '#E8A030' },
+        { type: 'laser_refract', label: '折射光网', icon: '💠', desc: '连锁折射', color: '#D040C0' }
     ],
     sheep: [
         { type: 'sheep_turncoat', label: '魅惑反戈', icon: '🐺', desc: '策反攻击', color: '#9B59B6' },
@@ -1223,6 +1255,17 @@ function sellTower(t) {
 
 function towerAcquireTarget(t) {
     const st = towerStats(t);
+    // laser_resonance: effective range extends to cover all linked towers' ranges
+    let effectiveRange = st.range;
+    if (t.type === 'laser_resonance' && t.linkedTo && t.linkedTo.length > 0) {
+        for (const oid of t.linkedTo) {
+            const ot = game.towers.find(tw => tw.id === oid);
+            if (ot) {
+                const ost = towerStats(ot);
+                effectiveRange = Math.max(effectiveRange, ost.range);
+            }
+        }
+    }
     let best = null;
     // Precision targeting: highest HP percentage
     if (st.precisionTracking) {
@@ -1230,7 +1273,7 @@ function towerAcquireTarget(t) {
         for (const e of game.enemies) {
             if (!e.alive || e.isTurncoat) continue;
             const d = dist(t, e);
-            if (d > st.range) continue;
+            if (d > effectiveRange) continue;
             const hpPct = e.hp / e.maxHp;
             if (hpPct > bestHpPct || (hpPct === bestHpPct && e.waypointIndex > (best ? best.waypointIndex : -1))) {
                 best = e;
@@ -1245,7 +1288,7 @@ function towerAcquireTarget(t) {
         if (!e.alive) continue;
         if (e.isTurncoat) continue;
         const d = dist(t, e);
-        if (d > st.range) continue;
+        if (d > effectiveRange) continue;
         if (e.waypointIndex > bestProgress || (e.waypointIndex === bestProgress && e.hp < (best ? best.hp : Infinity))) {
             best = e;
             bestProgress = e.waypointIndex;
@@ -1255,10 +1298,11 @@ function towerAcquireTarget(t) {
 }
 
 function updateTowers(dt) {
-    // Update laser tower links
-    const laserTowers = game.towers.filter(t => t.type === 'laser');
+    // Update laser tower links (all laser variants can link with each other)
+    const LASER_TYPES = new Set(['laser', 'laser_core', 'laser_resonance', 'laser_refract']);
+    const laserTowers = game.towers.filter(t => LASER_TYPES.has(t.type));
     for (const lt of laserTowers) {
-        const linkRange = TOWER_DEFS.laser.linkRange;
+        const linkRange = TOWER_DEFS[lt.type].linkRange;
         lt.linkedTo = [];
         for (const other of laserTowers) {
             if (other.id === lt.id) continue;
@@ -1267,6 +1311,44 @@ function updateTowers(dt) {
             }
         }
         lt.linkedCount = lt.linkedTo.length;
+    }
+    // laser_core: determine which tower in each connected network is the core
+    // Build adjacency and find connected components via BFS
+    const visited = new Set();
+    for (const lt of laserTowers) {
+        if (visited.has(lt.id)) continue;
+        // BFS to find the connected component
+        const component = [];
+        const queue = [lt];
+        visited.add(lt.id);
+        while (queue.length) {
+            const cur = queue.shift();
+            component.push(cur);
+            for (const oid of cur.linkedTo) {
+                if (!visited.has(oid)) {
+                    visited.add(oid);
+                    const ot = game.towers.find(t => t.id === oid);
+                    if (ot && LASER_TYPES.has(ot.type)) queue.push(ot);
+                }
+            }
+        }
+        // Core candidates: only laser_core towers in this component
+        const coreCandidates = component.filter(t => t.type === 'laser_core');
+        if (coreCandidates.length > 0) {
+            // Tower with most links becomes core; tiebreak by lowest id
+            coreCandidates.sort((a, b) => b.linkedCount - a.linkedCount || a.id - b.id);
+            const core = coreCandidates[0];
+            for (const t of component) {
+                if (t.type === 'laser_core') {
+                    t.isCore = (t.id === core.id);
+                }
+            }
+            core.coreLinkCount = core.linkedCount;
+        } else {
+            for (const t of component) {
+                if (t.type === 'laser_core') t.isCore = false;
+            }
+        }
     }
 
     for (const t of game.towers) {
@@ -1368,6 +1450,11 @@ function updateTowers(dt) {
                 continue;
             }
         }
+        // laser_core: non-core towers skip firing, they only serve as relays
+        if (t.type === 'laser_core' && !t.isCore) {
+            t.cooldown = 100;
+            continue;
+        }
         const target = towerAcquireTarget(t);
         // Charge overflow — tesla_charge accumulates extra damage when idle
         if (t.type === 'tesla_charge' && !target) {
@@ -1403,9 +1490,9 @@ function updateTowers(dt) {
                 }
             } else {
                 const p = createProjectile(t, target);
-                // Laser link damage boost
-                if (t.type === 'laser' && t.linkedCount > 0) {
-                    p.linkBoost = 1 + t.linkedCount * TOWER_DEFS.laser.linkDmgBoost;
+                // Laser link damage boost (all laser variants)
+                if ((t.type === 'laser' || t.type === 'laser_core' || t.type === 'laser_resonance' || t.type === 'laser_refract') && t.linkedCount > 0) {
+                    p.linkBoost = 1 + t.linkedCount * st.linkDmgBoost;
                 }
                 // Focus damage ramp
                 if (st.focusMaxStacks > 0 && t.focusStack > 0) {
@@ -1797,8 +1884,8 @@ function createProjectile(tower, target) {
         p.bezierT = 0;
         p.hasSplit = false;  // cluster split flag
     }
-    // Laser: link boost placeholder (set by caller)
-    if (tower.type === 'laser') {
+    // Laser & variants: link boost placeholder (set by caller)
+    if (tower.type === 'laser' || tower.type === 'laser_core' || tower.type === 'laser_resonance' || tower.type === 'laser_refract') {
         p.linkBoost = 1;
     }
     // Pierce: straight-line penetration with falloff
@@ -2111,8 +2198,8 @@ function updateProjectiles(dt) {
         const dy = p.target.y - p.y;
         const d = Math.sqrt(dx * dx + dy * dy);
 
-        // Lightning / Laser are instant
-        if ((p.type === 'tesla' || p.type === 'laser') && p.speed > 9000) {
+        // Lightning / Laser & variants are instant
+        if ((p.type === 'tesla' || p.type === 'laser' || p.type === 'laser_core' || p.type === 'laser_resonance' || p.type === 'laser_refract') && p.speed > 9000) {
             handleImpact(p);
             p.alive = false;
             continue;
@@ -2224,12 +2311,51 @@ function handleImpact(p) {
         return;
     }
 
-    // Laser — single-target instant beam with link boost
-    if (p.type === 'laser') {
+    // Laser & variants — instant beam with link boost
+    if (p.type === 'laser' || p.type === 'laser_core' || p.type === 'laser_resonance') {
         if (!p.target || !p.target.alive) return;
         const linkBoost = p.linkBoost || 1;
         dealDamage(p.target, Math.floor(p.damage * linkBoost));
-        createLaserBeam(p.towerX, p.towerY, p.target.x, p.target.y);
+        const bColor = p.type === 'laser_core' ? '#FF4422' : (p.type === 'laser_resonance' ? '#FFCC44' : '#FF4444');
+        const gColor = p.type === 'laser_core' ? '#FF8866' : (p.type === 'laser_resonance' ? '#FFEE88' : '#FF8888');
+        createLaserBeam(p.towerX, p.towerY, p.target.x, p.target.y, bColor, gColor);
+        if (p.type === 'laser_core') {
+            // Overcharged impact spark
+            createImpactBurst(p.target.x, p.target.y, 20, 'nuke');
+        }
+        return;
+    }
+    // Laser refract — hits primary then chains to nearby enemies
+    if (p.type === 'laser_refract') {
+        if (!p.target || !p.target.alive) return;
+        const linkBoost = p.linkBoost || 1;
+        const hitEnemies = new Set();
+        hitEnemies.add(p.target.id);
+        dealDamage(p.target, Math.floor(p.damage * linkBoost));
+        createLaserBeam(p.towerX, p.towerY, p.target.x, p.target.y, '#FF55EE', '#FFAAFF');
+        // Refraction chain
+        let currentDmg = p.damage;
+        let lastPos = { x: p.target.x, y: p.target.y };
+        let remaining = p.chainCount;
+        while (remaining > 0) {
+            let nearest = null;
+            let nearestDist = p.chainRange;
+            for (const e of game.enemies) {
+                if (!e.alive || e.isTurncoat || hitEnemies.has(e.id)) continue;
+                const d = Math.sqrt((e.x - lastPos.x) ** 2 + (e.y - lastPos.y) ** 2);
+                if (d < nearestDist) {
+                    nearest = e;
+                    nearestDist = d;
+                }
+            }
+            if (!nearest) break;
+            currentDmg = Math.floor(currentDmg * (1 - p.chainFalloff));
+            dealDamage(nearest, currentDmg);
+            hitEnemies.add(nearest.id);
+            createLaserBeam(lastPos.x, lastPos.y, nearest.x, nearest.y, '#FF88EE', '#FFBBFF');
+            lastPos = { x: nearest.x, y: nearest.y };
+            remaining--;
+        }
         return;
     }
 
@@ -2612,18 +2738,20 @@ function createLightningArc(x1, y1, x2, y2) {
     });
 }
 
-function createLaserBeam(x1, y1, x2, y2) {
+function createLaserBeam(x1, y1, x2, y2, color, glowColor) {
+    const core = color || '#FF4444';
+    const glow = glowColor || '#FF8888';
     // Bright laser beam particle (rendered as a line in drawParticles)
     game.particles.push({
         x: x1, y: y1, x2, y2,
         life: 0.12, maxLife: 0.12,
-        color: '#FF4444', size: 3, laserBeam: true
+        color: core, size: 3, laserBeam: true
     });
     // Outer glow
     game.particles.push({
         x: x1, y: y1, x2, y2,
         life: 0.18, maxLife: 0.18,
-        color: '#FF8888', size: 6, laserBeam: true
+        color: glow, size: 6, laserBeam: true
     });
     // Impact spark at target
     for (let i = 0; i < 5; i++) {
@@ -3587,6 +3715,9 @@ function drawTower(t) {
         case 'missile_nuke': drawMissileNukeTower(t, st, lv); break;
         case 'missile_precision': drawMissilePrecisionTower(t, st, lv); break;
         case 'laser': drawLaserTower(t, st, lv); break;
+        case 'laser_core': drawLaserCoreTower(t, st, lv); break;
+        case 'laser_resonance': drawLaserResonanceTower(t, st, lv); break;
+        case 'laser_refract': drawLaserRefractTower(t, st, lv); break;
     }
 
     ctx.restore();
@@ -7118,7 +7249,8 @@ function drawMissilePrecisionTower(t, st, lv) {
 function drawLaserLinks() {
     const time = Date.now() / 1000;
     const drawn = new Set();
-    const laserTowers = game.towers.filter(t => t.type === 'laser');
+    const LASER_TYPES = new Set(['laser', 'laser_core', 'laser_resonance', 'laser_refract']);
+    const laserTowers = game.towers.filter(t => LASER_TYPES.has(t.type));
     for (const t of laserTowers) {
         if (!t.linkedTo) continue;
         for (const otherId of t.linkedTo) {
@@ -7294,6 +7426,443 @@ function drawLaserTower(t, st, lv) {
     ctx.fill();
 
     // Link energy beams drawn in main render loop
+}
+
+// ===== LASER CORE TOWER — Overcharged mega-crystal absorbing network energy =====
+function drawLaserCoreTower(t, st, lv) {
+    const bw = 10 + lv;
+    const h = 18 + lv * 4;
+    const time = Date.now() / 1000;
+    const pulse = 0.5 + Math.sin(time * 4) * 0.5;
+    const linkedCount = t.linkedCount || 0;
+    const isCore = t.isCore;
+
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    ctx.beginPath();
+    ctx.ellipse(0, 5, bw + 4, bw * 0.45, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Heavy metallic base
+    const baseGrad = ctx.createLinearGradient(0, 0, 0, bw + 3);
+    baseGrad.addColorStop(0, '#3A3A4E');
+    baseGrad.addColorStop(0.3, '#1A1A2E');
+    baseGrad.addColorStop(1, '#0A0A1E');
+    ctx.fillStyle = baseGrad;
+    ctx.beginPath();
+    ctx.roundRect(-bw - 3, 2, (bw + 3) * 2, bw + 5, 3);
+    ctx.fill();
+    ctx.strokeStyle = '#FF4422';
+    ctx.lineWidth = isCore ? 2.5 : 1;
+    ctx.stroke();
+
+    // Energy conduits — glowing brighter when core
+    const conduitAlpha = isCore ? (0.6 + pulse * 0.4) : (0.2 + pulse * 0.15);
+    for (let i = -1; i <= 1; i += 2) {
+        const cx = i * bw * 0.5;
+        ctx.strokeStyle = `rgba(255,100,40,${conduitAlpha})`;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(cx, 4);
+        ctx.lineTo(cx, bw + 3);
+        ctx.stroke();
+    }
+    // Link indicators
+    if (linkedCount > 0) {
+        for (let i = 0; i < linkedCount && i < 5; i++) {
+            const lx = -bw + 2 + i * 4.5;
+            ctx.fillStyle = `rgba(255,180,40,${0.5 + pulse * 0.4})`;
+            ctx.beginPath();
+            ctx.arc(lx, bw + 2, 2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+
+    // Massive crystal column — chunky and glowing
+    const colW = 6 + lv;
+    const colH = h * 0.5;
+    const crystalGrad = ctx.createLinearGradient(-colW, 0, colW, 0);
+    if (isCore) {
+        crystalGrad.addColorStop(0, '#FF3311');
+        crystalGrad.addColorStop(0.3, '#FF6644');
+        crystalGrad.addColorStop(0.5, '#FFAA66');
+        crystalGrad.addColorStop(0.7, '#FF4422');
+        crystalGrad.addColorStop(1, '#AA1100');
+    } else {
+        crystalGrad.addColorStop(0, '#6B2020');
+        crystalGrad.addColorStop(0.3, '#A04040');
+        crystalGrad.addColorStop(0.5, '#885050');
+        crystalGrad.addColorStop(0.7, '#5B1818');
+        crystalGrad.addColorStop(1, '#3A1010');
+    }
+    ctx.fillStyle = crystalGrad;
+    ctx.beginPath();
+    ctx.roundRect(-colW, -colH, colW * 2, colH + 3, 2);
+    ctx.fill();
+    ctx.strokeStyle = isCore ? '#FFAA88' : '#664444';
+    ctx.lineWidth = isCore ? 2 : 1;
+    ctx.strokeRect(-colW, -colH, colW * 2, colH + 3);
+
+    // Core pulsing energy inside crystal
+    if (isCore) {
+        const coreGlow = ctx.createRadialGradient(0, -colH * 0.3, colW * 0.3, 0, -colH * 0.3, colW * 1.2);
+        coreGlow.addColorStop(0, 'rgba(255,255,200,0.7)');
+        coreGlow.addColorStop(0.4, 'rgba(255,150,50,0.4)');
+        coreGlow.addColorStop(1, 'rgba(255,50,0,0)');
+        ctx.fillStyle = coreGlow;
+        ctx.fillRect(-colW, -colH, colW * 2, colH);
+
+        // Energy arcs crackling inside
+        ctx.strokeStyle = `rgba(255,255,200,${0.3 + pulse * 0.3})`;
+        ctx.lineWidth = 1;
+        for (let a = 0; a < 3; a++) {
+            ctx.beginPath();
+            const ay = -colH + a * colH / 3 + Math.sin(time * 8 + a) * 3;
+            ctx.moveTo(-colW + 1, ay);
+            ctx.quadraticCurveTo(0, ay + Math.sin(time * 7 + a) * 5, colW - 1, ay);
+            ctx.stroke();
+        }
+    } else {
+        // Dormant relay glow
+        ctx.fillStyle = `rgba(255,80,40,${0.08 + Math.sin(time * 2) * 0.04})`;
+        ctx.fillRect(-colW, -colH, colW * 2, colH);
+    }
+
+    // Focusing lens — larger and more intense
+    const lensW = colW + 3;
+    const lensH = 5 + lv;
+    const lensGrad = ctx.createLinearGradient(0, -colH - lensH, 0, -colH);
+    if (isCore) {
+        lensGrad.addColorStop(0, '#FFFFFF');
+        lensGrad.addColorStop(0.3, '#FFCC88');
+        lensGrad.addColorStop(0.7, '#FF5533');
+        lensGrad.addColorStop(1, '#CC2200');
+    } else {
+        lensGrad.addColorStop(0, '#886666');
+        lensGrad.addColorStop(0.5, '#664444');
+        lensGrad.addColorStop(1, '#442222');
+    }
+    ctx.fillStyle = lensGrad;
+    ctx.beginPath();
+    ctx.moveTo(-lensW, -colH);
+    ctx.lineTo(lensW, -colH);
+    ctx.lineTo(lensW - 2, -colH - lensH);
+    ctx.lineTo(-lensW + 2, -colH - lensH);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = isCore ? '#FFCCAA' : '#886666';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Bright emitter point
+    ctx.fillStyle = `rgba(255,255,255,${isCore ? (0.8 + pulse * 0.2) : 0.3})`;
+    ctx.beginPath();
+    ctx.arc(0, -colH - lensH - 1, isCore ? 3.5 : 2, 0, Math.PI * 2);
+    ctx.fill();
+    if (isCore) {
+        ctx.fillStyle = `rgba(255,200,100,${0.4 + pulse * 0.3})`;
+        ctx.beginPath();
+        ctx.arc(0, -colH - lensH - 1, 8, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // Charging particles swirling up (only when core)
+    if (isCore) {
+        for (let i = 0; i < 4; i++) {
+            const a = time * 3 + i * Math.PI / 2;
+            const r = bw + 3 + Math.sin(time * 5 + i) * 2;
+            const px = Math.cos(a) * r;
+            const py = -colH * 0.5 + Math.sin(a * 0.5) * colH * 0.7;
+            ctx.fillStyle = `rgba(255,200,100,${0.3 + Math.sin(time * 6 + i) * 0.2})`;
+            ctx.beginPath();
+            ctx.arc(px, py, 1.2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+}
+
+// ===== LASER RESONANCE TOWER — Network hub with shared range antenna =====
+function drawLaserResonanceTower(t, st, lv) {
+    const bw = 9 + lv;
+    const h = 16 + lv * 4;
+    const time = Date.now() / 1000;
+    const pulse = 0.6 + Math.sin(time * 3.5) * 0.4;
+    const linkedCount = t.linkedCount || 0;
+
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.beginPath();
+    ctx.ellipse(0, 4, bw + 3, bw * 0.4, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Metallic base with golden accents
+    const baseGrad = ctx.createLinearGradient(0, 0, 0, bw + 2);
+    baseGrad.addColorStop(0, '#5A5A55');
+    baseGrad.addColorStop(0.4, '#4A4A40');
+    baseGrad.addColorStop(1, '#2A2A20');
+    ctx.fillStyle = baseGrad;
+    ctx.beginPath();
+    ctx.roundRect(-bw - 2, 1, (bw + 2) * 2, bw + 4, 3);
+    ctx.fill();
+    ctx.strokeStyle = '#8A8030';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Golden conduits
+    for (let i = -1; i <= 1; i += 2) {
+        const cx = i * bw * 0.5;
+        ctx.strokeStyle = `rgba(255,200,80,${0.3 + pulse * 0.3})`;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(cx, 3);
+        ctx.lineTo(cx, bw + 2);
+        ctx.stroke();
+    }
+    // Link count display on base
+    if (linkedCount > 0) {
+        for (let i = 0; i < linkedCount && i < 4; i++) {
+            const lx = -bw + 3 + i * 5;
+            ctx.fillStyle = `rgba(255,220,80,${0.5 + pulse * 0.4})`;
+            ctx.beginPath();
+            ctx.arc(lx, bw + 1, 1.8, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+
+    // Crystal column — amber/golden hue
+    const colW = 4 + lv * 0.5;
+    const colH = h * 0.4;
+    const crystalGrad = ctx.createLinearGradient(-colW, 0, colW, 0);
+    crystalGrad.addColorStop(0, '#6B5A10');
+    crystalGrad.addColorStop(0.3, '#D0A830');
+    crystalGrad.addColorStop(0.5, '#F0D060');
+    crystalGrad.addColorStop(0.7, '#B89020');
+    crystalGrad.addColorStop(1, '#5A4A08');
+    ctx.fillStyle = crystalGrad;
+    ctx.beginPath();
+    ctx.roundRect(-colW, -colH, colW * 2, colH + 2, 2);
+    ctx.fill();
+    ctx.strokeStyle = '#E0C040';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(-colW, -colH, colW * 2, colH + 2);
+
+    // Antenna dish — satellite-style above crystal
+    const dishY = -colH - 5;
+    const dishR = 6 + lv;
+    ctx.fillStyle = 'rgba(200,180,100,0.2)';
+    ctx.beginPath();
+    ctx.arc(0, dishY, dishR, Math.PI, 0);
+    ctx.fill();
+    ctx.strokeStyle = '#E0C040';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(0, dishY, dishR, Math.PI, 0);
+    ctx.stroke();
+    // Dish struts
+    for (let i = -1; i <= 1; i += 2) {
+        ctx.strokeStyle = '#C0A040';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(i * dishR * 0.6, dishY);
+        ctx.lineTo(0, -colH);
+        ctx.stroke();
+    }
+    // Dish center receiver
+    ctx.fillStyle = `rgba(255,240,120,${0.6 + pulse * 0.3})`;
+    ctx.beginPath();
+    ctx.arc(0, dishY, 2, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Emitter on top of dish
+    const emitterY = dishY - dishR * 0.5;
+    ctx.fillStyle = `rgba(255,255,200,${0.5 + pulse * 0.3})`;
+    ctx.beginPath();
+    ctx.moveTo(0, emitterY - 4);
+    ctx.lineTo(-2, emitterY);
+    ctx.lineTo(2, emitterY);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = '#FFFFFF';
+    ctx.beginPath();
+    ctx.arc(0, emitterY - 4, 1.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Range-sharing rings (pulsing outward)
+    if (linkedCount > 0) {
+        for (let i = 0; i < 2; i++) {
+            const rPhase = (time * 0.8 + i * 0.5) % 1;
+            const rRing = dishR + 4 + rPhase * 10;
+            ctx.strokeStyle = `rgba(240,200,60,${0.15 * (1 - rPhase)})`;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(0, emitterY - 2, rRing, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+        // Tiny data pulses traveling along rings
+        for (let i = 0; i < 3; i++) {
+            const da = time * 2 + i * Math.PI * 2 / 3;
+            const dr = dishR + 5 + Math.sin(time * 4 + i) * 3;
+            ctx.fillStyle = `rgba(255,240,150,0.6)`;
+            ctx.beginPath();
+            ctx.arc(Math.cos(da) * dr, emitterY - 2 + Math.sin(da) * dr, 1, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+}
+
+// ===== LASER REFRACT TOWER — Prism crystal with chain-refracting beams =====
+function drawLaserRefractTower(t, st, lv) {
+    const bw = 9 + lv;
+    const h = 16 + lv * 4;
+    const time = Date.now() / 1000;
+    const pulse = 0.6 + Math.sin(time * 3.2) * 0.4;
+    const linkedCount = t.linkedCount || 0;
+
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.beginPath();
+    ctx.ellipse(0, 4, bw + 3, bw * 0.4, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Dark metallic base with purple accents
+    const baseGrad = ctx.createLinearGradient(0, 0, 0, bw + 2);
+    baseGrad.addColorStop(0, '#4A3A5A');
+    baseGrad.addColorStop(0.4, '#3A2A4A');
+    baseGrad.addColorStop(1, '#1A0A2A');
+    ctx.fillStyle = baseGrad;
+    ctx.beginPath();
+    ctx.roundRect(-bw - 2, 1, (bw + 2) * 2, bw + 4, 3);
+    ctx.fill();
+    ctx.strokeStyle = '#6A4A7A';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Purple conduits
+    for (let i = -1; i <= 1; i += 2) {
+        const cx = i * bw * 0.5;
+        ctx.strokeStyle = `rgba(220,80,240,${0.3 + pulse * 0.3})`;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(cx, 3);
+        ctx.lineTo(cx, bw + 2);
+        ctx.stroke();
+    }
+    if (linkedCount > 0) {
+        for (let i = 0; i < linkedCount && i < 4; i++) {
+            const lx = -bw + 3 + i * 5;
+            ctx.fillStyle = `rgba(240,150,255,${0.5 + pulse * 0.4})`;
+            ctx.beginPath();
+            ctx.arc(lx, bw + 1, 1.8, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+
+    // Prism crystal column — faceted, wider at top
+    const colW = 4 + lv * 0.5;
+    const colH = h * 0.45;
+    const prismGrad = ctx.createLinearGradient(-colW, 0, colW, 0);
+    prismGrad.addColorStop(0, '#5A2070');
+    prismGrad.addColorStop(0.2, '#B050D0');
+    prismGrad.addColorStop(0.5, '#E080F0');
+    prismGrad.addColorStop(0.8, '#A040C0');
+    prismGrad.addColorStop(1, '#4A1070');
+    ctx.fillStyle = prismGrad;
+    ctx.beginPath();
+    // Faceted shape — wider at top, narrower at base
+    ctx.moveTo(-colW, 0);
+    ctx.lineTo(-colW, -colH + 3);
+    ctx.lineTo(-colW + 2, -colH);
+    ctx.lineTo(colW - 2, -colH);
+    ctx.lineTo(colW, -colH + 3);
+    ctx.lineTo(colW, 0);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#D080E0';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Inner glow
+    ctx.fillStyle = `rgba(240,200,255,${0.2 + pulse * 0.15})`;
+    ctx.fillRect(-colW + 1, -colH + 2, colW * 2 - 2, colH - 2);
+
+    // Horizontal energy bars on crystal
+    for (let i = 0; i < 3; i++) {
+        const ry = -colH + (i + 1) * colH / 4;
+        ctx.strokeStyle = `rgba(240,200,255,${0.3 + Math.sin(time * 5 + i) * 0.2})`;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(-colW - 1, ry);
+        ctx.lineTo(colW + 1, ry);
+        ctx.stroke();
+    }
+
+    // Main prism lens
+    const lensW = colW + 2;
+    const lensH = 5 + lv;
+    const lensGrad = ctx.createLinearGradient(0, -colH - lensH, 0, -colH);
+    lensGrad.addColorStop(0, '#F0C0FF');
+    lensGrad.addColorStop(0.4, '#D060F0');
+    lensGrad.addColorStop(1, '#8030A0');
+    ctx.fillStyle = lensGrad;
+    ctx.beginPath();
+    ctx.moveTo(-lensW, -colH);
+    ctx.lineTo(lensW, -colH);
+    ctx.lineTo(lensW - 1, -colH - lensH);
+    ctx.lineTo(-lensW + 1, -colH - lensH);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#E0A0F0';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Emitter point
+    ctx.fillStyle = `rgba(255,255,255,${0.6 + pulse * 0.3})`;
+    ctx.beginPath();
+    ctx.arc(0, -colH - lensH - 1, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = `rgba(255,200,255,${0.3 + pulse * 0.2})`;
+    ctx.beginPath();
+    ctx.arc(0, -colH - lensH - 1, 6, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Orbiting refract crystals
+    for (let i = 0; i < 4; i++) {
+        const oa = time * 2.5 + i * Math.PI / 2;
+        const or = bw + 4 + Math.sin(time * 3 + i) * 2;
+        const ox = Math.cos(oa) * or;
+        const oy = -colH * 0.4 + Math.sin(oa * 1.3) * colH * 0.5;
+        // Small prism crystal
+        ctx.fillStyle = `rgba(220,160,255,${0.5 + Math.sin(time * 5 + i) * 0.3})`;
+        ctx.save();
+        ctx.translate(ox, oy);
+        ctx.rotate(oa * 2);
+        ctx.beginPath();
+        ctx.moveTo(0, -2.5);
+        ctx.lineTo(2, 0);
+        ctx.lineTo(0, 2.5);
+        ctx.lineTo(-2, 0);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255,200,255,0.6)';
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
+        ctx.restore();
+    }
+
+    // Refraction beams between orbiting crystals
+    if (linkedCount > 0) {
+        ctx.strokeStyle = `rgba(255,150,255,${0.08 + pulse * 0.05})`;
+        ctx.lineWidth = 0.5;
+        for (let i = 0; i < 4; i++) {
+            const a1 = time * 2.5 + i * Math.PI / 2;
+            const a2 = time * 2.5 + ((i + 1) % 4) * Math.PI / 2;
+            const r = bw + 4;
+            ctx.beginPath();
+            ctx.moveTo(Math.cos(a1) * r, -colH * 0.4 + Math.sin(a1 * 1.3) * colH * 0.5);
+            ctx.lineTo(Math.cos(a2) * r, -colH * 0.4 + Math.sin(a2 * 1.3) * colH * 0.5);
+            ctx.stroke();
+        }
+    }
 }
 
 function drawEnemy(e) {
@@ -7992,6 +8561,64 @@ function drawHoverPreview() {
             ctx.arc(0, -12, 2, 0, Math.PI * 2);
             ctx.fill();
             break;
+        case 'laser_core':
+            // Massive crystal silhouette
+            ctx.fillStyle = def.color;
+            ctx.fillRect(-5, -5, 10, 12);
+            // Large lens
+            ctx.fillStyle = '#FF5533';
+            ctx.beginPath();
+            ctx.moveTo(-6, -5);
+            ctx.lineTo(6, -5);
+            ctx.lineTo(4, -13);
+            ctx.lineTo(-4, -13);
+            ctx.closePath();
+            ctx.fill();
+            // Bright emitter
+            ctx.fillStyle = '#FFF';
+            ctx.beginPath();
+            ctx.arc(0, -13, 2.5, 0, Math.PI * 2);
+            ctx.fill();
+            break;
+        case 'laser_resonance':
+            // Crystal + dish silhouette
+            ctx.fillStyle = def.color;
+            ctx.fillRect(-4, -5, 8, 11);
+            // Dish arc
+            ctx.fillStyle = '#E8A030';
+            ctx.beginPath();
+            ctx.arc(0, -7, 6, Math.PI, 0);
+            ctx.fill();
+            // Antenna
+            ctx.strokeStyle = '#E0C040';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(0, -13);
+            ctx.lineTo(0, -7);
+            ctx.stroke();
+            ctx.fillStyle = '#FFF';
+            ctx.beginPath();
+            ctx.arc(0, -13, 1.5, 0, Math.PI * 2);
+            ctx.fill();
+            break;
+        case 'laser_refract':
+            // Prism crystal silhouette (diamond shape)
+            ctx.fillStyle = def.color;
+            ctx.beginPath();
+            ctx.moveTo(0, 2);
+            ctx.lineTo(-4, -3);
+            ctx.lineTo(-6, -8);
+            ctx.lineTo(0, -14);
+            ctx.lineTo(6, -8);
+            ctx.lineTo(4, -3);
+            ctx.closePath();
+            ctx.fill();
+            // Emitter
+            ctx.fillStyle = '#FFF';
+            ctx.beginPath();
+            ctx.arc(0, -14, 2, 0, Math.PI * 2);
+            ctx.fill();
+            break;
     }
     ctx.restore();
 
@@ -8139,6 +8766,8 @@ function showTowerInfo(t) {
         (st.splashRadius > 0 ? '<div class="stat-row"><span>溅射</span><span>' + st.splashRadius + 'px</span></div>' : '') +
         (st.slowFactor > 0 ? '<div class="stat-row"><span>减速</span><span>' + Math.round(st.slowFactor * 100) + '%</span></div>' : '') +
         (st.chainCount > 0 ? '<div class="stat-row"><span>连锁</span><span>' + st.chainCount + '个</span></div>' : '') +
+        (st.chainRange > 0 ? '<div class="stat-row"><span>连锁范围</span><span>' + st.chainRange + 'px</span></div>' : '') +
+        (st.chainFalloff > 0 ? '<div class="stat-row"><span>折射衰减</span><span>' + Math.round(st.chainFalloff * 100) + '%</span></div>' : '') +
         (st.flameRadius > 0 ? '<div class="stat-row"><span>火焰范围</span><span>' + st.flameRadius + 'px</span></div>' : '') +
         (st.flameDuration > 0 ? '<div class="stat-row"><span>火焰持续</span><span>' + (st.flameDuration / 1000).toFixed(1) + 's</span></div>' : '') +
         (st.sheepDuration > 0 ? '<div class="stat-row"><span>变羊持续</span><span>' + (st.sheepDuration / 1000).toFixed(1) + 's</span></div>' : '') +
@@ -8296,8 +8925,10 @@ function getTowerSpecial(def) {
     if (def.slowFactor && def.slowFactor.length) parts.push('减速' + Math.round(def.slowFactor[0] * 100) + '-' + Math.round(def.slowFactor[2] * 100) + '%');
     if (def.freezeStacks) parts.push(def.freezeStacks + '层冻结' + def.freezeDuration[0] / 1000 + '-' + def.freezeDuration[2] / 1000 + 's');
     if (def.auraSlowFactor) parts.push('光环减速' + Math.round(def.auraSlowFactor[0] * 100) + '-' + Math.round(def.auraSlowFactor[2] * 100) + '%');
-    if (def.chainCount && def.chainCount.length) parts.push('连锁' + def.chainCount[0] + '-' + def.chainCount[2] + '目标');
+    if (def.chainCount && def.chainCount.length && !def.chainFalloff) parts.push('连锁' + def.chainCount[0] + '-' + def.chainCount[2] + '目标');
+    if (def.chainCount && def.chainCount.length && def.chainFalloff) parts.push('折射' + def.chainCount[0] + '-' + def.chainCount[2] + '跳 衰减' + Math.round(def.chainFalloff * 100) + '%');
     if (def.chainDmgBoost) parts.push('连锁递增' + Math.round(def.chainDmgBoost * 100) + '%');
+    if (def.resonanceShareRange) parts.push('范围共享');
     if (def.chargeMaxTime) parts.push('蓄力' + def.chargeDmgMultiplier[0] + '-' + def.chargeDmgMultiplier[2] + 'x');
     if (def.vulnFactor) parts.push('削弱' + Math.round(def.vulnFactor[0] * 100) + '-' + Math.round(def.vulnFactor[2] * 100) + '%承伤');
     if (def.focusDmgPerStack) parts.push('聚焦递增' + Math.round(def.focusDmgPerStack * 100) + '%/层 ' + def.focusMaxStacks[0] + '-' + def.focusMaxStacks[2] + '层');
@@ -8329,7 +8960,7 @@ function buildCompendiumHTML() {
         { key: 'wind', base: null },
         { key: 'sheep', base: 'sheep' },
         { key: 'missile', base: 'missile' },
-        { key: 'laser', base: null }
+        { key: 'laser', base: 'laser' }
     ];
 
     let html = '';
