@@ -637,7 +637,8 @@ const TOWER_DEFS = {
         damage: [22, 38, 60], range: [130, 145, 165], cooldown: [900, 750, 600],
         color: '#C0392B', bulletColor: '#FFAA00', bulletSpeed: 400,
         splash: 0, slowFactor: 0, slowDuration: 0, chainCount: 0,
-        focusDmgPerStack: 0.25, focusMaxStacks: [3, 4, 5]
+        focusDmgPerStack: 0.25, focusMaxStacks: [3, 4, 5],
+        flameRadius: [22, 28, 35], flameDuration: [1600, 2000, 2500], flameTickInterval: 420
     },
     fire_ignite: {
         name: '燎原星火', icon: '✨',
@@ -650,10 +651,10 @@ const TOWER_DEFS = {
     fire_detonate: {
         name: '炎爆余烬', icon: '💢',
         cost: null, upgradeCost: [170, 350], evolveCost: 280,
-        damage: [18, 30, 48], range: [105, 115, 130], cooldown: [1800, 1500, 1200],
-        color: '#D35400', bulletColor: '#FF5733', bulletSpeed: 300,
-        splash: [30, 40, 50], slowFactor: 0, slowDuration: 0, chainCount: 0, splashDmgPct: 0.5,
-        detonateDmg: [55, 90, 140], detonateRadius: [65, 75, 85]
+        damage: [24, 40, 60], range: [110, 120, 135], cooldown: [1700, 1450, 1150],
+        color: '#D35400', bulletColor: '#FF5733', bulletSpeed: 320,
+        splash: [35, 48, 60], slowFactor: 0, slowDuration: 0, chainCount: 0, splashDmgPct: 0.55,
+        detonateDmg: [65, 105, 165], detonateRadius: [70, 80, 90]
     },
     fire: {
         name: '火塔', icon: '🔥',
@@ -677,7 +678,7 @@ const TOWER_DEFS = {
         damage: [6, 12, 20], range: [130, 145, 165], cooldown: [3800, 3300, 2700],
         color: '#4A9E95', bulletColor: '#80E8D8', bulletSpeed: 90,
         splash: [50, 62, 78], slowFactor: 0, slowDuration: 0, chainCount: 0,
-        vortexPull: [70, 100, 140],
+        vortexPull: [22, 35, 50],
         vortexDuration: [2500, 3200, 4000],
         vortexTickInterval: 280
     },
@@ -862,10 +863,10 @@ const EVOLVE_OPTIONS = {
 };
 
 const ENEMY_DEFS = {
-    normal: { name: '普通兵', speed: 60, size: 8, color: '#e74c3c', reward: 10, hpBase: 60, hpScale: 8 },
-    fast:   { name: '快速兵', speed: 110, size: 6, color: '#f39c12', reward: 8, hpBase: 30, hpScale: 5 },
-    tank:   { name: '重装兵', speed: 35, size: 12, color: '#8e44ad', reward: 25, hpBase: 200, hpScale: 30 },
-    boss:   { name: 'BOSS',  speed: 40, size: 18, color: '#c0392b', reward: 100, hpBase: 600, hpScale: 150 }
+    normal: { name: '普通兵', speed: 60, size: 6, color: '#e74c3c', reward: 10, hpBase: 60, hpScale: 8 },
+    fast:   { name: '快速兵', speed: 110, size: 5, color: '#f39c12', reward: 8, hpBase: 30, hpScale: 5 },
+    tank:   { name: '重装兵', speed: 35, size: 9, color: '#8e44ad', reward: 25, hpBase: 200, hpScale: 30 },
+    boss:   { name: 'BOSS',  speed: 40, size: 14, color: '#c0392b', reward: 100, hpBase: 600, hpScale: 150 }
 };
 
 // ==================== PATH WAYPOINTS (pixel centers) ====================
@@ -888,7 +889,7 @@ const game = {
     lives: 20,
     score: 0,
     waveNum: 0,
-    totalWaves: 20,
+    totalWaves: 50,
     state: 'idle',          // idle | wave_active | wave_complete | game_over | victory
     speedMult: 1,
     autoWave: false,
@@ -1041,12 +1042,17 @@ function generateWave(waveNum) {
         () => { push('normal', 40); push('fast', 24); push('tank', 9); },
         () => { push('normal', 42); push('fast', 26); push('tank', 10); },
         () => { push('normal', 25); push('fast', 12); push('tank', 5); push('boss', 1); },
+        () => { push('normal', 44); push('fast', 28); push('tank', 11); },
+        () => { push('normal', 46); push('fast', 30); push('tank', 12); },
+        () => { push('normal', 48); push('fast', 32); push('tank', 13); },
+        () => { push('normal', 50); push('fast', 34); push('tank', 14); },
+        () => { push('normal', 30); push('fast', 15); push('tank', 7); push('boss', 1); },
     ];
 
     if (waveNum <= waves.length) {
         waves[waveNum - 1]();
     } else {
-        // Beyond wave 20: keep scaling
+        // Beyond wave 25: procedural scaling
         const n = waveNum;
         push('normal', 25 + n); push('fast', 12 + Math.floor(n/2)); push('tank', 5 + Math.floor(n/3));
         if (n % 5 === 0) push('boss', 1);
@@ -1372,7 +1378,7 @@ function updateTowers(dt) {
             for (const e of game.enemies) {
                 if (!e.alive || e.isTurncoat) continue;
                 if (dist(t, e) <= st.range) {
-                    createFireZone(e.x, e.y, st.igniteFlameRadius, Math.floor(10 + st.igniteFlameRadius * 0.3), st.igniteFlameDuration, st.igniteFlameTickInterval);
+                    createFireZone(e.x, e.y, st.igniteFlameRadius, Math.floor(12 + t.level * 14), st.igniteFlameDuration, st.igniteFlameTickInterval);
                     createFireIgnition(e.x, e.y, st.igniteFlameRadius * 0.6);
                 }
             }
@@ -2437,7 +2443,7 @@ function handleImpact(p) {
         createLightningArc(p.towerX, p.towerY, p.target.x, p.target.y);
         chainLightning(p.target, p.damage, p.chainCount - 1, p.chainRange, p.chainFalloff, p.chainDmgBoost, new Set([p.target.id]));
     } else {
-        // Arrow - single target (with possible crit)
+        // Arrow / single target (with possible crit)
         let dmg = p.damage;
         let isCrit = false;
         if (p.critChance > 0 && Math.random() < p.critChance) {
@@ -2449,6 +2455,11 @@ function handleImpact(p) {
             createCritSpark(p.target.x, p.target.y, p.critMultiplier);
         } else {
             createHitSpark(p.target.x, p.target.y, '#f1c40f');
+        }
+        // fire_focus creates a compact flame zone on hit
+        if (p.type === 'fire_focus' && p.flameRadius > 0 && p.flameDuration > 0) {
+            createFireZone(p.target.x, p.target.y, p.flameRadius, Math.floor(p.damage * 0.35), p.flameDuration, p.flameTickInterval);
+            createFireIgnition(p.target.x, p.target.y, p.flameRadius);
         }
     }
 }
@@ -7991,39 +8002,454 @@ function drawEnemy(e) {
         return;
     }
 
-    // Body
+    // Body — type-specific visuals
     const isBoss = e.type === 'boss';
-    if (isBoss) {
-        // Boss glow
-        ctx.shadowColor = '#f1c40f';
-        ctx.shadowBlur = 8 + Math.sin(Date.now() / 200) * 3;
-    }
-    ctx.fillStyle = e.color;
-    ctx.beginPath();
-    ctx.arc(0, 0, e.size, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(0,0,0,0.5)';
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
+    const isTank = e.type === 'tank';
+    const isFast = e.type === 'fast';
+    const isNormal = e.type === 'normal';
+    const time = Date.now() / 1000;
 
-    // Slow visual
+    // Movement direction angle (based on current speed direction or path)
+    let facingAngle = 0;
+    if (e.knockbackTimer > 0 && (Math.abs(e.knockbackVx) > 0.1 || Math.abs(e.knockbackVy) > 0.1)) {
+        facingAngle = Math.atan2(e.knockbackVy, e.knockbackVx);
+    } else {
+        // Face toward next waypoint
+        const wp = WAYPOINTS[Math.min(e.waypointIndex, WAYPOINTS.length - 1)];
+        const dx = wp.x - e.x;
+        const dy = wp.y - e.y;
+        facingAngle = Math.atan2(dy, dx);
+    }
+
+    ctx.save();
+    if (!isNormal) ctx.rotate(facingAngle);
+
+    const s = e.size;
+
+    if (isBoss) {
+        // === BOSS — cute chibi demon lord ===
+        // Soft aura glow
+        ctx.shadowColor = '#FFB0B0';
+        ctx.shadowBlur = 6 + Math.sin(time * 2.5) * 3;
+
+        // Body — soft round chibi shape
+        const bodyGrad = ctx.createRadialGradient(-s*0.08, -s*0.15, s*0.05, 0, s*0.1, s);
+        bodyGrad.addColorStop(0, '#FF6B6B');
+        bodyGrad.addColorStop(0.5, '#E04040');
+        bodyGrad.addColorStop(1, '#801818');
+        ctx.fillStyle = bodyGrad;
+        ctx.beginPath();
+        ctx.arc(0, s*0.05, s, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#FF9999';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // Soft tummy highlight
+        const tummyGrad = ctx.createRadialGradient(0, s*0.2, s*0.05, 0, s*0.15, s*0.55);
+        tummyGrad.addColorStop(0, 'rgba(255,200,180,0.4)');
+        tummyGrad.addColorStop(1, 'rgba(255,150,150,0)');
+        ctx.fillStyle = tummyGrad;
+        ctx.beginPath();
+        ctx.arc(0, s*0.1, s*0.55, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Tiny cute horns (not menacing)
+        ctx.fillStyle = '#E8C8A0';
+        // Left horn
+        ctx.beginPath();
+        ctx.moveTo(-s*0.3, -s*0.55);
+        ctx.quadraticCurveTo(-s*0.45, -s*1.0, -s*0.25, -s*1.1);
+        ctx.quadraticCurveTo(-s*0.2, -s*0.9, -s*0.1, -s*0.55);
+        ctx.fill();
+        ctx.strokeStyle = '#C8A888';
+        ctx.lineWidth = 0.8;
+        ctx.stroke();
+        // Right horn
+        ctx.beginPath();
+        ctx.moveTo(s*0.3, -s*0.55);
+        ctx.quadraticCurveTo(s*0.45, -s*1.0, s*0.25, -s*1.1);
+        ctx.quadraticCurveTo(s*0.2, -s*0.9, s*0.1, -s*0.55);
+        ctx.fill();
+        ctx.stroke();
+
+        // Tiny crown between horns
+        ctx.fillStyle = '#FFD700';
+        ctx.beginPath();
+        ctx.moveTo(-s*0.15, -s*0.7);
+        ctx.lineTo(-s*0.1, -s*0.95);
+        ctx.lineTo(0, -s*0.82);
+        ctx.lineTo(s*0.1, -s*0.95);
+        ctx.lineTo(s*0.15, -s*0.7);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = '#B8960B';
+        ctx.lineWidth = 0.6;
+        ctx.stroke();
+        // Crown jewel
+        ctx.fillStyle = '#FF88AA';
+        ctx.beginPath();
+        ctx.arc(0, -s*0.8, s*0.08, 0, Math.PI * 2);
+        ctx.fill();
+
+        // BIG sparkly cute eyes
+        const eyeBob = Math.sin(time * 3) * 0.02;
+        // Eye whites
+        ctx.fillStyle = '#FFF';
+        ctx.beginPath(); ctx.arc(s*0.28, -s*0.15, s*0.2, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(-s*0.28, -s*0.15, s*0.2, 0, Math.PI * 2); ctx.fill();
+        // Irises — big colorful
+        ctx.fillStyle = '#FF5588';
+        ctx.beginPath(); ctx.arc(s*0.3, -s*0.13 + eyeBob, s*0.14, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(-s*0.26, -s*0.13 + eyeBob, s*0.14, 0, Math.PI * 2); ctx.fill();
+        // Pupils — big dark
+        ctx.fillStyle = '#1A0A20';
+        ctx.beginPath(); ctx.arc(s*0.32, -s*0.12 + eyeBob, s*0.08, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(-s*0.24, -s*0.12 + eyeBob, s*0.08, 0, Math.PI * 2); ctx.fill();
+        // Eye sparkles — key cute factor!
+        ctx.fillStyle = '#FFF';
+        ctx.beginPath(); ctx.arc(s*0.35, -s*0.18 + eyeBob, s*0.05, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(s*0.28, -s*0.08 + eyeBob, s*0.03, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(-s*0.21, -s*0.18 + eyeBob, s*0.05, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(-s*0.28, -s*0.08 + eyeBob, s*0.03, 0, Math.PI * 2); ctx.fill();
+
+        // Blush cheeks
+        ctx.fillStyle = 'rgba(255,150,150,0.5)';
+        ctx.beginPath(); ctx.arc(s*0.45, s*0.1, s*0.12, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(-s*0.45, s*0.1, s*0.12, 0, Math.PI * 2); ctx.fill();
+
+        // Cute tiny mouth — 'w' shape
+        ctx.strokeStyle = '#801818';
+        ctx.lineWidth = 0.8;
+        ctx.beginPath();
+        ctx.moveTo(-s*0.1, s*0.2);
+        ctx.quadraticCurveTo(-s*0.05, s*0.28, 0, s*0.22);
+        ctx.quadraticCurveTo(s*0.05, s*0.28, s*0.1, s*0.2);
+        ctx.stroke();
+
+        // Tiny arms at sides
+        ctx.fillStyle = '#E04040';
+        ctx.beginPath(); ctx.arc(-s*0.85, s*0.1, s*0.18, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(s*0.85, s*0.1, s*0.18, 0, Math.PI * 2); ctx.fill();
+        // Tiny hands
+        ctx.fillStyle = '#FFCCAA';
+        ctx.beginPath(); ctx.arc(-s*0.9, s*0.2, s*0.08, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(s*0.9, s*0.2, s*0.08, 0, Math.PI * 2); ctx.fill();
+
+        // Tiny feet at bottom
+        ctx.fillStyle = '#801818';
+        ctx.beginPath(); ctx.arc(-s*0.3, s*0.85, s*0.2, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(s*0.3, s*0.85, s*0.2, 0, Math.PI * 2); ctx.fill();
+
+        ctx.shadowBlur = 0;
+
+    } else if (isTank) {
+        // === TANK — cute chibi armored guardian ===
+        const tankEyeBob = Math.sin(time * 2.5) * 0.02;
+
+        // Soft body gradient (pastel purple)
+        const tankBodyGrad = ctx.createRadialGradient(-s*0.05, -s*0.1, s*0.05, 0, 0, s);
+        tankBodyGrad.addColorStop(0, '#C9A0DC');
+        tankBodyGrad.addColorStop(0.5, '#9B59B6');
+        tankBodyGrad.addColorStop(1, '#6C3483');
+        ctx.fillStyle = tankBodyGrad;
+        ctx.beginPath();
+        ctx.arc(0, s*0.05, s*0.9, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#D4B8E8';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // Tummy highlight
+        const tankTummyGrad = ctx.createRadialGradient(0, s*0.2, s*0.05, 0, s*0.1, s*0.5);
+        tankTummyGrad.addColorStop(0, 'rgba(255,220,255,0.35)');
+        tankTummyGrad.addColorStop(1, 'rgba(200,150,220,0)');
+        ctx.fillStyle = tankTummyGrad;
+        ctx.beginPath();
+        ctx.arc(0, s*0.1, s*0.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Cute helmet (rounded dome on top)
+        ctx.fillStyle = '#8E6BB8';
+        ctx.beginPath();
+        ctx.arc(0, -s*0.3, s*0.55, Math.PI, 0);
+        ctx.fill();
+        ctx.strokeStyle = '#B8A0D0';
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+        // Helmet plume (cute fluffy pom-pom)
+        ctx.fillStyle = '#FF99BB';
+        ctx.beginPath();
+        ctx.arc(0, -s*0.72, s*0.16, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(s*0.07, -s*0.58, s*0.11, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Big sparkly cute eyes
+        ctx.fillStyle = '#FFF';
+        ctx.beginPath(); ctx.arc(-s*0.25, -s*0.1, s*0.18, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(s*0.25, -s*0.1, s*0.18, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#7D3C98';
+        ctx.beginPath(); ctx.arc(-s*0.23, -s*0.08 + tankEyeBob, s*0.12, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(s*0.27, -s*0.08 + tankEyeBob, s*0.12, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#1A0A20';
+        ctx.beginPath(); ctx.arc(-s*0.21, -s*0.07 + tankEyeBob, s*0.07, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(s*0.29, -s*0.07 + tankEyeBob, s*0.07, 0, Math.PI * 2); ctx.fill();
+        // Eye sparkles
+        ctx.fillStyle = '#FFF';
+        ctx.beginPath(); ctx.arc(-s*0.18, -s*0.13 + tankEyeBob, s*0.04, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(s*0.32, -s*0.13 + tankEyeBob, s*0.04, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(-s*0.27, -s*0.05 + tankEyeBob, s*0.025, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(s*0.23, -s*0.05 + tankEyeBob, s*0.025, 0, Math.PI * 2); ctx.fill();
+
+        // Blush
+        ctx.fillStyle = 'rgba(255,150,180,0.45)';
+        ctx.beginPath(); ctx.arc(-s*0.42, s*0.1, s*0.1, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(s*0.42, s*0.1, s*0.1, 0, Math.PI * 2); ctx.fill();
+
+        // Cute w-mouth
+        ctx.strokeStyle = '#5B2C6F';
+        ctx.lineWidth = 0.7;
+        ctx.beginPath();
+        ctx.moveTo(-s*0.08, s*0.18);
+        ctx.quadraticCurveTo(0, s*0.25, s*0.08, s*0.18);
+        ctx.stroke();
+
+        // Heart emblem on chest
+        ctx.fillStyle = '#FF88AA';
+        ctx.beginPath();
+        const thx = 0, thy = s*0.35;
+        ctx.moveTo(thx, thy + s*0.08);
+        ctx.bezierCurveTo(thx - s*0.12, thy - s*0.04, thx - s*0.12, thy + s*0.12, thx, thy + s*0.2);
+        ctx.bezierCurveTo(thx + s*0.12, thy + s*0.12, thx + s*0.12, thy - s*0.04, thx, thy + s*0.08);
+        ctx.fill();
+
+        // Tiny stub arms
+        ctx.fillStyle = '#9B59B6';
+        ctx.beginPath(); ctx.arc(-s*0.78, s*0.08, s*0.16, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(s*0.78, s*0.08, s*0.16, 0, Math.PI * 2); ctx.fill();
+        // Tiny hands
+        ctx.fillStyle = '#E8C8D0';
+        ctx.beginPath(); ctx.arc(-s*0.84, s*0.18, s*0.07, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(s*0.84, s*0.18, s*0.07, 0, Math.PI * 2); ctx.fill();
+
+        // Tiny feet
+        ctx.fillStyle = '#6C3483';
+        ctx.beginPath(); ctx.ellipse(-s*0.25, s*0.78, s*0.18, s*0.14, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(s*0.25, s*0.78, s*0.18, s*0.14, 0, 0, Math.PI * 2); ctx.fill();
+
+    } else if (isFast) {
+        // === FAST — cute bunny-like wind scout ===
+        // Round chibi body
+        const fastBodyGrad = ctx.createRadialGradient(-s*0.05, -s*0.08, s*0.05, 0, 0, s*0.7);
+        fastBodyGrad.addColorStop(0, '#FFBB66');
+        fastBodyGrad.addColorStop(0.5, '#FF9933');
+        fastBodyGrad.addColorStop(1, '#E07020');
+        ctx.fillStyle = fastBodyGrad;
+        ctx.beginPath();
+        ctx.arc(0, 0, s*0.65, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#E08040';
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+
+        // Floppy bunny ears
+        ctx.fillStyle = '#FF9933';
+        ctx.beginPath();
+        ctx.ellipse(-s*0.18, -s*0.85, s*0.2, s*0.55, -0.25, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.ellipse(s*0.18, -s*0.85, s*0.2, s*0.55, 0.25, 0, Math.PI * 2);
+        ctx.fill();
+        // Inner ear pink
+        ctx.fillStyle = '#FFBBAA';
+        ctx.beginPath();
+        ctx.ellipse(-s*0.18, -s*0.85, s*0.1, s*0.38, -0.25, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.ellipse(s*0.18, -s*0.85, s*0.1, s*0.38, 0.25, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#E08040';
+        ctx.lineWidth = 0.6;
+        ctx.stroke();
+
+        // Big sparkly cute eyes
+        ctx.fillStyle = '#FFF';
+        ctx.beginPath(); ctx.arc(-s*0.2, -s*0.05, s*0.19, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(s*0.2, -s*0.05, s*0.19, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#552200';
+        ctx.beginPath(); ctx.arc(-s*0.18, -s*0.04, s*0.1, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(s*0.22, -s*0.04, s*0.1, 0, Math.PI * 2); ctx.fill();
+        // Eye sparkles — two per eye for max cute
+        ctx.fillStyle = '#FFF';
+        ctx.beginPath(); ctx.arc(-s*0.13, -s*0.09, s*0.045, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(s*0.27, -s*0.09, s*0.045, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(-s*0.23, -s*0.02, s*0.025, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(s*0.17, -s*0.02, s*0.025, 0, Math.PI * 2); ctx.fill();
+
+        // Blush
+        ctx.fillStyle = 'rgba(255,140,140,0.45)';
+        ctx.beginPath(); ctx.arc(-s*0.38, s*0.1, s*0.1, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(s*0.38, s*0.1, s*0.1, 0, Math.PI * 2); ctx.fill();
+
+        // Cute tiny mouth (w-shape)
+        ctx.strokeStyle = '#993300';
+        ctx.lineWidth = 0.6;
+        ctx.beginPath();
+        ctx.moveTo(-s*0.06, s*0.13);
+        ctx.quadraticCurveTo(0, s*0.2, s*0.06, s*0.13);
+        ctx.stroke();
+
+        // Tiny stub arms
+        ctx.fillStyle = '#FF9933';
+        ctx.beginPath(); ctx.arc(-s*0.58, s*0.05, s*0.13, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(s*0.58, s*0.05, s*0.13, 0, Math.PI * 2); ctx.fill();
+        // Tiny hands
+        ctx.fillStyle = '#FFCCAA';
+        ctx.beginPath(); ctx.arc(-s*0.62, s*0.12, s*0.06, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(s*0.62, s*0.12, s*0.06, 0, Math.PI * 2); ctx.fill();
+
+        // Tiny feet
+        ctx.fillStyle = '#E07020';
+        ctx.beginPath(); ctx.ellipse(-s*0.2, s*0.54, s*0.16, s*0.12, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(s*0.2, s*0.54, s*0.16, s*0.12, 0, 0, Math.PI * 2); ctx.fill();
+
+        // Cute poof tail behind
+        ctx.fillStyle = '#FFF';
+        ctx.beginPath();
+        ctx.arc(-s*0.58, s*0.2, s*0.14, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#FFCCAA';
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
+
+        // Gentle wind swirls (instead of aggressive motion lines)
+        ctx.strokeStyle = 'rgba(255,200,160,0.35)';
+        ctx.lineWidth = 1;
+        for (let ti = 0; ti < 2; ti++) {
+            const sx = -s*0.4 - ti * s*0.35;
+            const sy = (ti === 0 ? -s*0.15 : s*0.15) + Math.sin(time * 6 + ti) * 1;
+            ctx.beginPath();
+            ctx.arc(sx, sy, s*0.12, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+
+    } else {
+        // === NORMAL — chibi pixel-art soldier ===
+        const ps = s / 4.5; // pixel block size
+        const px = (cx, cy, cw, ch, color) => {
+            ctx.fillStyle = color;
+            ctx.fillRect(cx * ps, cy * ps, cw * ps, ch * ps);
+        };
+
+        // Shadow on ground
+        ctx.fillStyle = 'rgba(0,0,0,0.2)';
+        ctx.fillRect(-2.5 * ps, 5 * ps, 5 * ps, 1 * ps);
+
+        // Big round helmet — chibi head!
+        px(-3, -8, 6, 2, '#555555');   // helmet top dome
+        px(-4, -6, 8, 3, '#4A4A4A');   // helmet main wide part
+        px(-3, -3, 6, 1, '#555555');   // helmet brim
+
+        // Big sparkly pixel eyes
+        px(-2.5, -5, 2, 1.2, '#FFFFFF');   // left white
+        px( 0.5, -5, 2, 1.2, '#FFFFFF');   // right white
+        px(-2, -4.8, 1, 0.8, '#333333');    // left pupil
+        px( 1, -4.8, 1, 0.8, '#333333');    // right pupil
+        // Eye sparkles
+        px(-1.5, -5.2, 0.5, 0.5, '#FFFFFF');
+        px( 1.5, -5.2, 0.5, 0.5, '#FFFFFF');
+
+        // Blush cheeks (pink pixels)
+        px(-3.5, -3.8, 1.2, 0.8, '#FFAAAA');
+        px( 2.3, -3.8, 1.2, 0.8, '#FFAAAA');
+
+        // Face — skin tone (small strip under helmet)
+        px(-2, -3, 4, 1, '#E8C8A0');
+
+        // Tiny body armor — shorter & rounder
+        px(-2.5, -2, 5, 2.5, '#D04040');
+        px(-1.5, -1.5, 3, 1, '#E86060');
+
+        // Tiny stubby arms
+        px(-4, -2, 1.2, 1.5, '#A02020');
+        px( 2.8, -2, 1.2, 1.5, '#A02020');
+        // Tiny hands
+        px(-4.2, -0.5, 1.2, 0.8, '#E8C8A0');
+        px( 3, -0.5, 1.2, 0.8, '#E8C8A0');
+
+        // Belt
+        px(-2, 0.5, 4, 0.7, '#5A3A20');
+        px(-0.5, 0.5, 1, 0.7, '#DAA520');
+
+        // Short stubby legs
+        px(-1.5, 1.2, 1.5, 2, '#3A3A50');
+        px( 0, 1.2, 1.5, 2, '#3A3A50');
+
+        // Tiny boots
+        px(-1.5, 3.2, 1.5, 1, '#333333');
+        px( 0, 3.2, 1.5, 1, '#333333');
+    }
+
+    ctx.restore();
+
+    // Slow visual — frosty overlay
     if (e.slowTimer > 0 && e.slowFactor < 1) {
         ctx.fillStyle = 'rgba(173,216,230,0.4)';
         ctx.beginPath();
         ctx.arc(0, 0, e.size + 3, 0, Math.PI * 2);
         ctx.fill();
+        // Ice crystals at edges
+        const frostAlpha = Math.min(1, e.slowTimer / 500);
+        ctx.strokeStyle = `rgba(200,230,255,${frostAlpha * 0.6})`;
+        ctx.lineWidth = 1;
+        for (let fi = 0; fi < 6; fi++) {
+            const fa = (fi / 6) * Math.PI * 2 + time * 0.5;
+            const fx = Math.cos(fa) * (e.size + 5);
+            const fy = Math.sin(fa) * (e.size + 5);
+            ctx.beginPath();
+            ctx.moveTo(fx, fy);
+            ctx.lineTo(fx + Math.cos(fa) * 5, fy + Math.sin(fa) * 5);
+            ctx.stroke();
+        }
+    }
+
+    // Vuln aura (tesla_emp debuff)
+    if (e.vulnTimer > 0 && e.vulnFactor > 0) {
+        const vulnAlpha = 0.3 + Math.sin(time * 4) * 0.15;
+        ctx.strokeStyle = `rgba(200,100,255,${vulnAlpha})`;
+        ctx.lineWidth = 2;
+        ctx.setLineDash([3, 3]);
+        ctx.beginPath();
+        ctx.arc(0, 0, e.size + 8, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
     }
 
     // Health bar
     const barW = e.size * 2.5;
-    const barH = 3;
-    const barY = -e.size - 8;
+    const barH = isBoss ? 4 : 3;
+    const barY = -e.size - (isBoss ? 12 : 8);
     ctx.fillStyle = '#333';
     ctx.fillRect(-barW / 2, barY, barW, barH);
     const hpPct = e.hp / e.maxHp;
     const hpColor = hpPct > 0.5 ? '#2ecc71' : hpPct > 0.25 ? '#f39c12' : '#e74c3c';
-    ctx.fillStyle = hpColor;
+    if (isBoss) {
+        // Boss gradient health bar
+        const bossHpGrad = ctx.createLinearGradient(-barW/2, 0, barW/2, 0);
+        bossHpGrad.addColorStop(0, hpPct > 0.5 ? '#2ecc71' : hpPct > 0.25 ? '#f39c12' : '#e74c3c');
+        bossHpGrad.addColorStop(0.5, hpPct > 0.5 ? '#5DED9F' : hpPct > 0.25 ? '#F5B041' : '#F06050');
+        bossHpGrad.addColorStop(1, hpPct > 0.5 ? '#27AE60' : hpPct > 0.25 ? '#D68910' : '#C0392B');
+        ctx.fillStyle = bossHpGrad;
+    } else {
+        ctx.fillStyle = hpColor;
+    }
     ctx.fillRect(-barW / 2, barY, barW * hpPct, barH);
+    // HP bar border
+    ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+    ctx.lineWidth = 0.8;
+    ctx.strokeRect(-barW / 2, barY, barW, barH);
 
     ctx.restore();
 }
