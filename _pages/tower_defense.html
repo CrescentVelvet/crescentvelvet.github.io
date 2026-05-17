@@ -448,8 +448,8 @@ title: "塔防战争"
         <button class="tower-btn" data-type="fire" onclick="selectTowerType('fire')">
             <span class="tower-icon">🔥</span><span class="tower-name">火塔</span><span class="tower-cost">180💰</span>
         </button>
-        <button class="tower-btn" data-type="knockback" onclick="selectTowerType('knockback')">
-            <span class="tower-icon">💥</span><span class="tower-name">震波塔</span><span class="tower-cost">130💰</span>
+        <button class="tower-btn" data-type="wind" onclick="selectTowerType('wind')">
+            <span class="tower-icon">🌪️</span><span class="tower-name">风塔</span><span class="tower-cost">130💰</span>
         </button>
         <button class="tower-btn" data-type="sheep" onclick="selectTowerType('sheep')">
             <span class="tower-icon">🐑</span><span class="tower-name">羊塔</span><span class="tower-cost">150💰</span>
@@ -663,13 +663,43 @@ const TOWER_DEFS = {
         splash: 0, slowFactor: 0, slowDuration: 0, chainCount: 0,
         flameRadius: [50, 55, 65], flameDuration: [2200, 2600, 3200], flameTickInterval: 350
     },
-    knockback: {
-        name: '震波塔', icon: '💥',
+    wind: {
+        name: '风塔', icon: '🌪️',
         cost: 130, upgradeCost: [100, 200],
-        damage: [20, 35, 55], range: [85, 90, 100], cooldown: [1600, 1400, 1100],
-        color: '#4A90D9', bulletColor: '#C8E0F8', bulletSpeed: 500,
+        damage: [12, 22, 36], range: [110, 120, 135], cooldown: [1500, 1300, 1100],
+        color: '#6DB9B0', bulletColor: '#C8F8F0', bulletSpeed: 450,
         splash: 0, slowFactor: 0, slowDuration: 0, chainCount: 0,
-        knockbackDist: [45, 55, 70]
+        gustForce: [35, 50, 65]
+    },
+    wind_vortex: {
+        name: '涡流之眼', icon: '🌀',
+        cost: null, upgradeCost: [150, 280], evolveCost: 300,
+        damage: [6, 12, 20], range: [130, 145, 165], cooldown: [3800, 3300, 2700],
+        color: '#4A9E95', bulletColor: '#80E8D8', bulletSpeed: 90,
+        splash: [50, 62, 78], slowFactor: 0, slowDuration: 0, chainCount: 0,
+        vortexPull: [70, 100, 140],
+        vortexDuration: [2500, 3200, 4000],
+        vortexTickInterval: 280
+    },
+    wind_gust: {
+        name: '飓风过境', icon: '💨',
+        cost: null, upgradeCost: [160, 320], evolveCost: 300,
+        damage: [18, 32, 52], range: [115, 125, 140], cooldown: [2000, 1750, 1500],
+        color: '#7EC8BF', bulletColor: '#D8FFF8', bulletSpeed: 520,
+        splash: 0, slowFactor: 0, slowDuration: 0, chainCount: 0,
+        gustInterval: [9000, 7500, 6000],
+        gustDamage: [20, 38, 65],
+        gustForce: [60, 85, 115]
+    },
+    wind_aura: {
+        name: '无常风域', icon: '💫',
+        cost: null, upgradeCost: [140, 280], evolveCost: 300,
+        damage: [0, 0, 0], range: [105, 120, 135], cooldown: [2800, 2400, 2000],
+        color: '#A8D8D0', bulletColor: '#E8FFF8', bulletSpeed: 0,
+        splash: 0, slowFactor: 0, slowDuration: 0, chainCount: 0,
+        auraSpeedMin: [0.30, 0.22, 0.15],
+        auraSpeedMax: [1.7, 1.9, 2.1],
+        auraFlipInterval: [1600, 1300, 1000]
     },
     sheep: {
         name: '羊塔', icon: '🐑',
@@ -791,6 +821,11 @@ const EVOLVE_OPTIONS = {
         { type: 'sheep_turncoat', label: '魅惑反戈', icon: '🐺', desc: '策反攻击', color: '#9B59B6' },
         { type: 'sheep_contagion', label: '羊群蔓延', icon: '🐑', desc: '传染蔓延', color: '#27AE60' },
         { type: 'sheep_aura', label: '牧羊圣域', icon: '✨', desc: '化羊光环', color: '#F5E6CC' }
+    ],
+    wind: [
+        { type: 'wind_vortex', label: '涡流之眼', icon: '🌀', desc: '龙卷牵引', color: '#4A9E95' },
+        { type: 'wind_gust', label: '飓风过境', icon: '💨', desc: '全图狂风', color: '#7EC8BF' },
+        { type: 'wind_aura', label: '无常风域', icon: '💫', desc: '乱速领域', color: '#A8D8D0' }
     ]
 };
 
@@ -1090,7 +1125,15 @@ function towerStats(t) {
         flameDuration: Array.isArray(def.flameDuration) ? def.flameDuration[lv] : (def.flameDuration || 0),
         flameTickInterval: def.flameTickInterval || 0,
         sheepDuration: Array.isArray(def.sheepDuration) ? def.sheepDuration[lv] : (def.sheepDuration || 0),
-        knockbackDist: Array.isArray(def.knockbackDist) ? def.knockbackDist[lv] : (def.knockbackDist || 0),
+        gustForce: Array.isArray(def.gustForce) ? def.gustForce[lv] : (def.gustForce || 0),
+        vortexPull: Array.isArray(def.vortexPull) ? def.vortexPull[lv] : (def.vortexPull || 0),
+        vortexDuration: Array.isArray(def.vortexDuration) ? def.vortexDuration[lv] : (def.vortexDuration || 0),
+        vortexTickInterval: def.vortexTickInterval || 0,
+        gustInterval: Array.isArray(def.gustInterval) ? def.gustInterval[lv] : (def.gustInterval || 0),
+        gustDamage: Array.isArray(def.gustDamage) ? def.gustDamage[lv] : (def.gustDamage || 0),
+        auraSpeedMin: Array.isArray(def.auraSpeedMin) ? def.auraSpeedMin[lv] : (def.auraSpeedMin || 0),
+        auraSpeedMax: Array.isArray(def.auraSpeedMax) ? def.auraSpeedMax[lv] : (def.auraSpeedMax || 0),
+        auraFlipInterval: Array.isArray(def.auraFlipInterval) ? def.auraFlipInterval[lv] : (def.auraFlipInterval || 0),
         arcHeight: def.arcHeight || 0,
         linkRange: def.linkRange || 0,
         linkDmgBoost: def.linkDmgBoost || 0,
@@ -1284,6 +1327,46 @@ function updateTowers(dt) {
             }
             t.cooldown = st.cooldown;
             continue;
+        }
+        // Wind aura (无常风域) — passive speed fluctuation field, no projectile
+        if (t.type === 'wind_aura') {
+            const st = towerStats(t);
+            for (const e of game.enemies) {
+                if (!e.alive || e.isTurncoat) continue;
+                if (dist(t, e) <= st.range) {
+                    if (!e.windAuraTimer) e.windAuraTimer = 0;
+                    if (!e.windAuraFast) e.windAuraFast = false;
+                    e.windAuraTimer -= dt * 1000;
+                    if (e.windAuraTimer <= 0) {
+                        e.windAuraFast = !e.windAuraFast;
+                        const speedMult = e.windAuraFast ? st.auraSpeedMax : st.auraSpeedMin;
+                        e.currentSpeed = e.speed * speedMult;
+                        e.windAuraTimer = st.auraFlipInterval;
+                        createWindFlipSpark(e.x, e.y, e.windAuraFast);
+                    }
+                }
+            }
+            t.cooldown = st.cooldown;
+            continue;
+        }
+        // Wind gust (飓风过境) — normal attacks + periodic map-wide gust
+        if (t.type === 'wind_gust') {
+            const st = towerStats(t);
+            if (!t.gustTimer) t.gustTimer = st.gustInterval;
+            t.gustTimer -= dt * 1000;
+            if (t.gustTimer <= 0) {
+                // Map-wide hurricane sweep
+                for (const e of game.enemies) {
+                    if (!e.alive || e.isTurncoat) continue;
+                    applyKnockback(e, st.gustForce);
+                    dealDamage(e, st.gustDamage);
+                    createWindBurst(e.x, e.y);
+                }
+                t.gustTimer = st.gustInterval;
+                // Small cooldown so it doesn't also fire a projectile immediately
+                t.cooldown = 500;
+                continue;
+            }
         }
         const target = towerAcquireTarget(t);
         // Charge overflow — tesla_charge accumulates extra damage when idle
@@ -1568,6 +1651,68 @@ function createKnockbackShockwave(x, y) {
     });
 }
 
+function createWindBurst(x, y) {
+    // Gust of wind particles in a sweeping direction
+    for (let i = 0; i < 10; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 50 + Math.random() * 160;
+        game.particles.push({
+            x, y,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed - 30,
+            life: 0.2 + Math.random() * 0.4,
+            maxLife: 0.6,
+            color: Math.random() < 0.5 ? '#C8F8F0' : '#E8FFF8',
+            size: 1.5 + Math.random() * 3
+        });
+    }
+    // Wind swirl ring
+    game.particles.push({
+        x, y, vx: 0, vy: 0,
+        life: 0.3, maxLife: 0.3,
+        color: '#80E8D8', size: 22, ring: true
+    });
+}
+
+function createWindFlipSpark(x, y, isFast) {
+    // Small visual indicator when enemy speed flips
+    const color = isFast ? '#A0FFD0' : '#FFB0A0';
+    for (let i = 0; i < 4; i++) {
+        const angle = (i / 4) * Math.PI * 2;
+        game.particles.push({
+            x, y,
+            vx: Math.cos(angle) * 25,
+            vy: Math.sin(angle) * 25 - 10,
+            life: 0.15 + Math.random() * 0.2,
+            maxLife: 0.35,
+            color,
+            size: 1 + Math.random() * 2
+        });
+    }
+}
+
+function createWindDissipate(x, y, radius) {
+    // Vortex dissipates into a puff of wind
+    for (let i = 0; i < 14; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 30 + Math.random() * 100;
+        game.particles.push({
+            x, y,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed - 15,
+            life: 0.3 + Math.random() * 0.4,
+            maxLife: 0.7,
+            color: '#C8F8F0',
+            size: 2 + Math.random() * 4
+        });
+    }
+    game.particles.push({
+        x, y, vx: 0, vy: 0,
+        life: 0.4, maxLife: 0.4,
+        color: '#6DB9B0', size: radius * 0.8, ring: true
+    });
+}
+
 // ==================== PROJECTILE LOGIC ====================
 function createProjectile(tower, target) {
     const st = towerStats(tower);
@@ -1596,7 +1741,15 @@ function createProjectile(tower, target) {
         flameDuration: st.flameDuration,
         flameTickInterval: st.flameTickInterval,
         sheepDuration: st.sheepDuration,
-        knockbackDist: st.knockbackDist,
+        gustForce: st.gustForce,
+        vortexPull: st.vortexPull,
+        vortexDuration: st.vortexDuration,
+        vortexTickInterval: st.vortexTickInterval,
+        gustInterval: st.gustInterval,
+        gustDamage: st.gustDamage,
+        auraSpeedMin: st.auraSpeedMin,
+        auraSpeedMax: st.auraSpeedMax,
+        auraFlipInterval: st.auraFlipInterval,
         arcHeight: st.arcHeight,
         flightDistance: flightDist,
         progress: 0,
@@ -1676,6 +1829,69 @@ function updateProjectiles(dt) {
             } else {
                 p.x += (dx / d) * moveSpeed;
                 p.y += (dy / d) * moveSpeed;
+            }
+            continue;
+        }
+
+        // Wind vortex — slow-moving persistent tornado that pulls and damages enemies
+        if (p.type === 'wind_vortex') {
+            if (!p.vortexBorn) {
+                p.vortexBorn = performance.now();
+                p.vortexTimer = p.vortexDuration;
+                p.vortexTickTimer = 0;
+            }
+            p.vortexTimer -= dt * 1000;
+            // Vortex times out
+            if (p.vortexTimer <= 0) {
+                createWindDissipate(p.x, p.y, p.splashRadius);
+                p.alive = false;
+                continue;
+            }
+            // Move slowly toward target position
+            const vdx = p.targetX - p.x;
+            const vdy = p.targetY - p.y;
+            const vd = Math.sqrt(vdx * vdx + vdy * vdy);
+            const vSpeed = p.speed * dt;
+            if (vd > 10) {
+                p.x += (vdx / vd) * vSpeed;
+                p.y += (vdy / vd) * vSpeed;
+            }
+            // Pull enemies toward vortex center
+            for (const e of game.enemies) {
+                if (!e.alive || e.isTurncoat) continue;
+                const ed = dist(p, e);
+                if (ed <= p.splashRadius && ed > 3) {
+                    const pullStrength = p.vortexPull * dt * (1 - ed / p.splashRadius);
+                    e.x += (p.x - e.x) / ed * pullStrength;
+                    e.y += (p.y - e.y) / ed * pullStrength;
+                }
+            }
+            // Tick damage
+            p.vortexTickTimer -= dt * 1000;
+            while (p.vortexTickTimer <= 0) {
+                for (const e of game.enemies) {
+                    if (!e.alive || e.isTurncoat) continue;
+                    if (dist(p, e) <= p.splashRadius) {
+                        dealDamage(e, p.damage);
+                        createHitSpark(e.x, e.y, '#80E8D8');
+                    }
+                }
+                p.vortexTickTimer += p.vortexTickInterval;
+            }
+            // Spawn spin particles
+            if (Math.random() < dt * 15) {
+                const sa = Math.random() * Math.PI * 2;
+                const sr = Math.random() * p.splashRadius * 0.7;
+                game.particles.push({
+                    x: p.x + Math.cos(sa) * sr,
+                    y: p.y + Math.sin(sa) * sr,
+                    vx: Math.cos(sa + Math.PI / 2) * 40,
+                    vy: Math.sin(sa + Math.PI / 2) * 40 - 10,
+                    life: 0.3 + Math.random() * 0.3,
+                    maxLife: 0.6,
+                    color: '#C8F8F0',
+                    size: 1.5 + Math.random() * 2
+                });
             }
             continue;
         }
@@ -1813,7 +2029,11 @@ function updateProjectiles(dt) {
                             slowFactor: 0, slowDuration: 0,
                             chainCount: 0, chainRange: 0, chainFalloff: 0,
                             flameRadius: 0, flameDuration: 0, flameTickInterval: 0,
-                            sheepDuration: 0, knockbackDist: 0, arcHeight: 0,
+                            sheepDuration: 0, gustForce: 0, vortexPull: 0,
+                            vortexDuration: 0, vortexTickInterval: 0,
+                            gustInterval: 0, gustDamage: 0,
+                            auraSpeedMin: 0, auraSpeedMax: 0, auraFlipInterval: 0,
+                            arcHeight: 0,
                             flightDistance: 600,
                             progress: 0,
                             alive: true,
@@ -1949,13 +2169,28 @@ function handleImpact(p) {
         return;
     }
 
-    // Knockback — push enemy backward along the path
-    if (p.type === 'knockback') {
+    // Wind tower — push enemy backward with a wind burst
+    if (p.type === 'wind') {
         if (!p.target || !p.target.alive) return;
         dealDamage(p.target, p.damage);
-        applyKnockback(p.target, p.knockbackDist);
-        createHitSpark(p.target.x, p.target.y, '#C8E0F8');
-        createKnockbackShockwave(p.target.x, p.target.y);
+        applyKnockback(p.target, p.gustForce);
+        createWindBurst(p.target.x, p.target.y);
+        return;
+    }
+
+    // Wind gust — map-wide hurricane sweep (triggered periodically, not on projectile hit)
+    if (p.type === 'wind_gust') {
+        if (!p.target || !p.target.alive) return;
+        dealDamage(p.target, p.damage);
+        applyKnockback(p.target, p.gustForce);
+        createWindBurst(p.target.x, p.target.y);
+        return;
+    }
+
+    // Wind vortex — the projectile is the vortex itself, handled in updateProjectiles
+    if (p.type === 'wind_vortex') {
+        // Vortex doesn't impact — it pulses, pulls enemies, and times out
+        // If somehow it reaches target directly, just let it continue
         return;
     }
 
@@ -2120,7 +2355,10 @@ function spawnShrapnel(p) {
             flameDuration: 0,
             flameTickInterval: 0,
             sheepDuration: 0,
-            knockbackDist: 0,
+            gustForce: 0, vortexPull: 0,
+            vortexDuration: 0, vortexTickInterval: 0,
+            gustInterval: 0, gustDamage: 0,
+            auraSpeedMin: 0, auraSpeedMax: 0, auraFlipInterval: 0,
             arcHeight: 0,
             flightDistance: p.shrapnelRange,
             progress: 0,
@@ -3336,7 +3574,10 @@ function drawTower(t) {
         case 'fire_focus': drawFireFocusTower(t, st, lv); break;
         case 'fire_ignite': drawFireIgniteTower(t, st, lv); break;
         case 'fire_detonate': drawFireDetonateTower(t, st, lv); break;
-        case 'knockback': drawKnockbackTower(t, st, lv); break;
+        case 'wind': drawWindTower(t, st, lv); break;
+        case 'wind_vortex': drawWindVortexTower(t, st, lv); break;
+        case 'wind_gust': drawWindGustTower(t, st, lv); break;
+        case 'wind_aura': drawWindAuraTower(t, st, lv); break;
         case 'sheep': drawSheepTower(t, st, lv); break;
         case 'sheep_turncoat': drawSheepTurncoatTower(t, st, lv); break;
         case 'sheep_contagion': drawSheepContagionTower(t, st, lv); break;
@@ -5556,139 +5797,216 @@ function drawFireDetonateTower(t, st, lv) {
 }
 
 // ===== KNOCKBACK TOWER — Shockwave emitter with piston hammer =====
-function drawKnockbackTower(t, st, lv) {
-    const bw = 10 + lv;
-    const h = 14 + lv * 3;
+// ===== WIND TOWER — Whirling column of air with swirling top =====
+function drawWindTower(t, st, lv) {
     const time = Date.now() / 1000;
+    const r = 9 + lv;
+    const h = 16 + lv * 4;
 
     // Shadow
-    ctx.fillStyle = 'rgba(0,0,0,0.25)';
-    ctx.beginPath();
-    ctx.ellipse(0, 5, bw + 2, bw * 0.35, 0, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.fillStyle = 'rgba(0,0,0,0.22)';
+    ctx.beginPath(); ctx.ellipse(0, 5, r + 2, r * 0.3, 0, 0, Math.PI * 2); ctx.fill();
 
-    // Steel base platform
-    const baseGrad = ctx.createLinearGradient(0, 0, 0, bw + 2);
-    baseGrad.addColorStop(0, '#7D8B9C');
-    baseGrad.addColorStop(1, '#4A5568');
-    ctx.fillStyle = baseGrad;
-    ctx.beginPath();
-    ctx.roundRect(-bw - 1, 1, (bw + 1) * 2, bw + 3, 3);
-    ctx.fill();
-    ctx.strokeStyle = '#2D3748';
-    ctx.lineWidth = 2;
+    // Stone base ring
+    ctx.fillStyle = '#8B9D8B';
+    ctx.beginPath(); ctx.roundRect(-r - 2, 2, (r + 2) * 2, r + 4, 3); ctx.fill();
+    ctx.strokeStyle = '#5A6B5A'; ctx.lineWidth = 1.5;
     ctx.stroke();
 
-    // Steel rivets
-    ctx.fillStyle = '#A0AEC0';
-    for (let i = 0; i < 3; i++) {
-        const rx = -bw + 4 + i * (bw * 2 - 8) / 2;
+    // Wind column — spiraling body
+    for (let i = 0; i < 8; i++) {
+        const phase = (time * 2 + i * 0.4) % 1;
+        const y = -h * 0.7 + i * h * 0.7 / 8;
+        const xOff = Math.sin(time * 5 + i * 1.2) * 2;
+        const alpha = 0.3 + phase * 0.4;
+        ctx.strokeStyle = `rgba(200,248,240,${alpha})`;
+        ctx.lineWidth = 1.5 + (1 - Math.abs(i - 4) / 4) * 2;
         ctx.beginPath();
-        ctx.arc(rx, bw / 2 + 2, 1.8, 0, Math.PI * 2);
-        ctx.fill();
-    }
-
-    // Central hydraulic piston
-    const pistonW = 4 + lv;
-    const pistonH = h * 0.45;
-    ctx.fillStyle = '#A0AEC0';
-    ctx.fillRect(-pistonW, -pistonH, pistonW * 2, pistonH + 2);
-    ctx.strokeStyle = '#4A5568';
-    ctx.lineWidth = 1.5;
-    ctx.strokeRect(-pistonW, -pistonH, pistonW * 2, pistonH + 2);
-
-    // Piston rings
-    for (let i = 0; i < 4; i++) {
-        const ry = -pistonH + (i + 1) * pistonH / 5;
-        ctx.strokeStyle = '#718096';
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.moveTo(-pistonW - 1, ry);
-        ctx.lineTo(pistonW + 1, ry);
+        ctx.moveTo(-r * 0.5 + xOff, y);
+        ctx.quadraticCurveTo(xOff, y - 4, r * 0.5 + xOff, y);
         ctx.stroke();
     }
 
-    // Impact hammer head
-    const hammerW = pistonW + 3;
-    const hammerH = 5 + lv;
-    const hammerY = -pistonH - hammerH;
-    // Animated hammer movement (subtle vibration)
-    const vibrate = Math.sin(time * 20) * (lv * 0.8);
-    const hammerCY = hammerY + hammerH / 2 + vibrate;
-    ctx.fillStyle = '#CBD5E0';
-    ctx.fillRect(-hammerW, hammerCY - hammerH / 2, hammerW * 2, hammerH);
-    ctx.strokeStyle = '#718096';
-    ctx.lineWidth = 1.5;
-    ctx.strokeRect(-hammerW, hammerCY - hammerH / 2, hammerW * 2, hammerH);
+    // Central vortex funnel
+    ctx.fillStyle = st.color;
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.35, 0);
+    ctx.quadraticCurveTo(-r * 0.15, -h * 0.4, -r * 0.15, -h * 0.7);
+    ctx.lineTo(r * 0.15, -h * 0.7);
+    ctx.quadraticCurveTo(r * 0.15, -h * 0.4, r * 0.35, 0);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = 'rgba(200,248,240,0.4)'; ctx.lineWidth = 1; ctx.stroke();
 
-    // Hammer face highlight
-    ctx.fillStyle = '#E2E8F0';
-    ctx.fillRect(-hammerW + 2, hammerCY - hammerH / 2 + 1, hammerW * 2 - 4, 2);
-
-    // Shockwave emitter coils on sides
-    for (let side = -1; side <= 1; side += 2) {
-        const coilX = side * (pistonW + 4);
-        const coilY = -pistonH * 0.5;
-        for (let i = 0; i < 3; i++) {
-            const cy = coilY - i * 5;
-            ctx.strokeStyle = '#63B3ED';
-            ctx.lineWidth = 1.2;
-            ctx.beginPath();
-            ctx.arc(coilX, cy, 3, 0, Math.PI * 2);
-            ctx.stroke();
-            // Glow
-            const glowAlpha = 0.2 + Math.sin(time * 8 + i + side) * 0.1;
-            ctx.fillStyle = `rgba(99,179,237,${glowAlpha})`;
-            ctx.beginPath();
-            ctx.arc(coilX, cy, 3, 0, Math.PI * 2);
-            ctx.fill();
-        }
-        // Connecting wire
-        ctx.strokeStyle = '#63B3ED';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(coilX, coilY + 5);
-        ctx.lineTo(side * pistonW, coilY + 5);
-        ctx.stroke();
-    }
-
-    // Top antenna / discharge spike
-    ctx.fillStyle = '#CBD5E0';
-    ctx.fillRect(-1, hammerCY - hammerH / 2 - 6 - lv, 2, 6 + lv);
-    // Discharge orb
-    const orbCY = hammerCY - hammerH / 2 - 7 - lv;
-    const orbR = 2.5 + lv * 0.7;
-    const orbGrad = ctx.createRadialGradient(0, orbCY, 0, 0, orbCY, orbR);
+    // Swirling top — spiral orb
+    const orbY = -h * 0.72;
+    const orbR = 4 + lv * 0.6;
+    const orbGrad = ctx.createRadialGradient(0, orbY, 0, 0, orbY, orbR);
     orbGrad.addColorStop(0, '#FFFFFF');
-    orbGrad.addColorStop(0.3, '#BEE3F8');
-    orbGrad.addColorStop(1, 'rgba(49,130,206,0)');
-    ctx.fillStyle = orbGrad;
-    ctx.beginPath();
-    ctx.arc(0, orbCY, orbR + 2, 0, Math.PI * 2);
-    ctx.fill();
+    orbGrad.addColorStop(0.4, '#C8F8F0');
+    orbGrad.addColorStop(1, 'rgba(109,185,176,0)');
+    ctx.fillStyle = orbGrad; ctx.beginPath(); ctx.arc(0, orbY, orbR, 0, Math.PI * 2); ctx.fill();
 
-    // Pulsing shockwave rings from orb
-    for (let i = 0; i < 2; i++) {
-        const ringPhase = (time * 3 + i * 0.5) % 1;
-        const ringR = orbR + ringPhase * 10;
-        const ringA = (1 - ringPhase) * 0.4;
-        ctx.strokeStyle = `rgba(99,179,237,${ringA})`;
+    // Swirl arcs around orb
+    for (let i = 0; i < 3; i++) {
+        const sa = time * 3 + i * 2.1;
+        ctx.strokeStyle = `rgba(232,255,248,${0.35 + Math.sin(time * 5 + i) * 0.15})`;
         ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.arc(0, orbCY, ringR, 0, Math.PI * 2);
+        ctx.arc(0, orbY, orbR + 2 + i * 1.5, sa, sa + 1.8);
+        ctx.stroke();
+    }
+}
+
+// ===== WIND VORTEX TOWER — Dark tornado funnel with spinning debris =====
+function drawWindVortexTower(t, st, lv) {
+    const time = Date.now() / 1000;
+    const r = 8 + lv;
+    const h = 18 + lv * 4;
+
+    ctx.fillStyle = 'rgba(0,0,0,0.22)';
+    ctx.beginPath(); ctx.ellipse(0, 5, r + 2, r * 0.3, 0, 0, Math.PI * 2); ctx.fill();
+
+    // Dark stone base
+    ctx.fillStyle = '#5A6B6A'; ctx.beginPath(); ctx.roundRect(-r - 1, 2, (r + 1) * 2, r + 3, 3); ctx.fill();
+
+    // Tornado funnel
+    const funnelGrad = ctx.createLinearGradient(0, -h, 0, 0);
+    funnelGrad.addColorStop(0, '#2A4A45');
+    funnelGrad.addColorStop(0.5, '#4A9E95');
+    funnelGrad.addColorStop(1, '#6BBAAD');
+    ctx.fillStyle = funnelGrad;
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.2, -h * 0.85);
+    ctx.quadraticCurveTo(-r * 0.5, -h * 0.3, -r * 0.7, 0);
+    ctx.lineTo(r * 0.7, 0);
+    ctx.quadraticCurveTo(r * 0.5, -h * 0.3, r * 0.2, -h * 0.85);
+    ctx.closePath(); ctx.fill();
+
+    // Funnel outline
+    ctx.strokeStyle = 'rgba(128,232,216,0.5)'; ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Spinning debris dots
+    for (let i = 0; i < 6; i++) {
+        const sa = time * 4 + i * 1.05;
+        const sr = r * (0.3 + i * 0.1);
+        const sy = -h * 0.2 - i * h * 0.12;
+        const dx = Math.cos(sa) * sr;
+        const dy = sy;
+        ctx.fillStyle = 'rgba(200,248,240,0.7)';
+        ctx.beginPath(); ctx.arc(dx, dy, 1.2, 0, Math.PI * 2); ctx.fill();
+    }
+
+    // Eye of the storm at top
+    const eyeY = -h * 0.82;
+    const eyeR = 3 + lv * 0.5;
+    ctx.fillStyle = '#C8F8F0'; ctx.beginPath(); ctx.arc(0, eyeY, eyeR, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#80E8D8'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(0, eyeY, eyeR + 3, time * 2, time * 2 + 3.5); ctx.stroke();
+}
+
+// ===== WIND GUST TOWER — Tower with wing-like fins and wind streaks =====
+function drawWindGustTower(t, st, lv) {
+    const time = Date.now() / 1000;
+    const r = 9 + lv;
+    const h = 15 + lv * 3;
+
+    ctx.fillStyle = 'rgba(0,0,0,0.22)';
+    ctx.beginPath(); ctx.ellipse(0, 5, r + 2, r * 0.3, 0, 0, Math.PI * 2); ctx.fill();
+
+    // Light stone base
+    ctx.fillStyle = '#8BAEAA'; ctx.beginPath(); ctx.roundRect(-r - 1, 2, (r + 1) * 2, r + 3, 3); ctx.fill();
+
+    // Tapered tower body
+    ctx.fillStyle = st.color;
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.5, 0);
+    ctx.lineTo(r * 0.5, 0);
+    ctx.lineTo(r * 0.2, -h * 0.6);
+    ctx.lineTo(-r * 0.2, -h * 0.6);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = 'rgba(216,255,248,0.35)'; ctx.lineWidth = 1; ctx.stroke();
+
+    // Wing-like fins on sides
+    for (let side = -1; side <= 1; side += 2) {
+        const wingFlap = Math.sin(time * 6) * 3;
+        ctx.save();
+        ctx.fillStyle = 'rgba(168,232,224,0.5)';
+        ctx.beginPath();
+        ctx.moveTo(side * r * 0.3, -h * 0.2);
+        ctx.quadraticCurveTo(side * (r + 8 + lv), -h * 0.35 + wingFlap, side * (r + 2), -h * 0.45 + wingFlap);
+        ctx.quadraticCurveTo(side * (r + 6 + lv), -h * 0.5 + wingFlap, side * r * 0.3, -h * 0.4);
+        ctx.closePath(); ctx.fill();
+        ctx.restore();
+    }
+
+    // Wind streak lines
+    for (let i = 0; i < 4; i++) {
+        const phase = (time * 4 + i * 0.6) % 1;
+        const sy = -h * 0.5 - i * 4;
+        ctx.strokeStyle = `rgba(232,255,248,${0.4 * (1 - phase)})`;
+        ctx.lineWidth = 1.2;
+        const streakLen = phase * 14;
+        ctx.beginPath();
+        ctx.moveTo(-streakLen / 2, sy);
+        ctx.lineTo(streakLen / 2, sy);
         ctx.stroke();
     }
 
-    // Barrel (energy projector)
+    // Top wind vane
     ctx.save();
-    ctx.rotate(t.angle);
-    ctx.fillStyle = '#A0AEC0';
-    ctx.fillRect(2, -1.5, pistonW + 6, 3);
-    ctx.fillStyle = '#63B3ED';
-    ctx.beginPath();
-    ctx.arc(pistonW + 7, 0, 3, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.rotate(time * 2);
+    ctx.fillStyle = '#D8FFF8'; ctx.fillRect(-1, -h * 0.7, 2, 8 + lv);
+    ctx.fillRect(-6 - lv, -h * 0.66, 12 + lv * 2, 2);
     ctx.restore();
+}
+
+// ===== WIND AURA TOWER — Calm tower with expanding/contracting aura rings =====
+function drawWindAuraTower(t, st, lv) {
+    const time = Date.now() / 1000;
+    const r = 8 + lv;
+    const h = 14 + lv * 2;
+
+    ctx.fillStyle = 'rgba(0,0,0,0.2)';
+    ctx.beginPath(); ctx.ellipse(0, 5, r + 2, r * 0.3, 0, 0, Math.PI * 2); ctx.fill();
+
+    // Serene stone base
+    ctx.fillStyle = '#9BBCB8'; ctx.beginPath(); ctx.roundRect(-r - 1, 2, (r + 1) * 2, r + 3, 3); ctx.fill();
+
+    // Smooth pillar body
+    const bodyGrad = ctx.createLinearGradient(0, -h, 0, 0);
+    bodyGrad.addColorStop(0, '#C8E8E0');
+    bodyGrad.addColorStop(1, '#8BC0B8');
+    ctx.fillStyle = bodyGrad;
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.4, 0);
+    ctx.lineTo(r * 0.4, 0);
+    ctx.lineTo(r * 0.15, -h * 0.65);
+    ctx.lineTo(-r * 0.15, -h * 0.65);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = 'rgba(232,255,248,0.3)'; ctx.lineWidth = 1; ctx.stroke();
+
+    // Floating orb at top
+    const orbY = -h * 0.7;
+    const orbFloat = Math.sin(time * 1.8) * 1.5;
+    const orbR = 4 + lv * 0.7;
+    const orbGrad = ctx.createRadialGradient(0, orbY + orbFloat, 0, 0, orbY + orbFloat, orbR);
+    orbGrad.addColorStop(0, '#FFFFFF');
+    orbGrad.addColorStop(0.5, '#E8FFF8');
+    orbGrad.addColorStop(1, 'rgba(168,216,208,0)');
+    ctx.fillStyle = orbGrad; ctx.beginPath(); ctx.arc(0, orbY + orbFloat, orbR, 0, Math.PI * 2); ctx.fill();
+
+    // Expanding/contracting aura rings
+    for (let i = 0; i < 2; i++) {
+        const ringPhase = (time * 1.5 + i * 0.7) % 1;
+        const ringR = orbR + 4 + ringPhase * 12;
+        const ringA = (1 - ringPhase) * 0.35;
+        ctx.strokeStyle = `rgba(200,248,240,${ringA})`;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(0, orbY + orbFloat, ringR, 0, Math.PI * 2);
+        ctx.stroke();
+    }
 }
 
 // ===== SHEEP TOWER — Pastoral farm with magical wool core =====
@@ -7404,6 +7722,60 @@ function drawProjectile(p) {
         ctx.closePath();
         ctx.fill();
         ctx.restore();
+    } else if (p.type === 'wind' || p.type === 'wind_gust') {
+        // Wind gust — cyan/white streak toward target
+        const wAngle = p.target ? Math.atan2(p.target.y - p.y, p.target.x - p.x) : 0;
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(wAngle);
+        // Outer glow
+        ctx.fillStyle = 'rgba(200,248,240,0.25)';
+        ctx.beginPath();
+        ctx.arc(0, 0, 8, 0, Math.PI * 2);
+        ctx.fill();
+        // Streak lines
+        ctx.strokeStyle = '#C8F8F0';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.moveTo(8, 0);
+        ctx.quadraticCurveTo(0, -3, -6, 0);
+        ctx.stroke();
+        ctx.strokeStyle = '#E8FFF8';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(7, 1);
+        ctx.quadraticCurveTo(1, -1, -4, 1);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(7, -1);
+        ctx.quadraticCurveTo(1, -4, -4, -1);
+        ctx.stroke();
+        ctx.restore();
+    } else if (p.type === 'wind_vortex') {
+        // Spiraling vortex orb
+        const now = performance.now() / 1000;
+        const vAlpha = Math.min(1, (now - (p.vortexBorn || now)) / 300);
+        // Outer swirl
+        ctx.strokeStyle = '#80E8D8';
+        ctx.lineWidth = 3 * vAlpha;
+        ctx.beginPath();
+        for (let i = 0; i <= 16; i++) {
+            const a = (i / 16) * Math.PI * 2 + now * 4;
+            const r = 8 + Math.sin(i * 3 + now * 6) * 2;
+            const sx = p.x + Math.cos(a) * r;
+            const sy = p.y + Math.sin(a) * r;
+            i === 0 ? ctx.moveTo(sx, sy) : ctx.lineTo(sx, sy);
+        }
+        ctx.stroke();
+        // Inner bright core
+        const vGrad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, 6);
+        vGrad.addColorStop(0, '#FFFFFF');
+        vGrad.addColorStop(0.3, '#C8F8F0');
+        vGrad.addColorStop(1, 'rgba(74,158,149,0)');
+        ctx.fillStyle = vGrad;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 6, 0, Math.PI * 2);
+        ctx.fill();
     } else {
         ctx.fillStyle = p.color;
         ctx.beginPath();
@@ -7555,14 +7927,14 @@ function drawHoverPreview() {
             ctx.closePath();
             ctx.fill();
             break;
-        case 'knockback':
+        case 'wind':
             ctx.fillStyle = def.color;
-            ctx.fillRect(-6, -4, 12, 12);
-            ctx.fillStyle = '#CBD5E0';
-            ctx.fillRect(-4, -8, 8, 6);
-            ctx.strokeStyle = '#63B3ED';
+            ctx.beginPath(); ctx.arc(0, -2, 7, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#C8F8F0';
+            ctx.beginPath(); ctx.arc(0, -5, 4, 0, Math.PI * 2); ctx.fill();
+            ctx.strokeStyle = '#E8FFF8';
             ctx.lineWidth = 1;
-            ctx.beginPath(); ctx.arc(0, -5, 5, 0, Math.PI * 2); ctx.stroke();
+            ctx.beginPath(); ctx.arc(0, -2, 9, -0.6, 2.5); ctx.stroke();
             break;
         case 'sheep':
             ctx.fillStyle = def.color;
@@ -7771,7 +8143,12 @@ function showTowerInfo(t) {
         (st.flameDuration > 0 ? '<div class="stat-row"><span>火焰持续</span><span>' + (st.flameDuration / 1000).toFixed(1) + 's</span></div>' : '') +
         (st.sheepDuration > 0 ? '<div class="stat-row"><span>变羊持续</span><span>' + (st.sheepDuration / 1000).toFixed(1) + 's</span></div>' : '') +
         (st.arcHeight > 0 ? '<div class="stat-row"><span>导弹弧线</span><span>是</span></div>' : '') +
-        (st.knockbackDist > 0 ? '<div class="stat-row"><span>击退距离</span><span>' + st.knockbackDist + 'px</span></div>' : '') +
+        (st.gustForce > 0 ? '<div class="stat-row"><span>风力</span><span>' + st.gustForce + '</span></div>' : '') +
+        (st.vortexPull > 0 ? '<div class="stat-row"><span>牵引力</span><span>' + st.vortexPull + '</span></div>' : '') +
+        (st.vortexDuration > 0 ? '<div class="stat-row"><span>涡流持续</span><span>' + (st.vortexDuration / 1000).toFixed(1) + 's</span></div>' : '') +
+        (st.gustInterval > 0 ? '<div class="stat-row"><span>狂风间隔</span><span>' + (st.gustInterval / 1000).toFixed(1) + 's</span></div>' : '') +
+        (st.gustDamage > 0 ? '<div class="stat-row"><span>狂风伤害</span><span>' + st.gustDamage + '</span></div>' : '') +
+        (st.auraSpeedMin > 0 ? '<div class="stat-row"><span>风速范围</span><span>' + Math.round(st.auraSpeedMin * 100) + '%-' + Math.round(st.auraSpeedMax * 100) + '%</span></div>' : '') +
         (st.linkRange > 0 ? '<div class="stat-row"><span>链接范围</span><span>' + st.linkRange + 'px</span></div>' : '') +
         (st.linkRange > 0 && t.linkedCount > 0 ? '<div class="stat-row"><span>已链接</span><span>' + t.linkedCount + '个 (+' + Math.round(t.linkedCount * st.linkDmgBoost * 100) + '%伤害)</span></div>' : '') +
         (st.critChance > 0 ? '<div class="stat-row"><span>暴击率</span><span>' + Math.round(st.critChance * 100) + '%</span></div>' : '') +
@@ -7927,7 +8304,10 @@ function getTowerSpecial(def) {
     if (def.igniteFlameRadius) parts.push('点燃灼烧' + def.igniteFlameRadius[0] + '-' + def.igniteFlameRadius[2] + '范围');
     if (def.detonateDmg) parts.push('击杀爆' + def.detonateDmg[0] + '-' + def.detonateDmg[2] + '伤害');
     if (def.flameRadius) parts.push('火焰区域' + def.flameRadius[0] + '-' + def.flameRadius[2] + '范围 ' + def.flameDuration[0] / 1000 + '-' + def.flameDuration[2] / 1000 + 's');
-    if (def.knockbackDist) parts.push('击退' + def.knockbackDist[0] + '-' + def.knockbackDist[2] + 'px');
+    if (def.gustForce) parts.push('风力' + def.gustForce[0] + '-' + def.gustForce[2]);
+    if (def.vortexPull) parts.push('牵引' + def.vortexPull[0] + '-' + def.vortexPull[2] + ' 持续' + def.vortexDuration[0] / 1000 + '-' + def.vortexDuration[2] / 1000 + 's');
+    if (def.gustInterval) parts.push('狂风间隔' + def.gustInterval[0] / 1000 + '-' + def.gustInterval[2] / 1000 + 's 伤害' + def.gustDamage[0] + '-' + def.gustDamage[2]);
+    if (def.auraSpeedMin) parts.push('乱速' + Math.round(def.auraSpeedMin[0] * 100) + '%-' + Math.round(def.auraSpeedMax[0] * 100) + '%');
     if (def.sheepDuration) parts.push('化羊' + def.sheepDuration[0] / 1000 + '-' + def.sheepDuration[2] / 1000 + 's');
     if (def.turncoatDamage) parts.push('策反伤害' + def.turncoatDamage[0] + '-' + def.turncoatDamage[2]);
     if (def.contagionRange) parts.push('传染' + def.contagionRange[0] + '-' + def.contagionRange[2] + '范围');
@@ -7946,7 +8326,7 @@ function buildCompendiumHTML() {
         { key: 'ice', base: 'ice' },
         { key: 'tesla', base: 'tesla' },
         { key: 'fire', base: 'fire' },
-        { key: 'knockback', base: null },
+        { key: 'wind', base: null },
         { key: 'sheep', base: 'sheep' },
         { key: 'missile', base: 'missile' },
         { key: 'laser', base: null }
@@ -8177,7 +8557,7 @@ document.addEventListener('keydown', (e) => {
         case '5': selectTowerType('fire'); break;
         case '6': selectTowerType('sheep'); break;
         case '7': selectTowerType('missile'); break;
-        case '8': selectTowerType('knockback'); break;
+        case '8': selectTowerType('wind'); break;
         case '9': selectTowerType('laser'); break;
         case ' ':
             e.preventDefault();
