@@ -766,9 +766,9 @@ const TOWER_DEFS = {
         color: '#4A2C0E', bulletColor: '#FF6B00', bulletSpeed: 180,
         splash: [150, 180, 220], splashDmgPct: 0.85, slowFactor: 0, slowDuration: 0, chainCount: 0,
         arcHeight: 140,
-        nukeZoneDuration: [5000, 6500, 8000],
-        nukeZoneRadius: [75, 90, 110],
-        nukeZoneDmg: [30, 50, 75],
+        nukeZoneDuration: [7000, 9000, 11000],
+        nukeZoneRadius: [80, 100, 120],
+        nukeZoneDmg: [25, 40, 60],
         nukeZoneInterval: 500
     },
     missile_precision: {
@@ -828,18 +828,18 @@ const TOWER_DEFS = {
     magnet_emp: {
         name: '电磁脉冲', icon: '💥',
         cost: null, upgradeCost: [150, 280], evolveCost: 300,
-        damage: [18, 30, 48], range: [140, 155, 170], cooldown: [2200, 2000, 1800],
+        damage: [15, 25, 40], range: [145, 160, 175], cooldown: [2400, 2200, 2000],
         color: '#FF6B35', bulletColor: '#FFAA66', bulletSpeed: 420,
         splash: 0, slowFactor: 0, slowDuration: 0, chainCount: 0,
         magnetizeDuration: [4000, 5000, 6000],
         magnetizePullRange: [80, 90, 100],
         magnetizePullStrength: [15, 18, 20],
         magnetizeCollisionDmg: [15, 25, 38],
-        empRadius: [75, 90, 110],
-        empStunDuration: [400, 600, 800],
-        empVulnFactor: [0.15, 0.20, 0.25],
-        empVulnDuration: [2500, 3500, 4500],
-        empInterval: [5000, 4500, 4000]
+        empRadius: [80, 95, 115],
+        empStunDuration: [500, 700, 900],
+        empVulnFactor: [0.20, 0.28, 0.35],
+        empVulnDuration: [3000, 4000, 5000],
+        empInterval: [4800, 4200, 3800]
     },
     magnet_polarity: {
         name: '极性罗网', icon: '🔀',
@@ -857,16 +857,16 @@ const TOWER_DEFS = {
     magnet_storm: {
         name: '磁暴链环', icon: '⛓️',
         cost: null, upgradeCost: [150, 280], evolveCost: 300,
-        damage: [10, 18, 30], range: [125, 135, 150], cooldown: [1700, 1500, 1300],
-        color: '#E65100', bulletColor: '#FF8F00', bulletSpeed: 390,
+        damage: [8, 14, 24], range: [125, 135, 150], cooldown: [1500, 1300, 1100],
+        color: '#E65100', bulletColor: '#FF8F00', bulletSpeed: 400,
         splash: 0, slowFactor: 0, slowDuration: 0, chainCount: 0,
         magnetizeDuration: [3500, 4500, 5500],
         magnetizePullRange: [75, 85, 95],
         magnetizePullStrength: [16, 20, 24],
         magnetizeCollisionDmg: [12, 20, 32],
-        stormSenseRange: [90, 105, 120],
-        stormSenseDmg: [6, 9, 12],
-        stormSenseInterval: 500,
+        stormSenseRange: [95, 110, 130],
+        stormSenseDmg: [8, 12, 18],
+        stormSenseInterval: 450,
         stormDeathPulseRange: [85, 100, 120]
     }
 };
@@ -1813,19 +1813,30 @@ function updateEnemies(dt) {
                     createImpactBurst(e.x, e.y, e.magnetizeEmpRadius * 0.7, 'nuke');
                 }
             }
-            // Storm induction timer
+            // Storm chain timer — chain lightning between magnetized enemies
             if (e.magnetizeStormInterval > 0) {
                 e.magnetizeStormTimer -= dtMs;
                 while (e.magnetizeStormTimer <= 0) {
                     e.magnetizeStormTimer += e.magnetizeStormInterval;
-                    let nearbyCount = 0;
+                    let hitCount = 0;
                     for (const other of magnetized) {
                         if (other.id === e.id) continue;
-                        if (dist(e, other) <= e.magnetizeStormSenseRange) nearbyCount++;
+                        if (dist(e, other) <= e.magnetizeStormSenseRange) {
+                            dealDamage(other, e.magnetizeStormSenseDmg);
+                            // Chain lightning arc between magnetized enemies
+                            game.particles.push({
+                                x: e.x, y: e.y,
+                                x2: other.x, y2: other.y,
+                                vx: 0, vy: 0,
+                                life: 0.25, maxLife: 0.25,
+                                color: '#FF8F00', size: 2.5,
+                                lightning: true
+                            });
+                            hitCount++;
+                        }
                     }
-                    if (nearbyCount > 0) {
-                        dealDamage(e, Math.floor(e.magnetizeStormSenseDmg * nearbyCount));
-                        createHitSpark(e.x, e.y, '#FF8F00');
+                    if (hitCount > 0) {
+                        createHitSpark(e.x, e.y, '#FFAA00');
                     }
                 }
             }
@@ -2110,6 +2121,8 @@ function createProjectile(tower, target) {
         p.phase = 'launch';
         p.launchHeight = 55 + Math.random() * 35;
         p.launchSpeed = 300;
+        p.cruiseStartSpeed = p.speed * 0.3;
+        p.cruiseEndSpeed = p.speed;
         p.bezierP0 = null;
         p.bezierP1 = null;
         p.bezierP2 = null;
@@ -2385,8 +2398,10 @@ function updateProjectiles(dt) {
                     continue;
                 }
             }
-            // Cruise phase: follow bezier curve to target
-            p.bezierDist += p.speed * dt;
+            // Cruise phase: follow bezier curve to target with ramping speed
+            const cruiseProgress = p.bezierLen > 0 ? p.bezierDist / p.bezierLen : 1;
+            const currentSpeed = p.cruiseStartSpeed + (p.cruiseEndSpeed - p.cruiseStartSpeed) * cruiseProgress;
+            p.bezierDist += currentSpeed * dt;
             if (p.bezierDist >= p.bezierLen) {
                 const pos = bezierPoint(p.bezierP0, p.bezierP1, p.bezierP2, 1);
                 p.x = pos.x; p.y = pos.y;
@@ -3186,7 +3201,7 @@ function createCraterZone(x, y, type, radius) {
         // Missile branches
         missile_precision: { duration: 5000,  slowFactor: 0,    dmgAmp: 0,    tripChance: 0 },
         missile_cluster:   { duration: 6000,  slowFactor: 0.90, dmgAmp: 0,    tripChance: 0 },
-        missile_nuke:      { duration: 12000, slowFactor: 0.75, dmgAmp: 0.10, tripChance: 0 },
+        missile_nuke:      { duration: 15000, slowFactor: 0.75, dmgAmp: 0.10, tripChance: 0 },
         missile:           { duration: 5000,  slowFactor: 0,    dmgAmp: 0,    tripChance: 0 }
     };
     const d = defs[type] || defs.artillery;
@@ -3426,123 +3441,144 @@ function drawClusterCrater(cz, alpha) {
     }
 }
 
-// 战术核弹蘑菇云 — towering mushroom cloud with fireball base, stem, and expanding cap
+// 战术核弹蘑菇云 — slow-spreading dark smoke with billowing mushroom cap
 function drawNukeCrater(cz, alpha) {
     const { x, y, radius: rx } = cz;
     const life = cz.duration / cz.maxDuration; // 1.0 → 0.0
-    // Growth phase (first 15%), sustain (next 40%), fade (last 45%)
-    const growScale = Math.min(1, (1 - life) / 0.15); // 0→1 during first 15%
-    const sustainAlpha = life > 0.85 ? 1 : (life > 0.4 ? 1 : life / 0.4);
-    const s = growScale * sustainAlpha;
+    const time = Date.now() / 1000;
+    // Slow growth over first 30%, sustain middle 40%, fade last 30%
+    const growScale = Math.min(1, (1 - life) / 0.30);
+    const fadeScale = life > 0.7 ? 1 : life / 0.7;
+    const s = growScale * fadeScale;
 
     ctx.save();
     ctx.globalAlpha = alpha;
 
-    // Ground fireball base
-    const fireGrad = ctx.createRadialGradient(x, y, 0, x, y, rx * 1.8 * s);
-    fireGrad.addColorStop(0, 'rgba(255,255,255,0.9)');
-    fireGrad.addColorStop(0.15, 'rgba(255,200,50,0.7)');
-    fireGrad.addColorStop(0.4, 'rgba(255,80,20,0.4)');
-    fireGrad.addColorStop(0.7, 'rgba(180,30,0,0.15)');
-    fireGrad.addColorStop(1, 'rgba(80,10,0,0)');
-    ctx.fillStyle = fireGrad;
-    ctx.beginPath();
-    ctx.arc(x, y, rx * 1.8 * s, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Mushroom stem — rising column from fireball
-    const stemBaseY = y;
-    const stemTopY = y - rx * 3.8 * s;
-    const stemBaseW = rx * 0.35 * s;
-    const stemTopW = rx * 0.9 * s;
-
-    // Stem shadow (darker outer)
-    ctx.fillStyle = `rgba(60,40,30,${0.7 * alpha})`;
-    ctx.beginPath();
-    ctx.moveTo(x - stemBaseW * 1.1, stemBaseY);
-    ctx.quadraticCurveTo(x - stemTopW * 1.05, (stemBaseY + stemTopY) * 0.5, x - stemTopW * 1.1, stemTopY);
-    ctx.lineTo(x + stemTopW * 1.1, stemTopY);
-    ctx.quadraticCurveTo(x + stemTopW * 1.05, (stemBaseY + stemTopY) * 0.5, x + stemBaseW * 1.1, stemBaseY);
-    ctx.closePath();
-    ctx.fill();
-
-    // Stem core (hot smoke rising)
-    const stemGrad = ctx.createLinearGradient(x, stemBaseY, x, stemTopY);
-    stemGrad.addColorStop(0, `rgba(200,100,40,${0.8 * alpha})`);
-    stemGrad.addColorStop(0.3, `rgba(150,70,30,${0.7 * alpha})`);
-    stemGrad.addColorStop(0.6, `rgba(100,50,25,${0.6 * alpha})`);
-    stemGrad.addColorStop(1, `rgba(70,35,20,${0.4 * alpha})`);
-    ctx.fillStyle = stemGrad;
-    ctx.beginPath();
-    ctx.moveTo(x - stemBaseW, stemBaseY);
-    ctx.quadraticCurveTo(x - stemTopW, (stemBaseY + stemTopY) * 0.5, x - stemTopW, stemTopY);
-    ctx.lineTo(x + stemTopW, stemTopY);
-    ctx.quadraticCurveTo(x + stemTopW, (stemBaseY + stemTopY) * 0.5, x + stemBaseW, stemBaseY);
-    ctx.closePath();
-    ctx.fill();
-
-    // Mushroom cap — the iconic wide top
-    const capY = stemTopY;
-    const capRX = rx * 2.2 * s;
-    const capRY = rx * 0.7 * s;
-
-    // Cap outer (dark smoke)
-    const capGradOuter = ctx.createRadialGradient(x, capY - capRY * 0.2, capRX * 0.3, x, capY, capRX);
-    capGradOuter.addColorStop(0, `rgba(80,50,30,${0.8 * alpha})`);
-    capGradOuter.addColorStop(0.5, `rgba(55,30,15,${0.7 * alpha})`);
-    capGradOuter.addColorStop(1, `rgba(30,15,5,${0})`);
-    ctx.fillStyle = capGradOuter;
-    ctx.beginPath();
-    ctx.ellipse(x, capY, capRX, capRY, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Cap inner (billowing hot center)
-    const capGradInner = ctx.createRadialGradient(x, capY - capRY * 0.15, capRX * 0.15, x, capY, capRX * 0.7);
-    capGradInner.addColorStop(0, `rgba(180,100,50,${0.7 * alpha})`);
-    capGradInner.addColorStop(0.5, `rgba(120,60,30,${0.5 * alpha})`);
-    capGradInner.addColorStop(1, `rgba(60,30,15,${0})`);
-    ctx.fillStyle = capGradInner;
-    ctx.beginPath();
-    ctx.ellipse(x, capY, capRX * 0.7, capRY * 0.85, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Cap ring — the "rolling" edge of the mushroom
-    ctx.strokeStyle = `rgba(200,150,100,${0.35 * alpha})`;
-    ctx.lineWidth = 2.5 * s;
-    ctx.beginPath();
-    ctx.ellipse(x, capY, capRX, capRY, 0, 0, Math.PI * 2);
-    ctx.stroke();
-
-    // Small secondary puffs around the cap edge
-    for (let i = 0; i < 5; i++) {
-        const pa = (i / 5) * Math.PI * 2 + life * 0.5;
-        const ppx = x + Math.cos(pa) * capRX * 0.85;
-        const ppy = capY + Math.sin(pa) * capRY * 0.85;
-        const puffGrad = ctx.createRadialGradient(ppx, ppy, 0, ppx, ppy, rx * 0.35 * s);
-        puffGrad.addColorStop(0, `rgba(100,70,50,${0.5 * alpha})`);
-        puffGrad.addColorStop(1, `rgba(60,35,20,${0})`);
-        ctx.fillStyle = puffGrad;
+    // Initial flash at ground (fades quickly in first 15%)
+    const flashProgress = (1 - life) / 0.15;
+    if (flashProgress < 1) {
+        const flashAlpha = 1 - flashProgress;
+        const flashGrad = ctx.createRadialGradient(x, y, 0, x, y, rx * 1.8 * s);
+        flashGrad.addColorStop(0, `rgba(255,255,240,${0.9 * flashAlpha})`);
+        flashGrad.addColorStop(0.2, `rgba(255,200,60,${0.5 * flashAlpha})`);
+        flashGrad.addColorStop(0.5, `rgba(255,100,20,${0.2 * flashAlpha})`);
+        flashGrad.addColorStop(1, 'rgba(180,40,0,0)');
+        ctx.fillStyle = flashGrad;
         ctx.beginPath();
-        ctx.arc(ppx, ppy, rx * 0.35 * s, 0, Math.PI * 2);
+        ctx.arc(x, y, rx * 1.8 * s, 0, Math.PI * 2);
         ctx.fill();
     }
 
-    // Bright flash core at ground zero
-    const coreGrad = ctx.createRadialGradient(x, y, 0, x, y, rx * 0.6 * s);
-    coreGrad.addColorStop(0, `rgba(255,255,240,${0.85 * alpha})`);
-    coreGrad.addColorStop(0.3, `rgba(255,200,60,${0.5 * alpha})`);
-    coreGrad.addColorStop(1, `rgba(255,100,20,${0})`);
-    ctx.fillStyle = coreGrad;
+    // Ground-level dark smoke — slowly expands outward from impact
+    const smokeSpreadR = rx * (0.4 + s * 2.2);
+    const groundGrad = ctx.createRadialGradient(x, y, 0, x, y, smokeSpreadR);
+    groundGrad.addColorStop(0, `rgba(45,35,28,${0.7 * fadeScale})`);
+    groundGrad.addColorStop(0.35, `rgba(30,22,16,${0.5 * fadeScale})`);
+    groundGrad.addColorStop(0.7, `rgba(18,12,7,${0.25 * fadeScale})`);
+    groundGrad.addColorStop(1, 'rgba(8,5,2,0)');
+    ctx.fillStyle = groundGrad;
     ctx.beginPath();
-    ctx.arc(x, y, rx * 0.6 * s, 0, Math.PI * 2);
+    ctx.arc(x, y, smokeSpreadR, 0, Math.PI * 2);
     ctx.fill();
 
-    // Shockwave ring
-    ctx.strokeStyle = `rgba(255,200,150,${0.4 * alpha * sustainAlpha})`;
-    ctx.lineWidth = 1.5 * s;
-    ctx.beginPath();
-    ctx.arc(x, y, rx * 1.1 + (1 - life) * rx * 0.6, 0, Math.PI * 2);
-    ctx.stroke();
+    // Rising smoke column — dark, slowly building upward
+    const stemBaseY = y;
+    const stemRise = rx * 1.0 + rx * 3.0 * s;
+    const stemTopY = y - stemRise;
+    const stemBaseW = rx * 0.25 * s;
+    const stemTopW = rx * 0.55 * s;
+
+    if (s > 0.12) {
+        // Outer darker smoke column
+        const wobbleX = Math.sin(time * 0.7 + x * 0.1) * rx * 0.12 * s;
+        ctx.fillStyle = `rgba(22,16,10,${0.55 * fadeScale})`;
+        ctx.beginPath();
+        ctx.moveTo(x - stemBaseW * 1.3 + wobbleX, stemBaseY);
+        ctx.quadraticCurveTo(x - stemTopW * 1.25, (stemBaseY + stemTopY) * 0.5, x - stemTopW * 1.3, stemTopY);
+        ctx.lineTo(x + stemTopW * 1.3, stemTopY);
+        ctx.quadraticCurveTo(x + stemTopW * 1.25, (stemBaseY + stemTopY) * 0.5, x + stemBaseW * 1.3 + wobbleX, stemBaseY);
+        ctx.closePath();
+        ctx.fill();
+
+        // Inner column — slightly lighter
+        const colGrad = ctx.createLinearGradient(x, stemBaseY, x, stemTopY);
+        colGrad.addColorStop(0, `rgba(55,42,32,${0.7 * fadeScale})`);
+        colGrad.addColorStop(0.4, `rgba(38,28,20,${0.6 * fadeScale})`);
+        colGrad.addColorStop(0.7, `rgba(28,20,13,${0.5 * fadeScale})`);
+        colGrad.addColorStop(1, `rgba(20,14,8,${0.3 * fadeScale})`);
+        ctx.fillStyle = colGrad;
+        ctx.beginPath();
+        ctx.moveTo(x - stemBaseW + wobbleX, stemBaseY);
+        ctx.quadraticCurveTo(x - stemTopW, (stemBaseY + stemTopY) * 0.5, x - stemTopW, stemTopY);
+        ctx.lineTo(x + stemTopW, stemTopY);
+        ctx.quadraticCurveTo(x + stemTopW, (stemBaseY + stemTopY) * 0.5, x + stemBaseW + wobbleX, stemBaseY);
+        ctx.closePath();
+        ctx.fill();
+    }
+
+    // Mushroom cap — composed of billowing smoke puffs
+    const capY = stemTopY;
+    const capRX = rx * 0.5 + rx * 2.0 * s;
+    const capRY = rx * 0.12 + rx * 0.55 * s;
+
+    if (s > 0.25) {
+        // Main cap base — wide dark ellipse
+        const capMainGrad = ctx.createRadialGradient(x, capY - capRY * 0.1, capRX * 0.15, x, capY, capRX);
+        capMainGrad.addColorStop(0, `rgba(55,40,30,${0.8 * fadeScale})`);
+        capMainGrad.addColorStop(0.35, `rgba(38,28,20,${0.65 * fadeScale})`);
+        capMainGrad.addColorStop(0.7, `rgba(22,15,10,${0.4 * fadeScale})`);
+        capMainGrad.addColorStop(1, 'rgba(12,7,3,0)');
+        ctx.fillStyle = capMainGrad;
+        ctx.beginPath();
+        ctx.ellipse(x, capY, capRX, capRY, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Billowing puffs around the cap edge — "rolling" mushroom look
+        const numPuffs = 9;
+        for (let i = 0; i < numPuffs; i++) {
+            const baseAngle = (i / numPuffs) * Math.PI * 2;
+            // Each puff rotates slowly and undulates independently
+            const billowRot = time * 0.25;
+            const billowWave = Math.sin(time * 0.9 + i * 1.1) * 0.18;
+            const puffAngle = baseAngle + billowRot;
+            const puffDist = capRX * (0.65 + billowWave);
+            const puffX = x + Math.cos(puffAngle) * puffDist;
+            const puffY = capY + Math.sin(puffAngle) * capRY * 0.5;
+            const puffR = rx * (0.22 + Math.sin(time * 0.7 + i * 1.4) * 0.06) * s;
+
+            const puffGrad = ctx.createRadialGradient(puffX, puffY, 0, puffX, puffY, puffR);
+            puffGrad.addColorStop(0, `rgba(50,38,28,${0.55 * fadeScale})`);
+            puffGrad.addColorStop(0.5, `rgba(32,22,15,${0.35 * fadeScale})`);
+            puffGrad.addColorStop(1, 'rgba(15,10,5,0)');
+            ctx.fillStyle = puffGrad;
+            ctx.beginPath();
+            ctx.arc(puffX, puffY, puffR, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Smaller inner puffs for the rolling "cauliflower" texture
+        for (let i = 0; i < 7; i++) {
+            const dAngle = (i / 7) * Math.PI * 2 + time * 0.35;
+            const dDist = capRX * (0.3 + Math.sin(time * 1.1 + i) * 0.3);
+            const dx = x + Math.cos(dAngle) * dDist;
+            const dy = capY - capRY * 0.25 + Math.sin(dAngle) * capRY * 0.35;
+            const dR = rx * 0.14 * s;
+
+            ctx.fillStyle = `rgba(60,45,34,${0.32 * fadeScale})`;
+            ctx.beginPath();
+            ctx.arc(dx, dy, dR, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+
+    // Faint outer smoke ring — slow expansion
+    if (s > 0.2) {
+        ctx.strokeStyle = `rgba(40,28,20,${0.25 * fadeScale})`;
+        ctx.lineWidth = 2 * s;
+        ctx.beginPath();
+        ctx.arc(x, y, rx * 0.8 + (1 - life) * rx * 1.2, 0, Math.PI * 2);
+        ctx.stroke();
+    }
 
     ctx.restore();
 }
@@ -3615,44 +3651,44 @@ function createImpactBurst(x, y, radius, theme) {
         shrapnel: { debris: ['#909090','#B0B0B0','#787878','#A8A8A8'], flash: '#FFFFFF', dust: '#8A8A8A' },
         concuss:  { debris: ['#6B6040','#8B7B50','#5A4A30','#7A6B45'], flash: '#DDCCAA', dust: '#8B7D6B' },
         missile:  { debris: ['#5C4A38','#7A6050','#4A3828','#8B6B50'], flash: '#FFEECC', dust: '#8B7D6B' },
-        nuke:     { debris: ['#4A3020','#3A2010','#5C3820','#6B4030'], flash: '#FFFFFF', dust: '#5C4030' },
+        nuke:     { debris: ['#3A2818','#2A1A0A','#4A3020','#382010'], flash: '#FFEECC', dust: '#3A2820' },
         default:  { debris: ['#6B5B4F','#8B7355','#5C4A38','#7A6858'], flash: '#FFEECC', dust: '#8B7D6B' }
     };
     const t = themes[theme] || themes.default;
 
     // Debris chunks flying outward
-    const count = theme === 'nuke' ? 35 : (theme === 'shrapnel' ? 28 : 18);
+    const count = theme === 'nuke' ? 40 : (theme === 'shrapnel' ? 28 : 18);
     for (let i = 0; i < count; i++) {
         const angle = Math.random() * Math.PI * 2;
-        const speed = theme === 'nuke' ? 80 + Math.random() * 350 : 30 + Math.random() * 180;
+        const speed = theme === 'nuke' ? 60 + Math.random() * 280 : 30 + Math.random() * 180;
         game.particles.push({
             x, y,
             vx: Math.cos(angle) * speed,
-            vy: Math.sin(angle) * speed - (theme === 'nuke' ? 50 : 20),
-            life: 0.25 + Math.random() * 0.5,
-            maxLife: 0.75,
+            vy: Math.sin(angle) * speed - (theme === 'nuke' ? 40 : 20),
+            life: 0.3 + Math.random() * (theme === 'nuke' ? 0.8 : 0.5),
+            maxLife: theme === 'nuke' ? 1.2 : 0.75,
             color: t.debris[Math.floor(Math.random() * t.debris.length)],
-            size: 1.5 + Math.random() * (theme === 'nuke' ? 7 : 4)
+            size: 1.5 + Math.random() * (theme === 'nuke' ? 6 : 4)
         });
     }
     // Impact flash
     game.particles.push({
         x, y, vx: 0, vy: 0,
-        life: theme === 'nuke' ? 0.3 : 0.18, maxLife: theme === 'nuke' ? 0.3 : 0.18,
-        color: t.flash, size: radius * (theme === 'nuke' ? 1.1 : 0.5)
+        life: theme === 'nuke' ? 0.25 : 0.18, maxLife: theme === 'nuke' ? 0.25 : 0.18,
+        color: t.flash, size: radius * (theme === 'nuke' ? 1.0 : 0.5)
     });
-    // Rising dust
-    const dustCount = theme === 'nuke' ? 14 : 4;
+    // Rising dark smoke — more numerous and longer-lasting for nuke
+    const dustCount = theme === 'nuke' ? 22 : 4;
     for (let i = 0; i < dustCount; i++) {
         game.particles.push({
-            x: x + (Math.random() - 0.5) * radius * 0.5,
-            y: y - Math.random() * 10,
-            vx: (Math.random() - 0.5) * (theme === 'nuke' ? 35 : 15),
-            vy: (theme === 'nuke' ? -50 : -20) - Math.random() * (theme === 'nuke' ? 80 : 35),
-            life: 0.6 + Math.random() * (theme === 'nuke' ? 1.5 : 0.7),
-            maxLife: theme === 'nuke' ? 2.5 : 1.3,
+            x: x + (Math.random() - 0.5) * radius * 0.6,
+            y: y - Math.random() * 15,
+            vx: (Math.random() - 0.5) * (theme === 'nuke' ? 25 : 15),
+            vy: (theme === 'nuke' ? -40 : -20) - Math.random() * (theme === 'nuke' ? 70 : 35),
+            life: 0.8 + Math.random() * (theme === 'nuke' ? 2.5 : 0.7),
+            maxLife: theme === 'nuke' ? 3.5 : 1.3,
             color: t.dust,
-            size: 5 + Math.random() * (theme === 'nuke' ? 14 : 8),
+            size: 6 + Math.random() * (theme === 'nuke' ? 16 : 8),
             smoke: true
         });
     }
@@ -9963,9 +9999,9 @@ function showTowerInfo(t) {
         (st.empInterval > 0 ? '<div class="stat-row"><span>EMP间隔</span><span>' + (st.empInterval / 1000).toFixed(1) + 's</span></div>' : '') +
         (st.polarityOppositePull > 0 ? '<div class="stat-row"><span>异性引力</span><span>' + st.polarityOppositePull + '</span></div>' : '') +
         (st.polaritySameRepel > 0 ? '<div class="stat-row"><span>同性斥力</span><span>' + st.polaritySameRepel + '</span></div>' : '') +
-        (st.stormSenseRange > 0 ? '<div class="stat-row"><span>感应范围</span><span>' + st.stormSenseRange + 'px</span></div>' : '') +
-        (st.stormSenseDmg > 0 ? '<div class="stat-row"><span>感应伤害</span><span>' + st.stormSenseDmg + '/跳</span></div>' : '') +
-        (st.stormSenseInterval > 0 ? '<div class="stat-row"><span>感应间隔</span><span>' + (st.stormSenseInterval / 1000).toFixed(1) + 's</span></div>' : '') +
+        (st.stormSenseRange > 0 ? '<div class="stat-row"><span>连锁范围</span><span>' + st.stormSenseRange + 'px</span></div>' : '') +
+        (st.stormSenseDmg > 0 ? '<div class="stat-row"><span>连锁伤害</span><span>' + st.stormSenseDmg + '/跳</span></div>' : '') +
+        (st.stormSenseInterval > 0 ? '<div class="stat-row"><span>连锁间隔</span><span>' + (st.stormSenseInterval / 1000).toFixed(1) + 's</span></div>' : '') +
         (st.stormDeathPulseRange > 0 ? '<div class="stat-row"><span>死亡脉冲范围</span><span>' + st.stormDeathPulseRange + 'px</span></div>' : '');
 
     // Branch evolution — dynamic based on tower type
@@ -10106,7 +10142,7 @@ function getTowerSpecial(def) {
     if (def.magnetizeDuration) parts.push('磁化' + def.magnetizeDuration[0] / 1000 + '-' + def.magnetizeDuration[2] / 1000 + 's 引力' + def.magnetizePullStrength[0] + '-' + def.magnetizePullStrength[2]);
     if (def.empRadius) parts.push('EMP脉冲' + def.empRadius[0] + '-' + def.empRadius[2] + '范围 破甲+' + Math.round(def.empVulnFactor[0] * 100) + '-' + Math.round(def.empVulnFactor[2] * 100) + '%');
     if (def.polarityOppositePull) parts.push('异性引力' + def.polarityOppositePull[0] + '-' + def.polarityOppositePull[2] + ' 同性斥力' + def.polaritySameRepel[0] + '-' + def.polaritySameRepel[2]);
-    if (def.stormSenseRange) parts.push('感应伤害' + def.stormSenseRange[0] + '-' + def.stormSenseRange[2] + '范围 死亡脉冲磁化');
+    if (def.stormSenseRange) parts.push('连锁磁暴' + def.stormSenseRange[0] + '-' + def.stormSenseRange[2] + '范围 死亡脉冲扩散');
     return parts.join(' · ') || '-';
 }
 
