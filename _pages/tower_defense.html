@@ -124,11 +124,114 @@ title: "塔防战争"
         #hud-bar button:active { transform: scale(0.95); }
         #speed-btn { background: linear-gradient(180deg, #5b625c, #343a36); }
         #speed-btn.active { background: linear-gradient(180deg, #f0a83c, #b96a24); }
+        #speed-btn.fast { background: linear-gradient(180deg, #e74c3c, #9b1a10); }
         #start-wave-btn { background: linear-gradient(180deg, #68b66d, var(--btn-green)); }
         #start-wave-btn:disabled { background: #555; opacity: 0.5; cursor: not-allowed; }
         #countdown-display { color: #f39c12; min-width: 50px; text-align: center; }
         #auto-wave-btn { background: linear-gradient(180deg, #5b625c, #343a36); }
         #auto-wave-btn.active { background: linear-gradient(180deg, #9b68d9, #6c3ca0); }
+        #compendium-btn { background: linear-gradient(180deg, #5b625c, #343a36); }
+
+        /* -- Compendium Overlay -- */
+        #compendium-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(4,8,7,0.85);
+            backdrop-filter: blur(6px);
+            z-index: 200;
+            justify-content: center;
+            align-items: flex-start;
+            overflow-y: auto;
+            padding: 30px 16px;
+        }
+        #compendium-overlay.show { display: flex; }
+        #compendium-inner {
+            background: rgba(18, 24, 21, 0.96);
+            border: 1px solid var(--panel-border);
+            border-radius: 10px;
+            padding: 24px;
+            color: var(--text);
+            max-width: 900px;
+            width: 100%;
+            box-shadow: 0 22px 60px rgba(0,0,0,0.5), inset 0 1px 0 var(--panel-highlight);
+        }
+        #compendium-inner h2 {
+            text-align: center;
+            font-size: 24px;
+            margin-bottom: 8px;
+            color: var(--gold);
+        }
+        #compendium-inner .compendium-subtitle {
+            text-align: center;
+            font-size: 13px;
+            color: var(--muted);
+            margin-bottom: 20px;
+        }
+        #compendium-inner .compendium-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 16px;
+        }
+        .comp-card {
+            background: rgba(255,255,255,0.035);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 8px;
+            padding: 14px;
+        }
+        .comp-card .comp-base-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
+        }
+        .comp-card .comp-base-icon { font-size: 28px; }
+        .comp-card .comp-base-name { font-size: 16px; font-weight: bold; }
+        .comp-card .comp-base-cost { font-size: 12px; color: var(--gold); margin-left: auto; }
+        .comp-card .comp-base-stats {
+            font-size: 11px;
+            color: var(--muted);
+            margin-bottom: 10px;
+            line-height: 1.6;
+        }
+        .comp-card .comp-branches-title {
+            font-size: 11px;
+            color: var(--accent);
+            border-top: 1px solid rgba(255,255,255,0.08);
+            padding-top: 8px;
+            margin-bottom: 8px;
+        }
+        .comp-card .comp-branch {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 8px;
+            margin-bottom: 4px;
+            background: rgba(255,255,255,0.025);
+            border-radius: 6px;
+            font-size: 12px;
+        }
+        .comp-card .comp-branch .branch-icon { font-size: 18px; }
+        .comp-card .comp-branch .branch-info { flex: 1; }
+        .comp-card .comp-branch .branch-name { font-weight: bold; }
+        .comp-card .comp-branch .branch-desc { font-size: 10px; color: var(--muted); }
+        .comp-card .comp-branch .branch-cost { font-size: 10px; color: var(--gold); }
+        #compendium-close {
+            display: block;
+            margin: 20px auto 0;
+            padding: 10px 28px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            background: linear-gradient(180deg, #68b66d, var(--btn-green));
+            color: #fff;
+            font-weight: bold;
+            font-size: 15px;
+            font-family: inherit;
+            transition: all 0.15s;
+        }
+        #compendium-close:hover { filter: brightness(1.1); }
+        #compendium-close:active { transform: scale(0.95); }
 
         /* -- Canvas -- */
         #game-canvas {
@@ -326,6 +429,7 @@ title: "塔防战争"
         <button id="speed-btn" onclick="toggleSpeed()">1x</button>
         <button id="start-wave-btn" onclick="startNextWave()">开始波次</button>
         <button id="auto-wave-btn" onclick="toggleAutoWave()">⏩ 自动</button>
+        <button id="compendium-btn" onclick="toggleCompendium()">📖 图鉴</button>
     </div>
     <canvas id="game-canvas" width="800" height="600"></canvas>
     <div id="tower-panel">
@@ -378,6 +482,15 @@ title: "塔防战争"
     <h2 id="overlay-title"></h2>
     <div class="sub-text" id="overlay-sub"></div>
     <button id="overlay-btn" onclick="restartGame()">重新开始</button>
+</div>
+
+<div id="compendium-overlay">
+    <div id="compendium-inner">
+        <h2>📖 塔防图鉴</h2>
+        <div class="compendium-subtitle">所有防御塔与升级分支一览</div>
+        <div class="compendium-grid" id="compendium-grid"></div>
+        <button id="compendium-close" onclick="toggleCompendium()">关闭</button>
+    </div>
 </div>
 
 <div id="tooltip"></div>
@@ -7528,10 +7641,105 @@ function sellSelectedTower() {
 }
 
 function toggleSpeed() {
-    game.speedMult = game.speedMult === 1 ? 2 : 1;
+    if (game.speedMult === 1) game.speedMult = 2;
+    else if (game.speedMult === 2) game.speedMult = 4;
+    else game.speedMult = 1;
     const btn = document.getElementById('speed-btn');
     btn.textContent = game.speedMult + 'x';
-    if (game.speedMult === 2) btn.classList.add('active'); else btn.classList.remove('active');
+    btn.classList.remove('active', 'fast');
+    if (game.speedMult === 2) btn.classList.add('active');
+    else if (game.speedMult === 4) btn.classList.add('fast');
+}
+
+// Generate a compact description of a tower's special ability from its stats
+function getTowerSpecial(def) {
+    const parts = [];
+    if (def.critChance) parts.push('暴击率' + Math.round(def.critChance * 100) + '% 暴击' + def.critMultiplier + 'x');
+    if (def.multiShot) parts.push(def.multiShot + '箭齐发');
+    if (def.pierceCount) parts.push('穿透' + def.pierceCount[0] + '-' + def.pierceCount[2] + '目标 衰减' + Math.round(def.pierceFalloff * 100) + '%');
+    if (def.splash && def.splash.length) parts.push('溅射' + def.splash[0] + '-' + def.splash[2] + '范围 ' + Math.round(def.splashDmgPct * 100) + '%伤害');
+    if (def.shrapnelCount) parts.push('碎片' + def.shrapnelCount[0] + '-' + def.shrapnelCount[2] + '枚');
+    if (def.stunFactor) parts.push('击晕' + def.stunDuration[0] + '-' + def.stunDuration[2] + 'ms');
+    if (def.slowFactor && def.slowFactor.length) parts.push('减速' + Math.round(def.slowFactor[0] * 100) + '-' + Math.round(def.slowFactor[2] * 100) + '%');
+    if (def.freezeStacks) parts.push(def.freezeStacks + '层冻结' + def.freezeDuration[0] / 1000 + '-' + def.freezeDuration[2] / 1000 + 's');
+    if (def.auraSlowFactor) parts.push('光环减速' + Math.round(def.auraSlowFactor[0] * 100) + '-' + Math.round(def.auraSlowFactor[2] * 100) + '%');
+    if (def.chainCount && def.chainCount.length) parts.push('连锁' + def.chainCount[0] + '-' + def.chainCount[2] + '目标');
+    if (def.chainDmgBoost) parts.push('连锁递增' + Math.round(def.chainDmgBoost * 100) + '%');
+    if (def.chargeMaxTime) parts.push('蓄力' + def.chargeDmgMultiplier[0] + '-' + def.chargeDmgMultiplier[2] + 'x');
+    if (def.vulnFactor) parts.push('削弱' + Math.round(def.vulnFactor[0] * 100) + '-' + Math.round(def.vulnFactor[2] * 100) + '%承伤');
+    if (def.focusDmgPerStack) parts.push('聚焦递增' + Math.round(def.focusDmgPerStack * 100) + '%/层 ' + def.focusMaxStacks[0] + '-' + def.focusMaxStacks[2] + '层');
+    if (def.igniteFlameRadius) parts.push('点燃灼烧' + def.igniteFlameRadius[0] + '-' + def.igniteFlameRadius[2] + '范围');
+    if (def.detonateDmg) parts.push('击杀爆' + def.detonateDmg[0] + '-' + def.detonateDmg[2] + '伤害');
+    if (def.flameRadius) parts.push('火焰区域' + def.flameRadius[0] + '-' + def.flameRadius[2] + '范围 ' + def.flameDuration[0] / 1000 + '-' + def.flameDuration[2] / 1000 + 's');
+    if (def.knockbackDist) parts.push('击退' + def.knockbackDist[0] + '-' + def.knockbackDist[2] + 'px');
+    if (def.sheepDuration) parts.push('化羊' + def.sheepDuration[0] / 1000 + '-' + def.sheepDuration[2] / 1000 + 's');
+    if (def.turncoatDamage) parts.push('策反伤害' + def.turncoatDamage[0] + '-' + def.turncoatDamage[2]);
+    if (def.contagionRange) parts.push('传染' + def.contagionRange[0] + '-' + def.contagionRange[2] + '范围');
+    if (def.auraSheepDuration) parts.push('光环化羊' + def.auraSheepDuration[0] / 1000 + '-' + def.auraSheepDuration[2] / 1000 + 's');
+    if (def.arcHeight) parts.push('弧线导弹 溅射' + def.splash[0] + '-' + def.splash[2]);
+    if (def.clusterCount) parts.push('集束' + def.clusterCount[0] + '-' + def.clusterCount[2] + '子炸弹');
+    if (def.nukeZoneDuration) parts.push('核爆区域' + def.nukeZoneDuration[0] / 1000 + '-' + def.nukeZoneDuration[2] / 1000 + 's ' + def.nukeZoneDmg[0] + '-' + def.nukeZoneDmg[2] + '/跳');
+    if (def.linkRange) parts.push('链接' + def.linkRange + '范围 伤害+' + Math.round(def.linkDmgBoost * 100) + '%/链接');
+    return parts.join(' · ') || '-';
+}
+
+function buildCompendiumHTML() {
+    const baseTowers = [
+        { key: 'archer', base: 'archer' },
+        { key: 'artillery', base: 'artillery' },
+        { key: 'ice', base: 'ice' },
+        { key: 'tesla', base: 'tesla' },
+        { key: 'fire', base: 'fire' },
+        { key: 'knockback', base: null },
+        { key: 'sheep', base: 'sheep' },
+        { key: 'missile', base: 'missile' },
+        { key: 'laser', base: null }
+    ];
+
+    let html = '';
+    for (const bt of baseTowers) {
+        const def = TOWER_DEFS[bt.key];
+        const branches = EVOLVE_OPTIONS[bt.key] || [];
+        const dmgStr = def.damage.join('/');
+        const rangeStr = def.range.join('/');
+        const cdStr = (def.cooldown[0] / 1000).toFixed(1) + '/' + (def.cooldown[1] / 1000).toFixed(1) + '/' + (def.cooldown[2] / 1000).toFixed(1) + 's';
+
+        html += '<div class="comp-card">';
+        html += '<div class="comp-base-row">';
+        html += '<span class="comp-base-icon">' + def.icon + '</span>';
+        html += '<span class="comp-base-name">' + def.name + '</span>';
+        html += '<span class="comp-base-cost">💰' + def.cost + '</span>';
+        html += '</div>';
+        html += '<div class="comp-base-stats">伤害:' + dmgStr + ' | 射程:' + rangeStr + ' | 冷却:' + cdStr;
+        const baseSpecial = getTowerSpecial(def);
+        if (baseSpecial !== '-') html += '<br>特技:' + baseSpecial;
+        html += '</div>';
+
+        if (branches.length) {
+            const evolveCost = TOWER_DEFS[branches[0].type].evolveCost;
+            html += '<div class="comp-branches-title">升级分支 (进化费💰' + evolveCost + ')</div>';
+            for (const br of branches) {
+                const brDef = TOWER_DEFS[br.type];
+                html += '<div class="comp-branch">';
+                html += '<span class="branch-icon">' + br.icon + '</span>';
+                html += '<div class="branch-info"><span class="branch-name">' + br.label + '</span>';
+                html += '<br><span class="branch-desc">' + getTowerSpecial(brDef) + '</span></div>';
+                html += '</div>';
+            }
+        }
+        html += '</div>';
+    }
+    return html;
+}
+
+function toggleCompendium() {
+    const overlay = document.getElementById('compendium-overlay');
+    if (overlay.classList.contains('show')) {
+        overlay.classList.remove('show');
+    } else {
+        document.getElementById('compendium-grid').innerHTML = buildCompendiumHTML();
+        overlay.classList.add('show');
+    }
 }
 
 function toggleAutoWave() {
@@ -7591,7 +7799,7 @@ function restartGame() {
 
     document.getElementById('overlay').classList.remove('show');
     document.getElementById('speed-btn').textContent = '1x';
-    document.getElementById('speed-btn').classList.remove('active');
+    document.getElementById('speed-btn').classList.remove('active', 'fast');
     document.getElementById('auto-wave-btn').textContent = '⏩ 自动';
     document.getElementById('auto-wave-btn').classList.remove('active');
     document.getElementById('start-wave-btn').disabled = false;
