@@ -461,7 +461,10 @@ title: "塔防战争"
             <span class="tower-icon">🔆</span><span class="tower-name">激光塔</span><span class="tower-cost">200💰</span>
         </button>
         <button class="tower-btn" data-type="magnet" onclick="selectTowerType('magnet')">
-            <span class="tower-icon">🧲</span><span class="tower-name">磁塔</span><span class="tower-cost">80💰</span>
+            <span class="tower-icon">🧲</span><span class="tower-name">磁力塔</span><span class="tower-cost">80💰</span>
+        </button>
+        <button class="tower-btn" data-type="resonance" onclick="selectTowerType('resonance')">
+            <span class="tower-icon">🔔</span><span class="tower-name">共鸣塔</span><span class="tower-cost">180💰</span>
         </button>
     </div>
 </div>
@@ -815,7 +818,7 @@ const TOWER_DEFS = {
         linkRange: 120, linkDmgBoost: 0.1
     },
     magnet: {
-        name: '磁塔', icon: '🧲',
+        name: '磁力塔', icon: '🧲',
         cost: 80, upgradeCost: [100, 200],
         damage: [8, 14, 24], range: [130, 145, 160], cooldown: [1800, 1600, 1400],
         color: '#6C5CE7', bulletColor: '#A8A0FF', bulletSpeed: 420,
@@ -868,6 +871,43 @@ const TOWER_DEFS = {
         stormSenseDmg: [8, 12, 18],
         stormSenseInterval: 450,
         stormDeathPulseRange: [85, 100, 120]
+    },
+    resonance: {
+        name: '共鸣塔', icon: '🔔',
+        cost: 180, upgradeCost: [140, 280],
+        damage: [14, 26, 42], range: [135, 150, 170], cooldown: [2800, 2400, 2000],
+        color: '#8E6BB8', bulletColor: '#C8B0F0', bulletSpeed: 0,
+        splash: 0, slowFactor: 0, slowDuration: 0, chainCount: 0,
+        waveRange: [135, 150, 170], waveSpeed: 65, waveMaxBounces: [2, 2, 3],
+        waveThickness: 18
+    },
+    resonance_ramp: {
+        name: '增幅共振', icon: '📈',
+        cost: null, upgradeCost: [180, 360], evolveCost: 300,
+        damage: [9, 16, 28], range: [125, 140, 160], cooldown: [2200, 1900, 1500],
+        color: '#C04060', bulletColor: '#F090A0', bulletSpeed: 0,
+        splash: 0, slowFactor: 0, slowDuration: 0, chainCount: 0,
+        waveRange: [125, 140, 160], waveSpeed: 90, waveMaxBounces: [3, 4, 5],
+        waveThickness: 16, waveDmgRamp: [0.35, 0.50, 0.70]
+    },
+    resonance_control: {
+        name: '波纹束缚', icon: '🪢',
+        cost: null, upgradeCost: [170, 340], evolveCost: 300,
+        damage: [12, 22, 36], range: [150, 170, 195], cooldown: [3000, 2600, 2200],
+        color: '#4078C8', bulletColor: '#90B8F8', bulletSpeed: 0,
+        splash: 0, slowFactor: 0, slowDuration: 0, chainCount: 0,
+        waveRange: [150, 170, 195], waveSpeed: 55, waveMaxBounces: [2, 2, 3],
+        waveThickness: 24,
+        waveSlowFactor: [0.45, 0.50, 0.55], waveSlowDuration: [2200, 2600, 3000]
+    },
+    resonance_standing: {
+        name: '驻波场域', icon: '🕸️',
+        cost: null, upgradeCost: [160, 320], evolveCost: 300,
+        damage: [0, 0, 0], range: [140, 160, 180], cooldown: [2400, 2000, 1600],
+        color: '#40A888', bulletColor: '#80E8D0', bulletSpeed: 0,
+        splash: 0, slowFactor: 0, slowDuration: 0, chainCount: 0,
+        linkRange: [140, 160, 185],
+        standingFieldDmg: [20, 34, 55], standingFieldInterval: 480
     }
 };
 
@@ -922,6 +962,11 @@ const EVOLVE_OPTIONS = {
         { type: 'magnet_emp', label: '电磁脉冲', icon: '💥', desc: 'EMP破甲', color: '#FF6B35' },
         { type: 'magnet_polarity', label: '极性罗网', icon: '🔀', desc: '极性聚怪', color: '#9B59B6' },
         { type: 'magnet_storm', label: '磁暴链环', icon: '⛓️', desc: '连锁磁暴', color: '#E65100' }
+    ],
+    resonance: [
+        { type: 'resonance_ramp', label: '增幅共振', icon: '📈', desc: '递增弹射', color: '#C04060' },
+        { type: 'resonance_control', label: '波纹束缚', icon: '🪢', desc: '减速索敌', color: '#4078C8' },
+        { type: 'resonance_standing', label: '驻波场域', icon: '🕸️', desc: '静态力场', color: '#40A888' }
     ]
 };
 
@@ -963,6 +1008,8 @@ const game = {
     particles: [],
     fireZones: [],
     craterZones: [],
+    wavePulses: [],
+    standingFields: [],
     selectedType: null,
     selectedTower: null,
     hoverCol: -1,
@@ -1236,7 +1283,7 @@ function towerStats(t) {
         auraSpeedMax: Array.isArray(def.auraSpeedMax) ? def.auraSpeedMax[lv] : (def.auraSpeedMax || 0),
         auraFlipInterval: Array.isArray(def.auraFlipInterval) ? def.auraFlipInterval[lv] : (def.auraFlipInterval || 0),
         arcHeight: def.arcHeight || 0,
-        linkRange: def.linkRange || 0,
+        linkRange: Array.isArray(def.linkRange) ? def.linkRange[lv] : (def.linkRange || 0),
         linkDmgBoost: def.linkDmgBoost || 0,
         color: def.color,
         bulletColor: def.bulletColor,
@@ -1296,7 +1343,16 @@ function towerStats(t) {
         stormSenseRange: Array.isArray(def.stormSenseRange) ? def.stormSenseRange[lv] : (def.stormSenseRange || 0),
         stormSenseDmg: Array.isArray(def.stormSenseDmg) ? def.stormSenseDmg[lv] : (def.stormSenseDmg || 0),
         stormSenseInterval: def.stormSenseInterval || 0,
-        stormDeathPulseRange: Array.isArray(def.stormDeathPulseRange) ? def.stormDeathPulseRange[lv] : (def.stormDeathPulseRange || 0)
+        stormDeathPulseRange: Array.isArray(def.stormDeathPulseRange) ? def.stormDeathPulseRange[lv] : (def.stormDeathPulseRange || 0),
+        waveRange: Array.isArray(def.waveRange) ? def.waveRange[lv] : (def.waveRange || 0),
+        waveSpeed: def.waveSpeed || 0,
+        waveMaxBounces: Array.isArray(def.waveMaxBounces) ? def.waveMaxBounces[lv] : (def.waveMaxBounces || 0),
+        waveThickness: def.waveThickness || 0,
+        waveDmgRamp: Array.isArray(def.waveDmgRamp) ? def.waveDmgRamp[lv] : (def.waveDmgRamp || 0),
+        waveSlowFactor: Array.isArray(def.waveSlowFactor) ? def.waveSlowFactor[lv] : (def.waveSlowFactor || 0),
+        waveSlowDuration: Array.isArray(def.waveSlowDuration) ? def.waveSlowDuration[lv] : (def.waveSlowDuration || 0),
+        standingFieldDmg: Array.isArray(def.standingFieldDmg) ? def.standingFieldDmg[lv] : (def.standingFieldDmg || 0),
+        standingFieldInterval: def.standingFieldInterval || 0
     };
 }
 
@@ -1437,6 +1493,10 @@ function updateTowers(dt) {
 
     for (const t of game.towers) {
         t.cooldown -= dt * 1000;
+        // Decay wave emission animation for resonance towers
+        if (t.waveEmitAnim) {
+            t.waveEmitAnim = Math.max(0, t.waveEmitAnim - dt);
+        }
         if (t.cooldown > 0) continue;
         // Frost aura — passive area slow, no projectile
         if (t.type === 'ice_aura') {
@@ -1533,6 +1593,81 @@ function updateTowers(dt) {
                 t.cooldown = 500;
                 continue;
             }
+        }
+        // Resonance standing field (驻波场域) — creates damaging static field between linked resonance towers
+        if (t.type === 'resonance_standing') {
+            const st = towerStats(t);
+            const RESONANCE_TYPES = new Set(['resonance', 'resonance_ramp', 'resonance_control', 'resonance_standing']);
+            const linkRange = st.linkRange;
+            // Find linked resonance towers and create/refresh standing fields
+            for (const other of game.towers) {
+                if (other.id === t.id) continue;
+                if (!RESONANCE_TYPES.has(other.type)) continue;
+                const d = dist(t, other);
+                if (d <= linkRange) {
+                    // Check if field already exists between these two
+                    const pairId = Math.min(t.id, other.id) + '_' + Math.max(t.id, other.id);
+                    const existing = game.standingFields.find(f => f.pairId === pairId);
+                    if (existing) {
+                        existing.life = st.cooldown + 500;
+                        existing.damage = st.standingFieldDmg;
+                        existing.interval = st.standingFieldInterval;
+                        existing.tickTimer = existing.tickTimer || 0;
+                    } else {
+                        game.standingFields.push({
+                            pairId,
+                            x1: t.x, y1: t.y,
+                            x2: other.x, y2: other.y,
+                            towerId1: t.id, towerId2: other.id,
+                            life: st.cooldown + 500,
+                            damage: st.standingFieldDmg,
+                            interval: st.standingFieldInterval,
+                            tickTimer: 0,
+                            alive: true
+                        });
+                    }
+                }
+            }
+            t.cooldown = st.cooldown;
+            continue;
+        }
+        // Resonance wave pulse emission (共鸣塔, 增幅共振, 波纹束缚)
+        if (t.type === 'resonance' || t.type === 'resonance_ramp' || t.type === 'resonance_control') {
+            // Skip firing during idle — no enemies to hit, and dt=0 would cause re-fire every frame
+            if (game.state !== 'wave_active') { t.cooldown = 100; continue; }
+            const st = towerStats(t);
+            const wave = {
+                x: t.x, y: t.y,
+                radius: 4,
+                maxRadius: st.waveRange,
+                speed: st.waveSpeed,
+                damage: st.damage,
+                bounceCount: 0,
+                maxBounces: st.waveMaxBounces,
+                visitedTowerIds: new Set([t.id]),
+                alive: true,
+                color: st.bulletColor,
+                thickness: st.waveThickness,
+                dmgRamp: st.waveDmgRamp,
+                slowFactor: st.waveSlowFactor,
+                slowDuration: st.waveSlowDuration,
+                sourceTowerType: t.type
+            };
+            game.wavePulses.push(wave);
+            // Visual burst at emission point
+            for (let i = 0; i < 8; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = 30 + Math.random() * 60;
+                game.particles.push({
+                    x: t.x, y: t.y,
+                    vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+                    life: 0.3 + Math.random() * 0.3, maxLife: 0.6,
+                    color: st.bulletColor, size: 1.5 + Math.random() * 2.5
+                });
+            }
+            t.cooldown = st.cooldown;
+            t.waveEmitAnim = 0.35;
+            continue;
         }
         // laser_core: non-core towers skip firing, they only serve as relays
         if (t.type === 'laser_core' && !t.isCore) {
@@ -3071,6 +3206,141 @@ function createDeathExplosion(x, y, size, color) {
     }
 }
 
+// ==================== RESONANCE WAVE SYSTEM ====================
+function updateWavePulses(dt) {
+    const RESONANCE_TYPES = new Set(['resonance', 'resonance_ramp', 'resonance_control', 'resonance_standing']);
+    // Iterate over a snapshot — bounce waves pushed during iteration are processed next frame
+    const snapshot = [...game.wavePulses];
+    for (const w of snapshot) {
+        if (!w.alive) continue;
+        w.radius += w.speed * dt;
+        // Hit enemies within the wave ring band
+        const innerR = Math.max(0, w.radius - w.thickness);
+        const outerR = w.radius;
+        for (const e of game.enemies) {
+            if (!e.alive || e.isTurncoat) continue;
+            const d = Math.sqrt((e.x - w.x) ** 2 + (e.y - w.y) ** 2);
+            if (d >= innerR && d <= outerR) {
+                if (!w.hitEnemyIds) w.hitEnemyIds = new Set();
+                if (!w.hitEnemyIds.has(e.id)) {
+                    w.hitEnemyIds.add(e.id);
+                    let dmg = w.damage;
+                    if (w.dmgRamp > 0 && w.bounceCount > 0) {
+                        dmg = Math.floor(dmg * (1 + w.bounceCount * w.dmgRamp));
+                    }
+                    dealDamage(e, dmg);
+                    if (w.slowFactor > 0) {
+                        applySlow(e, w.slowFactor, w.slowDuration);
+                    }
+                    createHitSpark(e.x, e.y, w.color);
+                }
+            }
+        }
+        // Check for bounce: wave ring reaches another resonance tower
+        if (w.bounceCount < w.maxBounces && game.wavePulses.length < 40) {
+            for (const ot of game.towers) {
+                if (!RESONANCE_TYPES.has(ot.type)) continue;
+                if (w.visitedTowerIds.has(ot.id)) continue;
+                const d = Math.sqrt((ot.x - w.x) ** 2 + (ot.y - w.y) ** 2);
+                if (d <= w.radius && d >= w.radius - w.speed * dt * 1.5) {
+                    w.visitedTowerIds.add(ot.id);
+                    const bounceWave = {
+                        x: ot.x, y: ot.y,
+                        radius: 4,
+                        maxRadius: w.maxRadius,
+                        speed: w.speed,
+                        damage: w.damage,
+                        bounceCount: w.bounceCount + 1,
+                        maxBounces: w.maxBounces,
+                        visitedTowerIds: new Set(w.visitedTowerIds),
+                        alive: true,
+                        color: w.color,
+                        thickness: w.thickness,
+                        dmgRamp: w.dmgRamp,
+                        slowFactor: w.slowFactor,
+                        slowDuration: w.slowDuration,
+                        sourceTowerType: w.sourceTowerType
+                    };
+                    game.wavePulses.push(bounceWave);
+                    for (let i = 0; i < 8; i++) {
+                        const angle = Math.random() * Math.PI * 2;
+                        const spd = 30 + Math.random() * 50;
+                        game.particles.push({
+                            x: ot.x, y: ot.y,
+                            vx: Math.cos(angle) * spd, vy: Math.sin(angle) * spd,
+                            life: 0.25 + Math.random() * 0.35, maxLife: 0.6,
+                            color: w.color, size: 2 + Math.random() * 3
+                        });
+                    }
+                    game.particles.push({
+                        x: ot.x, y: ot.y, vx: 0, vy: 0,
+                        life: 0.4, maxLife: 0.4,
+                        color: w.color, size: 16, ring: true
+                    });
+                    break;
+                }
+            }
+        }
+        if (w.radius > w.maxRadius) {
+            w.alive = false;
+            for (let i = 0; i < 4; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const spd = 15 + Math.random() * 30;
+                const pr = w.radius;
+                game.particles.push({
+                    x: w.x + Math.cos(angle) * pr, y: w.y + Math.sin(angle) * pr,
+                    vx: Math.cos(angle) * spd, vy: Math.sin(angle) * spd,
+                    life: 0.3 + Math.random() * 0.3, maxLife: 0.6,
+                    color: w.color, size: 1 + Math.random() * 2
+                });
+            }
+        }
+    }
+    game.wavePulses = game.wavePulses.filter(w => w.alive);
+}
+
+function updateStandingFields(dt) {
+    const dtMs = dt * 1000;
+    for (const sf of game.standingFields) {
+        sf.life -= dtMs;
+        if (sf.life <= 0) { sf.alive = false; continue; }
+        // Update position from linked towers
+        const t1 = game.towers.find(t => t.id === sf.towerId1);
+        const t2 = game.towers.find(t => t.id === sf.towerId2);
+        if (!t1 || !t2) { sf.alive = false; continue; }
+        sf.x1 = t1.x; sf.y1 = t1.y;
+        sf.x2 = t2.x; sf.y2 = t2.y;
+        // Damage tick — capped to prevent runaway loops
+        sf.tickTimer -= dtMs;
+        let tickGuard = 0;
+        while (sf.tickTimer <= 0 && tickGuard < 10 && sf.interval > 0) {
+            tickGuard++;
+            sf.tickTimer += sf.interval;
+            // Damage enemies near the field line
+            const dx = sf.x2 - sf.x1;
+            const dy = sf.y2 - sf.y1;
+            const len = Math.sqrt(dx * dx + dy * dy);
+            if (len < 1) continue;
+            const nx = dx / len;
+            const ny = dy / len;
+            for (const e of game.enemies) {
+                if (!e.alive || e.isTurncoat) continue;
+                // Distance from point to line segment
+                const ex = e.x - sf.x1;
+                const ey = e.y - sf.y1;
+                const t = Math.max(0, Math.min(1, (ex * nx + ey * ny) / len));
+                const closestX = sf.x1 + t * dx;
+                const closestY = sf.y1 + t * dy;
+                const distToLine = Math.sqrt((e.x - closestX) ** 2 + (e.y - closestY) ** 2);
+                if (distToLine <= 28) {
+                    dealDamage(e, sf.damage);
+                }
+            }
+        }
+    }
+    game.standingFields = game.standingFields.filter(sf => sf.alive);
+}
+
 function updateParticles(dt) {
     for (const p of game.particles) {
         p.life -= dt;
@@ -4133,6 +4403,10 @@ function drawTower(t) {
         case 'magnet_emp': drawMagnetEmpTower(t, st, lv); break;
         case 'magnet_polarity': drawMagnetPolarityTower(t, st, lv); break;
         case 'magnet_storm': drawMagnetStormTower(t, st, lv); break;
+        case 'resonance': drawResonanceTower(t, st, lv); break;
+        case 'resonance_ramp': drawResonanceRampTower(t, st, lv); break;
+        case 'resonance_control': drawResonanceControlTower(t, st, lv); break;
+        case 'resonance_standing': drawResonanceStandingTower(t, st, lv); break;
     }
 
     ctx.restore();
@@ -8527,6 +8801,380 @@ function drawMagnetStormTower(t, st, lv) {
     }
 }
 
+// ===== RESONANCE TOWER — Base: bronze bell emitting expanding wave rings =====
+function drawResonanceTower(t, st, lv) {
+    const bw = 9 + lv;
+    const h = 15 + lv * 3.5;
+    const time = Date.now() / 1000;
+    const pulse = 0.5 + Math.sin(time * 2.5) * 0.5;
+    const wavePulse = (t.waveEmitAnim || 0);
+
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.beginPath();
+    ctx.ellipse(0, 4, bw + 3, bw * 0.4, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Stone base platform
+    const baseGrad = ctx.createLinearGradient(0, 0, 0, bw + 2);
+    baseGrad.addColorStop(0, '#7A6A8A');
+    baseGrad.addColorStop(0.4, '#5A4A6A');
+    baseGrad.addColorStop(1, '#3A2A4A');
+    ctx.fillStyle = baseGrad;
+    ctx.beginPath();
+    ctx.roundRect(-bw - 2, 2, (bw + 2) * 2, bw + 3, 3);
+    ctx.fill();
+    ctx.strokeStyle = '#8A7A9A';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Bell-shaped body
+    const bellW = bw * 0.75;
+    const bellH = h * 0.7;
+    const bellGrad = ctx.createLinearGradient(-bellW, 0, bellW, 0);
+    bellGrad.addColorStop(0, '#6B5080');
+    bellGrad.addColorStop(0.3, '#9B80B8');
+    bellGrad.addColorStop(0.5, '#B898D0');
+    bellGrad.addColorStop(0.7, '#8E6BB8');
+    bellGrad.addColorStop(1, '#5A4070');
+    ctx.fillStyle = bellGrad;
+    ctx.beginPath();
+    ctx.moveTo(-bellW, 0);
+    ctx.quadraticCurveTo(-bellW - 1, -bellH * 0.65, -bellW * 0.4, -bellH);
+    ctx.lineTo(bellW * 0.4, -bellH);
+    ctx.quadraticCurveTo(bellW + 1, -bellH * 0.65, bellW, 0);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#C8B0D8';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Bell rim
+    ctx.strokeStyle = '#D8C8E8';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(-bellW, 1);
+    ctx.lineTo(bellW, 1);
+    ctx.stroke();
+
+    // Inner glow
+    const innerGlow = ctx.createLinearGradient(0, -bellH, 0, 0);
+    innerGlow.addColorStop(0, 'rgba(220,200,240,0.5)');
+    innerGlow.addColorStop(0.6, 'rgba(160,130,200,0.2)');
+    innerGlow.addColorStop(1, 'rgba(100,60,140,0.05)');
+    ctx.fillStyle = innerGlow;
+    ctx.beginPath();
+    ctx.moveTo(-bellW * 0.6, -bellH * 0.3);
+    ctx.quadraticCurveTo(-bellW * 0.3, -bellH * 0.5, 0, -bellH + 4);
+    ctx.quadraticCurveTo(bellW * 0.3, -bellH * 0.5, bellW * 0.6, -bellH * 0.3);
+    ctx.lineTo(bellW * 0.5, 1);
+    ctx.lineTo(-bellW * 0.5, 1);
+    ctx.closePath();
+    ctx.fill();
+
+    // Clapper at top
+    ctx.fillStyle = '#D0C0E8';
+    ctx.beginPath();
+    ctx.arc(0, -bellH - 2, 3 + lv * 0.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = `rgba(240,220,255,${0.6 + pulse * 0.3})`;
+    ctx.beginPath();
+    ctx.arc(0, -bellH - 2, 6, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Resonance rings around bell
+    for (let i = 0; i < 2; i++) {
+        const ry = -bellH * 0.3 - i * bellH * 0.25;
+        const rAlpha = 0.15 + Math.sin(time * 3 + i) * 0.1;
+        ctx.strokeStyle = `rgba(200,180,240,${rAlpha + wavePulse})`;
+        ctx.lineWidth = 1 + i * 0.5;
+        ctx.beginPath();
+        ctx.moveTo(-bellW - 3 + i, ry);
+        ctx.lineTo(bellW + 3 - i, ry);
+        ctx.stroke();
+    }
+
+    // Wave emission glow
+    if (wavePulse > 0) {
+        ctx.fillStyle = `rgba(200,180,240,${wavePulse * 0.8})`;
+        ctx.beginPath();
+        ctx.arc(0, 0, bw * 2 * (1 - wavePulse / 0.35), 0, Math.PI * 2);
+        ctx.fill();
+    }
+}
+
+// ===== RESONANCE RAMP TOWER — Red-crimson amplifier increasing damage each bounce =====
+function drawResonanceRampTower(t, st, lv) {
+    const bw = 9 + lv;
+    const h = 16 + lv * 4;
+    const time = Date.now() / 1000;
+    const pulse = 0.5 + Math.sin(time * 3.2) * 0.5;
+    const wavePulse = (t.waveEmitAnim || 0);
+
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    ctx.beginPath();
+    ctx.ellipse(0, 5, bw + 4, bw * 0.45, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Dark metallic base
+    const baseGrad = ctx.createLinearGradient(0, 0, 0, bw + 3);
+    baseGrad.addColorStop(0, '#6A3A3A');
+    baseGrad.addColorStop(0.5, '#4A1A1A');
+    baseGrad.addColorStop(1, '#2A0000');
+    ctx.fillStyle = baseGrad;
+    ctx.beginPath();
+    ctx.roundRect(-bw - 2, 2, (bw + 2) * 2, bw + 3, 3);
+    ctx.fill();
+    ctx.strokeStyle = '#8A4040';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Amplifier cone — upward-pointing triangular shape
+    const coneW = bw * 0.7;
+    const coneH = h * 0.65;
+    const coneGrad = ctx.createLinearGradient(-coneW, 0, coneW, 0);
+    coneGrad.addColorStop(0, '#8B1A1A');
+    coneGrad.addColorStop(0.3, '#D04040');
+    coneGrad.addColorStop(0.5, '#E86060');
+    coneGrad.addColorStop(0.7, '#C03040');
+    coneGrad.addColorStop(1, '#701010');
+    ctx.fillStyle = coneGrad;
+    ctx.beginPath();
+    ctx.moveTo(0, -coneH);
+    ctx.lineTo(coneW, 0);
+    ctx.lineTo(-coneW, 0);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#F09090';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Energy rings inside the cone
+    for (let i = 1; i <= 3; i++) {
+        const y = -coneH * i / 4;
+        const wAtY = coneW * i / 4;
+        ctx.strokeStyle = `rgba(255,150,150,${0.2 + pulse * 0.15})`;
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(-wAtY, y);
+        ctx.lineTo(wAtY, y);
+        ctx.stroke();
+    }
+
+    // Glowing tip
+    const tipGrad = ctx.createRadialGradient(0, -coneH, 0, 0, -coneH, 8 + lv);
+    tipGrad.addColorStop(0, '#FFF');
+    tipGrad.addColorStop(0.3, '#FFAAAA');
+    tipGrad.addColorStop(0.7, '#FF4444');
+    tipGrad.addColorStop(1, 'rgba(200,0,0,0)');
+    ctx.fillStyle = tipGrad;
+    ctx.beginPath();
+    ctx.arc(0, -coneH, 8 + lv, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Small orbiting power orbs
+    for (let i = 0; i < 3; i++) {
+        const a = time * 2.5 + i * Math.PI * 2 / 3;
+        const orbR = bw * 1.1;
+        const ox = Math.cos(a) * orbR;
+        const oy = Math.sin(a) * orbR * 0.3 - coneH * 0.3;
+        ctx.fillStyle = `rgba(255,120,120,${0.4 + pulse * 0.3})`;
+        ctx.beginPath();
+        ctx.arc(ox, oy, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // Wave emission glow
+    if (wavePulse > 0) {
+        ctx.fillStyle = `rgba(255,140,140,${wavePulse * 0.8})`;
+        ctx.beginPath();
+        ctx.arc(0, 0, bw * 2.5 * (1 - wavePulse / 0.35), 0, Math.PI * 2);
+        ctx.fill();
+    }
+}
+
+// ===== RESONANCE CONTROL TOWER — Blue ripple catcher with restraining rings =====
+function drawResonanceControlTower(t, st, lv) {
+    const bw = 10 + lv;
+    const h = 15 + lv * 3.5;
+    const time = Date.now() / 1000;
+    const pulse = 0.5 + Math.sin(time * 2.8) * 0.5;
+    const wavePulse = (t.waveEmitAnim || 0);
+
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.beginPath();
+    ctx.ellipse(0, 4, bw + 3, bw * 0.4, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Aqua stone base
+    const baseGrad = ctx.createLinearGradient(0, 0, 0, bw + 2);
+    baseGrad.addColorStop(0, '#5A6A8A');
+    baseGrad.addColorStop(0.5, '#3A4A6A');
+    baseGrad.addColorStop(1, '#1A2A4A');
+    ctx.fillStyle = baseGrad;
+    ctx.beginPath();
+    ctx.roundRect(-bw - 2, 2, (bw + 2) * 2, bw + 3, 3);
+    ctx.fill();
+    ctx.strokeStyle = '#6A7A9A';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Central column
+    const colW = bw * 0.35;
+    const colH = h * 0.55;
+    const colGrad = ctx.createLinearGradient(-colW, 0, colW, 0);
+    colGrad.addColorStop(0, '#305080');
+    colGrad.addColorStop(0.3, '#5090C0');
+    colGrad.addColorStop(0.5, '#70A8D8');
+    colGrad.addColorStop(0.7, '#4080B8');
+    colGrad.addColorStop(1, '#204870');
+    ctx.fillStyle = colGrad;
+    ctx.beginPath();
+    ctx.roundRect(-colW, -colH, colW * 2, colH + 2, 2);
+    ctx.fill();
+    ctx.strokeStyle = '#90B8D8';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Horizontal restraining rings
+    for (let i = 0; i < 4; i++) {
+        const ry = -colH * 0.2 - i * colH * 0.22;
+        const ringW = bw - 1 - i * 0.5;
+        const ringAlpha = 0.25 + Math.sin(time * 2 + i * 1.5) * 0.15;
+        ctx.strokeStyle = `rgba(140,200,240,${ringAlpha})`;
+        ctx.lineWidth = 2.5 - i * 0.4;
+        ctx.beginPath();
+        ctx.ellipse(0, ry, ringW, ringW * 0.3, 0, 0, Math.PI * 2);
+        ctx.stroke();
+    }
+
+    // Top emitter crystal
+    const crystalW = colW + 3;
+    const crystalH = 6 + lv;
+    const crystalGrad = ctx.createLinearGradient(0, -colH - crystalH, 0, -colH);
+    crystalGrad.addColorStop(0, '#A0D8FF');
+    crystalGrad.addColorStop(0.4, '#60B0F0');
+    crystalGrad.addColorStop(1, '#3080C0');
+    ctx.fillStyle = crystalGrad;
+    ctx.beginPath();
+    ctx.moveTo(-crystalW, -colH);
+    ctx.lineTo(crystalW, -colH);
+    ctx.lineTo(crystalW * 0.5, -colH - crystalH);
+    ctx.lineTo(-crystalW * 0.5, -colH - crystalH);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#B8E0FF';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Crystal glow
+    ctx.fillStyle = `rgba(160,220,255,${0.4 + pulse * 0.3})`;
+    ctx.beginPath();
+    ctx.arc(0, -colH - crystalH * 0.4, crystalW * 0.8, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Wave emission glow
+    if (wavePulse > 0) {
+        ctx.fillStyle = `rgba(140,200,250,${wavePulse * 0.7})`;
+        ctx.beginPath();
+        ctx.arc(0, 0, bw * 2.5 * (1 - wavePulse / 0.35), 0, Math.PI * 2);
+        ctx.fill();
+    }
+}
+
+// ===== RESONANCE STANDING TOWER — Green web node creating static energy fields =====
+function drawResonanceStandingTower(t, st, lv) {
+    const bw = 9 + lv;
+    const h = 14 + lv * 3;
+    const time = Date.now() / 1000;
+    const pulse = 0.5 + Math.sin(time * 3) * 0.5;
+    const linkedCount = game.standingFields.filter(f => f.alive && (f.towerId1 === t.id || f.towerId2 === t.id)).length;
+
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.beginPath();
+    ctx.ellipse(0, 4, bw + 3, bw * 0.4, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Emerald base
+    const baseGrad = ctx.createLinearGradient(0, 0, 0, bw + 2);
+    baseGrad.addColorStop(0, '#4A6A5A');
+    baseGrad.addColorStop(0.5, '#2A4A3A');
+    baseGrad.addColorStop(1, '#0A2A1A');
+    ctx.fillStyle = baseGrad;
+    ctx.beginPath();
+    ctx.roundRect(-bw - 2, 2, (bw + 2) * 2, bw + 3, 3);
+    ctx.fill();
+    ctx.strokeStyle = '#5A8A6A';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Central node — hexagonal crystal
+    const nodeR = bw * 0.6;
+    const nodeGrad = ctx.createRadialGradient(0, -2, nodeR * 0.05, 0, 0, nodeR);
+    nodeGrad.addColorStop(0, '#E0FFF0');
+    nodeGrad.addColorStop(0.2, '#80E8C0');
+    nodeGrad.addColorStop(0.5, '#40A888');
+    nodeGrad.addColorStop(0.8, '#207050');
+    nodeGrad.addColorStop(1, '#104030');
+    ctx.fillStyle = nodeGrad;
+    ctx.beginPath();
+    // Hexagon
+    for (let i = 0; i < 6; i++) {
+        const a = i * Math.PI / 3 - Math.PI / 6;
+        const px = Math.cos(a) * nodeR;
+        const py = Math.sin(a) * nodeR;
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#A0E8C8';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Inner bright core
+    ctx.fillStyle = `rgba(200,255,230,${0.5 + pulse * 0.3})`;
+    ctx.beginPath();
+    ctx.arc(0, 0, nodeR * 0.4, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Orbiting energy motes
+    for (let i = 0; i < 4; i++) {
+        const a = time * 1.8 + i * Math.PI / 2;
+        const mr = bw * 0.85;
+        const mx = Math.cos(a) * mr;
+        const my = Math.sin(a) * mr * 0.5;
+        ctx.fillStyle = `rgba(140,240,200,${0.4 + Math.sin(time * 4 + i) * 0.3})`;
+        ctx.beginPath();
+        ctx.arc(mx, my, 2, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // Link indicators when fields active
+    if (linkedCount > 0) {
+        for (let i = 0; i < Math.min(linkedCount, 4); i++) {
+            const lx = -bw + 3 + i * 5;
+            ctx.fillStyle = `rgba(140,255,210,${0.5 + pulse * 0.4})`;
+            ctx.beginPath();
+            ctx.arc(lx, bw + 1, 2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+
+    // Subtle field emanation rings
+    for (let i = 0; i < 2; i++) {
+        const rAlpha = 0.1 + Math.sin(time * 2 + i) * 0.06;
+        ctx.strokeStyle = `rgba(120,230,180,${rAlpha})`;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(0, 0, nodeR + 3 + i * 5 + pulse * 2, 0, Math.PI * 2);
+        ctx.stroke();
+    }
+}
+
 function drawEnemy(e) {
     if (!e.alive) return;
     ctx.save();
@@ -9578,6 +10226,86 @@ function drawParticles() {
     ctx.globalAlpha = 1;
 }
 
+function drawWavePulses() {
+    for (const w of game.wavePulses) {
+        if (!w.alive) continue;
+        const progress = w.radius / w.maxRadius;
+        const alpha = 1 - progress * 0.6;
+        ctx.globalAlpha = alpha;
+        // Glow ring
+        ctx.strokeStyle = w.color;
+        ctx.lineWidth = w.thickness * 0.6 * alpha;
+        ctx.beginPath();
+        ctx.arc(w.x, w.y, w.radius, 0, Math.PI * 2);
+        ctx.stroke();
+        // Outer glow
+        ctx.strokeStyle = w.color;
+        ctx.lineWidth = w.thickness * 0.3 * alpha;
+        ctx.beginPath();
+        ctx.arc(w.x, w.y, w.radius - w.thickness * 0.5, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(w.x, w.y, w.radius + w.thickness * 0.5, 0, Math.PI * 2);
+        ctx.stroke();
+        // Small dots along the ring
+        const dotCount = 12 + Math.floor(w.radius / 8);
+        for (let i = 0; i < dotCount; i++) {
+            const a = (i / dotCount) * Math.PI * 2 + (Date.now() / 1000) * 1.5;
+            const dx = w.x + Math.cos(a) * w.radius;
+            const dy = w.y + Math.sin(a) * w.radius;
+            ctx.fillStyle = w.color;
+            ctx.globalAlpha = alpha * 0.8;
+            ctx.beginPath();
+            ctx.arc(dx, dy, 1.5, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+    ctx.globalAlpha = 1;
+}
+
+function drawStandingFields() {
+    const time = Date.now() / 1000;
+    for (const sf of game.standingFields) {
+        if (!sf.alive) continue;
+        const lifeRatio = Math.min(1, sf.life / 1000);
+        const pulse = 0.5 + Math.sin(time * 3 + sf.towerId1 * 1.3) * 0.4;
+        const alpha = lifeRatio * (0.3 + pulse * 0.25);
+        ctx.globalAlpha = alpha;
+        // Glow field line
+        const dx = sf.x2 - sf.x1;
+        const dy = sf.y2 - sf.y1;
+        const len = Math.sqrt(dx * dx + dy * dy);
+        const nx = -dy / (len || 1);
+        const ny = dx / (len || 1);
+        // Outer glow
+        ctx.strokeStyle = '#80E8D0';
+        ctx.lineWidth = 10 * alpha;
+        ctx.beginPath();
+        ctx.moveTo(sf.x1, sf.y1);
+        ctx.lineTo(sf.x2, sf.y2);
+        ctx.stroke();
+        // Core line
+        ctx.strokeStyle = '#C0FFF0';
+        ctx.lineWidth = 2.5 * alpha;
+        ctx.beginPath();
+        ctx.moveTo(sf.x1, sf.y1);
+        ctx.lineTo(sf.x2, sf.y2);
+        ctx.stroke();
+        // Energy nodes along the field
+        for (let i = 0; i < 4; i++) {
+            const f = (i / 4 + time * 0.4) % 1;
+            const px = sf.x1 + dx * f + nx * Math.sin(time * 5 + i) * 4;
+            const py = sf.y1 + dy * f + ny * Math.sin(time * 5 + i) * 4;
+            ctx.fillStyle = '#C0FFF0';
+            ctx.globalAlpha = alpha * 1.5;
+            ctx.beginPath();
+            ctx.arc(px, py, 2.5, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+    ctx.globalAlpha = 1;
+}
+
 function drawHoverPreview() {
     if (!game.selectedType || game.hoverCol < 0 || game.hoverRow < 0) return;
     const pos = cellCenter(game.hoverCol, game.hoverRow);
@@ -9852,6 +10580,9 @@ function render() {
     // Layer 3.5: Laser link beams between connected laser towers
     drawLaserLinks();
 
+    // Layer 3.6: Standing wave fields between resonance towers
+    drawStandingFields();
+
     // Layer 4: Enemies
     for (const e of game.enemies) drawEnemy(e);
 
@@ -9861,6 +10592,9 @@ function render() {
 
     // Layer 6: Projectiles
     for (const p of game.projectiles) drawProjectile(p);
+
+    // Layer 6.5: Resonance wave pulses
+    drawWavePulses();
 
     // Layer 7: Particles
     drawParticles();
@@ -10002,7 +10736,15 @@ function showTowerInfo(t) {
         (st.stormSenseRange > 0 ? '<div class="stat-row"><span>连锁范围</span><span>' + st.stormSenseRange + 'px</span></div>' : '') +
         (st.stormSenseDmg > 0 ? '<div class="stat-row"><span>连锁伤害</span><span>' + st.stormSenseDmg + '/跳</span></div>' : '') +
         (st.stormSenseInterval > 0 ? '<div class="stat-row"><span>连锁间隔</span><span>' + (st.stormSenseInterval / 1000).toFixed(1) + 's</span></div>' : '') +
-        (st.stormDeathPulseRange > 0 ? '<div class="stat-row"><span>死亡脉冲范围</span><span>' + st.stormDeathPulseRange + 'px</span></div>' : '');
+        (st.stormDeathPulseRange > 0 ? '<div class="stat-row"><span>死亡脉冲范围</span><span>' + st.stormDeathPulseRange + 'px</span></div>' : '') +
+        (st.waveRange > 0 ? '<div class="stat-row"><span>波纹范围</span><span>' + st.waveRange + 'px</span></div>' : '') +
+        (st.waveSpeed > 0 ? '<div class="stat-row"><span>波纹速度</span><span>' + st.waveSpeed + '/s</span></div>' : '') +
+        (st.waveMaxBounces > 0 ? '<div class="stat-row"><span>最大弹射</span><span>' + st.waveMaxBounces + '次</span></div>' : '') +
+        (st.waveDmgRamp > 0 ? '<div class="stat-row"><span>弹射增伤</span><span>+' + Math.round(st.waveDmgRamp * 100) + '%/跳</span></div>' : '') +
+        (st.waveSlowFactor > 0 ? '<div class="stat-row"><span>波纹减速</span><span>' + Math.round(st.waveSlowFactor * 100) + '%</span></div>' : '') +
+        (st.waveSlowDuration > 0 ? '<div class="stat-row"><span>减速持续</span><span>' + (st.waveSlowDuration / 1000).toFixed(1) + 's</span></div>' : '') +
+        (st.standingFieldDmg > 0 ? '<div class="stat-row"><span>驻波伤害</span><span>' + st.standingFieldDmg + '/跳</span></div>' : '') +
+        (st.standingFieldInterval > 0 ? '<div class="stat-row"><span>驻波间隔</span><span>' + (st.standingFieldInterval / 1000).toFixed(1) + 's</span></div>' : '');
 
     // Branch evolution — dynamic based on tower type
     const evolveDiv = document.getElementById('evolve-btns');
@@ -10143,6 +10885,10 @@ function getTowerSpecial(def) {
     if (def.empRadius) parts.push('EMP脉冲' + def.empRadius[0] + '-' + def.empRadius[2] + '范围 破甲+' + Math.round(def.empVulnFactor[0] * 100) + '-' + Math.round(def.empVulnFactor[2] * 100) + '%');
     if (def.polarityOppositePull) parts.push('异性引力' + def.polarityOppositePull[0] + '-' + def.polarityOppositePull[2] + ' 同性斥力' + def.polaritySameRepel[0] + '-' + def.polaritySameRepel[2]);
     if (def.stormSenseRange) parts.push('连锁磁暴' + def.stormSenseRange[0] + '-' + def.stormSenseRange[2] + '范围 死亡脉冲扩散');
+    if (def.waveRange) parts.push('波纹' + def.waveRange[0] + '-' + def.waveRange[2] + '范围 ' + def.waveMaxBounces[0] + '-' + def.waveMaxBounces[2] + '次弹射');
+    if (def.waveDmgRamp) parts.push('弹射增伤+' + Math.round(def.waveDmgRamp[0] * 100) + '-' + Math.round(def.waveDmgRamp[2] * 100) + '%/跳');
+    if (def.waveSlowFactor) parts.push('波纹减速' + Math.round(def.waveSlowFactor[0] * 100) + '-' + Math.round(def.waveSlowFactor[2] * 100) + '%');
+    if (def.standingFieldDmg) parts.push('驻波力场' + def.standingFieldDmg[0] + '-' + def.standingFieldDmg[2] + '/跳 ' + def.linkRange[0] + '-' + def.linkRange[2] + '链接');
     return parts.join(' · ') || '-';
 }
 
@@ -10157,7 +10903,8 @@ function buildCompendiumHTML() {
         { key: 'sheep', base: 'sheep' },
         { key: 'missile', base: 'missile' },
         { key: 'laser', base: 'laser' },
-        { key: 'magnet', base: null }
+        { key: 'magnet', base: null },
+        { key: 'resonance', base: 'resonance' }
     ];
 
     let html = '';
@@ -10254,6 +11001,8 @@ function restartGame() {
     game.particles = [];
     game.fireZones = [];
     game.craterZones = [];
+    game.wavePulses = [];
+    game.standingFields = [];
     game.selectedType = null;
     game.selectedTower = null;
     game.spawnQueue = [];
@@ -10387,6 +11136,7 @@ document.addEventListener('keydown', (e) => {
         case '7': selectTowerType('missile'); break;
         case '8': selectTowerType('wind'); break;
         case '9': selectTowerType('laser'); break;
+        case '0': selectTowerType('resonance'); break;
         case ' ':
             e.preventDefault();
             if (game.state === 'idle') startNextWave();
@@ -10414,6 +11164,7 @@ let lastFrameTime = null;
 const isMobile = /Android|iPhone|iPad|iPod|webOS/i.test(navigator.userAgent);
 
 function gameLoop(timestamp) {
+    try {
     if (!lastFrameTime) {
         lastFrameTime = timestamp;
         requestAnimationFrame(gameLoop);
@@ -10447,6 +11198,8 @@ function gameLoop(timestamp) {
     // Fire zones & craters always tick (even during idle — they burn out)
     updateFireZones(logicDt);
     updateCraters(logicDt);
+    updateWavePulses(logicDt);
+    updateStandingFields(logicDt);
     updateParticles(dt);
 
     // Render every frame (always at 1x visual speed)
@@ -10454,6 +11207,7 @@ function gameLoop(timestamp) {
 
     // Update HUD periodically
     updateHUD();
+    } catch(e) { console.error('Game loop error:', e); }
 
     requestAnimationFrame(gameLoop);
 }
