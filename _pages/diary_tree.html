@@ -268,12 +268,14 @@ let touchScale0 = 1;
 
 // ═══ Date parsing ═══
 function extractDateFromText(text) {
-    // Support YYYY-MM-DD, YYYY/MM/DD, YYYY.MM.DD, and YYYYMMDD
-    const m = text.match(/(\d{4})[-\/. ](\d{1,2})[-\/. ](\d{1,2})/);
-    if (m) return { year: parseInt(m[1]), month: parseInt(m[2]), day: parseInt(m[3]) };
-    // Also try bare 8-digit date like "20240115"
-    const m2 = text.match(/(\d{4})(\d{2})(\d{2})/);
-    if (m2) return { year: parseInt(m2[1]), month: parseInt(m2[2]), day: parseInt(m2[3]) };
+    // Support YYYY-MM-DD, YYYY/MM/DD, YYYY.MM.DD — year must be 2000–2099
+    const m = text.match(/\b(20\d{2})[-\/. ](\d{1,2})[-\/. ](\d{1,2})\b/);
+    if (m) {
+        const year = parseInt(m[1]), month = parseInt(m[2]), day = parseInt(m[3]);
+        if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+            return { year, month, day };
+        }
+    }
     return null;
 }
 
@@ -371,7 +373,8 @@ function buildTree(entries) {
 
 // ═══ Layout computation ═══
 function computeLayout() {
-    const years = Object.keys(treeData).map(Number).sort((a, b) => a - b);
+    const years = Object.keys(treeData).map(Number).filter(y => y >= 2000).sort((a, b) => a - b);
+    console.log('[diary_tree] Years in data:', years);
     if (years.length === 0) { layout = { years: [], yearWidth: 0, monthHeight: 0, colGap: 0, totalWidth: 0, totalHeight: 0 }; return; }
 
     // Use CSS-pixel dimensions (canvas._w/_h), NOT canvas.width/height which are
@@ -740,26 +743,42 @@ function showPopup(node, screenX, screenY) {
         const monthData = treeData[node.year] && treeData[node.year][node.month] ? treeData[node.year][node.month] : {};
         const dayCount = Object.keys(monthData).length;
         let totalEntries = 0, totalWords = 0;
+        const allMonthEntries = [];
         for (const d of Object.values(monthData)) {
             totalEntries += d.length;
             totalWords += d.reduce((s, e) => s + e.wordCount, 0);
+            allMonthEntries.push(...d);
         }
         popupTitle.textContent = `${node.year}年${node.month}月`;
         popupMeta.textContent = `${dayCount}天 · ${totalEntries}篇 · ${totalWords}字`;
-        popupPreview.textContent = '';
+        // Show first 5 entries as previews
+        const sorted = allMonthEntries.sort((a, b) => a.day - b.day || (a.category === 'normal' ? 1 : -1));
+        const previewEntries = sorted.slice(0, 5);
+        popupPreview.textContent = previewEntries.map(e =>
+            `${node.year}-${String(node.month).padStart(2,'0')}-${String(e.day).padStart(2,'0')}  ` +
+            e.text.slice(0, 120) + (e.text.length > 120 ? '...' : '')
+        ).join('\n\n');
     } else if (node.type === 'year') {
         const yearData = treeData[node.year] || {};
         let totalEntries = 0, totalWords = 0;
+        const allYearEntries = [];
         for (const m of Object.values(yearData)) {
             for (const d of Object.values(m)) {
                 totalEntries += d.length;
                 totalWords += d.reduce((s, e) => s + e.wordCount, 0);
+                allYearEntries.push(...d);
             }
         }
         const monthCount = Object.keys(yearData).length;
         popupTitle.textContent = `${node.year}年`;
         popupMeta.textContent = `${monthCount}个月 · ${totalEntries}篇 · ${totalWords}字`;
-        popupPreview.textContent = '';
+        // Show first 5 entries as previews
+        const sorted = allYearEntries.sort((a, b) => a.month - b.month || a.day - b.day);
+        const previewEntries = sorted.slice(0, 5);
+        popupPreview.textContent = previewEntries.map(e =>
+            `${node.year}-${String(e.month).padStart(2,'0')}-${String(e.day).padStart(2,'0')}  ` +
+            e.text.slice(0, 120) + (e.text.length > 120 ? '...' : '')
+        ).join('\n\n');
     }
 
     popup.classList.add('visible');
