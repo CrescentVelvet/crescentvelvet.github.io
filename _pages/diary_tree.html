@@ -268,8 +268,12 @@ let touchScale0 = 1;
 
 // ═══ Date parsing ═══
 function extractDateFromText(text) {
-    const m = text.match(/(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);
+    // Support YYYY-MM-DD, YYYY/MM/DD, YYYY.MM.DD, and YYYYMMDD
+    const m = text.match(/(\d{4})[-\/. ](\d{1,2})[-\/. ](\d{1,2})/);
     if (m) return { year: parseInt(m[1]), month: parseInt(m[2]), day: parseInt(m[3]) };
+    // Also try bare 8-digit date like "20240115"
+    const m2 = text.match(/(\d{4})(\d{2})(\d{2})/);
+    if (m2) return { year: parseInt(m2[1]), month: parseInt(m2[2]), day: parseInt(m2[3]) };
     return null;
 }
 
@@ -277,13 +281,28 @@ function classifyEntry(text) {
     if (/闲情逸致/.test(text)) return 'leisure';
     if (/梦幻空花/.test(text)) return 'dream';
     if (/做视频想法/.test(text)) return 'video';
-    if (/回顾/.test(text) && /\d{4}\.\d{2}\.\d{2}回顾/.test(text)) return 'review';
+    if (/回顾/.test(text) && /\d{4}[.\-/]\d{1,2}[.\-/]\d{1,2}回顾/.test(text)) return 'review';
     return 'normal';
 }
 
 function parseDecryptedText(text, sourceFile) {
+    // Strip HTML tags if the decrypted text is HTML-wrapped (exported from enc_reader)
+    const isHtml = /<\/?p[\s>]/.test(text);
+    let plainText = text;
+    if (isHtml) {
+        // Extract text from <p> tags — join with newlines
+        const pRegex = /<p[^>]*>([\s\S]*?)<\/p>/gi;
+        const parts = [];
+        let m;
+        while ((m = pRegex.exec(text)) !== null) {
+            parts.push(m[1]);
+        }
+        plainText = parts.join('\n');
+        console.log('[diary_tree] Stripped HTML from ' + sourceFile + ', got ' + parts.length + ' paragraphs');
+    }
+
     const entries = [];
-    const lines = text.split(/\r?\n/);
+    const lines = plainText.split(/\r?\n/);
     let currentDate = null;
     let currentTextLines = [];
 
@@ -329,6 +348,12 @@ function parseDecryptedText(text, sourceFile) {
             });
         }
     }
+    if (entries.length === 0) {
+        // Debug: log first 200 chars of decrypted text so we can see the format
+        console.log('[diary_tree] No entries from ' + sourceFile + '. First 200 chars:', text.slice(0, 200));
+    } else {
+        console.log('[diary_tree] Parsed ' + entries.length + ' entries from ' + sourceFile);
+    }
     return entries;
 }
 
@@ -349,8 +374,11 @@ function computeLayout() {
     const years = Object.keys(treeData).map(Number).sort((a, b) => a - b);
     if (years.length === 0) { layout = { years: [], yearWidth: 0, monthHeight: 0, colGap: 0, totalWidth: 0, totalHeight: 0 }; return; }
 
-    const w = canvas.width;
-    const h = canvas.height;
+    // Use CSS-pixel dimensions (canvas._w/_h), NOT canvas.width/height which are
+    // internal pixels scaled by devicePixelRatio.  The drawing context is already
+    // scaled by DPR so all coordinates are in CSS pixels.
+    const w = canvas._w || window.innerWidth;
+    const h = canvas._h || window.innerHeight;
     const colGap = Math.max(40 * scale, 20);
     const yearWidth = Math.max((w - colGap * (years.length + 1)) / years.length, 120 * scale);
     const monthCount = 12;
@@ -438,14 +466,30 @@ function drawCurvePath(x1, y1, x2, y2) {
 }
 
 function draw() {
-    const w = canvas.width;
-    const h = canvas.height;
+    const w = canvas._w || window.innerWidth;
+    const h = canvas._h || window.innerHeight;
     ctx.clearRect(0, 0, w, h);
+
+    // Background fill so canvas is never transparent
+    ctx.fillStyle = '#f8f9fa';
+    ctx.fillRect(0, 0, w, h);
 
     ctx.save();
     ctx.translate(viewX, viewY);
 
     const years = layout.years;
+
+    // No-data state
+    if (years.length === 0) {
+        ctx.fillStyle = '#888';
+        ctx.font = `${Math.max(14, 16)}px "Segoe UI","Microsoft YaHei",sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('没有日记数据', w / 2, h / 2);
+        ctx.restore();
+        zoomIndicator.textContent = '100%';
+        return;
+    }
 
     // Draw year background columns
     for (let yi = 0; yi < years.length; yi++) {
@@ -592,7 +636,8 @@ function draw() {
         }
 
         // Year label
-        ctx.fillStyle = yearColor(yi, years.length, 0.9);
+        const yearIndex = years.indexOf(yl);
+        ctx.fillStyle = yearColor(yearIndex, years.length, 0.9);
         ctx.font = `bold ${Math.max(14 * scale, 10)}px "Segoe UI","Microsoft YaHei",sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
@@ -604,7 +649,7 @@ function draw() {
             return sum + Object.values(m).reduce((s, d) => s + d.length, 0);
         }, 0);
         if (scale > 0.5) {
-            ctx.fillStyle = yearColor(yi, years.length, 0.5);
+            ctx.fillStyle = yearColor(yearIndex, years.length, 0.5);
             ctx.font = `${Math.max(9 * scale, 7)}px "Segoe UI","Microsoft YaHei",sans-serif`;
             ctx.fillText(`${yearTotal}篇`, yl.x + yl.width / 2, yLabelY + 16 * scale);
         }
@@ -877,28 +922,39 @@ document.getElementById('unlockBtn').onclick = async function() {
     status.className = 'loading';
 
     const allEntries = [];
-    let successCount = 0;
-    let failCount = 0;
+    let filesFetched = 0;
+    let filesFailed = 0;
 
     for (const file of window.files) {
         try {
             const res = await fetch(`/assets/data/${file}`);
-            if (!res.ok) { failCount++; continue; }
+            if (!res.ok) { filesFailed++; continue; }
             const ciphertext = await res.text();
             const bytes = CryptoJS.AES.decrypt(ciphertext, password);
             const decrypted = bytes.toString(CryptoJS.enc.Utf8);
-            if (!decrypted) { failCount++; continue; }
+            if (!decrypted) {
+                // Decryption produced empty output — likely wrong password
+                filesFailed++;
+                continue;
+            }
             const entries = parseDecryptedText(decrypted, file);
             allEntries.push(...entries);
-            successCount++;
+            filesFetched++;
         } catch (e) {
-            failCount++;
+            filesFailed++;
         }
     }
 
-    if (successCount === 0) {
-        status.textContent = '密码错误或无法解密任何文件';
+    console.log('[diary_tree] files_fetched:', filesFetched, 'files_failed:', filesFailed, 'entries_parsed:', allEntries.length);
+
+    // CryptoJS with wrong password returns garbage bytes (non-empty), so we
+    // must check the actual entry count, NOT just whether decryption "succeeded".
+    if (allEntries.length === 0) {
+        status.textContent = window.files.length === 0
+            ? '未找到任何日记数据文件（请确保在 Jekyll 构建后访问）'
+            : '密码错误或未找到可解析的日记条目';
         status.className = 'error';
+        console.log('[diary_tree] No entries parsed. window.files count:', window.files.length);
         return;
     }
 
@@ -909,7 +965,7 @@ document.getElementById('unlockBtn').onclick = async function() {
     resize();
     render();
 
-    status.textContent = successCount > 0 ? `成功解密 ${successCount} 个文件，共 ${allEntries.length} 条日记` : '';
+    status.textContent = `成功解密 ${filesFetched} 个文件，共 ${allEntries.length} 条日记`;
 };
 
 // Allow Enter key to submit
