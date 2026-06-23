@@ -150,17 +150,18 @@ redirect_from:
         <a href="/travel_map.html" class="link-button">旅行足迹</a>
         <a href="/multi_translator.html" class="link-button">多语言翻译</a>
         <a href="/course_recorder.html" class="link-button">进度记录</a>
-        <a href="/game_plane.html" class="link-button">飞机大战</a>
         <a href="/db_viewer.html" class="link-button">数据库解析</a>
         <a href="/text_processor.html" class="link-button">文本加密</a>
         <a href="/enc_reader.html" class="link-button">文本解密</a>
+        <a href="/diary_tree.html" class="link-button">树状日志</a>
         <a href="/paper_retrieval.html" class="link-button">论文搜索</a>
         <a href="/hot_trends.html" class="link-button">每日热榜</a>
         <a href="/wish_analyzer.html" class="link-button">抽卡分析</a>
         <a href="/exam_notes/" class="link-button">信创考试</a>
+        <a href="/anime-tracker/" class="link-button">动画世代</a>
+        <a href="/game_plane.html" class="link-button">飞机大战</a>
         <a href="/sandbox_war_game.html" class="link-button">沙盘战争</a>
         <a href="/tower_defense.html" class="link-button">塔防战争</a>
-        <a href="/anime-tracker/" class="link-button">动画世代</a>
     </div>
     <hr>
     <p>强调一下<strong>几个单词</strong></p>
