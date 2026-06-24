@@ -393,24 +393,25 @@ function getMonthY(month) {
     return (month - 1) * (layout.monthHeight + monthGap()) + 48;
 }
 
-// Layout day dots in a wrapped grid that fits inside the month card so 30+ days
-// don't overlap. The dot radius shrinks until the grid fits the card height.
+// Layout day dots in a wrapped grid that fits inside the available area so 30+
+// days don't overlap. The dot radius shrinks until the grid fits. `availH` is
+// the height reserved for the grid (excludes a header band for the month stats).
 // Shared by draw() and hitTest() so click targets match what's drawn.
-function dayNodePositions(cardX, cardW, cardH, cy, dayCount) {
+function dayNodePositions(cardX, cardW, availH, gridCenterY, dayCount) {
     const gap = 3;
     let r = Math.min(layout.monthHeight * 0.24, 9);
     let cols, rows;
     for (; r >= 2; r -= 0.5) {
         cols = Math.min(dayCount, Math.max(1, Math.floor((cardW - 12) / (r * 2 + gap))));
         rows = Math.ceil(dayCount / cols);
-        if (rows * (r * 2 + gap) <= cardH - 6) break;
+        if (rows * (r * 2 + gap) <= availH - 6) break;
     }
     if (r < 2) r = 2;
     const cell = r * 2 + gap;
     const gridW = cols * cell;
     const gridH = rows * cell;
     const startX = cardX + (cardW - gridW) / 2 + r;
-    const startY = cy - gridH / 2 + r;
+    const startY = gridCenterY - gridH / 2 + r;
     const positions = [];
     for (let i = 0; i < dayCount; i++) {
         const rr = Math.floor(i / cols);
@@ -698,8 +699,12 @@ function hitTest(mx, my) {
             // Day nodes take priority once zoomed in enough.
             if (scale >= DAY_NODE_SCALE && mo.days.length > 0) {
                 const dayCount = mo.days.length;
-                const cardH = Math.max(layout.monthHeight * 0.72, 20);
-                const { positions, r: dayRadius } = dayNodePositions(cardX, cardW, cardH, cy, dayCount);
+                // Reserve a header band at the top so the month stats stay visible.
+                const headerH = 16;
+                const gridTop = cardY + headerH;
+                const gridAvailH = Math.max((cardY + cardH) - gridTop, 8);
+                const gridCenterY = gridTop + gridAvailH / 2;
+                const { positions, r: dayRadius } = dayNodePositions(cardX, cardW, gridAvailH, gridCenterY, dayCount);
                 for (let di = 0; di < dayCount; di++) {
                     const { dx, dy } = positions[di];
                     const dist = Math.hypot(mx - dx, my - dy);
@@ -870,28 +875,37 @@ function draw() {
                 ctx.fill();
             }
 
-            // Month label
-            if (scale > 0.36) {
+            // Month summary — always resident (at all zoom levels where nodes show),
+            // pinned to a header band at the top of the card so day dots never cover it.
+            if (scale > 0.52) {
+                const headerH = 16;
+                const headerY = cardY + headerH / 2;
+                // Subtle header backdrop so the stats stay legible over any dots.
+                ctx.fillStyle = 'rgba(255, 252, 246, 0.82)';
+                ctx.beginPath();
+                roundRect(ctx, cardX + 2, cardY + 1, cardW - 4, headerH - 1, Math.min(6, cardR));
+                ctx.fill();
+
+                ctx.fillStyle = hasEntries ? 'rgba(91, 59, 42, 0.96)' : 'rgba(91, 59, 42, 0.42)';
+                ctx.font = `700 10px "Segoe UI","Microsoft YaHei",sans-serif`;
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(`${mo.month}月`, cardX + 8, headerY);
+
+                ctx.textAlign = 'right';
+                ctx.font = `8.5px "Segoe UI","Microsoft YaHei",sans-serif`;
+                ctx.fillStyle = hasEntries ? 'rgba(91, 74, 64, 0.82)' : 'rgba(91, 74, 64, 0.32)';
+                const summary = hasEntries
+                    ? `${stats.dayCount}天 · ${stats.entryCount}篇 · ${formatCompactNumber(stats.wordCount)}字`
+                    : '无记录';
+                ctx.fillText(summary, cardX + cardW - 8, headerY);
+            } else if (scale > 0.36) {
+                // At low zoom, no header band — just a faint month label centered.
                 ctx.fillStyle = hasEntries ? 'rgba(91, 59, 42, 0.96)' : 'rgba(91, 59, 42, 0.38)';
                 ctx.font = `700 10px "Segoe UI","Microsoft YaHei",sans-serif`;
                 ctx.textAlign = 'left';
                 ctx.textBaseline = 'middle';
-                const labelY = scale >= DAY_NODE_SCALE ? cardY + 11 : cy - (scale > 0.58 ? 5 : 0);
-                ctx.fillText(`${mo.month}月`, cardX + 10, labelY);
-            }
-
-            // Month summary at overview zoom.
-            if (scale > 0.52 && scale < DAY_DETAIL_SCALE) {
-                ctx.fillStyle = hasEntries ? 'rgba(91, 74, 64, 0.72)' : 'rgba(91, 74, 64, 0.28)';
-                ctx.font = `8.5px "Segoe UI","Microsoft YaHei",sans-serif`;
-                ctx.textAlign = scale >= DAY_NODE_SCALE ? 'right' : 'left';
-                ctx.textBaseline = 'middle';
-                const summary = hasEntries
-                    ? `${stats.dayCount}天 · ${stats.entryCount}篇 · ${formatCompactNumber(stats.wordCount)}字`
-                    : '无记录';
-                const tx = scale >= DAY_NODE_SCALE ? cardX + cardW - 10 : cardX + 10;
-                const ty = scale >= DAY_NODE_SCALE ? cardY + 11 : cy + 7;
-                ctx.fillText(summary, tx, ty);
+                ctx.fillText(`${mo.month}月`, cardX + 10, cy - (scale > 0.58 ? 5 : 0));
             }
 
             // Highlight hovered/selected month
@@ -915,7 +929,12 @@ function draw() {
             // Day nodes emerge when zoomed in. At high zoom they include compact stats.
             if (scale >= DAY_NODE_SCALE && mo.days.length > 0) {
                 const dayCount = mo.days.length;
-                const { positions, r: dayRadius } = dayNodePositions(cardX, cardW, cardH, cy, dayCount);
+                // Keep dots below the resident month-stats header band.
+                const headerH = 16;
+                const gridTop = cardY + headerH;
+                const gridAvailH = Math.max((cardY + cardH) - gridTop, 8);
+                const gridCenterY = gridTop + gridAvailH / 2;
+                const { positions, r: dayRadius } = dayNodePositions(cardX, cardW, gridAvailH, gridCenterY, dayCount);
                 const dotMinR = dayRadius * 0.6;
 
                 for (let di = 0; di < dayCount; di++) {
