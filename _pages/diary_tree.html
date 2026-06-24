@@ -135,8 +135,8 @@ title: "日记时间轴"
             border-radius: 22px;
             box-shadow: 0 20px 60px rgba(56,42,31,0.2);
             padding: 18px 22px;
-            max-width: 460px;
-            max-height: 70vh;
+            max-width: 560px;
+            max-height: 82vh;
             overflow-y: auto;
             pointer-events: auto;
             display: none;
@@ -164,7 +164,7 @@ title: "日记时间轴"
             font-size: 0.9rem;
             white-space: pre-wrap;
             word-break: break-word;
-            max-height: 200px;
+            max-height: 64vh;
             overflow-y: auto;
             border-top: 1px solid var(--border);
             padding-top: 8px;
@@ -286,7 +286,7 @@ title: "日记时间轴"
             #tree-hud { top: 10px; left: 10px; width: calc(100vw - 20px); padding: 12px 14px; }
             #legend { bottom: 64px; left: 8px; gap: 8px; font-size: 10px; padding: 6px 10px; max-width: calc(100vw - 16px); }
             #zoom-panel { bottom: 8px; right: 8px; }
-            #info-popup { max-width: 90vw; max-height: 60vh; }
+            #info-popup { max-width: 90vw; max-height: 70vh; }
         }
     </style>
 </head>
@@ -391,6 +391,33 @@ function monthGap() {
 
 function getMonthY(month) {
     return (month - 1) * (layout.monthHeight + monthGap()) + 48;
+}
+
+// Layout day dots in a wrapped grid that fits inside the month card so 30+ days
+// don't overlap. The dot radius shrinks until the grid fits the card height.
+// Shared by draw() and hitTest() so click targets match what's drawn.
+function dayNodePositions(cardX, cardW, cardH, cy, dayCount) {
+    const gap = 3;
+    let r = Math.min(layout.monthHeight * 0.24, 9);
+    let cols, rows;
+    for (; r >= 2; r -= 0.5) {
+        cols = Math.min(dayCount, Math.max(1, Math.floor((cardW - 12) / (r * 2 + gap))));
+        rows = Math.ceil(dayCount / cols);
+        if (rows * (r * 2 + gap) <= cardH - 6) break;
+    }
+    if (r < 2) r = 2;
+    const cell = r * 2 + gap;
+    const gridW = cols * cell;
+    const gridH = rows * cell;
+    const startX = cardX + (cardW - gridW) / 2 + r;
+    const startY = cy - gridH / 2 + r;
+    const positions = [];
+    for (let i = 0; i < dayCount; i++) {
+        const rr = Math.floor(i / cols);
+        const cc = i % cols;
+        positions.push({ dx: startX + cc * cell, dy: startY + rr * cell });
+    }
+    return { positions, r };
 }
 
 function getViewMode() {
@@ -670,14 +697,11 @@ function hitTest(mx, my) {
 
             // Day nodes take priority once zoomed in enough.
             if (scale >= DAY_NODE_SCALE && mo.days.length > 0) {
-                const dayRadius = Math.min(layout.monthHeight * 0.24, 9);
                 const dayCount = mo.days.length;
-                const availW = cardW - dayRadius * 2 - 12;
-                const spacing = dayCount > 1 ? availW / (dayCount - 1) : 0;
-                const dayY = scale >= DAY_DETAIL_SCALE ? cy + cardH * 0.12 : cy;
+                const cardH = Math.max(layout.monthHeight * 0.72, 20);
+                const { positions, r: dayRadius } = dayNodePositions(cardX, cardW, cardH, cy, dayCount);
                 for (let di = 0; di < dayCount; di++) {
-                    const dx = cardX + 6 + dayRadius + di * spacing;
-                    const dy = dayY;
+                    const { dx, dy } = positions[di];
                     const dist = Math.hypot(mx - dx, my - dy);
                     if (dist < dayRadius + 4) {
                         return { type: 'day', year: yl.year, month: mo.month, day: mo.days[di], cx: dx, cy: dy, radius: dayRadius };
@@ -890,20 +914,17 @@ function draw() {
 
             // Day nodes emerge when zoomed in. At high zoom they include compact stats.
             if (scale >= DAY_NODE_SCALE && mo.days.length > 0) {
-                const dayRadius = Math.min(layout.monthHeight * 0.24, 9);
                 const dayCount = mo.days.length;
-                const availW = cardW - dayRadius * 2 - 12;
-                const spacing = dayCount > 1 ? availW / (dayCount - 1) : 0;
-                const dayY = scale >= DAY_DETAIL_SCALE ? cy + cardH * 0.12 : cy;
+                const { positions, r: dayRadius } = dayNodePositions(cardX, cardW, cardH, cy, dayCount);
+                const dotMinR = dayRadius * 0.6;
 
                 for (let di = 0; di < dayCount; di++) {
                     const day = mo.days[di];
                     const dayStats = getDayStats(yl.year, mo.month, day);
-                    const dx = cardX + 6 + dayRadius + di * spacing;
-                    const dy = dayY;
+                    const { dx, dy } = positions[di];
 
                     const cat = dayStats.category;
-                    const dr = dayRadius * (0.72 + 0.36 * Math.min(dayStats.wordCount / 2400, 1));
+                    const dr = Math.max(dotMinR, dayRadius * (0.72 + 0.36 * Math.min(dayStats.wordCount / 2400, 1)));
 
                     ctx.fillStyle = categoryColor(cat, 0.16);
                     ctx.beginPath();
@@ -940,20 +961,12 @@ function draw() {
                         ctx.setLineDash([]);
                     }
 
-                    if (scale >= DAY_LABEL_SCALE) {
+                    if (scale >= DAY_LABEL_SCALE && dr >= 6) {
                         ctx.fillStyle = '#fff';
-                        ctx.font = `700 7px "Segoe UI","Microsoft YaHei",sans-serif`;
+                        ctx.font = `700 ${Math.min(dr, 8)}px "Segoe UI","Microsoft YaHei",sans-serif`;
                         ctx.textAlign = 'center';
                         ctx.textBaseline = 'middle';
                         ctx.fillText(day, dx, dy);
-                    }
-
-                    if (scale >= DAY_DETAIL_SCALE && spacing > 26) {
-                        ctx.fillStyle = 'rgba(83, 61, 48, 0.72)';
-                        ctx.font = `8px "Segoe UI","Microsoft YaHei",sans-serif`;
-                        ctx.textAlign = 'center';
-                        ctx.textBaseline = 'top';
-                        ctx.fillText(`${dayStats.entryCount}篇`, dx, dy + dr + 3);
                     }
                 }
             }
@@ -1068,7 +1081,8 @@ function showPopup(node, screenX, screenY) {
         const categories = [...new Set(entries.map(e => categoryLabel(e.category)))].join(' / ');
         popupTitle.textContent = `${node.year}-${String(node.month).padStart(2,'0')}-${String(node.day).padStart(2,'0')}`;
         popupMeta.textContent = `${entries.length}篇 · ${dayStats.wordCount}字 · ${dayStats.paraCount}段${categories ? ' · ' + categories : ''}`;
-        popupPreview.textContent = entries.map(e => e.text.slice(0, 200) + (e.text.length > 200 ? '...' : '')).join('\n\n———\n\n');
+        // Full, untruncated diary text for the whole day.
+        popupPreview.textContent = entries.map(e => e.text).join('\n\n———\n\n');
     } else if (node.type === 'month') {
         const monthStats = getMonthStats(node.year, node.month);
         popupTitle.textContent = `${node.year}年${node.month}月`;
