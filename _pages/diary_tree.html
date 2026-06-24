@@ -13,20 +13,25 @@ title: "日记时间轴"
 
     <style>
         :root {
-            --bg: #f8f9fa;
-            --panel-bg: #fff;
-            --text: #333;
-            --muted: #888;
-            --accent: #4a90e2;
-            --accent-hover: #357ab8;
-            --border: #e0e0e0;
-            --shadow: 0 4px 24px rgba(60,60,120,0.08);
-            --radius: 10px;
+            --bg: #f7f4ee;
+            --panel-bg: rgba(255, 255, 255, 0.78);
+            --panel-solid: #fffdf9;
+            --text: #2f2a28;
+            --muted: #877d78;
+            --accent: #b86944;
+            --accent-hover: #965236;
+            --accent-soft: rgba(184, 105, 68, 0.16);
+            --border: rgba(126, 93, 73, 0.16);
+            --shadow: 0 18px 56px rgba(88, 61, 41, 0.13);
+            --radius: 20px;
         }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
             font-family: 'Segoe UI', 'Microsoft YaHei', Arial, sans-serif;
-            background: var(--bg);
+            background:
+                radial-gradient(circle at 18% 12%, rgba(255, 206, 161, 0.36), transparent 34%),
+                radial-gradient(circle at 86% 8%, rgba(171, 190, 255, 0.22), transparent 30%),
+                linear-gradient(135deg, #faf7f1 0%, #f2efe9 52%, #f8f3eb 100%);
             color: var(--text);
             overflow: hidden;
             height: 100vh;
@@ -42,22 +47,29 @@ title: "日记时间轴"
             display: flex;
             align-items: center;
             justify-content: center;
-            background: var(--bg);
+            background:
+                radial-gradient(circle at top left, rgba(255, 198, 143, 0.44), transparent 34%),
+                radial-gradient(circle at bottom right, rgba(131, 153, 224, 0.23), transparent 36%),
+                rgba(248, 244, 238, 0.94);
+            backdrop-filter: blur(16px);
         }
         #auth-overlay.hidden { display: none; }
         .auth-card {
             background: var(--panel-bg);
             border-radius: var(--radius);
             box-shadow: var(--shadow);
-            padding: 32px 24px;
-            width: 360px;
+            border: 1px solid rgba(255,255,255,0.72);
+            padding: 34px 28px 28px;
+            width: 380px;
             max-width: 90vw;
+            backdrop-filter: blur(24px);
         }
         .auth-card h1 {
             text-align: center;
             color: var(--accent);
             margin-bottom: 8px;
-            font-size: 1.5rem;
+            font-size: 1.65rem;
+            letter-spacing: 0.08em;
         }
         .auth-card .subtitle {
             text-align: center;
@@ -69,25 +81,33 @@ title: "日记时间轴"
             width: 100%;
             padding: 10px 12px;
             border: 1px solid var(--border);
-            border-radius: 6px;
+            border-radius: 999px;
             font-size: 15px;
             margin-bottom: 16px;
             outline: none;
-            transition: border-color 0.2s;
+            background: rgba(255,255,255,0.84);
+            transition: border-color 0.2s, box-shadow 0.2s;
         }
-        .auth-card input:focus { border-color: var(--accent); }
+        .auth-card input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 4px var(--accent-soft);
+        }
         .auth-card button {
             width: 100%;
             padding: 10px 0;
-            background: var(--accent);
+            background: linear-gradient(135deg, #c8754d, #9f5a3f);
             color: #fff;
             border: none;
-            border-radius: 6px;
+            border-radius: 999px;
             font-size: 16px;
             cursor: pointer;
-            transition: background 0.2s;
+            box-shadow: 0 10px 28px rgba(184,105,68,0.24);
+            transition: transform 0.2s, box-shadow 0.2s;
         }
-        .auth-card button:hover { background: var(--accent-hover); }
+        .auth-card button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 12px 32px rgba(184,105,68,0.32);
+        }
         .auth-card .error {
             color: #dc3545;
             font-size: 0.85rem;
@@ -111,18 +131,23 @@ title: "日记时间轴"
             position: fixed;
             z-index: 100;
             background: var(--panel-bg);
-            border-radius: 8px;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.18);
-            padding: 16px 20px;
-            max-width: 420px;
+            border: 1px solid rgba(255,255,255,0.78);
+            border-radius: 22px;
+            box-shadow: 0 20px 60px rgba(56,42,31,0.2);
+            padding: 18px 22px;
+            max-width: 460px;
             max-height: 70vh;
             overflow-y: auto;
             pointer-events: auto;
             display: none;
             font-size: 14px;
             line-height: 1.6;
+            backdrop-filter: blur(22px);
         }
-        #info-popup.visible { display: block; }
+        #info-popup.visible {
+            display: block;
+            animation: floatIn 0.18s ease-out;
+        }
         #info-popup h3 {
             color: var(--accent);
             margin-bottom: 6px;
@@ -132,6 +157,7 @@ title: "日记时间轴"
             color: var(--muted);
             font-size: 0.8rem;
             margin-bottom: 8px;
+            letter-spacing: 0.02em;
         }
         #info-popup .popup-preview {
             color: var(--text);
@@ -156,20 +182,55 @@ title: "日记时间轴"
             padding: 0;
             line-height: 1;
         }
+        #tree-hud {
+            position: fixed;
+            top: 18px;
+            left: 18px;
+            z-index: 50;
+            width: min(360px, calc(100vw - 36px));
+            background: var(--panel-bg);
+            border: 1px solid rgba(255,255,255,0.72);
+            border-radius: 24px;
+            box-shadow: var(--shadow);
+            padding: 14px 16px;
+            color: var(--text);
+            backdrop-filter: blur(20px);
+            pointer-events: none;
+        }
+        #tree-hud .hud-kicker {
+            color: var(--accent);
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+        #tree-hud .hud-title {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+        #tree-hud .hud-summary {
+            color: var(--muted);
+            font-size: 12px;
+            line-height: 1.5;
+        }
         #legend {
             position: fixed;
             bottom: 16px;
             left: 16px;
             z-index: 50;
             background: var(--panel-bg);
-            border-radius: 8px;
-            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+            border: 1px solid rgba(255,255,255,0.72);
+            border-radius: 999px;
+            box-shadow: 0 10px 30px rgba(56,42,31,0.1);
             padding: 10px 14px;
             font-size: 12px;
             color: var(--muted);
             display: flex;
             gap: 16px;
             flex-wrap: wrap;
+            backdrop-filter: blur(18px);
         }
         #legend span { display: flex; align-items: center; gap: 4px; }
         #legend .dot {
@@ -178,20 +239,53 @@ title: "日记时间轴"
             height: 10px;
             border-radius: 50%;
         }
-        #zoom-indicator {
+        #zoom-panel {
             position: fixed;
             bottom: 16px;
             right: 16px;
             z-index: 50;
             background: var(--panel-bg);
-            border-radius: 8px;
-            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
-            padding: 6px 12px;
+            border: 1px solid rgba(255,255,255,0.72);
+            border-radius: 999px;
+            box-shadow: 0 10px 30px rgba(56,42,31,0.1);
+            padding: 6px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            backdrop-filter: blur(18px);
+        }
+        #zoom-panel button {
+            width: 34px;
+            height: 34px;
+            border: 0;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.66);
+            color: var(--accent);
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.2s;
+        }
+        #zoom-panel button:hover {
+            background: #fff;
+            transform: translateY(-1px);
+        }
+        #zoom-indicator {
+            min-width: 104px;
+            padding: 0 8px;
             font-size: 12px;
             color: var(--muted);
+            text-align: center;
+            white-space: nowrap;
+        }
+        @keyframes floatIn {
+            from { opacity: 0; transform: translateY(8px) scale(0.98); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
         }
         @media (max-width: 600px) {
-            #legend { bottom: 8px; left: 8px; gap: 8px; font-size: 10px; padding: 6px 10px; }
+            #tree-hud { top: 10px; left: 10px; width: calc(100vw - 20px); padding: 12px 14px; }
+            #legend { bottom: 64px; left: 8px; gap: 8px; font-size: 10px; padding: 6px 10px; max-width: calc(100vw - 16px); }
+            #zoom-panel { bottom: 8px; right: 8px; }
             #info-popup { max-width: 90vw; max-height: 60vh; }
         }
     </style>
@@ -210,6 +304,12 @@ title: "日记时间轴"
 
 <canvas id="canvas"></canvas>
 
+<div id="tree-hud">
+    <div class="hud-kicker">Diary Tree</div>
+    <div class="hud-title">日记时间轴</div>
+    <div class="hud-summary" id="hud-summary">解密后可以缩小看月份概览，放大看每日记录。</div>
+</div>
+
 <div id="info-popup">
     <button class="popup-close" id="popup-close">&times;</button>
     <h3 id="popup-title"></h3>
@@ -223,7 +323,12 @@ title: "日记时间轴"
     <span><span class="dot" style="background:#0056b3;"></span> 做视频想法</span>
     <span><span class="dot" style="background:#e67e22;"></span> 未来回顾</span>
 </div>
-<div id="zoom-indicator">100%</div>
+<div id="zoom-panel" aria-label="缩放控制">
+    <button id="zoomOut" type="button" title="缩小">−</button>
+    <button id="zoomReset" type="button" title="重置">⌂</button>
+    <button id="zoomIn" type="button" title="放大">+</button>
+    <div id="zoom-indicator">100% · 月概览</div>
+</div>
 
 <script src="/assets/js/crypto-js.min.js"></script>
 <script>
@@ -246,12 +351,16 @@ const popupTitle = document.getElementById('popup-title');
 const popupMeta = document.getElementById('popup-meta');
 const popupPreview = document.getElementById('popup-preview');
 const zoomIndicator = document.getElementById('zoom-indicator');
+const hudSummary = document.getElementById('hud-summary');
 
 let allEntries = [];       // { year, month, day, text, wordCount, paraCount, category }
 let treeData = {};         // year → month → day → entries[]
 let viewX = 0, viewY = 0;
 let scale = 1;
-const SCALE_MIN = 0.3, SCALE_MAX = 4;
+const SCALE_MIN = 0.32, SCALE_MAX = 5;
+const DAY_NODE_SCALE = 1.08;
+const DAY_LABEL_SCALE = 1.55;
+const DAY_DETAIL_SCALE = 2.15;
 let dragging = false;
 let dragStartX = 0, dragStartY = 0;
 let dragViewX = 0, dragViewY = 0;
@@ -265,6 +374,113 @@ let layout = { years: [], yearWidth: 0, monthHeight: 0, colGap: 0, totalWidth: 0
 // Touch state
 let touchDist0 = 0;
 let touchScale0 = 1;
+let touchStartX = 0;
+let touchStartY = 0;
+let touchMoved = false;
+let touchWasZooming = false;
+
+function monthGap() {
+    return Math.max(7 * scale, 4);
+}
+
+function getMonthY(month) {
+    return (month - 1) * (layout.monthHeight + monthGap()) + 48 * scale;
+}
+
+function getViewMode() {
+    if (scale >= DAY_DETAIL_SCALE) return '日详情';
+    if (scale >= DAY_NODE_SCALE) return '日节点';
+    return '月概览';
+}
+
+function formatCompactNumber(num) {
+    if (num >= 10000) return (num / 10000).toFixed(num >= 100000 ? 0 : 1) + '万';
+    if (num >= 1000) return (num / 1000).toFixed(num >= 10000 ? 0 : 1) + 'k';
+    return String(num);
+}
+
+function getMonthEntries(year, month) {
+    const monthData = treeData[year] && treeData[year][month] ? treeData[year][month] : {};
+    const entries = [];
+    for (const day of Object.keys(monthData).map(Number).sort((a, b) => a - b)) {
+        entries.push(...monthData[day]);
+    }
+    return entries;
+}
+
+function dominantCategory(entries) {
+    const counts = entries.reduce((acc, entry) => {
+        acc[entry.category] = (acc[entry.category] || 0) + 1;
+        return acc;
+    }, {});
+    return Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || 'normal';
+}
+
+function getMonthStats(year, month) {
+    const monthData = treeData[year] && treeData[year][month] ? treeData[year][month] : {};
+    const days = Object.keys(monthData).map(Number).sort((a, b) => a - b);
+    const entries = getMonthEntries(year, month);
+    const wordCount = entries.reduce((sum, entry) => sum + entry.wordCount, 0);
+    const paraCount = entries.reduce((sum, entry) => sum + entry.paraCount, 0);
+    return {
+        days,
+        dayCount: days.length,
+        entryCount: entries.length,
+        wordCount,
+        paraCount,
+        category: dominantCategory(entries),
+        entries
+    };
+}
+
+function getDayStats(year, month, day) {
+    const entries = treeData[year] && treeData[year][month] && treeData[year][month][day]
+        ? treeData[year][month][day]
+        : [];
+    const wordCount = entries.reduce((sum, entry) => sum + entry.wordCount, 0);
+    const paraCount = entries.reduce((sum, entry) => sum + entry.paraCount, 0);
+    return {
+        entries,
+        entryCount: entries.length,
+        wordCount,
+        paraCount,
+        category: dominantCategory(entries)
+    };
+}
+
+function getYearStats(year) {
+    const yearData = treeData[year] || {};
+    let dayCount = 0;
+    let entryCount = 0;
+    let wordCount = 0;
+    let paraCount = 0;
+    for (const month of Object.keys(yearData).map(Number)) {
+        const stats = getMonthStats(year, month);
+        dayCount += stats.dayCount;
+        entryCount += stats.entryCount;
+        wordCount += stats.wordCount;
+        paraCount += stats.paraCount;
+    }
+    return {
+        monthCount: Object.keys(yearData).length,
+        dayCount,
+        entryCount,
+        wordCount,
+        paraCount
+    };
+}
+
+function getAllStats() {
+    return layout.years.reduce((acc, yl) => {
+        const stats = getYearStats(yl.year);
+        acc.yearCount += 1;
+        acc.monthCount += stats.monthCount;
+        acc.dayCount += stats.dayCount;
+        acc.entryCount += stats.entryCount;
+        acc.wordCount += stats.wordCount;
+        return acc;
+    }, { yearCount: 0, monthCount: 0, dayCount: 0, entryCount: 0, wordCount: 0 });
+}
 
 // ═══ Date parsing ═══
 function extractDateFromText(text) {
@@ -374,7 +590,6 @@ function buildTree(entries) {
 // ═══ Layout computation ═══
 function computeLayout() {
     const years = Object.keys(treeData).map(Number).filter(y => y >= 2000).sort((a, b) => a - b);
-    console.log('[diary_tree] Years in data:', years);
     if (years.length === 0) { layout = { years: [], yearWidth: 0, monthHeight: 0, colGap: 0, totalWidth: 0, totalHeight: 0 }; return; }
 
     // Use CSS-pixel dimensions (canvas._w/_h), NOT canvas.width/height which are
@@ -382,11 +597,11 @@ function computeLayout() {
     // scaled by DPR so all coordinates are in CSS pixels.
     const w = canvas._w || window.innerWidth;
     const h = canvas._h || window.innerHeight;
-    const colGap = Math.max(40 * scale, 20);
+    const colGap = Math.max(44 * scale, 22);
     const yearWidth = Math.max((w - colGap * (years.length + 1)) / years.length, 120 * scale);
     const monthCount = 12;
-    const monthGap = Math.max(6 * scale, 3);
-    const monthHeight = Math.max((h - 80 * scale) / monthCount, 24 * scale);
+    const gap = monthGap();
+    const monthHeight = Math.max((h - 104 * scale) / monthCount, 26 * scale);
 
     layout.years = years.map((year, yi) => {
         const months = [];
@@ -402,7 +617,7 @@ function computeLayout() {
     layout.monthHeight = monthHeight;
     layout.colGap = colGap;
     layout.totalWidth = colGap + years.length * (yearWidth + colGap);
-    layout.totalHeight = monthCount * (monthHeight + monthGap) + 40 * scale;
+    layout.totalHeight = monthCount * (monthHeight + gap) + 56 * scale;
 }
 
 // ═══ Category color ═══
@@ -417,6 +632,17 @@ function categoryColor(cat, alpha = 1) {
     return colors[cat] || colors.normal;
 }
 
+function categoryLabel(cat) {
+    const labels = {
+        leisure: '闲情逸致',
+        dream: '梦幻空花',
+        video: '做视频想法',
+        review: '未来回顾',
+        normal: '日常'
+    };
+    return labels[cat] || labels.normal;
+}
+
 function yearColor(yi, total, alpha = 1) {
     const hue = 200 + (yi / Math.max(total - 1, 1)) * 80;
     return `hsla(${hue}, 55%, 70%, ${alpha})`;
@@ -426,37 +652,42 @@ function yearColor(yi, total, alpha = 1) {
 function hitTest(mx, my) {
     for (const yl of layout.years) {
         for (const mo of yl.months) {
-            const myOff = (mo.month - 1) * (layout.monthHeight + Math.max(6 * scale, 3)) + 40 * scale;
+            const myOff = getMonthY(mo.month);
             const cy = myOff + layout.monthHeight / 2;
             const cx = yl.x + yl.width / 2;
+            const padX = Math.max(7 * scale, 5);
+            const cardX = yl.x + padX;
+            const cardW = yl.width - padX * 2;
+            const cardH = Math.max(layout.monthHeight * 0.72, 20 * scale);
+            const cardY = cy - cardH / 2;
 
-            // Month node
-            const distToMonth = Math.hypot(mx - cx, my - cy);
-            if (distToMonth < layout.monthHeight * 0.4) {
-                return { type: 'month', year: yl.year, month: mo.month, days: mo.days, cx, cy, x: yl.x, y: myOff, w: yl.width, h: layout.monthHeight };
-            }
-
-            // Day nodes (only when zoomed in enough)
-            if (scale > 0.8 && mo.days.length > 0) {
-                const dayRadius = Math.min(layout.monthHeight * 0.35, 12 * scale);
+            // Day nodes take priority once zoomed in enough.
+            if (scale >= DAY_NODE_SCALE && mo.days.length > 0) {
+                const dayRadius = Math.min(layout.monthHeight * 0.24, 9 * scale);
                 const dayCount = mo.days.length;
-                const availW = yl.width - dayRadius * 2;
+                const availW = cardW - dayRadius * 2 - 12 * scale;
                 const spacing = dayCount > 1 ? availW / (dayCount - 1) : 0;
+                const dayY = scale >= DAY_DETAIL_SCALE ? cy + cardH * 0.12 : cy;
                 for (let di = 0; di < dayCount; di++) {
-                    const dx = yl.x + dayRadius + di * spacing;
-                    const dy = cy;
+                    const dx = cardX + 6 * scale + dayRadius + di * spacing;
+                    const dy = dayY;
                     const dist = Math.hypot(mx - dx, my - dy);
-                    if (dist < dayRadius + 2) {
+                    if (dist < dayRadius + 4) {
                         return { type: 'day', year: yl.year, month: mo.month, day: mo.days[di], cx: dx, cy: dy, radius: dayRadius };
                     }
                 }
             }
+
+            // Month summary card / node.
+            if (mx >= cardX && mx <= cardX + cardW && my >= cardY && my <= cardY + cardH) {
+                return { type: 'month', year: yl.year, month: mo.month, days: mo.days, cx, cy, x: cardX, y: cardY, w: cardW, h: cardH };
+            }
         }
         // Year node
-        const yTop = 8 * scale;
-        const yBottom = yTop + 24 * scale;
+        const yTop = 12 * scale;
+        const yBottom = yTop + 28 * scale;
         if (my >= yTop && my <= yBottom && mx >= yl.x && mx <= yl.x + yl.width) {
-            return { type: 'year', year: yl.year, cx: yl.x + yl.width / 2, cy: yTop + 12 * scale, x: yl.x, y: yTop, w: yl.width, h: 24 * scale };
+            return { type: 'year', year: yl.year, cx: yl.x + yl.width / 2, cy: yTop + 14 * scale, x: yl.x, y: yTop, w: yl.width, h: 28 * scale };
         }
     }
     return null;
@@ -473,87 +704,168 @@ function draw() {
     const h = canvas._h || window.innerHeight;
     ctx.clearRect(0, 0, w, h);
 
-    // Background fill so canvas is never transparent
-    ctx.fillStyle = '#f8f9fa';
+    // Warm paper-like background so canvas is never transparent.
+    const bg = ctx.createLinearGradient(0, 0, w, h);
+    bg.addColorStop(0, '#fbf8f2');
+    bg.addColorStop(0.5, '#f3efe8');
+    bg.addColorStop(1, '#fbf3e8');
+    ctx.fillStyle = bg;
     ctx.fillRect(0, 0, w, h);
-
-    ctx.save();
-    ctx.translate(viewX, viewY);
 
     const years = layout.years;
 
     // No-data state
     if (years.length === 0) {
-        ctx.fillStyle = '#888';
+        ctx.fillStyle = 'rgba(88, 61, 41, 0.62)';
         ctx.font = `${Math.max(14, 16)}px "Segoe UI","Microsoft YaHei",sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('没有日记数据', w / 2, h / 2);
-        ctx.restore();
-        zoomIndicator.textContent = '100%';
+        ctx.fillText('解密后，这里会长出一棵日记时间树', w / 2, h / 2);
+        zoomIndicator.textContent = '100% · 月概览';
+        if (hudSummary) hudSummary.textContent = '解密后可以缩小看月份概览，放大看每日记录。';
         return;
     }
 
-    // Draw year background columns
+    ctx.save();
+    ctx.translate(viewX, viewY);
+
+    // Draw soft year background columns.
     for (let yi = 0; yi < years.length; yi++) {
         const yl = years[yi];
-        ctx.fillStyle = yearColor(yi, years.length, 0.08);
-        ctx.strokeStyle = yearColor(yi, years.length, 0.25);
+        const columnPad = Math.max(8 * scale, 6);
+        const columnX = yl.x - columnPad;
+        const columnY = 8 * scale;
+        const columnW = yl.width + columnPad * 2;
+        const columnH = layout.totalHeight + 26 * scale;
+        const columnGradient = ctx.createLinearGradient(columnX, columnY, columnX, columnY + columnH);
+        columnGradient.addColorStop(0, yearColor(yi, years.length, 0.16));
+        columnGradient.addColorStop(1, yearColor(yi, years.length, 0.045));
+        ctx.fillStyle = columnGradient;
+        ctx.strokeStyle = yearColor(yi, years.length, 0.22);
         ctx.lineWidth = 1;
         ctx.beginPath();
-        const rx = 8 * scale;
-        roundRect(ctx, yl.x - 4 * scale, 4 * scale, yl.width + 8 * scale, layout.totalHeight + 60 * scale, rx);
+        roundRect(ctx, columnX, columnY, columnW, columnH, Math.min(26 * scale, 30));
         ctx.fill();
         ctx.stroke();
     }
 
-    // Draw month nodes and day nodes (snake order: Jan top, Dec bottom)
+    // Draw a quiet snake spine that visually ties the years together.
+    if (years.length > 1 && scale > 0.36) {
+        const spineY = getMonthY(6) + layout.monthHeight / 2;
+        ctx.strokeStyle = 'rgba(160, 117, 86, 0.18)';
+        ctx.lineWidth = Math.max(2.2 * scale, 1.4);
+        ctx.beginPath();
+        for (let yi = 0; yi < years.length; yi++) {
+            const yl = years[yi];
+            const x = yl.x + yl.width / 2;
+            const y = spineY + Math.sin(yi * 0.9) * 18 * scale;
+            if (yi === 0) ctx.moveTo(x, y);
+            else {
+                const prev = years[yi - 1];
+                const px = prev.x + prev.width / 2;
+                const py = spineY + Math.sin((yi - 1) * 0.9) * 18 * scale;
+                const cpx = (px + x) / 2;
+                ctx.bezierCurveTo(cpx, py, cpx, y, x, y);
+            }
+        }
+        ctx.stroke();
+    }
+
+    // Draw month connector curves inside each year.
+    if (scale > 0.42) {
+        for (let yi = 0; yi < years.length; yi++) {
+            const yl = years[yi];
+            ctx.strokeStyle = yearColor(yi, years.length, 0.18);
+            ctx.lineWidth = Math.max(1.6 * scale, 1);
+            ctx.beginPath();
+            for (let mi = 0; mi < yl.months.length; mi++) {
+                const mo = yl.months[mi];
+                const cx = yl.x + yl.width / 2;
+                const cy = getMonthY(mo.month) + layout.monthHeight / 2;
+                if (mi === 0) ctx.moveTo(cx, cy);
+                else {
+                    const prevMonth = yl.months[mi - 1].month;
+                    const py = getMonthY(prevMonth) + layout.monthHeight / 2;
+                    ctx.bezierCurveTo(cx - 10 * scale, py, cx + 10 * scale, cy, cx, cy);
+                }
+            }
+            ctx.stroke();
+        }
+    }
+
+    // Draw month summary cards and day detail nodes.
     for (const yl of years) {
         for (const mo of yl.months) {
-            const myOff = (mo.month - 1) * (layout.monthHeight + Math.max(6 * scale, 3)) + 40 * scale;
+            const myOff = getMonthY(mo.month);
             const cx = yl.x + yl.width / 2;
             const cy = myOff + layout.monthHeight / 2;
+            const padX = Math.max(7 * scale, 5);
+            const cardX = yl.x + padX;
+            const cardW = yl.width - padX * 2;
+            const cardH = Math.max(layout.monthHeight * 0.72, 20 * scale);
+            const cardY = cy - cardH / 2;
+            const cardR = Math.min(cardH / 2, Math.max(10 * scale, 8));
+            const stats = getMonthStats(yl.year, mo.month);
+            const hasEntries = stats.entryCount > 0;
+            const intensity = Math.min(stats.entryCount / 12, 1);
+            const fillAlpha = hasEntries ? 0.72 + intensity * 0.18 : 0.32;
+            const strokeAlpha = hasEntries ? 0.24 + intensity * 0.16 : 0.08;
 
-            // Month node (activity-scaled size)
-            const totalEntries = mo.days.reduce((sum, d) => {
-                const dayEntries = treeData[yl.year][mo.month][d] || [];
-                return sum + dayEntries.length;
-            }, 0);
-            const baseR = layout.monthHeight * 0.36;
-            const activityR = baseR * (0.7 + 0.3 * Math.min(totalEntries / 10, 1));
-            const monthR = Math.min(activityR, layout.monthHeight * 0.48);
-
-            // Month node shadow
-            ctx.fillStyle = 'rgba(0,0,0,0.06)';
+            const cardGradient = ctx.createLinearGradient(cardX, cardY, cardX + cardW, cardY);
+            cardGradient.addColorStop(0, `rgba(255, 252, 246, ${fillAlpha})`);
+            cardGradient.addColorStop(1, hasEntries ? `hsla(23, 78%, ${88 - intensity * 10}%, ${0.42 + intensity * 0.24})` : 'rgba(255,255,255,0.22)');
+            ctx.fillStyle = 'rgba(82, 55, 35, 0.055)';
             ctx.beginPath();
-            ctx.arc(cx + 1 * scale, cy + 1 * scale, monthR, 0, Math.PI * 2);
+            roundRect(ctx, cardX + 1.5 * scale, cardY + 2 * scale, cardW, cardH, cardR);
             ctx.fill();
-
-            // Month node fill
-            const intensity = Math.min(totalEntries / 15, 1);
-            const r = Math.round(255 - intensity * 40);
-            const g = Math.round(140 - intensity * 60);
-            const b = Math.round(100 - intensity * 40);
-            ctx.fillStyle = `rgb(${r},${g},${b})`;
+            ctx.fillStyle = cardGradient;
+            ctx.strokeStyle = `rgba(130, 91, 65, ${strokeAlpha})`;
+            ctx.lineWidth = 1;
             ctx.beginPath();
-            ctx.arc(cx, cy, monthR, 0, Math.PI * 2);
+            roundRect(ctx, cardX, cardY, cardW, cardH, cardR);
             ctx.fill();
+            ctx.stroke();
+
+            // Activity fill: the wider it is, the more days have entries.
+            if (hasEntries) {
+                const barH = Math.max(3.2 * scale, 3);
+                const barW = Math.max(barH, (cardW - 8 * scale) * Math.min(stats.dayCount / 31, 1));
+                ctx.fillStyle = categoryColor(stats.category, 0.32);
+                ctx.beginPath();
+                roundRect(ctx, cardX + 4 * scale, cardY + cardH - barH - 4 * scale, barW, barH, barH / 2);
+                ctx.fill();
+            }
 
             // Month label
-            if (scale > 0.5) {
-                ctx.fillStyle = '#fff';
-                ctx.font = `${Math.max(9 * scale, 7)}px "Segoe UI","Microsoft YaHei",sans-serif`;
-                ctx.textAlign = 'center';
+            if (scale > 0.36) {
+                ctx.fillStyle = hasEntries ? 'rgba(91, 59, 42, 0.96)' : 'rgba(91, 59, 42, 0.38)';
+                ctx.font = `700 ${Math.max(10 * scale, 8)}px "Segoe UI","Microsoft YaHei",sans-serif`;
+                ctx.textAlign = 'left';
                 ctx.textBaseline = 'middle';
-                ctx.fillText(`${mo.month}月`, cx, cy);
+                const labelY = scale >= DAY_NODE_SCALE ? cardY + Math.max(11 * scale, 9) : cy - (scale > 0.58 ? 5 * scale : 0);
+                ctx.fillText(`${mo.month}月`, cardX + Math.max(10 * scale, 8), labelY);
+            }
+
+            // Month summary at overview zoom.
+            if (scale > 0.52 && scale < DAY_DETAIL_SCALE) {
+                ctx.fillStyle = hasEntries ? 'rgba(91, 74, 64, 0.72)' : 'rgba(91, 74, 64, 0.28)';
+                ctx.font = `${Math.max(8.5 * scale, 7)}px "Segoe UI","Microsoft YaHei",sans-serif`;
+                ctx.textAlign = scale >= DAY_NODE_SCALE ? 'right' : 'left';
+                ctx.textBaseline = 'middle';
+                const summary = hasEntries
+                    ? `${stats.dayCount}天 · ${stats.entryCount}篇 · ${formatCompactNumber(stats.wordCount)}字`
+                    : '无记录';
+                const tx = scale >= DAY_NODE_SCALE ? cardX + cardW - 10 * scale : cardX + Math.max(10 * scale, 8);
+                const ty = scale >= DAY_NODE_SCALE ? cardY + Math.max(11 * scale, 9) : cy + 7 * scale;
+                ctx.fillText(summary, tx, ty);
             }
 
             // Highlight hovered/selected month
             if (hoveredNode && hoveredNode.type === 'month' && hoveredNode.year === yl.year && hoveredNode.month === mo.month) {
-                ctx.strokeStyle = 'rgba(74,144,226,0.7)';
+                ctx.strokeStyle = 'rgba(184,105,68,0.62)';
                 ctx.lineWidth = 2;
                 ctx.beginPath();
-                ctx.arc(cx, cy, monthR + 3, 0, Math.PI * 2);
+                roundRect(ctx, cardX - 2, cardY - 2, cardW + 4, cardH + 4, cardR + 2);
                 ctx.stroke();
             }
             if (selectedNode && selectedNode.type === 'month' && selectedNode.year === yl.year && selectedNode.month === mo.month) {
@@ -561,40 +873,48 @@ function draw() {
                 ctx.lineWidth = 2.5;
                 ctx.setLineDash([4 * scale, 3 * scale]);
                 ctx.beginPath();
-                ctx.arc(cx, cy, monthR + 5, 0, Math.PI * 2);
+                roundRect(ctx, cardX - 3, cardY - 3, cardW + 6, cardH + 6, cardR + 3);
                 ctx.stroke();
                 ctx.setLineDash([]);
             }
 
-            // Day nodes
-            if (scale > 0.8 && mo.days.length > 0) {
-                const dayRadius = Math.min(layout.monthHeight * 0.28, 10 * scale);
+            // Day nodes emerge when zoomed in. At high zoom they include compact stats.
+            if (scale >= DAY_NODE_SCALE && mo.days.length > 0) {
+                const dayRadius = Math.min(layout.monthHeight * 0.24, 9 * scale);
                 const dayCount = mo.days.length;
-                const availW = yl.width - dayRadius * 2;
+                const availW = cardW - dayRadius * 2 - 12 * scale;
                 const spacing = dayCount > 1 ? availW / (dayCount - 1) : 0;
+                const dayY = scale >= DAY_DETAIL_SCALE ? cy + cardH * 0.12 : cy;
 
                 for (let di = 0; di < dayCount; di++) {
                     const day = mo.days[di];
-                    const dayEntries = treeData[yl.year][mo.month][day] || [];
-                    const dx = yl.x + dayRadius + di * spacing;
-                    const dy = cy;
+                    const dayStats = getDayStats(yl.year, mo.month, day);
+                    const dx = cardX + 6 * scale + dayRadius + di * spacing;
+                    const dy = dayY;
 
-                    const cat = dayEntries.length > 0 ? dayEntries[0].category : 'normal';
-                    const dr = dayRadius * (0.7 + 0.3 * Math.min(dayEntries.length / 5, 1));
+                    const cat = dayStats.category;
+                    const dr = dayRadius * (0.72 + 0.36 * Math.min(dayStats.wordCount / 2400, 1));
 
-                    ctx.fillStyle = categoryColor(cat, 0.75);
+                    ctx.fillStyle = categoryColor(cat, 0.16);
+                    ctx.beginPath();
+                    ctx.arc(dx, dy, dr + 4 * scale, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    const dotGradient = ctx.createRadialGradient(dx - dr * 0.35, dy - dr * 0.35, 1, dx, dy, dr);
+                    dotGradient.addColorStop(0, 'rgba(255,255,255,0.9)');
+                    dotGradient.addColorStop(0.22, categoryColor(cat, 0.72));
+                    dotGradient.addColorStop(1, categoryColor(cat, 0.96));
+                    ctx.fillStyle = dotGradient;
                     ctx.beginPath();
                     ctx.arc(dx, dy, dr, 0, Math.PI * 2);
                     ctx.fill();
-
-                    ctx.fillStyle = categoryColor(cat, 0.3);
-                    ctx.beginPath();
-                    ctx.arc(dx, dy, dr + 1.5 * scale, 0, Math.PI * 2);
-                    ctx.fill();
+                    ctx.strokeStyle = 'rgba(255,255,255,0.72)';
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
 
                     // Highlight hovered/selected day
                     if (hoveredNode && hoveredNode.type === 'day' && hoveredNode.year === yl.year && hoveredNode.month === mo.month && hoveredNode.day === day) {
-                        ctx.strokeStyle = 'rgba(74,144,226,0.9)';
+                        ctx.strokeStyle = 'rgba(184,105,68,0.95)';
                         ctx.lineWidth = 2;
                         ctx.beginPath();
                         ctx.arc(dx, dy, dr + 3, 0, Math.PI * 2);
@@ -610,75 +930,52 @@ function draw() {
                         ctx.setLineDash([]);
                     }
 
-                    // Day number on hover/zoom
-                    if (scale > 1.5) {
+                    if (scale >= DAY_LABEL_SCALE) {
                         ctx.fillStyle = '#fff';
-                        ctx.font = `${Math.max(7 * scale, 6)}px "Segoe UI","Microsoft YaHei",sans-serif`;
+                        ctx.font = `700 ${Math.max(7 * scale, 7)}px "Segoe UI","Microsoft YaHei",sans-serif`;
                         ctx.textAlign = 'center';
                         ctx.textBaseline = 'middle';
                         ctx.fillText(day, dx, dy);
                     }
+
+                    if (scale >= DAY_DETAIL_SCALE && spacing > 26 * scale) {
+                        ctx.fillStyle = 'rgba(83, 61, 48, 0.72)';
+                        ctx.font = `${Math.max(7.5 * scale, 8)}px "Segoe UI","Microsoft YaHei",sans-serif`;
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'top';
+                        ctx.fillText(`${dayStats.entryCount}篇`, dx, dy + dr + 3 * scale);
+                    }
                 }
             }
-
-            // Connect days within month with a curve (snake)
-            if (scale > 1 && mo.days.length > 1) {
-                const dayRadius = Math.min(layout.monthHeight * 0.28, 10 * scale);
-                const availW = yl.width - dayRadius * 2;
-                const spacing = (mo.days.length - 1) > 0 ? availW / (mo.days.length - 1) : 0;
-                ctx.strokeStyle = 'rgba(180,180,200,0.3)';
-                ctx.lineWidth = 1;
-                ctx.beginPath();
-                for (let di = 0; di < mo.days.length; di++) {
-                    const dx = yl.x + dayRadius + di * spacing;
-                    if (di === 0) ctx.moveTo(dx, cy);
-                    else ctx.lineTo(dx, cy);
-                }
-                ctx.stroke();
-            }
-        }
-
-        // Year label
-        const yearIndex = years.indexOf(yl);
-        ctx.fillStyle = yearColor(yearIndex, years.length, 0.9);
-        ctx.font = `bold ${Math.max(14 * scale, 10)}px "Segoe UI","Microsoft YaHei",sans-serif`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'top';
-        const yLabelY = 8 * scale;
-        ctx.fillText(yl.year, yl.x + yl.width / 2, yLabelY);
-
-        // Year summary line
-        const yearTotal = Object.values(treeData[yl.year] || {}).reduce((sum, m) => {
-            return sum + Object.values(m).reduce((s, d) => s + d.length, 0);
-        }, 0);
-        if (scale > 0.5) {
-            ctx.fillStyle = yearColor(yearIndex, years.length, 0.5);
-            ctx.font = `${Math.max(9 * scale, 7)}px "Segoe UI","Microsoft YaHei",sans-serif`;
-            ctx.fillText(`${yearTotal}篇`, yl.x + yl.width / 2, yLabelY + 16 * scale);
         }
     }
 
-    // Draw inter-month connection curves (vertical, within each year column, connecting months in snake order)
-    if (scale > 0.4) {
-        for (const yl of years) {
-            ctx.strokeStyle = yearColor(years.indexOf(yl), years.length, 0.15);
-            ctx.lineWidth = Math.max(1.5 * scale, 1);
-            ctx.beginPath();
-            for (let mi = 0; mi < yl.months.length; mi++) {
-                const mo = yl.months[mi];
-                const myOff = (mo.month - 1) * (layout.monthHeight + Math.max(6 * scale, 3)) + 40 * scale;
-                const cx = yl.x + yl.width / 2;
-                const cy = myOff + layout.monthHeight / 2;
-                if (mi === 0) ctx.moveTo(cx, cy);
-                else ctx.lineTo(cx, cy);
-            }
-            ctx.stroke();
+    // Year labels float above the cards.
+    for (let yi = 0; yi < years.length; yi++) {
+        const yl = years[yi];
+        const yearStats = getYearStats(yl.year);
+        const yLabelY = 13 * scale;
+        ctx.fillStyle = 'rgba(70, 46, 34, 0.9)';
+        ctx.font = `700 ${Math.max(14 * scale, 11)}px "Segoe UI","Microsoft YaHei",sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.fillText(yl.year, yl.x + yl.width / 2, yLabelY);
+
+        if (scale > 0.46) {
+            ctx.fillStyle = yearColor(yi, years.length, 0.68);
+            ctx.font = `${Math.max(8.5 * scale, 7)}px "Segoe UI","Microsoft YaHei",sans-serif`;
+            ctx.fillText(`${yearStats.monthCount}月 · ${yearStats.entryCount}篇`, yl.x + yl.width / 2, yLabelY + 17 * scale);
         }
     }
 
     ctx.restore();
 
-    zoomIndicator.textContent = Math.round(scale * 100) + '%';
+    const allStats = getAllStats();
+    const mode = getViewMode();
+    zoomIndicator.textContent = `${Math.round(scale * 100)}% · ${mode}`;
+    if (hudSummary) {
+        hudSummary.textContent = `${allStats.yearCount}年 · ${allStats.monthCount}个月 · ${allStats.dayCount}天 · ${allStats.entryCount}篇 · ${formatCompactNumber(allStats.wordCount)}字｜当前：${mode}`;
+    }
 }
 
 function roundRect(ctx, x, y, w, h, r) {
@@ -729,56 +1026,65 @@ function zoomAt(cx, cy, factor) {
     render();
 }
 
+function resetView() {
+    scale = 1;
+    viewX = 0;
+    viewY = 0;
+    selectedNode = null;
+    popup.classList.remove('visible');
+    render();
+}
+
+document.getElementById('zoomOut').addEventListener('click', () => {
+    zoomAt(window.innerWidth / 2, window.innerHeight / 2, 0.82);
+});
+
+document.getElementById('zoomIn').addEventListener('click', () => {
+    zoomAt(window.innerWidth / 2, window.innerHeight / 2, 1.22);
+});
+
+document.getElementById('zoomReset').addEventListener('click', resetView);
+
 // ═══ Popup ═══
 function showPopup(node, screenX, screenY) {
     selectedNode = node;
 
     if (node.type === 'day') {
-        const entries = treeData[node.year][node.month][node.day] || [];
-        const totalWords = entries.reduce((s, e) => s + e.wordCount, 0);
+        const dayStats = getDayStats(node.year, node.month, node.day);
+        const entries = dayStats.entries;
+        const categories = [...new Set(entries.map(e => categoryLabel(e.category)))].join(' / ');
         popupTitle.textContent = `${node.year}-${String(node.month).padStart(2,'0')}-${String(node.day).padStart(2,'0')}`;
-        popupMeta.textContent = `${entries.length}篇 · ${totalWords}字 · ${entries.reduce((s,e) => s + e.paraCount, 0)}段`;
+        popupMeta.textContent = `${entries.length}篇 · ${dayStats.wordCount}字 · ${dayStats.paraCount}段${categories ? ' · ' + categories : ''}`;
         popupPreview.textContent = entries.map(e => e.text.slice(0, 200) + (e.text.length > 200 ? '...' : '')).join('\n\n———\n\n');
     } else if (node.type === 'month') {
-        const monthData = treeData[node.year] && treeData[node.year][node.month] ? treeData[node.year][node.month] : {};
-        const dayCount = Object.keys(monthData).length;
-        let totalEntries = 0, totalWords = 0;
-        const allMonthEntries = [];
-        for (const d of Object.values(monthData)) {
-            totalEntries += d.length;
-            totalWords += d.reduce((s, e) => s + e.wordCount, 0);
-            allMonthEntries.push(...d);
-        }
+        const monthStats = getMonthStats(node.year, node.month);
         popupTitle.textContent = `${node.year}年${node.month}月`;
-        popupMeta.textContent = `${dayCount}天 · ${totalEntries}篇 · ${totalWords}字`;
+        popupMeta.textContent = `${monthStats.dayCount}天 · ${monthStats.entryCount}篇 · ${monthStats.wordCount}字 · ${monthStats.paraCount}段`;
         // Show first 5 entries as previews
-        const sorted = allMonthEntries.sort((a, b) => a.day - b.day || (a.category === 'normal' ? 1 : -1));
+        const sorted = [...monthStats.entries].sort((a, b) => a.day - b.day || (a.category === 'normal' ? 1 : -1));
         const previewEntries = sorted.slice(0, 5);
-        popupPreview.textContent = previewEntries.map(e =>
+        popupPreview.textContent = previewEntries.length > 0 ? previewEntries.map(e =>
             `${node.year}-${String(node.month).padStart(2,'0')}-${String(e.day).padStart(2,'0')}  ` +
             e.text.slice(0, 120) + (e.text.length > 120 ? '...' : '')
-        ).join('\n\n');
+        ).join('\n\n') : '这个月还没有可显示的日记。';
     } else if (node.type === 'year') {
         const yearData = treeData[node.year] || {};
-        let totalEntries = 0, totalWords = 0;
+        const yearStats = getYearStats(node.year);
         const allYearEntries = [];
         for (const m of Object.values(yearData)) {
             for (const d of Object.values(m)) {
-                totalEntries += d.length;
-                totalWords += d.reduce((s, e) => s + e.wordCount, 0);
                 allYearEntries.push(...d);
             }
         }
-        const monthCount = Object.keys(yearData).length;
         popupTitle.textContent = `${node.year}年`;
-        popupMeta.textContent = `${monthCount}个月 · ${totalEntries}篇 · ${totalWords}字`;
+        popupMeta.textContent = `${yearStats.monthCount}个月 · ${yearStats.dayCount}天 · ${yearStats.entryCount}篇 · ${yearStats.wordCount}字`;
         // Show first 5 entries as previews
         const sorted = allYearEntries.sort((a, b) => a.month - b.month || a.day - b.day);
         const previewEntries = sorted.slice(0, 5);
-        popupPreview.textContent = previewEntries.map(e =>
+        popupPreview.textContent = previewEntries.length > 0 ? previewEntries.map(e =>
             `${node.year}-${String(e.month).padStart(2,'0')}-${String(e.day).padStart(2,'0')}  ` +
             e.text.slice(0, 120) + (e.text.length > 120 ? '...' : '')
-        ).join('\n\n');
+        ).join('\n\n') : '这一年还没有可显示的日记。';
     }
 
     popup.classList.add('visible');
@@ -877,10 +1183,15 @@ canvas.addEventListener('touchstart', (e) => {
         dragging = true;
         dragStartX = e.touches[0].clientX;
         dragStartY = e.touches[0].clientY;
+        touchStartX = dragStartX;
+        touchStartY = dragStartY;
+        touchMoved = false;
+        touchWasZooming = false;
         dragViewX = viewX;
         dragViewY = viewY;
     } else if (e.touches.length === 2) {
         dragging = false;
+        touchWasZooming = true;
         const dx = e.touches[0].clientX - e.touches[1].clientX;
         const dy = e.touches[0].clientY - e.touches[1].clientY;
         touchDist0 = Math.hypot(dx, dy);
@@ -891,20 +1202,24 @@ canvas.addEventListener('touchstart', (e) => {
 canvas.addEventListener('touchmove', (e) => {
     e.preventDefault();
     if (e.touches.length === 1 && dragging) {
-        viewX = dragViewX + (e.touches[0].clientX - dragStartX);
-        viewY = dragViewY + (e.touches[0].clientY - dragStartY);
+        const dx = e.touches[0].clientX - dragStartX;
+        const dy = e.touches[0].clientY - dragStartY;
+        if (Math.hypot(e.touches[0].clientX - touchStartX, e.touches[0].clientY - touchStartY) > 6) {
+            touchMoved = true;
+        }
+        viewX = dragViewX + dx;
+        viewY = dragViewY + dy;
         render();
     } else if (e.touches.length === 2) {
+        touchWasZooming = true;
         const dx = e.touches[0].clientX - e.touches[1].clientX;
         const dy = e.touches[0].clientY - e.touches[1].clientY;
         const dist = Math.hypot(dx, dy);
         if (touchDist0 > 0) {
             const factor = dist / touchDist0;
-            const newScale = Math.max(SCALE_MIN, Math.min(SCALE_MAX, touchScale0 * factor));
             const cx = (e.touches[0].clientX + e.touches[1].clientX) / 2;
             const cy = (e.touches[0].clientY + e.touches[1].clientY) / 2;
-            scale = newScale;
-            render();
+            zoomAt(cx, cy, factor);
             touchDist0 = dist;
             touchScale0 = scale;
         }
@@ -913,7 +1228,20 @@ canvas.addEventListener('touchmove', (e) => {
 
 canvas.addEventListener('touchend', (e) => {
     if (e.touches.length === 0) {
+        const touch = e.changedTouches[0];
+        if (touch && !touchWasZooming && !touchMoved) {
+            const mx = touch.clientX - viewX;
+            const my = touch.clientY - viewY;
+            const node = hitTest(mx, my);
+            if (node) {
+                showPopup(node, touch.clientX, touch.clientY);
+            } else {
+                hidePopup();
+            }
+        }
         dragging = false;
+        touchMoved = false;
+        touchWasZooming = false;
     }
 });
 
@@ -921,10 +1249,7 @@ canvas.addEventListener('touchend', (e) => {
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') hidePopup();
     if (e.key === '0' && !e.ctrlKey && !e.metaKey) {
-        scale = 1;
-        viewX = 0;
-        viewY = 0;
-        render();
+        resetView();
     }
 });
 
@@ -940,7 +1265,7 @@ document.getElementById('unlockBtn').onclick = async function() {
     status.textContent = '正在解密...';
     status.className = 'loading';
 
-    const allEntries = [];
+    const loadedEntries = [];
     let filesFetched = 0;
     let filesFailed = 0;
 
@@ -957,18 +1282,18 @@ document.getElementById('unlockBtn').onclick = async function() {
                 continue;
             }
             const entries = parseDecryptedText(decrypted, file);
-            allEntries.push(...entries);
+            loadedEntries.push(...entries);
             filesFetched++;
         } catch (e) {
             filesFailed++;
         }
     }
 
-    console.log('[diary_tree] files_fetched:', filesFetched, 'files_failed:', filesFailed, 'entries_parsed:', allEntries.length);
+    console.log('[diary_tree] files_fetched:', filesFetched, 'files_failed:', filesFailed, 'entries_parsed:', loadedEntries.length);
 
     // CryptoJS with wrong password returns garbage bytes (non-empty), so we
     // must check the actual entry count, NOT just whether decryption "succeeded".
-    if (allEntries.length === 0) {
+    if (loadedEntries.length === 0) {
         status.textContent = window.files.length === 0
             ? '未找到任何日记数据文件（请确保在 Jekyll 构建后访问）'
             : '密码错误或未找到可解析的日记条目';
@@ -977,6 +1302,7 @@ document.getElementById('unlockBtn').onclick = async function() {
         return;
     }
 
+    allEntries = loadedEntries;
     window.allEntries = allEntries;
     treeData = buildTree(allEntries);
 
