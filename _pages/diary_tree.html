@@ -379,12 +379,18 @@ let touchStartY = 0;
 let touchMoved = false;
 let touchWasZooming = false;
 
+// ═══ Coordinate convention ═══
+// Layout is computed once at scale = 1 (base/world coordinates). Visual zoom is
+// applied uniformly in draw() via ctx.scale(scale, scale). Because world
+// coordinates no longer depend on `scale`, the anchor math in zoomAt() keeps the
+// point under the cursor fixed — no sideways drift.
+
 function monthGap() {
-    return Math.max(7 * scale, 4);
+    return 7;
 }
 
 function getMonthY(month) {
-    return (month - 1) * (layout.monthHeight + monthGap()) + 48 * scale;
+    return (month - 1) * (layout.monthHeight + monthGap()) + 48;
 }
 
 function getViewMode() {
@@ -592,16 +598,16 @@ function computeLayout() {
     const years = Object.keys(treeData).map(Number).filter(y => y >= 2000).sort((a, b) => a - b);
     if (years.length === 0) { layout = { years: [], yearWidth: 0, monthHeight: 0, colGap: 0, totalWidth: 0, totalHeight: 0 }; return; }
 
-    // Use CSS-pixel dimensions (canvas._w/_h), NOT canvas.width/height which are
-    // internal pixels scaled by devicePixelRatio.  The drawing context is already
-    // scaled by DPR so all coordinates are in CSS pixels.
+    // Base layout at scale = 1, in CSS pixels. The drawing context is already
+    // scaled by DPR (see resize), so all coordinates are CSS pixels. Visual zoom
+    // is applied separately via ctx.scale(scale, scale) in draw().
     const w = canvas._w || window.innerWidth;
     const h = canvas._h || window.innerHeight;
-    const colGap = Math.max(44 * scale, 22);
-    const yearWidth = Math.max((w - colGap * (years.length + 1)) / years.length, 120 * scale);
+    const colGap = 44;
+    const yearWidth = Math.max((w - colGap * (years.length + 1)) / years.length, 120);
     const monthCount = 12;
     const gap = monthGap();
-    const monthHeight = Math.max((h - 104 * scale) / monthCount, 26 * scale);
+    const monthHeight = Math.max((h - 104) / monthCount, 26);
 
     layout.years = years.map((year, yi) => {
         const months = [];
@@ -617,7 +623,7 @@ function computeLayout() {
     layout.monthHeight = monthHeight;
     layout.colGap = colGap;
     layout.totalWidth = colGap + years.length * (yearWidth + colGap);
-    layout.totalHeight = monthCount * (monthHeight + gap) + 56 * scale;
+    layout.totalHeight = monthCount * (monthHeight + gap) + 56;
 }
 
 // ═══ Category color ═══
@@ -649,27 +655,28 @@ function yearColor(yi, total, alpha = 1) {
 }
 
 // ═══ Hit testing ═══
+// mx/my are world (base) coordinates: (clientX - viewX) / scale.
 function hitTest(mx, my) {
     for (const yl of layout.years) {
         for (const mo of yl.months) {
             const myOff = getMonthY(mo.month);
             const cy = myOff + layout.monthHeight / 2;
             const cx = yl.x + yl.width / 2;
-            const padX = Math.max(7 * scale, 5);
+            const padX = 7;
             const cardX = yl.x + padX;
             const cardW = yl.width - padX * 2;
-            const cardH = Math.max(layout.monthHeight * 0.72, 20 * scale);
+            const cardH = Math.max(layout.monthHeight * 0.72, 20);
             const cardY = cy - cardH / 2;
 
             // Day nodes take priority once zoomed in enough.
             if (scale >= DAY_NODE_SCALE && mo.days.length > 0) {
-                const dayRadius = Math.min(layout.monthHeight * 0.24, 9 * scale);
+                const dayRadius = Math.min(layout.monthHeight * 0.24, 9);
                 const dayCount = mo.days.length;
-                const availW = cardW - dayRadius * 2 - 12 * scale;
+                const availW = cardW - dayRadius * 2 - 12;
                 const spacing = dayCount > 1 ? availW / (dayCount - 1) : 0;
                 const dayY = scale >= DAY_DETAIL_SCALE ? cy + cardH * 0.12 : cy;
                 for (let di = 0; di < dayCount; di++) {
-                    const dx = cardX + 6 * scale + dayRadius + di * spacing;
+                    const dx = cardX + 6 + dayRadius + di * spacing;
                     const dy = dayY;
                     const dist = Math.hypot(mx - dx, my - dy);
                     if (dist < dayRadius + 4) {
@@ -684,10 +691,10 @@ function hitTest(mx, my) {
             }
         }
         // Year node
-        const yTop = 12 * scale;
-        const yBottom = yTop + 28 * scale;
+        const yTop = 12;
+        const yBottom = yTop + 28;
         if (my >= yTop && my <= yBottom && mx >= yl.x && mx <= yl.x + yl.width) {
-            return { type: 'year', year: yl.year, cx: yl.x + yl.width / 2, cy: yTop + 14 * scale, x: yl.x, y: yTop, w: yl.width, h: 28 * scale };
+            return { type: 'year', year: yl.year, cx: yl.x + yl.width / 2, cy: yTop + 14, x: yl.x, y: yTop, w: yl.width, h: 28 };
         }
     }
     return null;
@@ -717,7 +724,7 @@ function draw() {
     // No-data state
     if (years.length === 0) {
         ctx.fillStyle = 'rgba(88, 61, 41, 0.62)';
-        ctx.font = `${Math.max(14, 16)}px "Segoe UI","Microsoft YaHei",sans-serif`;
+        ctx.font = `16px "Segoe UI","Microsoft YaHei",sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText('解密后，这里会长出一棵日记时间树', w / 2, h / 2);
@@ -727,16 +734,19 @@ function draw() {
     }
 
     ctx.save();
+    // viewX/viewY is the screen-space pan offset; scale zooms uniformly around
+    // the origin AFTER translation, so zoomAt()'s cursor-anchor math holds.
     ctx.translate(viewX, viewY);
+    ctx.scale(scale, scale);
 
     // Draw soft year background columns.
     for (let yi = 0; yi < years.length; yi++) {
         const yl = years[yi];
-        const columnPad = Math.max(8 * scale, 6);
+        const columnPad = 8;
         const columnX = yl.x - columnPad;
-        const columnY = 8 * scale;
+        const columnY = 8;
         const columnW = yl.width + columnPad * 2;
-        const columnH = layout.totalHeight + 26 * scale;
+        const columnH = layout.totalHeight + 26;
         const columnGradient = ctx.createLinearGradient(columnX, columnY, columnX, columnY + columnH);
         columnGradient.addColorStop(0, yearColor(yi, years.length, 0.16));
         columnGradient.addColorStop(1, yearColor(yi, years.length, 0.045));
@@ -744,7 +754,7 @@ function draw() {
         ctx.strokeStyle = yearColor(yi, years.length, 0.22);
         ctx.lineWidth = 1;
         ctx.beginPath();
-        roundRect(ctx, columnX, columnY, columnW, columnH, Math.min(26 * scale, 30));
+        roundRect(ctx, columnX, columnY, columnW, columnH, 26);
         ctx.fill();
         ctx.stroke();
     }
@@ -753,17 +763,17 @@ function draw() {
     if (years.length > 1 && scale > 0.36) {
         const spineY = getMonthY(6) + layout.monthHeight / 2;
         ctx.strokeStyle = 'rgba(160, 117, 86, 0.18)';
-        ctx.lineWidth = Math.max(2.2 * scale, 1.4);
+        ctx.lineWidth = 2.2;
         ctx.beginPath();
         for (let yi = 0; yi < years.length; yi++) {
             const yl = years[yi];
             const x = yl.x + yl.width / 2;
-            const y = spineY + Math.sin(yi * 0.9) * 18 * scale;
+            const y = spineY + Math.sin(yi * 0.9) * 18;
             if (yi === 0) ctx.moveTo(x, y);
             else {
                 const prev = years[yi - 1];
                 const px = prev.x + prev.width / 2;
-                const py = spineY + Math.sin((yi - 1) * 0.9) * 18 * scale;
+                const py = spineY + Math.sin((yi - 1) * 0.9) * 18;
                 const cpx = (px + x) / 2;
                 ctx.bezierCurveTo(cpx, py, cpx, y, x, y);
             }
@@ -776,7 +786,7 @@ function draw() {
         for (let yi = 0; yi < years.length; yi++) {
             const yl = years[yi];
             ctx.strokeStyle = yearColor(yi, years.length, 0.18);
-            ctx.lineWidth = Math.max(1.6 * scale, 1);
+            ctx.lineWidth = 1.6;
             ctx.beginPath();
             for (let mi = 0; mi < yl.months.length; mi++) {
                 const mo = yl.months[mi];
@@ -786,7 +796,7 @@ function draw() {
                 else {
                     const prevMonth = yl.months[mi - 1].month;
                     const py = getMonthY(prevMonth) + layout.monthHeight / 2;
-                    ctx.bezierCurveTo(cx - 10 * scale, py, cx + 10 * scale, cy, cx, cy);
+                    ctx.bezierCurveTo(cx - 10, py, cx + 10, cy, cx, cy);
                 }
             }
             ctx.stroke();
@@ -799,12 +809,12 @@ function draw() {
             const myOff = getMonthY(mo.month);
             const cx = yl.x + yl.width / 2;
             const cy = myOff + layout.monthHeight / 2;
-            const padX = Math.max(7 * scale, 5);
+            const padX = 7;
             const cardX = yl.x + padX;
             const cardW = yl.width - padX * 2;
-            const cardH = Math.max(layout.monthHeight * 0.72, 20 * scale);
+            const cardH = Math.max(layout.monthHeight * 0.72, 20);
             const cardY = cy - cardH / 2;
-            const cardR = Math.min(cardH / 2, Math.max(10 * scale, 8));
+            const cardR = Math.min(cardH / 2, 10);
             const stats = getMonthStats(yl.year, mo.month);
             const hasEntries = stats.entryCount > 0;
             const intensity = Math.min(stats.entryCount / 12, 1);
@@ -816,7 +826,7 @@ function draw() {
             cardGradient.addColorStop(1, hasEntries ? `hsla(23, 78%, ${88 - intensity * 10}%, ${0.42 + intensity * 0.24})` : 'rgba(255,255,255,0.22)');
             ctx.fillStyle = 'rgba(82, 55, 35, 0.055)';
             ctx.beginPath();
-            roundRect(ctx, cardX + 1.5 * scale, cardY + 2 * scale, cardW, cardH, cardR);
+            roundRect(ctx, cardX + 1.5, cardY + 2, cardW, cardH, cardR);
             ctx.fill();
             ctx.fillStyle = cardGradient;
             ctx.strokeStyle = `rgba(130, 91, 65, ${strokeAlpha})`;
@@ -828,35 +838,35 @@ function draw() {
 
             // Activity fill: the wider it is, the more days have entries.
             if (hasEntries) {
-                const barH = Math.max(3.2 * scale, 3);
-                const barW = Math.max(barH, (cardW - 8 * scale) * Math.min(stats.dayCount / 31, 1));
+                const barH = 3.2;
+                const barW = Math.max(barH, (cardW - 8) * Math.min(stats.dayCount / 31, 1));
                 ctx.fillStyle = categoryColor(stats.category, 0.32);
                 ctx.beginPath();
-                roundRect(ctx, cardX + 4 * scale, cardY + cardH - barH - 4 * scale, barW, barH, barH / 2);
+                roundRect(ctx, cardX + 4, cardY + cardH - barH - 4, barW, barH, barH / 2);
                 ctx.fill();
             }
 
             // Month label
             if (scale > 0.36) {
                 ctx.fillStyle = hasEntries ? 'rgba(91, 59, 42, 0.96)' : 'rgba(91, 59, 42, 0.38)';
-                ctx.font = `700 ${Math.max(10 * scale, 8)}px "Segoe UI","Microsoft YaHei",sans-serif`;
+                ctx.font = `700 10px "Segoe UI","Microsoft YaHei",sans-serif`;
                 ctx.textAlign = 'left';
                 ctx.textBaseline = 'middle';
-                const labelY = scale >= DAY_NODE_SCALE ? cardY + Math.max(11 * scale, 9) : cy - (scale > 0.58 ? 5 * scale : 0);
-                ctx.fillText(`${mo.month}月`, cardX + Math.max(10 * scale, 8), labelY);
+                const labelY = scale >= DAY_NODE_SCALE ? cardY + 11 : cy - (scale > 0.58 ? 5 : 0);
+                ctx.fillText(`${mo.month}月`, cardX + 10, labelY);
             }
 
             // Month summary at overview zoom.
             if (scale > 0.52 && scale < DAY_DETAIL_SCALE) {
                 ctx.fillStyle = hasEntries ? 'rgba(91, 74, 64, 0.72)' : 'rgba(91, 74, 64, 0.28)';
-                ctx.font = `${Math.max(8.5 * scale, 7)}px "Segoe UI","Microsoft YaHei",sans-serif`;
+                ctx.font = `8.5px "Segoe UI","Microsoft YaHei",sans-serif`;
                 ctx.textAlign = scale >= DAY_NODE_SCALE ? 'right' : 'left';
                 ctx.textBaseline = 'middle';
                 const summary = hasEntries
                     ? `${stats.dayCount}天 · ${stats.entryCount}篇 · ${formatCompactNumber(stats.wordCount)}字`
                     : '无记录';
-                const tx = scale >= DAY_NODE_SCALE ? cardX + cardW - 10 * scale : cardX + Math.max(10 * scale, 8);
-                const ty = scale >= DAY_NODE_SCALE ? cardY + Math.max(11 * scale, 9) : cy + 7 * scale;
+                const tx = scale >= DAY_NODE_SCALE ? cardX + cardW - 10 : cardX + 10;
+                const ty = scale >= DAY_NODE_SCALE ? cardY + 11 : cy + 7;
                 ctx.fillText(summary, tx, ty);
             }
 
@@ -871,7 +881,7 @@ function draw() {
             if (selectedNode && selectedNode.type === 'month' && selectedNode.year === yl.year && selectedNode.month === mo.month) {
                 ctx.strokeStyle = 'rgba(211,95,5,0.8)';
                 ctx.lineWidth = 2.5;
-                ctx.setLineDash([4 * scale, 3 * scale]);
+                ctx.setLineDash([4, 3]);
                 ctx.beginPath();
                 roundRect(ctx, cardX - 3, cardY - 3, cardW + 6, cardH + 6, cardR + 3);
                 ctx.stroke();
@@ -880,16 +890,16 @@ function draw() {
 
             // Day nodes emerge when zoomed in. At high zoom they include compact stats.
             if (scale >= DAY_NODE_SCALE && mo.days.length > 0) {
-                const dayRadius = Math.min(layout.monthHeight * 0.24, 9 * scale);
+                const dayRadius = Math.min(layout.monthHeight * 0.24, 9);
                 const dayCount = mo.days.length;
-                const availW = cardW - dayRadius * 2 - 12 * scale;
+                const availW = cardW - dayRadius * 2 - 12;
                 const spacing = dayCount > 1 ? availW / (dayCount - 1) : 0;
                 const dayY = scale >= DAY_DETAIL_SCALE ? cy + cardH * 0.12 : cy;
 
                 for (let di = 0; di < dayCount; di++) {
                     const day = mo.days[di];
                     const dayStats = getDayStats(yl.year, mo.month, day);
-                    const dx = cardX + 6 * scale + dayRadius + di * spacing;
+                    const dx = cardX + 6 + dayRadius + di * spacing;
                     const dy = dayY;
 
                     const cat = dayStats.category;
@@ -897,7 +907,7 @@ function draw() {
 
                     ctx.fillStyle = categoryColor(cat, 0.16);
                     ctx.beginPath();
-                    ctx.arc(dx, dy, dr + 4 * scale, 0, Math.PI * 2);
+                    ctx.arc(dx, dy, dr + 4, 0, Math.PI * 2);
                     ctx.fill();
 
                     const dotGradient = ctx.createRadialGradient(dx - dr * 0.35, dy - dr * 0.35, 1, dx, dy, dr);
@@ -923,7 +933,7 @@ function draw() {
                     if (selectedNode && selectedNode.type === 'day' && selectedNode.year === yl.year && selectedNode.month === mo.month && selectedNode.day === day) {
                         ctx.strokeStyle = 'rgba(211,95,5,0.8)';
                         ctx.lineWidth = 2.5;
-                        ctx.setLineDash([4 * scale, 3 * scale]);
+                        ctx.setLineDash([4, 3]);
                         ctx.beginPath();
                         ctx.arc(dx, dy, dr + 5, 0, Math.PI * 2);
                         ctx.stroke();
@@ -932,18 +942,18 @@ function draw() {
 
                     if (scale >= DAY_LABEL_SCALE) {
                         ctx.fillStyle = '#fff';
-                        ctx.font = `700 ${Math.max(7 * scale, 7)}px "Segoe UI","Microsoft YaHei",sans-serif`;
+                        ctx.font = `700 7px "Segoe UI","Microsoft YaHei",sans-serif`;
                         ctx.textAlign = 'center';
                         ctx.textBaseline = 'middle';
                         ctx.fillText(day, dx, dy);
                     }
 
-                    if (scale >= DAY_DETAIL_SCALE && spacing > 26 * scale) {
+                    if (scale >= DAY_DETAIL_SCALE && spacing > 26) {
                         ctx.fillStyle = 'rgba(83, 61, 48, 0.72)';
-                        ctx.font = `${Math.max(7.5 * scale, 8)}px "Segoe UI","Microsoft YaHei",sans-serif`;
+                        ctx.font = `8px "Segoe UI","Microsoft YaHei",sans-serif`;
                         ctx.textAlign = 'center';
                         ctx.textBaseline = 'top';
-                        ctx.fillText(`${dayStats.entryCount}篇`, dx, dy + dr + 3 * scale);
+                        ctx.fillText(`${dayStats.entryCount}篇`, dx, dy + dr + 3);
                     }
                 }
             }
@@ -954,17 +964,17 @@ function draw() {
     for (let yi = 0; yi < years.length; yi++) {
         const yl = years[yi];
         const yearStats = getYearStats(yl.year);
-        const yLabelY = 13 * scale;
+        const yLabelY = 13;
         ctx.fillStyle = 'rgba(70, 46, 34, 0.9)';
-        ctx.font = `700 ${Math.max(14 * scale, 11)}px "Segoe UI","Microsoft YaHei",sans-serif`;
+        ctx.font = `700 14px "Segoe UI","Microsoft YaHei",sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
         ctx.fillText(yl.year, yl.x + yl.width / 2, yLabelY);
 
         if (scale > 0.46) {
             ctx.fillStyle = yearColor(yi, years.length, 0.68);
-            ctx.font = `${Math.max(8.5 * scale, 7)}px "Segoe UI","Microsoft YaHei",sans-serif`;
-            ctx.fillText(`${yearStats.monthCount}月 · ${yearStats.entryCount}篇`, yl.x + yl.width / 2, yLabelY + 17 * scale);
+            ctx.font = `8.5px "Segoe UI","Microsoft YaHei",sans-serif`;
+            ctx.fillText(`${yearStats.monthCount}月 · ${yearStats.entryCount}篇`, yl.x + yl.width / 2, yLabelY + 17);
         }
     }
 
@@ -1017,6 +1027,9 @@ function resizeAndRender() {
 }
 
 // ═══ Zoom ═══
+// cx/cy are screen-space (clientX/Y). Because world coordinates are stable
+// (layout is scale-independent and zoom is applied via ctx.scale), this anchor
+// formula keeps the world point under the cursor pinned in place.
 function zoomAt(cx, cy, factor) {
     const newScale = Math.max(SCALE_MIN, Math.min(SCALE_MAX, scale * factor));
     const actualFactor = newScale / scale;
@@ -1123,8 +1136,9 @@ canvas.addEventListener('mousedown', (e) => {
 });
 
 canvas.addEventListener('mousemove', (e) => {
-    const mx = (e.clientX - viewX);
-    const my = (e.clientY - viewY);
+    // Convert screen → world (base) coordinates for hit testing.
+    const mx = (e.clientX - viewX) / scale;
+    const my = (e.clientY - viewY) / scale;
 
     if (dragging) {
         const dx = e.clientX - dragStartX;
@@ -1151,8 +1165,8 @@ canvas.addEventListener('mouseup', (e) => {
         const dy = e.clientY - dragStartY;
         if (Math.abs(dx) < 3 && Math.abs(dy) < 3) {
             // Click
-            const mx = (e.clientX - viewX);
-            const my = (e.clientY - viewY);
+            const mx = (e.clientX - viewX) / scale;
+            const my = (e.clientY - viewY) / scale;
             const node = hitTest(mx, my);
             if (node) {
                 showPopup(node, e.clientX, e.clientY);
@@ -1230,8 +1244,8 @@ canvas.addEventListener('touchend', (e) => {
     if (e.touches.length === 0) {
         const touch = e.changedTouches[0];
         if (touch && !touchWasZooming && !touchMoved) {
-            const mx = touch.clientX - viewX;
-            const my = touch.clientY - viewY;
+            const mx = (touch.clientX - viewX) / scale;
+            const my = (touch.clientY - viewY) / scale;
             const node = hitTest(mx, my);
             if (node) {
                 showPopup(node, touch.clientX, touch.clientY);
