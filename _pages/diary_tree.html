@@ -170,6 +170,15 @@ title: "日记时间轴"
             padding-top: 8px;
             margin-top: 4px;
         }
+        /* Diary inline-highlight classes — reuse enc_reader's semantics but map
+           them to the tree's category palette so colored spans fit the theme. */
+        #info-popup .popup-preview .leisure-highlight { color: #d35f05; font-weight: 600; }
+        #info-popup .popup-preview .dream-highlight   { color: #8A2BE2; font-weight: 600; }
+        #info-popup .popup-preview .video-highlight   { color: #0056b3; font-weight: 600; }
+        #info-popup .popup-preview .review-highlight  { color: #e67e22; background: rgba(230,126,34,0.10); border-left: 3px solid #e67e22; padding-left: 6px; }
+        #info-popup .popup-preview .date-highlight    { color: var(--accent); font-weight: 700; }
+        #info-popup .popup-preview p { margin: 0 0 6px; }
+        #info-popup .popup-preview .popup-sep { display: block; color: var(--muted); font-size: 0.75rem; text-align: center; margin: 6px 0; opacity: 0.6; }
         #info-popup .popup-close {
             position: absolute;
             top: 8px;
@@ -1091,6 +1100,55 @@ document.getElementById('zoomIn').addEventListener('click', () => {
 document.getElementById('zoomReset').addEventListener('click', resetView);
 
 // ═══ Popup ═══
+// Render diary text as controlled HTML: keep enc_reader's highlight <span> classes
+// (leisure/dream/video/review/date-highlight) and <p> wrappers so colored spans
+// show as intended color rather than literal "<span class=...>" text. Anything
+// else is escaped, so unknown tags can't inject markup.
+const ALLOWED_HIGHLIGHT_CLASSES = new Set([
+    'leisure-highlight', 'dream-highlight', 'video-highlight',
+    'review-highlight', 'date-highlight'
+]);
+function escapeHtml(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+function renderDiaryHtml(text) {
+    // Wrap each original line in a <p> (enc_reader-style) but preserve any
+    // already-present highlight spans by re-emitting them safely.
+    const lines = text.split(/\r?\n/);
+    const out = [];
+    for (const line of lines) {
+        if (!line.trim()) { out.push('<p></p>'); continue; }
+        // Tokenize on <span ...>...</span> runs; escape everything else.
+        let html = '';
+        let rest = line;
+        const re = /<span\s+class\s*=\s*"([^"]*)"\s*>([\s\S]*?)<\/span>/gi;
+        let last = 0, m;
+        while ((m = re.exec(line)) !== null) {
+            html += escapeHtml(line.slice(last, m.index));
+            const classes = m[1].split(/\s+/).filter(c => ALLOWED_HIGHLIGHT_CLASSES.has(c));
+            if (classes.length) {
+                html += `<span class="${classes.join(' ')}">${escapeHtml(m[2])}</span>`;
+            } else {
+                html += escapeHtml(m[2]);
+            }
+            last = m.index + m[0].length;
+        }
+        html += escapeHtml(line.slice(last));
+        out.push(`<p>${html}</p>`);
+    }
+    return out.join('');
+}
+function renderDiaryPreviewHtml(parts) {
+    // parts: array of {label, text, truncate?}
+    return parts.map(p => {
+        const head = p.label ? `<span class="date-highlight">${escapeHtml(p.label)}</span>` : '';
+        const body = p.truncate
+            ? renderDiaryHtml(p.text.slice(0, p.truncate)) + (p.text.length > p.truncate ? '…' : '')
+            : renderDiaryHtml(p.text);
+        return head + body;
+    }).join('<span class="popup-sep">———</span>');
+}
+
 function showPopup(node, screenX, screenY) {
     selectedNode = node;
 
@@ -1100,8 +1158,8 @@ function showPopup(node, screenX, screenY) {
         const categories = [...new Set(entries.map(e => categoryLabel(e.category)))].join(' / ');
         popupTitle.textContent = `${node.year}-${String(node.month).padStart(2,'0')}-${String(node.day).padStart(2,'0')}`;
         popupMeta.textContent = `${entries.length}篇 · ${dayStats.wordCount}字 · ${dayStats.paraCount}段${categories ? ' · ' + categories : ''}`;
-        // Full, untruncated diary text for the whole day.
-        popupPreview.textContent = entries.map(e => e.text).join('\n\n———\n\n');
+        // Full, untruncated diary text for the whole day, with highlight spans rendered.
+        popupPreview.innerHTML = renderDiaryPreviewHtml(entries.map(e => ({ text: e.text })));
     } else if (node.type === 'month') {
         const monthStats = getMonthStats(node.year, node.month);
         popupTitle.textContent = `${node.year}年${node.month}月`;
@@ -1109,10 +1167,12 @@ function showPopup(node, screenX, screenY) {
         // Show first 5 entries as previews
         const sorted = [...monthStats.entries].sort((a, b) => a.day - b.day || (a.category === 'normal' ? 1 : -1));
         const previewEntries = sorted.slice(0, 5);
-        popupPreview.textContent = previewEntries.length > 0 ? previewEntries.map(e =>
-            `${node.year}-${String(node.month).padStart(2,'0')}-${String(e.day).padStart(2,'0')}  ` +
-            e.text.slice(0, 120) + (e.text.length > 120 ? '...' : '')
-        ).join('\n\n') : '这个月还没有可显示的日记。';
+        popupPreview.innerHTML = previewEntries.length > 0
+            ? renderDiaryPreviewHtml(previewEntries.map(e => ({
+                label: `${node.year}-${String(node.month).padStart(2,'0')}-${String(e.day).padStart(2,'0')}  `,
+                text: e.text, truncate: 120
+              })))
+            : '这个月还没有可显示的日记。';
     } else if (node.type === 'year') {
         const yearData = treeData[node.year] || {};
         const yearStats = getYearStats(node.year);
@@ -1127,10 +1187,12 @@ function showPopup(node, screenX, screenY) {
         // Show first 5 entries as previews
         const sorted = allYearEntries.sort((a, b) => a.month - b.month || a.day - b.day);
         const previewEntries = sorted.slice(0, 5);
-        popupPreview.textContent = previewEntries.length > 0 ? previewEntries.map(e =>
-            `${node.year}-${String(e.month).padStart(2,'0')}-${String(e.day).padStart(2,'0')}  ` +
-            e.text.slice(0, 120) + (e.text.length > 120 ? '...' : '')
-        ).join('\n\n') : '这一年还没有可显示的日记。';
+        popupPreview.innerHTML = previewEntries.length > 0
+            ? renderDiaryPreviewHtml(previewEntries.map(e => ({
+                label: `${node.year}-${String(e.month).padStart(2,'0')}-${String(e.day).padStart(2,'0')}  `,
+                text: e.text, truncate: 120
+              })))
+            : '这一年还没有可显示的日记。';
     }
 
     popup.classList.add('visible');
