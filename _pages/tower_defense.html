@@ -524,16 +524,44 @@ title: "塔防战争"
 <script>
 "use strict";
 
-// ==================== CONSTANTS ====================
-const COLS = 18, ROWS = 13, CELL = 40;
-const CANVAS_W = 740, CANVAS_H = 480;
+// ==================== CONSTANTS & LAYOUT ====================
 const TERRAIN = { PATH: 0, GRASS: 1, BLOCKED: 2 };
+const CELL = 40; // legacy cell size (scenery only)
 
-// Flat 2D (top-down) projection constants. The grid is drawn as a plain
-// rectangular tile field — no isometric squash. Cell size is chosen so the
-// 18×13 grid fills the 740×480 canvas (18*41=738, 13*36=468).
-const TILE_W = 41, TILE_H = 36;
-const ISO_ORIGIN_X = 1, ISO_ORIGIN_Y = 6;
+// Two battlefield layouts. setupLayout() picks one from the current orientation:
+// desktop / phone-landscape -> landscape grid (wide); phone portrait -> portrait
+// grid (tall, with a top-to-bottom snake path). Both fully fill the canvas.
+const LAYOUTS = {
+    landscape: {
+        cols: 18, rows: 13,
+        canvasW: 740, canvasH: 480,
+        tileW: 41, tileH: 36, originX: 1, originY: 6,
+        path: [
+            { col: -1, row: 3 }, { col: 5, row: 3 }, { col: 5, row: 11 },
+            { col: 8, row: 11 }, { col: 8, row: 4 }, { col: 13, row: 4 },
+            { col: 13, row: 11 }, { col: 17, row: 11 }, { col: 17, row: 7 },
+            { col: 19, row: 7 }
+        ]
+    },
+    portrait: {
+        cols: 11, rows: 18,
+        canvasW: 440, canvasH: 700,
+        tileW: 40, tileH: 38, originX: 0, originY: 8,
+        path: [
+            { col: 1, row: -1 }, { col: 1, row: 3 }, { col: 9, row: 3 },
+            { col: 9, row: 7 }, { col: 1, row: 7 }, { col: 1, row: 11 },
+            { col: 9, row: 11 }, { col: 9, row: 15 }, { col: 1, row: 15 },
+            { col: 1, row: 19 }
+        ]
+    }
+};
+
+// Layout state — mutated by setupLayout(), read everywhere via these names.
+let COLS = 18, ROWS = 13;
+let CANVAS_W = 740, CANVAS_H = 480;
+let TILE_W = 41, TILE_H = 36;
+let ISO_ORIGIN_X = 1, ISO_ORIGIN_Y = 6;
+let GRID_PATH = LAYOUTS.landscape.path;
 const GROUND_DEPTH = 0; // unused in flat 2D (kept for compatibility)
 const ISO_RATIO = 1; // no Y-axis squash in flat 2D
 
@@ -551,6 +579,34 @@ function isoToGrid(sx, sy) {
         col: Math.floor((sx - ISO_ORIGIN_X) / TILE_W),
         row: Math.floor((sy - ISO_ORIGIN_Y) / TILE_H)
     };
+}
+
+function isPortrait() {
+    return window.innerHeight > window.innerWidth;
+}
+
+// Apply the layout for the current orientation: sets grid dimensions, canvas
+// resolution / CSS aspect, rebuilds the grid array and pixel waypoints.
+function setupLayout() {
+    const L = isPortrait() ? LAYOUTS.portrait : LAYOUTS.landscape;
+    COLS = L.cols; ROWS = L.rows;
+    CANVAS_W = L.canvasW; CANVAS_H = L.canvasH;
+    TILE_W = L.tileW; TILE_H = L.tileH;
+    ISO_ORIGIN_X = L.originX; ISO_ORIGIN_Y = L.originY;
+    GRID_PATH = L.path;
+
+    canvas.width = CANVAS_W;
+    canvas.height = CANVAS_H;
+    canvas.style.aspectRatio = CANVAS_W + ' / ' + CANVAS_H;
+    canvas.style.maxWidth = (isPortrait() ? '480px' : '740px');
+
+    // Rebuild the grid array in place for the new dimensions
+    grid.length = 0;
+    for (let r = 0; r < ROWS; r++) grid.push(new Array(COLS).fill(TERRAIN.GRASS));
+
+    // Recompute pixel waypoints from the new path + projection
+    WAYPOINTS.length = 0;
+    for (const p of GRID_PATH) WAYPOINTS.push(gridToIso(p.col, p.row));
 }
 
 const canvas = document.getElementById('game-canvas');
@@ -1022,22 +1078,9 @@ const ENEMY_DEFS = {
 };
 
 // ==================== PATH WAYPOINTS (pixel centers) ====================
-// Grid-based path: entry from left, snake through the map, exit right
-const GRID_PATH = [
-    { col: -1, row: 3 },
-    { col: 5, row: 3 },
-    { col: 5, row: 11 },
-    { col: 8, row: 11 },
-    { col: 8, row: 4 },
-    { col: 13, row: 4 },
-    { col: 13, row: 11 },
-    { col: 17, row: 11 },
-    { col: 17, row: 7 },
-    { col: 19, row: 7 }
-];
-
-// Compute pixel WAYPOINTS from grid path using isometric projection
-const WAYPOINTS = GRID_PATH.map(p => gridToIso(p.col, p.row));
+// GRID_PATH lives in LAYOUTS (above); WAYPOINTS is populated by setupLayout()
+// and rebuilt in place whenever the orientation changes.
+const WAYPOINTS = [];
 
 // ==================== GAME STATE ====================
 const game = {
@@ -10932,12 +10975,54 @@ function gameLoop(timestamp) {
 }
 
 // ==================== INIT ====================
+// Re-apply layout when the device rotates between portrait & landscape.
+// Keeps gold/lives/score/wave progression; clears placed towers (which no
+// longer fit the new grid) and aborts any in-progress wave so it can be replayed.
+function rebuildForOrientation() {
+    const wasActive = (game.state === 'wave_active');
+    setupLayout();
+    initGrid();
+    game.towers = [];
+    game.enemies = [];
+    game.projectiles = [];
+    game.particles = [];
+    game.fireZones = [];
+    game.craterZones = [];
+    game.wavePulses = [];
+    game.standingFields = [];
+    game.selectedType = null;
+    game.selectedTower = null;
+    game.spawnQueue = [];
+    game.spawnTimer = 0;
+    game.waveSpawningDone = false;
+    game.countdown = 0;
+    if (wasActive) {
+        if (game.waveNum > 0) game.waveNum--; // let the player re-attempt the interrupted wave
+        game.state = 'idle';
+        document.getElementById('countdown-display').textContent = '布局已切换，可重放本波';
+    }
+    if (game.state !== 'game_over' && game.state !== 'victory') {
+        document.getElementById('start-wave-btn').disabled = false;
+    }
+    hideTowerInfo();
+    updateHUD();
+    updateTowerButtons();
+}
+
 function init() {
+    setupLayout();
     initGrid();
     updateHUD();
     updateTowerButtons();
     document.getElementById('start-wave-btn').disabled = false;
     document.getElementById('countdown-display').textContent = '';
+    // Live-rotate the battlefield when the device flips orientation
+    const mq = window.matchMedia('(orientation: portrait)');
+    if (mq.addEventListener) {
+        mq.addEventListener('change', rebuildForOrientation);
+    } else if (mq.addListener) {
+        mq.addListener(rebuildForOrientation);
+    }
     requestAnimationFrame(gameLoop);
 }
 
