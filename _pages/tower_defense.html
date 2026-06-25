@@ -133,6 +133,18 @@ title: "塔防战争"
         #theme-btn { background: linear-gradient(180deg, #5b625c, #343a36); }
         #compendium-btn { background: linear-gradient(180deg, #5b625c, #343a36); }
 
+        /* -- Map effect summary line -- */
+        #theme-effect {
+            width: 100%;
+            text-align: center;
+            color: var(--muted);
+            font-size: 11px;
+            line-height: 1.3;
+            padding: 2px 8px;
+            min-height: 15px;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+        }
+
         /* -- Compendium Overlay -- */
         #compendium-overlay {
             display: none;
@@ -452,6 +464,7 @@ title: "塔防战争"
         <button id="theme-btn" onclick="cycleTheme()">🌿 草原</button>
         <button id="compendium-btn" onclick="toggleCompendium()">📖 图鉴</button>
     </div>
+    <div id="theme-effect"></div>
     <canvas id="game-canvas" width="740" height="480"></canvas>
     <div id="tower-panel">
         <button class="tower-btn" data-type="archer" onclick="selectTowerType('archer')">
@@ -627,7 +640,10 @@ const THEMES = {
         roadBorder: 'rgba(60,40,20,0.38)',
         chevron: ['rgba(255,235,180,0.18)', 'rgba(82,54,32,0.18)'],
         sun: ['rgba(255,232,156,0.08)', 'rgba(255,232,156,0.01)', 'rgba(15,21,18,0.16)'],
-        vignette: 'rgba(0,0,0,0.18)'
+        vignette: 'rgba(0,0,0,0.18)',
+        effects: { enemySpeedMult: 1.0, enemyHpMult: 1.0, elementDmg: {}, slowMult: 1.0, gustMult: 1.0 },
+        effectSummary: '平衡基准，无地形加成',
+        effectDetail: '所有塔与敌人按基础属性运作，适合任意流派。'
     },
     snow: {
         name: '雪原', icon: '❄️', border: '#6a8aa8',
@@ -641,7 +657,10 @@ const THEMES = {
         roadBorder: 'rgba(40,55,75,0.40)',
         chevron: ['rgba(220,235,255,0.22)', 'rgba(60,80,100,0.20)'],
         sun: ['rgba(200,230,255,0.10)', 'rgba(200,230,255,0.02)', 'rgba(20,30,45,0.20)'],
-        vignette: 'rgba(20,30,50,0.22)'
+        vignette: 'rgba(20,30,50,0.22)',
+        effects: { enemySpeedMult: 0.90, enemyHpMult: 1.15, elementDmg: { ice: 1.25, fire: 0.75 }, slowMult: 0.80, gustMult: 1.0 },
+        effectSummary: '敌人速-10%/血+15% · 冰塔+25%伤&减速增强 · 火塔-25%伤',
+        effectDetail: '寒气使敌人变慢但更坚韧。冰塔伤害+25%、减速效果增强；火塔伤害-25%。'
     },
     volcano: {
         name: '火山', icon: '🌋', border: '#5a1a0a',
@@ -655,7 +674,10 @@ const THEMES = {
         roadBorder: 'rgba(200,60,20,0.45)',
         chevron: ['rgba(255,200,100,0.22)', 'rgba(120,30,10,0.25)'],
         sun: ['rgba(255,120,40,0.12)', 'rgba(255,120,40,0.02)', 'rgba(20,5,0,0.25)'],
-        vignette: 'rgba(40,0,0,0.30)'
+        vignette: 'rgba(40,0,0,0.30)',
+        effects: { enemySpeedMult: 1.10, enemyHpMult: 0.85, elementDmg: { fire: 1.30, ice: 0.70 }, slowMult: 1.30, gustMult: 1.0 },
+        effectSummary: '敌人速+10%/血-15% · 火塔+30%伤 · 冰塔-30%伤&减速减弱',
+        effectDetail: '炽热使敌人焦躁加速但虚弱。火塔伤害+30%；冰塔伤害-30%、减速效果减弱。'
     },
     desert: {
         name: '沙漠', icon: '🏜️', border: '#8a6a2a',
@@ -669,7 +691,10 @@ const THEMES = {
         roadBorder: 'rgba(90,60,20,0.40)',
         chevron: ['rgba(255,235,180,0.20)', 'rgba(90,60,20,0.20)'],
         sun: ['rgba(255,220,140,0.12)', 'rgba(255,220,140,0.02)', 'rgba(60,40,10,0.20)'],
-        vignette: 'rgba(50,30,0,0.22)'
+        vignette: 'rgba(50,30,0,0.22)',
+        effects: { enemySpeedMult: 1.12, enemyHpMult: 1.0, elementDmg: { wind: 1.25, ice: 0.80 }, slowMult: 1.0, gustMult: 1.25 },
+        effectSummary: '敌人速+12% · 风塔+25%伤&击退增强 · 冰塔-20%伤',
+        effectDetail: '沙漠使敌人加速。风塔伤害+25%、击退力增强；冰塔伤害-20%(干燥缺水)。'
     },
     swamp: {
         name: '沼泽', icon: '🐸', border: '#2a3a1a',
@@ -683,7 +708,10 @@ const THEMES = {
         roadBorder: 'rgba(30,20,10,0.50)',
         chevron: ['rgba(200,190,140,0.16)', 'rgba(40,30,10,0.25)'],
         sun: ['rgba(160,180,100,0.06)', 'rgba(160,180,100,0.01)', 'rgba(5,15,5,0.30)'],
-        vignette: 'rgba(5,15,5,0.28)'
+        vignette: 'rgba(5,15,5,0.28)',
+        effects: { enemySpeedMult: 0.90, enemyHpMult: 1.20, elementDmg: { physical: 1.15, fire: 0.80, laser: 0.80 }, slowMult: 1.0, gustMult: 1.0 },
+        effectSummary: '敌人速-10%/血+20% · 物理塔+15%伤 · 火/激光塔-20%伤',
+        effectDetail: '泥泞使敌人变慢但血厚。物理塔(箭/炮/导弹)伤害+15%；火塔、激光塔伤害-20%。'
     }
 };
 const THEME_KEYS = ['grass', 'snow', 'volcano', 'desert', 'swamp'];
@@ -692,11 +720,69 @@ function currentTheme() {
     return THEMES[game.theme] || THEMES.grass;
 }
 
+function currentThemeEffects() {
+    const eff = currentTheme().effects;
+    return eff || { enemySpeedMult: 1, enemyHpMult: 1, elementDmg: {}, slowMult: 1, gustMult: 1 };
+}
+
+// Tower → element mapping. physical/ice/fire/wind/laser are terrain-sensitive;
+// lightning/sonic/spirit/magnetic are specialty elements unaffected by terrain.
+const TOWER_ELEMENT = {
+    archer: 'physical', archer_crit: 'physical', archer_multi: 'physical', archer_pierce: 'physical',
+    artillery: 'physical', artillery_blast: 'physical', artillery_shrapnel: 'physical', artillery_concuss: 'physical',
+    missile: 'physical', missile_cluster: 'physical', missile_nuke: 'physical', missile_precision: 'physical',
+    ice: 'ice', ice_splash: 'ice', ice_freeze: 'ice', ice_aura: 'ice',
+    fire: 'fire', fire_focus: 'fire', fire_ignite: 'fire', fire_detonate: 'fire',
+    wind: 'wind', wind_vortex: 'wind', wind_gust: 'wind', wind_aura: 'wind',
+    laser: 'laser', laser_core: 'laser', laser_resonance: 'laser', laser_refract: 'laser',
+    tesla: 'lightning', tesla_chain: 'lightning', tesla_charge: 'lightning', tesla_emp: 'lightning',
+    resonance: 'sonic', resonance_ramp: 'sonic', resonance_control: 'sonic', resonance_standing: 'sonic',
+    sheep: 'spirit', sheep_turncoat: 'spirit', sheep_contagion: 'spirit', sheep_aura: 'spirit',
+    magnet: 'magnetic', magnet_emp: 'magnetic', magnet_polarity: 'magnetic', magnet_storm: 'magnetic'
+};
+function towerElement(type) { return TOWER_ELEMENT[type] || 'physical'; }
+
 function applyThemeChrome() {
     const T = currentTheme();
     const btn = document.getElementById('theme-btn');
     if (btn) btn.textContent = (T.icon || '🗺️') + ' ' + T.name;
     canvas.style.borderColor = T.border;
+    const cap = document.getElementById('theme-effect');
+    if (cap) cap.textContent = T.effectSummary || '';
+}
+
+// Hover tooltip on the theme button showing the full map-effect breakdown.
+function setupThemeButton() {
+    const btn = document.getElementById('theme-btn');
+    const tip = document.getElementById('tooltip');
+    if (!btn || !tip) return;
+    const elNames = { physical: '物理塔', ice: '冰塔', fire: '火塔', wind: '风塔', laser: '激光塔', lightning: '雷塔', sonic: '共鸣塔', spirit: '羊塔', magnetic: '磁力塔' };
+    const pct = m => (m >= 1 ? '+' : '') + Math.round((m - 1) * 100) + '%';
+    btn.addEventListener('mouseenter', () => {
+        const T = currentTheme();
+        const eff = T.effects || {};
+        const parts = [];
+        if (eff.enemySpeedMult !== 1) parts.push('敌人速度 ' + pct(eff.enemySpeedMult));
+        if (eff.enemyHpMult !== 1) parts.push('敌人血量 ' + pct(eff.enemyHpMult));
+        for (const [el, m] of Object.entries(eff.elementDmg || {})) parts.push((elNames[el] || el) + '伤害 ' + pct(m));
+        if (eff.slowMult !== 1) parts.push('冰塔减速 ' + (eff.slowMult < 1 ? '增强' : '减弱'));
+        if (eff.gustMult !== 1) parts.push('风塔击退增强');
+        tip.innerHTML = '<b>' + T.icon + ' ' + T.name + ' · 地图效果</b><br>' +
+            (T.effectDetail || '') +
+            (parts.length ? '<br><span style="color:#f5c84c">' + parts.join(' · ') + '</span>' : '');
+        tip.style.whiteSpace = 'normal';
+        tip.style.maxWidth = '280px';
+        const r = btn.getBoundingClientRect();
+        tip.style.left = Math.min(r.left, window.innerWidth - 290) + 'px';
+        tip.style.top = (r.bottom + 6) + 'px';
+        tip.style.display = 'block';
+    });
+    btn.addEventListener('mouseleave', () => {
+        tip.style.display = 'none';
+        tip.style.whiteSpace = 'nowrap';
+        tip.style.maxWidth = '';
+        tip.innerHTML = '';
+    });
 }
 
 function cycleTheme() {
@@ -1305,7 +1391,8 @@ function hpMultiplier(wave) {
 function enemyHP(type, wave) {
     const def = ENEMY_DEFS[type];
     const mult = hpMultiplier(wave);
-    return Math.floor((def.hpBase + wave * def.hpScale) * mult);
+    const hpMult = currentThemeEffects().enemyHpMult;
+    return Math.floor((def.hpBase + wave * def.hpScale) * mult * hpMult);
 }
 
 function generateWave(waveNum) {
@@ -1441,12 +1528,17 @@ function createTower(type, col, row) {
 function towerStats(t) {
     const def = TOWER_DEFS[t.type];
     const lv = t.level - 1;
+    const eff = currentThemeEffects();
+    const el = towerElement(t.type);
+    const dmgMult = (eff.elementDmg && eff.elementDmg[el]) || 1;
+    const slowMul = (el === 'ice') ? (eff.slowMult || 1) : 1;
+    const gustMul = (el === 'wind') ? (eff.gustMult || 1) : 1;
     return {
-        damage: def.damage[lv],
+        damage: Math.round(def.damage[lv] * dmgMult),
         range: def.range[lv],
         cooldown: def.cooldown[lv],
         splashRadius: Array.isArray(def.splash) ? def.splash[lv] : def.splash,
-        slowFactor: Array.isArray(def.slowFactor) ? def.slowFactor[lv] : def.slowFactor,
+        slowFactor: (Array.isArray(def.slowFactor) ? def.slowFactor[lv] : def.slowFactor) * slowMul,
         slowDuration: Array.isArray(def.slowDuration) ? def.slowDuration[lv] : def.slowDuration,
         chainCount: Array.isArray(def.chainCount) ? def.chainCount[lv] : def.chainCount,
         chainRange: Array.isArray(def.chainRange) ? def.chainRange[lv] : (def.chainRange || 0),
@@ -1456,7 +1548,7 @@ function towerStats(t) {
         flameDuration: Array.isArray(def.flameDuration) ? def.flameDuration[lv] : (def.flameDuration || 0),
         flameTickInterval: def.flameTickInterval || 0,
         sheepDuration: Array.isArray(def.sheepDuration) ? def.sheepDuration[lv] : (def.sheepDuration || 0),
-        gustForce: Array.isArray(def.gustForce) ? def.gustForce[lv] : (def.gustForce || 0),
+        gustForce: (Array.isArray(def.gustForce) ? def.gustForce[lv] : (def.gustForce || 0)) * gustMul,
         vortexPull: Array.isArray(def.vortexPull) ? def.vortexPull[lv] : (def.vortexPull || 0),
         vortexDuration: Array.isArray(def.vortexDuration) ? def.vortexDuration[lv] : (def.vortexDuration || 0),
         vortexTickInterval: def.vortexTickInterval || 0,
@@ -1483,7 +1575,7 @@ function towerStats(t) {
         shrapnelDmg: def.shrapnelDmg || 0,
         stunFactor: def.stunFactor || 0,
         stunDuration: Array.isArray(def.stunDuration) ? def.stunDuration[lv] : (def.stunDuration || 0),
-        auraSlowFactor: Array.isArray(def.auraSlowFactor) ? def.auraSlowFactor[lv] : (def.auraSlowFactor || 0),
+        auraSlowFactor: (Array.isArray(def.auraSlowFactor) ? def.auraSlowFactor[lv] : (def.auraSlowFactor || 0)) * slowMul,
         freezeStacks: def.freezeStacks || 0,
         freezeDuration: Array.isArray(def.freezeDuration) ? def.freezeDuration[lv] : (def.freezeDuration || 0),
         pierceCount: Array.isArray(def.pierceCount) ? def.pierceCount[lv] : (def.pierceCount || 0),
@@ -1699,7 +1791,8 @@ function updateTowers(dt) {
             for (const e of game.enemies) {
                 if (!e.alive || e.isTurncoat) continue;
                 if (dist(t, e) <= st.range) {
-                    createFireZone(e.x, e.y, st.igniteFlameRadius, Math.floor(12 + t.level * 14), st.igniteFlameDuration, st.igniteFlameTickInterval);
+                    const fireDmgMult = (currentThemeEffects().elementDmg.fire) || 1;
+                    createFireZone(e.x, e.y, st.igniteFlameRadius, Math.floor((12 + t.level * 14) * fireDmgMult), st.igniteFlameDuration, st.igniteFlameTickInterval);
                     createFireIgnition(e.x, e.y, st.igniteFlameRadius * 0.6);
                 }
             }
@@ -1930,6 +2023,8 @@ function createEnemy(type, waveNum) {
     };
     const def = ENEMY_DEFS[type];
     const hp = enemyHP(type, waveNum);
+    const speedMult = currentThemeEffects().enemySpeedMult;
+    const baseSpeed = def.speed * speedMult;
     const sizeVariant = 0.78 + Math.random() * 0.44;
     const hueShift = -18 + Math.random() * 36;
     return {
@@ -1938,8 +2033,8 @@ function createEnemy(type, waveNum) {
         laneOffset,
         x: pos.x, y: pos.y,
         hp, maxHp: hp,
-        speed: def.speed,
-        currentSpeed: def.speed,
+        speed: baseSpeed,
+        currentSpeed: baseSpeed,
         waypointIndex: 1,
         reward: def.reward + waveNum + (type === 'boss' ? waveNum * 10 : 0) + (type === 'tank' ? waveNum * 2 : 0),
         alive: true,
@@ -10991,10 +11086,15 @@ canvas.addEventListener('mousemove', (e) => {
     const tip = document.getElementById('tooltip');
     if (hoveredTower && !game.selectedType) {
         const st = towerStats(hoveredTower);
+        tip.style.whiteSpace = 'nowrap';
+        tip.style.maxWidth = '';
+        tip.innerHTML = '';
         tip.style.display = 'block';
         tip.style.left = (e.clientX + 15) + 'px';
         tip.style.top = (e.clientY - 30) + 'px';
-        tip.textContent = st.name + ' Lv.' + hoveredTower.level + ' | 伤害:' + st.damage + ' | 射程:' + st.range;
+        // Show element tag so terrain bonuses are visible
+        const elName = { physical: '物理', ice: '冰', fire: '火', wind: '风', laser: '激光', lightning: '雷', sonic: '共鸣', spirit: '精神', magnetic: '磁力' }[towerElement(hoveredTower.type)] || '';
+        tip.textContent = st.name + ' Lv.' + hoveredTower.level + (elName ? ' [' + elName + ']' : '') + ' | 伤害:' + st.damage + ' | 射程:' + st.range;
     } else {
         tip.style.display = 'none';
     }
@@ -11182,6 +11282,7 @@ function init() {
     setupLayout();
     initGrid();
     applyThemeChrome();
+    setupThemeButton();
     updateHUD();
     updateTowerButtons();
     document.getElementById('start-wave-btn').disabled = false;
