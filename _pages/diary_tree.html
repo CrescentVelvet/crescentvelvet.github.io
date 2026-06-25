@@ -951,37 +951,68 @@ function draw() {
                 ctx.fill();
             }
 
-            // Month summary — always resident (at all zoom levels where nodes show),
-            // pinned to a header band at the top of the card so day dots never cover it.
+            // Month header — a colored number badge plus stats text that adapts to
+            // the available width so narrow cards (mobile, many years) never overlap.
             if (scale > 0.52) {
                 const headerH = 16;
                 const headerY = cardY + headerH / 2;
-                // Subtle header backdrop so the stats stay legible over any dots.
-                ctx.fillStyle = 'rgba(255, 252, 246, 0.82)';
+                // Soft header backdrop so labels stay legible over any dots.
+                ctx.fillStyle = 'rgba(255, 252, 246, 0.86)';
                 ctx.beginPath();
                 roundRect(ctx, cardX + 2, cardY + 1, cardW - 4, headerH - 1, Math.min(6, cardR));
                 ctx.fill();
 
-                ctx.fillStyle = hasEntries ? 'rgba(91, 59, 42, 0.96)' : 'rgba(91, 59, 42, 0.42)';
-                ctx.font = `700 10px "Segoe UI","Microsoft YaHei",sans-serif`;
-                ctx.textAlign = 'left';
+                // Month number as a tinted pill (colored by the month's dominant category).
+                ctx.font = `700 9px "Segoe UI","Microsoft YaHei",sans-serif`;
+                ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                ctx.fillText(`${mo.month}月`, cardX + 8, headerY);
+                const badgeText = String(mo.month);
+                const badgeTextW = ctx.measureText(badgeText).width;
+                const badgePadX = 4;
+                const badgeW = Math.min(badgeTextW + badgePadX * 2, cardW - 8);
+                const badgeH = 11;
+                const badgeX = cardX + 5;
+                const badgeY2 = headerY - badgeH / 2;
+                ctx.fillStyle = hasEntries ? categoryColor(stats.category, 0.22) : 'rgba(120, 104, 92, 0.12)';
+                ctx.beginPath();
+                roundRect(ctx, badgeX, badgeY2, badgeW, badgeH, badgeH / 2);
+                ctx.fill();
+                ctx.fillStyle = hasEntries ? categoryColor(stats.category, 0.98) : 'rgba(120, 104, 92, 0.6)';
+                ctx.fillText(badgeText, badgeX + badgeW / 2, headerY);
 
-                ctx.textAlign = 'right';
-                ctx.font = `8.5px "Segoe UI","Microsoft YaHei",sans-serif`;
-                ctx.fillStyle = hasEntries ? 'rgba(91, 74, 64, 0.82)' : 'rgba(91, 74, 64, 0.32)';
-                const summary = hasEntries
-                    ? `${stats.dayCount}天 · ${stats.entryCount}篇 · ${formatCompactNumber(stats.wordCount)}字`
-                    : '无记录';
-                ctx.fillText(summary, cardX + cardW - 8, headerY);
+                // Stats text — right aligned, but only the longest variant that fits
+                // without colliding with the badge. Prevents the old text stacking.
+                const statsLeft = badgeX + badgeW + 4;
+                const statsRight = cardX + cardW - 6;
+                const statsMaxW = statsRight - statsLeft;
+                if (statsMaxW >= 12) {
+                    ctx.font = `8.5px "Segoe UI","Microsoft YaHei",sans-serif`;
+                    let text = '';
+                    if (hasEntries) {
+                        const variants = [
+                            `${stats.dayCount}天 · ${stats.entryCount}篇 · ${formatCompactNumber(stats.wordCount)}字`,
+                            `${stats.dayCount}天 · ${stats.entryCount}篇`,
+                            `${stats.entryCount}篇`
+                        ];
+                        for (const v of variants) {
+                            if (ctx.measureText(v).width <= statsMaxW) { text = v; break; }
+                        }
+                    } else if (ctx.measureText('无记录').width <= statsMaxW) {
+                        text = '无记录';
+                    }
+                    if (text) {
+                        ctx.fillStyle = hasEntries ? 'rgba(91, 74, 64, 0.82)' : 'rgba(91, 74, 64, 0.32)';
+                        ctx.textAlign = 'right';
+                        ctx.fillText(text, statsRight, headerY);
+                    }
+                }
             } else if (scale > 0.36) {
-                // At low zoom, no header band — just a faint month label centered.
-                ctx.fillStyle = hasEntries ? 'rgba(91, 59, 42, 0.96)' : 'rgba(91, 59, 42, 0.38)';
+                // At low zoom, just a faint centered month number.
+                ctx.fillStyle = hasEntries ? 'rgba(91, 59, 42, 0.96)' : 'rgba(91, 59, 42, 0.4)';
                 ctx.font = `700 10px "Segoe UI","Microsoft YaHei",sans-serif`;
-                ctx.textAlign = 'left';
+                ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                ctx.fillText(`${mo.month}月`, cardX + 10, cy - (scale > 0.58 ? 5 : 0));
+                ctx.fillText(String(mo.month), cx, cy);
             }
 
             // Highlight hovered/selected month
@@ -993,13 +1024,15 @@ function draw() {
                 ctx.stroke();
             }
             if (selectedNode && selectedNode.type === 'month' && selectedNode.year === yl.year && selectedNode.month === mo.month) {
-                ctx.strokeStyle = 'rgba(211,95,5,0.8)';
-                ctx.lineWidth = 2.5;
-                ctx.setLineDash([4, 3]);
+                ctx.fillStyle = 'rgba(211,95,5,0.10)';
+                ctx.beginPath();
+                roundRect(ctx, cardX - 5, cardY - 5, cardW + 10, cardH + 10, cardR + 5);
+                ctx.fill();
+                ctx.strokeStyle = 'rgba(211,95,5,0.9)';
+                ctx.lineWidth = 2;
                 ctx.beginPath();
                 roundRect(ctx, cardX - 3, cardY - 3, cardW + 6, cardH + 6, cardR + 3);
                 ctx.stroke();
-                ctx.setLineDash([]);
             }
 
             // Day nodes emerge when zoomed in. At high zoom they include compact stats.
@@ -1018,46 +1051,65 @@ function draw() {
                     const cat = dayStats.category;
                     const dr = Math.max(dotMinR, dayRadius * (0.72 + 0.36 * Math.min(dayStats.wordCount / 2400, 1)));
 
-                    ctx.fillStyle = categoryColor(cat, 0.16);
+                    // Soft outer glow — separates the dot from the card background.
+                    ctx.fillStyle = categoryColor(cat, 0.14);
                     ctx.beginPath();
-                    ctx.arc(dx, dy, dr + 4, 0, Math.PI * 2);
+                    ctx.arc(dx, dy, dr + 4.5, 0, Math.PI * 2);
                     ctx.fill();
 
-                    const dotGradient = ctx.createRadialGradient(dx - dr * 0.35, dy - dr * 0.35, 1, dx, dy, dr);
-                    dotGradient.addColorStop(0, 'rgba(255,255,255,0.9)');
-                    dotGradient.addColorStop(0.22, categoryColor(cat, 0.72));
-                    dotGradient.addColorStop(1, categoryColor(cat, 0.96));
-                    ctx.fillStyle = dotGradient;
+                    // Main dot — flat category color for a clean, modern look.
+                    ctx.fillStyle = categoryColor(cat, 0.95);
                     ctx.beginPath();
                     ctx.arc(dx, dy, dr, 0, Math.PI * 2);
                     ctx.fill();
-                    ctx.strokeStyle = 'rgba(255,255,255,0.72)';
-                    ctx.lineWidth = 1;
+
+                    // Soft top-left highlight, only when the dot is big enough to read.
+                    if (dr >= 4) {
+                        const hi = ctx.createRadialGradient(dx - dr * 0.3, dy - dr * 0.3, 0, dx - dr * 0.3, dy - dr * 0.3, dr * 0.85);
+                        hi.addColorStop(0, 'rgba(255,255,255,0.5)');
+                        hi.addColorStop(1, 'rgba(255,255,255,0)');
+                        ctx.fillStyle = hi;
+                        ctx.beginPath();
+                        ctx.arc(dx, dy, dr, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+
+                    // Thin defining rim in a darker shade of the category color.
+                    ctx.strokeStyle = categoryColor(cat, 0.5);
+                    ctx.lineWidth = 0.8;
+                    ctx.beginPath();
+                    ctx.arc(dx, dy, dr, 0, Math.PI * 2);
                     ctx.stroke();
 
-                    // Highlight hovered/selected day
+                    // Hovered: a soft accent ring.
                     if (hoveredNode && hoveredNode.type === 'day' && hoveredNode.year === yl.year && hoveredNode.month === mo.month && hoveredNode.day === day) {
-                        ctx.strokeStyle = 'rgba(184,105,68,0.95)';
-                        ctx.lineWidth = 2;
+                        ctx.strokeStyle = 'rgba(184,105,68,0.9)';
+                        ctx.lineWidth = 1.8;
                         ctx.beginPath();
-                        ctx.arc(dx, dy, dr + 3, 0, Math.PI * 2);
+                        ctx.arc(dx, dy, dr + 3.5, 0, Math.PI * 2);
                         ctx.stroke();
                     }
+                    // Selected: a crisp solid accent ring with a faint outer halo.
                     if (selectedNode && selectedNode.type === 'day' && selectedNode.year === yl.year && selectedNode.month === mo.month && selectedNode.day === day) {
-                        ctx.strokeStyle = 'rgba(211,95,5,0.8)';
-                        ctx.lineWidth = 2.5;
-                        ctx.setLineDash([4, 3]);
+                        ctx.fillStyle = 'rgba(211,95,5,0.12)';
                         ctx.beginPath();
-                        ctx.arc(dx, dy, dr + 5, 0, Math.PI * 2);
+                        ctx.arc(dx, dy, dr + 6, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.strokeStyle = 'rgba(211,95,5,0.9)';
+                        ctx.lineWidth = 2;
+                        ctx.beginPath();
+                        ctx.arc(dx, dy, dr + 4, 0, Math.PI * 2);
                         ctx.stroke();
-                        ctx.setLineDash([]);
                     }
 
                     if (scale >= DAY_LABEL_SCALE && dr >= 6) {
-                        ctx.fillStyle = '#fff';
                         ctx.font = `700 ${Math.min(dr, 8)}px "Segoe UI","Microsoft YaHei",sans-serif`;
                         ctx.textAlign = 'center';
                         ctx.textBaseline = 'middle';
+                        ctx.lineWidth = 2;
+                        ctx.strokeStyle = 'rgba(0,0,0,0.28)';
+                        ctx.strokeText(day, dx, dy);
+                        ctx.fillStyle = '#fff';
                         ctx.fillText(day, dx, dy);
                     }
                 }
