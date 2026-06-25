@@ -413,9 +413,12 @@ function getMonthY(month) {
 // days don't overlap. The dot radius shrinks until the grid fits. `availH` is
 // the height reserved for the grid (excludes a header band for the month stats).
 // Shared by draw() and hitTest() so click targets match what's drawn.
+// NOTE: all sizes here are world (scale=1) units; ctx.scale applies the zoom.
 function dayNodePositions(cardX, cardW, availH, gridCenterY, dayCount) {
     const gap = 3;
-    let r = Math.min(layout.monthHeight * 0.24, 9);
+    // Start larger (up to 11 world-px) so at high zoom the dots are big enough
+    // to hold a readable day number; shrink only if they truly don't fit.
+    let r = Math.min(layout.monthHeight * 0.28, 11);
     let cols, rows;
     for (; r >= 2; r -= 0.5) {
         cols = Math.min(dayCount, Math.max(1, Math.floor((cardW - 12) / (r * 2 + gap))));
@@ -1051,7 +1054,15 @@ function draw() {
                     const { dx, dy } = positions[di];
 
                     const cat = dayStats.category;
-                    const dr = Math.max(dotMinR, dayRadius * (0.72 + 0.36 * Math.min(dayStats.wordCount / 2400, 1)));
+                    const baseR = Math.max(dotMinR, dayRadius * (0.72 + 0.36 * Math.min(dayStats.wordCount / 2400, 1)));
+                    // Grow the WHOLE dot (not just the number) once we're in day-label
+                    // range, so the day number stays inside the dot instead of overflowing.
+                    // growth ramps from 1→~2.2× as scale goes DAY_LABEL_SCALE→SCALE_MAX.
+                    let growth = 1;
+                    if (scale > DAY_LABEL_SCALE) {
+                        growth = 1 + (scale - DAY_LABEL_SCALE) / (SCALE_MAX - DAY_LABEL_SCALE) * 1.2;
+                    }
+                    const dr = baseR * growth;
 
                     // Flat solid dot + thin white rim — clean, modern, no glow/gradient.
                     ctx.fillStyle = categoryColor(cat, 0.95);
@@ -1081,12 +1092,16 @@ function draw() {
                         ctx.stroke();
                     }
 
-                    if (scale >= DAY_LABEL_SCALE && dr >= 6) {
-                        ctx.font = `700 ${Math.min(dr, 8)}px "Segoe UI","Microsoft YaHei",sans-serif`;
+                    // Day number — only when the dot (on screen) is big enough to hold it.
+                    // Font tracks the dot radius so the number never overflows the dot.
+                    const screenR = dr * scale;
+                    if (scale >= DAY_LABEL_SCALE && screenR >= 10) {
+                        const fontPx = screenR * 0.72 / scale;   // ~72% of screen radius
+                        ctx.font = `700 ${fontPx}px "Segoe UI","Microsoft YaHei",sans-serif`;
                         ctx.textAlign = 'center';
                         ctx.textBaseline = 'middle';
-                        ctx.lineWidth = 2;
-                        ctx.strokeStyle = 'rgba(0,0,0,0.28)';
+                        ctx.lineWidth = Math.max(1.5, 2 / scale);
+                        ctx.strokeStyle = 'rgba(0,0,0,0.30)';
                         ctx.strokeText(day, dx, dy);
                         ctx.fillStyle = '#fff';
                         ctx.fillText(day, dx, dy);
