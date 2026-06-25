@@ -130,6 +130,7 @@ title: "塔防战争"
         #countdown-display { color: #f39c12; min-width: 50px; text-align: center; }
         #auto-wave-btn { background: linear-gradient(180deg, #5b625c, #343a36); }
         #auto-wave-btn.active { background: linear-gradient(180deg, #9b68d9, #6c3ca0); }
+        #theme-btn { background: linear-gradient(180deg, #5b625c, #343a36); }
         #compendium-btn { background: linear-gradient(180deg, #5b625c, #343a36); }
 
         /* -- Compendium Overlay -- */
@@ -448,6 +449,7 @@ title: "塔防战争"
         <button id="speed-btn" onclick="toggleSpeed()">1x</button>
         <button id="start-wave-btn" onclick="startNextWave()">开始波次</button>
         <button id="auto-wave-btn" onclick="toggleAutoWave()">⏩ 自动</button>
+        <button id="theme-btn" onclick="cycleTheme()">🌿 草原</button>
         <button id="compendium-btn" onclick="toggleCompendium()">📖 图鉴</button>
     </div>
     <canvas id="game-canvas" width="740" height="480"></canvas>
@@ -607,6 +609,100 @@ function setupLayout() {
     // Recompute pixel waypoints from the new path + projection
     WAYPOINTS.length = 0;
     for (const p of GRID_PATH) WAYPOINTS.push(gridToIso(p.col, p.row));
+}
+
+// ==================== MAP THEMES ====================
+// Cosmetic palettes for the battlefield. Purely visual — the grid/path layout
+// is unaffected. cycleTheme() rotates through THEME_KEYS.
+const THEMES = {
+    grass: {
+        name: '草原', icon: '🌿', border: '#4d3a25',
+        bg: '#2d4a1b',
+        grass: ['#5b963e', '#6daa45', '#7ab550', '#86bd4d', '#90c458'],
+        gridLine: 'rgba(20,40,15,0.18)',
+        tuft: ['#8fc354', '#477f36'],
+        grassDetail: ['#76924a', '#b7c06b', '#477a39'],
+        road: ['#b89040', '#c9a050', '#d4aa55', '#bb8c3a', '#a87830'],
+        roadTexture: ['#8a5a28', '#e8c878'],
+        roadBorder: 'rgba(60,40,20,0.38)',
+        chevron: ['rgba(255,235,180,0.18)', 'rgba(82,54,32,0.18)'],
+        sun: ['rgba(255,232,156,0.08)', 'rgba(255,232,156,0.01)', 'rgba(15,21,18,0.16)'],
+        vignette: 'rgba(0,0,0,0.18)'
+    },
+    snow: {
+        name: '雪原', icon: '❄️', border: '#6a8aa8',
+        bg: '#3a4a55',
+        grass: ['#dfe9f0', '#cdd9e3', '#e8f0f5', '#b8c8d4', '#f0f6fa'],
+        gridLine: 'rgba(60,80,100,0.16)',
+        tuft: ['#ffffff', '#a8c0d0'],
+        grassDetail: ['#b0c4d8', '#e8f0f8', '#90a8b8'],
+        road: ['#8a9bb0', '#9aabc0', '#a8b8cc', '#7e90a4', '#6a7c90'],
+        roadTexture: ['#4a5a6e', '#d8e6f0'],
+        roadBorder: 'rgba(40,55,75,0.40)',
+        chevron: ['rgba(220,235,255,0.22)', 'rgba(60,80,100,0.20)'],
+        sun: ['rgba(200,230,255,0.10)', 'rgba(200,230,255,0.02)', 'rgba(20,30,45,0.20)'],
+        vignette: 'rgba(20,30,50,0.22)'
+    },
+    volcano: {
+        name: '火山', icon: '🌋', border: '#5a1a0a',
+        bg: '#2a0e0a',
+        grass: ['#3a2a2a', '#4a3030', '#5a3838', '#6a4040', '#2a1a1a'],
+        gridLine: 'rgba(80,20,10,0.20)',
+        tuft: ['#ff6b35', '#8a2010'],
+        grassDetail: ['#5a2020', '#7a3020', '#3a1010'],
+        road: ['#c84020', '#e85030', '#ff6030', '#b03010', '#982008'],
+        roadTexture: ['#601008', '#ffaa30'],
+        roadBorder: 'rgba(200,60,20,0.45)',
+        chevron: ['rgba(255,200,100,0.22)', 'rgba(120,30,10,0.25)'],
+        sun: ['rgba(255,120,40,0.12)', 'rgba(255,120,40,0.02)', 'rgba(20,5,0,0.25)'],
+        vignette: 'rgba(40,0,0,0.30)'
+    },
+    desert: {
+        name: '沙漠', icon: '🏜️', border: '#8a6a2a',
+        bg: '#6a5a2a',
+        grass: ['#e8d088', '#f0dca0', '#f5e4b0', '#dcc070', '#c8a858'],
+        gridLine: 'rgba(120,90,40,0.16)',
+        tuft: ['#f5e4b0', '#a08040'],
+        grassDetail: ['#d8c070', '#f0dca0', '#b89848'],
+        road: ['#a07830', '#b08840', '#c09850', '#906828', '#80581c'],
+        roadTexture: ['#604018', '#f0d090'],
+        roadBorder: 'rgba(90,60,20,0.40)',
+        chevron: ['rgba(255,235,180,0.20)', 'rgba(90,60,20,0.20)'],
+        sun: ['rgba(255,220,140,0.12)', 'rgba(255,220,140,0.02)', 'rgba(60,40,10,0.20)'],
+        vignette: 'rgba(50,30,0,0.22)'
+    },
+    swamp: {
+        name: '沼泽', icon: '🐸', border: '#2a3a1a',
+        bg: '#1a2a1a',
+        grass: ['#3a5a2a', '#446a30', '#4a7038', '#385028', '#506a40'],
+        gridLine: 'rgba(15,30,15,0.20)',
+        tuft: ['#6a9040', '#2a4020'],
+        grassDetail: ['#4a7030', '#608038', '#2a4020'],
+        road: ['#604830', '#704a28', '#5a3820', '#4a2e18', '#684020'],
+        roadTexture: ['#2a1808', '#908060'],
+        roadBorder: 'rgba(30,20,10,0.50)',
+        chevron: ['rgba(200,190,140,0.16)', 'rgba(40,30,10,0.25)'],
+        sun: ['rgba(160,180,100,0.06)', 'rgba(160,180,100,0.01)', 'rgba(5,15,5,0.30)'],
+        vignette: 'rgba(5,15,5,0.28)'
+    }
+};
+const THEME_KEYS = ['grass', 'snow', 'volcano', 'desert', 'swamp'];
+
+function currentTheme() {
+    return THEMES[game.theme] || THEMES.grass;
+}
+
+function applyThemeChrome() {
+    const T = currentTheme();
+    const btn = document.getElementById('theme-btn');
+    if (btn) btn.textContent = (T.icon || '🗺️') + ' ' + T.name;
+    canvas.style.borderColor = T.border;
+}
+
+function cycleTheme() {
+    const i = THEME_KEYS.indexOf(game.theme);
+    game.theme = THEME_KEYS[(i + 1) % THEME_KEYS.length];
+    applyThemeChrome();
 }
 
 const canvas = document.getElementById('game-canvas');
@@ -1110,7 +1206,8 @@ const game = {
     spawnQueue: [],
     spawnTimer: 0,
     spawnInterval: 800,
-    waveSpawningDone: false
+    waveSpawningDone: false,
+    theme: 'grass'
 };
 
 // ==================== GRID & SCENERY ====================
@@ -4106,11 +4203,13 @@ function artNoise(r, c, salt = 0) {
 }
 
 function drawGrassField() {
+    const T = currentTheme();
     // Base ground color behind the tiled field
-    ctx.fillStyle = '#2d4a1b';
+    ctx.fillStyle = T.bg;
     ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
 
     const hw = TILE_W / 2, hh = TILE_H / 2;
+    const g = T.grass;
 
     // Flat square tiles with subtle per-tile color variation
     for (let r = 0; r < ROWS; r++) {
@@ -4118,19 +4217,14 @@ function drawGrassField() {
             if (grid[r][c] !== TERRAIN.GRASS) continue;
             const p = gridToIso(c, r);
             const n = artNoise(c, r, 21);
-            let color;
-            if (n < 0.25)      color = '#5b963e';
-            else if (n < 0.55) color = '#6daa45';
-            else if (n < 0.80) color = '#7ab550';
-            else if (n < 0.92) color = '#86bd4d';
-            else               color = '#90c458';
-            ctx.fillStyle = color;
+            const ci = n < 0.25 ? 0 : n < 0.55 ? 1 : n < 0.80 ? 2 : n < 0.92 ? 3 : 4;
+            ctx.fillStyle = g[ci];
             ctx.fillRect(p.x - hw, p.y - hh, TILE_W, TILE_H);
         }
     }
 
     // Faint grid lines so buildable cells read clearly
-    ctx.strokeStyle = 'rgba(20,40,15,0.18)';
+    ctx.strokeStyle = T.gridLine;
     ctx.lineWidth = 1;
     ctx.beginPath();
     for (let r = 0; r <= ROWS; r++) {
@@ -4145,7 +4239,7 @@ function drawGrassField() {
     }
     ctx.stroke();
 
-    // Scattered grass tufts on top of the tiles
+    // Scattered tufts / flecks on top of the tiles
     for (let i = 0; i < 300; i++) {
         const c = Math.floor(artNoise(i, 3, 31) * COLS);
         const r = Math.floor(artNoise(i, 5, 32) * ROWS);
@@ -4153,7 +4247,7 @@ function drawGrassField() {
             const p = gridToIso(c, r);
             const ox = (artNoise(i, 7, 33) - 0.5) * TILE_W * 0.5;
             const oy = (artNoise(i, 9, 34) - 0.5) * TILE_H * 0.5;
-            ctx.fillStyle = artNoise(i, 11, 35) > 0.5 ? '#8fc354' : '#477f36';
+            ctx.fillStyle = artNoise(i, 11, 35) > 0.5 ? T.tuft[0] : T.tuft[1];
             ctx.fillRect(p.x + ox - 2, p.y + oy - 1, 4, 3);
             if (artNoise(i, 11, 35) > 0.7) ctx.fillRect(p.x + ox + 2, p.y + oy, 3, 2);
         }
@@ -4161,37 +4255,33 @@ function drawGrassField() {
 }
 
 function drawDirtRoad() {
+    const T = currentTheme();
     const hw = TILE_W / 2, hh = TILE_H / 2;
+    const rd = T.road;
 
-    // Flat dirt tiles for the road
+    // Flat tiles for the road
     for (let r = 0; r < ROWS; r++) {
         for (let c = 0; c < COLS; c++) {
             if (grid[r][c] !== TERRAIN.PATH) continue;
             const p = gridToIso(c, r);
             const n = artNoise(c, r, 41);
+            const ci = n < 0.20 ? 0 : n < 0.50 ? 1 : n < 0.75 ? 2 : n < 0.90 ? 3 : 4;
 
-            let color;
-            if (n < 0.20) color = '#b89040';
-            else if (n < 0.50) color = '#c9a050';
-            else if (n < 0.75) color = '#d4aa55';
-            else if (n < 0.90) color = '#bb8c3a';
-            else color = '#a87830';
-
-            ctx.fillStyle = color;
+            ctx.fillStyle = rd[ci];
             ctx.fillRect(p.x - hw, p.y - hh, TILE_W, TILE_H);
 
             // Road texture flecks
             if (n > 0.55) {
                 const tx = p.x + (artNoise(c, r, 42) - 0.5) * hw * 1.2;
                 const ty = p.y + (artNoise(c, r, 43) - 0.5) * hh * 1.2;
-                ctx.fillStyle = n > 0.8 ? '#8a5a28' : '#e8c878';
+                ctx.fillStyle = n > 0.8 ? T.roadTexture[0] : T.roadTexture[1];
                 ctx.fillRect(tx - 2, ty - 1, 4, 2);
             }
         }
     }
 
-    // Subtle border where the road meets the grass
-    ctx.strokeStyle = 'rgba(60,40,20,0.38)';
+    // Subtle border where the road meets the ground
+    ctx.strokeStyle = T.roadBorder;
     ctx.lineWidth = 1;
     for (let r = 0; r < ROWS; r++) {
         for (let c = 0; c < COLS; c++) {
@@ -4230,8 +4320,8 @@ function drawDirtRoad() {
             ctx.save();
             ctx.translate(p.x, p.y);
             ctx.rotate(flatAngle);
-            ctx.fillStyle = 'rgba(255,235,180,0.18)';
-            ctx.strokeStyle = 'rgba(82,54,32,0.18)';
+            ctx.fillStyle = T.chevron[0];
+            ctx.strokeStyle = T.chevron[1];
             ctx.lineWidth = 0.7;
             ctx.beginPath();
             ctx.moveTo(5, 0);
@@ -4247,7 +4337,9 @@ function drawDirtRoad() {
 }
 
 function drawPixelGroundDetails() {
-    // Additional grass texture on grass tiles
+    const T = currentTheme();
+    const gd = T.grassDetail;
+    // Additional texture on ground tiles
     for (let i = 0; i < 120; i++) {
         const c = Math.floor(artNoise(i, 81, 41) * COLS);
         const r = Math.floor(artNoise(i, 83, 42) * ROWS);
@@ -4257,34 +4349,36 @@ function drawPixelGroundDetails() {
         const oy = (artNoise(i, 87, 44) - 0.5) * TILE_H * 0.5;
         const n = artNoise(i, 89, 45);
         if (n < 0.34) {
-            ctx.fillStyle = '#76924a';
+            ctx.fillStyle = gd[0];
             ctx.fillRect(p.x + ox - 3, p.y + oy - 1, 6, 3);
         } else if (n < 0.62) {
-            ctx.fillStyle = '#b7c06b';
+            ctx.fillStyle = gd[1];
             ctx.fillRect(p.x + ox - 2, p.y + oy, 3, 3);
         } else {
-            ctx.fillStyle = '#477a39';
+            ctx.fillStyle = gd[2];
             ctx.fillRect(p.x + ox - 4, p.y + oy - 1, 8, 3);
         }
     }
 }
 
 function drawBattlefieldAtmosphere() {
+    const T = currentTheme();
     ctx.save();
     const sunlight = ctx.createLinearGradient(0, 0, CANVAS_W, CANVAS_H);
-    sunlight.addColorStop(0, 'rgba(255, 232, 156, 0.08)');
-    sunlight.addColorStop(0.46, 'rgba(255, 232, 156, 0.01)');
-    sunlight.addColorStop(1, 'rgba(15, 21, 18, 0.16)');
+    sunlight.addColorStop(0, T.sun[0]);
+    sunlight.addColorStop(0.46, T.sun[1]);
+    sunlight.addColorStop(1, T.sun[2]);
     ctx.globalCompositeOperation = 'overlay';
     ctx.fillStyle = sunlight;
     ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
     ctx.restore();
 
     ctx.save();
-    const vignette = ctx.createRadialGradient(CANVAS_W * 0.5, CANVAS_H * 0.45, 200, CANVAS_W * 0.5, CANVAS_H * 0.45, 560);
+    const vrad = Math.max(200, Math.min(CANVAS_W, CANVAS_H) * 0.75);
+    const vignette = ctx.createRadialGradient(CANVAS_W * 0.5, CANVAS_H * 0.45, vrad * 0.35, CANVAS_W * 0.5, CANVAS_H * 0.45, vrad);
     vignette.addColorStop(0, 'rgba(0,0,0,0)');
     vignette.addColorStop(0.74, 'rgba(0,0,0,0.04)');
-    vignette.addColorStop(1, 'rgba(0,0,0,0.18)');
+    vignette.addColorStop(1, T.vignette);
     ctx.fillStyle = vignette;
     ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
     ctx.restore();
@@ -11012,6 +11106,7 @@ function rebuildForOrientation() {
 function init() {
     setupLayout();
     initGrid();
+    applyThemeChrome();
     updateHUD();
     updateTowerButtons();
     document.getElementById('start-wave-btn').disabled = false;
