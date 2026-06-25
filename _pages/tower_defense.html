@@ -510,9 +510,11 @@ const COLS = 18, ROWS = 13, CELL = 40;
 const CANVAS_W = 740, CANVAS_H = 480;
 const TERRAIN = { PATH: 0, GRASS: 1, BLOCKED: 2 };
 
-// Isometric projection constants (2:1 ratio, ~63.4° from vertical)
-const TILE_W = 48, TILE_H = 24;
-const ISO_ORIGIN_X = 310, ISO_ORIGIN_Y = 60;
+// Isometric projection constants — tuned so the battlefield fills the canvas.
+// Using a dimetric ratio (TILE_W:TILE_H ≈ 47:30) matches the 740:480 canvas aspect
+// so the map spans edge-to-edge instead of leaving wide vertical margins.
+const TILE_W = 47, TILE_H = 30;
+const ISO_ORIGIN_X = 311, ISO_ORIGIN_Y = 20;
 const GROUND_DEPTH = 6; // pixel thickness of ground layer for 3D depth
 const ISO_RATIO = TILE_H / TILE_W; // Y-axis squashing factor for isometric ground effects
 
@@ -1755,7 +1757,10 @@ function updateTowers(dt) {
 
 // ==================== ENEMY LOGIC ====================
 function createEnemy(type, waveNum) {
-    const laneOffset = (Math.random() - 0.5) * 70; // spread across full 2-cell path width
+    // Lateral spread across the 2-cell-wide road. The road's screen-perpendicular
+    // half-width is ~24px with the current tile ratio, so keep |offset| well under
+    // that (plus the enemy body radius) to stop slimes spilling off the dirt path.
+    const laneOffset = (Math.random() - 0.5) * 20;
     const firstSegX = WAYPOINTS[1].x - WAYPOINTS[0].x;
     const firstSegY = WAYPOINTS[1].y - WAYPOINTS[0].y;
     const firstLen = Math.sqrt(firstSegX ** 2 + firstSegY ** 2) || 1;
@@ -4360,6 +4365,63 @@ function drawSceneryItem(cx, cy, type, size) {
     ctx.restore();
 }
 
+// Isometric stone pedestal — gives every tower a raised 2.5D base that sits on
+// the diamond grid, matching the dimetric ground projection.
+function drawIsoPedestal(t, st) {
+    const hw = TILE_W * 0.32, hh = TILE_H * 0.32;
+    const ph = GROUND_DEPTH + 4; // pedestal height (vertical thickness)
+
+    // Right (front-right) face — mid shadow
+    ctx.fillStyle = '#6f6453';
+    ctx.beginPath();
+    ctx.moveTo(hw, 0);
+    ctx.lineTo(0, hh);
+    ctx.lineTo(0, hh + ph);
+    ctx.lineTo(hw, ph);
+    ctx.closePath();
+    ctx.fill();
+
+    // Left (front-left) face — deepest shadow
+    ctx.fillStyle = '#544a3d';
+    ctx.beginPath();
+    ctx.moveTo(-hw, 0);
+    ctx.lineTo(0, hh);
+    ctx.lineTo(0, hh + ph);
+    ctx.lineTo(-hw, ph);
+    ctx.closePath();
+    ctx.fill();
+
+    // Top diamond — sunlit stone, subtle vertical gradient
+    const topGrad = ctx.createLinearGradient(0, -hh, 0, hh);
+    topGrad.addColorStop(0, '#ab9e86');
+    topGrad.addColorStop(1, '#897d68');
+    ctx.fillStyle = topGrad;
+    ctx.beginPath();
+    ctx.moveTo(0, -hh);
+    ctx.lineTo(hw, 0);
+    ctx.lineTo(0, hh);
+    ctx.lineTo(-hw, 0);
+    ctx.closePath();
+    ctx.fill();
+
+    // Back-right top edge highlight (light catches the upper rim)
+    ctx.strokeStyle = 'rgba(255,245,220,0.22)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, -hh);
+    ctx.lineTo(hw, 0);
+    ctx.stroke();
+
+    // Front bottom edges — grounding shadow line
+    ctx.strokeStyle = 'rgba(0,0,0,0.24)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(-hw, 0);
+    ctx.lineTo(0, hh);
+    ctx.lineTo(hw, 0);
+    ctx.stroke();
+}
+
 function drawTower(t) {
     const st = towerStats(t);
     const lv = t.level;
@@ -4367,11 +4429,15 @@ function drawTower(t) {
     ctx.save();
     ctx.translate(t.x, t.y);
 
-    // Isometric drop shadow
-    ctx.fillStyle = 'rgba(0,0,0,0.25)';
+    // Ground drop shadow — cast in front of the pedestal (isometric)
+    const _hw = TILE_W * 0.32, _hh = TILE_H * 0.32, _ph = GROUND_DEPTH + 4;
+    ctx.fillStyle = 'rgba(0,0,0,0.26)';
     ctx.beginPath();
-    ctx.ellipse(2, 4, 14, 7, -0.2, 0, Math.PI * 2);
+    ctx.ellipse(2, _hh + _ph - 1, _hw + 5, (_hh + 4) * 0.6, -0.2, 0, Math.PI * 2);
     ctx.fill();
+
+    // 2.5D stone pedestal base
+    drawIsoPedestal(t, st);
 
     switch (t.type) {
         case 'archer': drawArcherTower(t, st, lv); break;
