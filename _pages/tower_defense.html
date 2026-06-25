@@ -510,29 +510,28 @@ const COLS = 18, ROWS = 13, CELL = 40;
 const CANVAS_W = 740, CANVAS_H = 480;
 const TERRAIN = { PATH: 0, GRASS: 1, BLOCKED: 2 };
 
-// Isometric projection constants — tuned so the battlefield fills the canvas.
-// Using a dimetric ratio (TILE_W:TILE_H ≈ 47:30) matches the 740:480 canvas aspect
-// so the map spans edge-to-edge instead of leaving wide vertical margins.
-const TILE_W = 47, TILE_H = 30;
-const ISO_ORIGIN_X = 311, ISO_ORIGIN_Y = 20;
-const GROUND_DEPTH = 6; // pixel thickness of ground layer for 3D depth
-const ISO_RATIO = TILE_H / TILE_W; // Y-axis squashing factor for isometric ground effects
+// Flat 2D (top-down) projection constants. The grid is drawn as a plain
+// rectangular tile field — no isometric squash. Cell size is chosen so the
+// 18×13 grid fills the 740×480 canvas (18*41=738, 13*36=468).
+const TILE_W = 41, TILE_H = 36;
+const ISO_ORIGIN_X = 1, ISO_ORIGIN_Y = 6;
+const GROUND_DEPTH = 0; // unused in flat 2D (kept for compatibility)
+const ISO_RATIO = 1; // no Y-axis squash in flat 2D
 
-// Convert grid (col, row) to isometric screen (x, y)
+// Convert grid (col, row) to screen (x, y) — cell center
 function gridToIso(col, row) {
     return {
-        x: ISO_ORIGIN_X + (col - row) * TILE_W / 2,
-        y: ISO_ORIGIN_Y + (col + row) * TILE_H / 2
+        x: ISO_ORIGIN_X + (col + 0.5) * TILE_W,
+        y: ISO_ORIGIN_Y + (row + 0.5) * TILE_H
     };
 }
 
-// Convert isometric screen (x, y) to grid (col, row)
+// Convert screen (x, y) to grid (col, row)
 function isoToGrid(sx, sy) {
-    const rx = (sx - ISO_ORIGIN_X) / (TILE_W / 2);
-    const ry = (sy - ISO_ORIGIN_Y) / (TILE_H / 2);
-    const col = (rx + ry) / 2;
-    const row = (ry - rx) / 2;
-    return { col: Math.floor(col), row: Math.floor(row) };
+    return {
+        col: Math.floor((sx - ISO_ORIGIN_X) / TILE_W),
+        row: Math.floor((sy - ISO_ORIGIN_Y) / TILE_H)
+    };
 }
 
 const canvas = document.getElementById('game-canvas');
@@ -1758,8 +1757,8 @@ function updateTowers(dt) {
 // ==================== ENEMY LOGIC ====================
 function createEnemy(type, waveNum) {
     // Lateral spread across the 2-cell-wide road. The road's screen-perpendicular
-    // half-width is ~24px with the current tile ratio, so keep |offset| well under
-    // that (plus the enemy body radius) to stop slimes spilling off the dirt path.
+    // half-width is ~18-20px (one cell), so keep |offset| well under that (plus the
+    // enemy body radius) to stop slimes spilling off the dirt path.
     const laneOffset = (Math.random() - 0.5) * 20;
     const firstSegX = WAYPOINTS[1].x - WAYPOINTS[0].x;
     const firstSegY = WAYPOINTS[1].y - WAYPOINTS[0].y;
@@ -4045,96 +4044,53 @@ function artNoise(r, c, salt = 0) {
 }
 
 function drawGrassField() {
+    // Base ground color behind the tiled field
     ctx.fillStyle = '#2d4a1b';
     ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
 
     const hw = TILE_W / 2, hh = TILE_H / 2;
-    const gd = GROUND_DEPTH;
 
-    // Precompute which grass tiles have a path neighbor (need cliff faces)
-    const needsCliff = [];
-    for (let r = 0; r < ROWS; r++) {
-        needsCliff[r] = [];
-        for (let c = 0; c < COLS; c++) {
-            if (grid[r][c] !== TERRAIN.GRASS) { needsCliff[r][c] = false; continue; }
-            let cliff = false;
-            // Check SE neighbor (row+1)
-            if (r+1 < ROWS && grid[r+1][c] === TERRAIN.PATH) cliff = true;
-            // Check SW neighbor (col-1)
-            if (c-1 >= 0 && grid[r][c-1] === TERRAIN.PATH) cliff = true;
-            needsCliff[r][c] = cliff;
-        }
-    }
-
-    // Draw each grass tile as a 3D block
+    // Flat square tiles with subtle per-tile color variation
     for (let r = 0; r < ROWS; r++) {
         for (let c = 0; c < COLS; c++) {
             if (grid[r][c] !== TERRAIN.GRASS) continue;
             const p = gridToIso(c, r);
             const n = artNoise(c, r, 21);
-            let topColor, rightColor, leftColor;
-            if (n < 0.25)      { topColor = '#5b963e'; rightColor = '#4a7a32'; leftColor = '#3d6b2a'; }
-            else if (n < 0.55) { topColor = '#6daa45'; rightColor = '#578a37'; leftColor = '#487a2e'; }
-            else if (n < 0.80) { topColor = '#7ab550'; rightColor = '#629440'; leftColor = '#508038'; }
-            else if (n < 0.92) { topColor = '#86bd4d'; rightColor = '#6e9a3f'; leftColor = '#5a8535'; }
-            else               { topColor = '#90c458'; rightColor = '#75a048'; leftColor = '#608b3d'; }
-
-            // Has a cliff face (neighbor is path)?
-            const cliff = needsCliff[r][c];
-
-            // Right face (bottom-right edge of diamond) — always drawn for depth
-            if (cliff) {
-                // Taller cliff face when adjacent to path
-                ctx.fillStyle = darkenColor(rightColor, 30);
-                ctx.beginPath();
-                ctx.moveTo(p.x + hw, p.y);
-                ctx.lineTo(p.x, p.y + hh);
-                ctx.lineTo(p.x, p.y + hh + gd + 2);
-                ctx.lineTo(p.x + hw, p.y + gd + 2);
-                ctx.closePath();
-                ctx.fill();
-            }
-
-            // Left face (bottom-left edge of diamond)
-            if (cliff) {
-                ctx.fillStyle = darkenColor(leftColor, 40);
-                ctx.beginPath();
-                ctx.moveTo(p.x - hw, p.y);
-                ctx.lineTo(p.x, p.y + hh);
-                ctx.lineTo(p.x, p.y + hh + gd + 2);
-                ctx.lineTo(p.x - hw, p.y + gd + 2);
-                ctx.closePath();
-                ctx.fill();
-            }
-
-            // Top face — the diamond
-            ctx.fillStyle = topColor;
-            ctx.beginPath();
-            ctx.moveTo(p.x, p.y - hh);
-            ctx.lineTo(p.x + hw, p.y);
-            ctx.lineTo(p.x, p.y + hh);
-            ctx.lineTo(p.x - hw, p.y);
-            ctx.closePath();
-            ctx.fill();
-
-            // Top-left highlight edge
-            ctx.strokeStyle = 'rgba(255,255,255,0.05)';
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.moveTo(p.x, p.y - hh);
-            ctx.lineTo(p.x - hw, p.y);
-            ctx.stroke();
+            let color;
+            if (n < 0.25)      color = '#5b963e';
+            else if (n < 0.55) color = '#6daa45';
+            else if (n < 0.80) color = '#7ab550';
+            else if (n < 0.92) color = '#86bd4d';
+            else               color = '#90c458';
+            ctx.fillStyle = color;
+            ctx.fillRect(p.x - hw, p.y - hh, TILE_W, TILE_H);
         }
     }
 
-    // Scattered grass tufts on top face
+    // Faint grid lines so buildable cells read clearly
+    ctx.strokeStyle = 'rgba(20,40,15,0.18)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let r = 0; r <= ROWS; r++) {
+        const y = ISO_ORIGIN_Y + r * TILE_H + 0.5;
+        ctx.moveTo(ISO_ORIGIN_X, y);
+        ctx.lineTo(ISO_ORIGIN_X + COLS * TILE_W, y);
+    }
+    for (let c = 0; c <= COLS; c++) {
+        const x = ISO_ORIGIN_X + c * TILE_W + 0.5;
+        ctx.moveTo(x, ISO_ORIGIN_Y);
+        ctx.lineTo(x, ISO_ORIGIN_Y + ROWS * TILE_H);
+    }
+    ctx.stroke();
+
+    // Scattered grass tufts on top of the tiles
     for (let i = 0; i < 300; i++) {
         const c = Math.floor(artNoise(i, 3, 31) * COLS);
         const r = Math.floor(artNoise(i, 5, 32) * ROWS);
         if (grid[r] && grid[r][c] === TERRAIN.GRASS) {
             const p = gridToIso(c, r);
-            const ox = (artNoise(i, 7, 33) - 0.5) * TILE_W * 0.55;
-            const oy = (artNoise(i, 9, 34) - 0.5) * TILE_H * 0.55;
+            const ox = (artNoise(i, 7, 33) - 0.5) * TILE_W * 0.5;
+            const oy = (artNoise(i, 9, 34) - 0.5) * TILE_H * 0.5;
             ctx.fillStyle = artNoise(i, 11, 35) > 0.5 ? '#8fc354' : '#477f36';
             ctx.fillRect(p.x + ox - 2, p.y + oy - 1, 4, 3);
             if (artNoise(i, 11, 35) > 0.7) ctx.fillRect(p.x + ox + 2, p.y + oy, 3, 2);
@@ -4145,7 +4101,7 @@ function drawGrassField() {
 function drawDirtRoad() {
     const hw = TILE_W / 2, hh = TILE_H / 2;
 
-    // Draw path tiles flat — no side faces, appearing sunken below grass level
+    // Flat dirt tiles for the road
     for (let r = 0; r < ROWS; r++) {
         for (let c = 0; c < COLS; c++) {
             if (grid[r][c] !== TERRAIN.PATH) continue;
@@ -4160,38 +4116,41 @@ function drawDirtRoad() {
             else color = '#a87830';
 
             ctx.fillStyle = color;
-            ctx.beginPath();
-            ctx.moveTo(p.x, p.y - hh);
-            ctx.lineTo(p.x + hw, p.y);
-            ctx.lineTo(p.x, p.y + hh);
-            ctx.lineTo(p.x - hw, p.y);
-            ctx.closePath();
-            ctx.fill();
+            ctx.fillRect(p.x - hw, p.y - hh, TILE_W, TILE_H);
 
-            // Subtle inner shadow on the road (from grass "walls")
-            ctx.strokeStyle = 'rgba(0,0,0,0.08)';
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.moveTo(p.x, p.y - hh);
-            ctx.lineTo(p.x - hw, p.y);
-            ctx.stroke();
-            ctx.strokeStyle = 'rgba(0,0,0,0.06)';
-            ctx.beginPath();
-            ctx.moveTo(p.x - hw, p.y);
-            ctx.lineTo(p.x, p.y + hh);
-            ctx.stroke();
-
-            // Road texture
+            // Road texture flecks
             if (n > 0.55) {
-                const tx = p.x + (artNoise(c, r, 42) - 0.5) * hw * 0.65;
-                const ty = p.y + (artNoise(c, r, 43) - 0.5) * hh * 0.65;
+                const tx = p.x + (artNoise(c, r, 42) - 0.5) * hw * 1.2;
+                const ty = p.y + (artNoise(c, r, 43) - 0.5) * hh * 1.2;
                 ctx.fillStyle = n > 0.8 ? '#8a5a28' : '#e8c878';
                 ctx.fillRect(tx - 2, ty - 1, 4, 2);
             }
         }
     }
 
-    // Direction chevrons
+    // Subtle border where the road meets the grass
+    ctx.strokeStyle = 'rgba(60,40,20,0.38)';
+    ctx.lineWidth = 1;
+    for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+            if (grid[r][c] !== TERRAIN.PATH) continue;
+            const p = gridToIso(c, r);
+            if (r === 0 || grid[r-1][c] !== TERRAIN.PATH) {
+                ctx.beginPath(); ctx.moveTo(p.x - hw, p.y - hh); ctx.lineTo(p.x + hw, p.y - hh); ctx.stroke();
+            }
+            if (r === ROWS-1 || grid[r+1][c] !== TERRAIN.PATH) {
+                ctx.beginPath(); ctx.moveTo(p.x - hw, p.y + hh); ctx.lineTo(p.x + hw, p.y + hh); ctx.stroke();
+            }
+            if (c === 0 || grid[r][c-1] !== TERRAIN.PATH) {
+                ctx.beginPath(); ctx.moveTo(p.x - hw, p.y - hh); ctx.lineTo(p.x - hw, p.y + hh); ctx.stroke();
+            }
+            if (c === COLS-1 || grid[r][c+1] !== TERRAIN.PATH) {
+                ctx.beginPath(); ctx.moveTo(p.x + hw, p.y - hh); ctx.lineTo(p.x + hw, p.y + hh); ctx.stroke();
+            }
+        }
+    }
+
+    // Direction chevrons (flat screen-space angle)
     for (let i = 1; i < GRID_PATH.length; i++) {
         const a = GRID_PATH[i - 1];
         const b = GRID_PATH[i];
@@ -4202,13 +4161,13 @@ function drawDirtRoad() {
             const row = a.row + (b.row - a.row) * t;
             if (col < 0 || col >= COLS || row < 0 || row >= ROWS) continue;
             const p = gridToIso(col, row);
-            const isoAngle = Math.atan2(
-                (b.row - a.row + b.col - a.col) * TILE_H / 2,
-                (b.col - a.col - b.row + a.row) * TILE_W / 2
+            const flatAngle = Math.atan2(
+                (b.row - a.row) * TILE_H,
+                (b.col - a.col) * TILE_W
             );
             ctx.save();
             ctx.translate(p.x, p.y);
-            ctx.rotate(isoAngle);
+            ctx.rotate(flatAngle);
             ctx.fillStyle = 'rgba(255,235,180,0.18)';
             ctx.strokeStyle = 'rgba(82,54,32,0.18)';
             ctx.lineWidth = 0.7;
@@ -4365,63 +4324,6 @@ function drawSceneryItem(cx, cy, type, size) {
     ctx.restore();
 }
 
-// Isometric stone pedestal — gives every tower a raised 2.5D base that sits on
-// the diamond grid, matching the dimetric ground projection.
-function drawIsoPedestal(t, st) {
-    const hw = TILE_W * 0.32, hh = TILE_H * 0.32;
-    const ph = GROUND_DEPTH + 4; // pedestal height (vertical thickness)
-
-    // Right (front-right) face — mid shadow
-    ctx.fillStyle = '#6f6453';
-    ctx.beginPath();
-    ctx.moveTo(hw, 0);
-    ctx.lineTo(0, hh);
-    ctx.lineTo(0, hh + ph);
-    ctx.lineTo(hw, ph);
-    ctx.closePath();
-    ctx.fill();
-
-    // Left (front-left) face — deepest shadow
-    ctx.fillStyle = '#544a3d';
-    ctx.beginPath();
-    ctx.moveTo(-hw, 0);
-    ctx.lineTo(0, hh);
-    ctx.lineTo(0, hh + ph);
-    ctx.lineTo(-hw, ph);
-    ctx.closePath();
-    ctx.fill();
-
-    // Top diamond — sunlit stone, subtle vertical gradient
-    const topGrad = ctx.createLinearGradient(0, -hh, 0, hh);
-    topGrad.addColorStop(0, '#ab9e86');
-    topGrad.addColorStop(1, '#897d68');
-    ctx.fillStyle = topGrad;
-    ctx.beginPath();
-    ctx.moveTo(0, -hh);
-    ctx.lineTo(hw, 0);
-    ctx.lineTo(0, hh);
-    ctx.lineTo(-hw, 0);
-    ctx.closePath();
-    ctx.fill();
-
-    // Back-right top edge highlight (light catches the upper rim)
-    ctx.strokeStyle = 'rgba(255,245,220,0.22)';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(0, -hh);
-    ctx.lineTo(hw, 0);
-    ctx.stroke();
-
-    // Front bottom edges — grounding shadow line
-    ctx.strokeStyle = 'rgba(0,0,0,0.24)';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(-hw, 0);
-    ctx.lineTo(0, hh);
-    ctx.lineTo(hw, 0);
-    ctx.stroke();
-}
-
 function drawTower(t) {
     const st = towerStats(t);
     const lv = t.level;
@@ -4429,15 +4331,11 @@ function drawTower(t) {
     ctx.save();
     ctx.translate(t.x, t.y);
 
-    // Ground drop shadow — cast in front of the pedestal (isometric)
-    const _hw = TILE_W * 0.32, _hh = TILE_H * 0.32, _ph = GROUND_DEPTH + 4;
-    ctx.fillStyle = 'rgba(0,0,0,0.26)';
+    // Ground drop shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.25)';
     ctx.beginPath();
-    ctx.ellipse(2, _hh + _ph - 1, _hw + 5, (_hh + 4) * 0.6, -0.2, 0, Math.PI * 2);
+    ctx.ellipse(2, 4, 14, 7, -0.2, 0, Math.PI * 2);
     ctx.fill();
-
-    // 2.5D stone pedestal base
-    drawIsoPedestal(t, st);
 
     switch (t.type) {
         case 'archer': drawArcherTower(t, st, lv); break;
@@ -10116,50 +10014,17 @@ function drawHoverPreview() {
     ctx.lineWidth = 2;
     ctx.setLineDash([6, 4]);
     ctx.beginPath();
-    ctx.moveTo(pos.x, pos.y - hh);
-    ctx.lineTo(pos.x + hw, pos.y);
-    ctx.lineTo(pos.x, pos.y + hh);
-    ctx.lineTo(pos.x - hw, pos.y);
-    ctx.closePath();
+    ctx.rect(pos.x - hw, pos.y - hh, TILE_W, TILE_H);
     ctx.fill();
     ctx.stroke();
     ctx.setLineDash([]);
     ctx.restore();
 
-    // Draw hover pedestal and silhouette
+    // Draw hover silhouette
     ctx.save();
     ctx.globalAlpha = valid ? 0.55 : 0.52;
     ctx.fillStyle = valid ? def.color : '#e74c3c';
     ctx.translate(pos.x, pos.y);
-
-    // Small pedestal
-    const ph = 6, pw = 10, phh2 = 5;
-    ctx.fillStyle = valid ? lightenColor(def.color, 25) : '#f08c8c';
-    ctx.beginPath();
-    ctx.moveTo(0, -phh2 - ph);
-    ctx.lineTo(pw, -ph);
-    ctx.lineTo(0, phh2 - ph);
-    ctx.lineTo(-pw, -ph);
-    ctx.closePath();
-    ctx.fill();
-    ctx.fillStyle = valid ? darkenColor(def.color, 25) : '#c0392b';
-    ctx.beginPath();
-    ctx.moveTo(-pw, -ph);
-    ctx.lineTo(0, phh2 - ph);
-    ctx.lineTo(0, phh2);
-    ctx.lineTo(-pw, 0);
-    ctx.closePath();
-    ctx.fill();
-    ctx.fillStyle = valid ? darkenColor(def.color, 45) : '#a93226';
-    ctx.beginPath();
-    ctx.moveTo(0, phh2 - ph);
-    ctx.lineTo(pw, -ph);
-    ctx.lineTo(pw, 0);
-    ctx.lineTo(0, phh2);
-    ctx.closePath();
-    ctx.fill();
-
-    ctx.translate(0, -ph);
 
     const s = 12;
     switch (game.selectedType) {
