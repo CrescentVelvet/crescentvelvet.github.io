@@ -3906,146 +3906,218 @@ function drawClusterCrater(cz, alpha) {
     }
 }
 
-// 战术核弹蘑菇云 — slow-spreading dark smoke with billowing mushroom cap
-function drawNukeCrater(cz, alpha) {
-    const { x, y, radius: rx } = cz;
-    const life = cz.duration / cz.maxDuration; // 1.0 → 0.0
+// 战术核弹 — 共享的蘑菇云阶段参数（地面弹坑层与上升云层共用）
+function nukePhases(cz) {
+    const rx = cz.radius;
+    const life = cz.duration / cz.maxDuration;          // 1 fresh → 0 expired
+    const t = 1 - life;                                  // 0 → 1 elapsed
     const time = Date.now() / 1000;
-    // Slow growth over first 30%, sustain middle 40%, fade last 30%
-    const growScale = Math.min(1, (1 - life) / 0.30);
-    const fadeScale = life > 0.7 ? 1 : life / 0.7;
-    const s = growScale * fadeScale;
+    const grow = Math.min(1, t / 0.20);                  // 生长占前 20%
+    const fade = t < 0.70 ? 1 : Math.max(0, 1 - (t - 0.70) / 0.30); // 末段 30% 淡出
+    const vis = grow * fade;
+    const heat = Math.max(0, 1 - t / 0.18);              // 炽热火球辉光（前期）
+    const ember = Math.max(0, 1 - t / 0.45);             // 蘑菇盖余烬（延续较久）
+    const rise = rx * (0.45 + t * 2.2);                  // 云顶持续上升
+    const capY = cz.y - rise;
+    const capRX = rx * (0.50 + grow * 1.50);
+    const capRY = rx * (0.16 + grow * 0.42);
+    const stemBaseW = rx * 0.16 * grow;
+    const stemTopW = rx * (0.28 + grow * 0.22);
+    return { rx, t, time, grow, fade, vis, heat, ember, rise, capY, capRX, capRY, stemBaseW, stemTopW };
+}
+
+// 战术核弹地面效果 — 焦痕、尘裙、冲击波环、地面闪光（留在弹坑层，处于单位之后）
+function drawNukeCrater(cz, alpha) {
+    const P = nukePhases(cz);
+    if (P.vis <= 0.01 && alpha <= 0.01) return;
+    const { x, y } = cz;
+    const { rx, grow, vis, heat, t } = P;
 
     ctx.save();
     ctx.globalAlpha = alpha;
 
-    // Initial flash at ground (fades quickly in first 15%)
-    const flashProgress = (1 - life) / 0.15;
-    if (flashProgress < 1) {
-        const flashAlpha = 1 - flashProgress;
-        const flashGrad = ctx.createRadialGradient(x, y, 0, x, y, rx * 1.8 * s);
-        flashGrad.addColorStop(0, `rgba(255,255,240,${0.9 * flashAlpha})`);
-        flashGrad.addColorStop(0.2, `rgba(255,200,60,${0.5 * flashAlpha})`);
-        flashGrad.addColorStop(0.5, `rgba(255,100,20,${0.2 * flashAlpha})`);
-        flashGrad.addColorStop(1, 'rgba(180,40,0,0)');
-        ctx.fillStyle = flashGrad;
-        ctx.beginPath();
-        ctx.arc(x, y, rx * 1.8 * s, 0, Math.PI * 2);
-        ctx.fill();
-    }
-
-    // Ground-level dark smoke — slowly expands outward from impact
-    const smokeSpreadR = rx * (0.4 + s * 2.2);
-    const groundGrad = ctx.createRadialGradient(x, y, 0, x, y, smokeSpreadR);
-    groundGrad.addColorStop(0, `rgba(45,35,28,${0.7 * fadeScale})`);
-    groundGrad.addColorStop(0.35, `rgba(30,22,16,${0.5 * fadeScale})`);
-    groundGrad.addColorStop(0.7, `rgba(18,12,7,${0.25 * fadeScale})`);
-    groundGrad.addColorStop(1, 'rgba(8,5,2,0)');
-    ctx.fillStyle = groundGrad;
+    // 地面焦痕 — 持久的暗色爆心
+    const scorchR = rx * (0.55 + grow * 0.35);
+    const scorchGrad = ctx.createRadialGradient(x, y, 0, x, y, scorchR);
+    scorchGrad.addColorStop(0, `rgba(16,11,7,${0.55 * vis})`);
+    scorchGrad.addColorStop(0.6, `rgba(28,19,12,${0.35 * vis})`);
+    scorchGrad.addColorStop(1, 'rgba(40,28,16,0)');
+    ctx.fillStyle = scorchGrad;
     ctx.beginPath();
-    ctx.arc(x, y, smokeSpreadR, 0, Math.PI * 2);
+    ctx.ellipse(x, y, scorchR, scorchR * 0.92, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Rising smoke column — dark, slowly building upward
-    const stemBaseY = y;
-    const stemRise = rx * 1.0 + rx * 3.0 * s;
-    const stemTopY = y - stemRise;
-    const stemBaseW = rx * 0.25 * s;
-    const stemTopW = rx * 0.55 * s;
+    // 地面尘裙 — 向外铺开的扁平尘云
+    const skirtR = rx * (0.5 + grow * 1.7);
+    const skirtGrad = ctx.createRadialGradient(x, y, scorchR * 0.8, x, y, skirtR);
+    const sA = 0.5 * vis;
+    skirtGrad.addColorStop(0, `rgba(122,106,88,${sA})`);
+    skirtGrad.addColorStop(0.5, `rgba(82,70,56,${sA * 0.7})`);
+    skirtGrad.addColorStop(1, 'rgba(50,42,32,0)');
+    ctx.fillStyle = skirtGrad;
+    ctx.beginPath();
+    ctx.ellipse(x, y, skirtR, skirtR * 0.55, 0, 0, Math.PI * 2);
+    ctx.fill();
 
-    if (s > 0.12) {
-        // Outer darker smoke column
-        const wobbleX = Math.sin(time * 0.7 + x * 0.1) * rx * 0.12 * s;
-        ctx.fillStyle = `rgba(22,16,10,${0.55 * fadeScale})`;
+    // 冲击波环 — 开局快速扩张的亮环
+    const swT = Math.min(1, t / 0.22);
+    if (swT < 1) {
+        const swR = rx * (0.4 + swT * 2.6);
+        const swA = (1 - swT) * vis;
+        ctx.strokeStyle = `rgba(255,238,205,${0.55 * swA})`;
+        ctx.lineWidth = 3 + (1 - swT) * 4;
         ctx.beginPath();
-        ctx.moveTo(x - stemBaseW * 1.3 + wobbleX, stemBaseY);
-        ctx.quadraticCurveTo(x - stemTopW * 1.25, (stemBaseY + stemTopY) * 0.5, x - stemTopW * 1.3, stemTopY);
-        ctx.lineTo(x + stemTopW * 1.3, stemTopY);
-        ctx.quadraticCurveTo(x + stemTopW * 1.25, (stemBaseY + stemTopY) * 0.5, x + stemBaseW * 1.3 + wobbleX, stemBaseY);
-        ctx.closePath();
-        ctx.fill();
-
-        // Inner column — slightly lighter
-        const colGrad = ctx.createLinearGradient(x, stemBaseY, x, stemTopY);
-        colGrad.addColorStop(0, `rgba(55,42,32,${0.7 * fadeScale})`);
-        colGrad.addColorStop(0.4, `rgba(38,28,20,${0.6 * fadeScale})`);
-        colGrad.addColorStop(0.7, `rgba(28,20,13,${0.5 * fadeScale})`);
-        colGrad.addColorStop(1, `rgba(20,14,8,${0.3 * fadeScale})`);
-        ctx.fillStyle = colGrad;
+        ctx.ellipse(x, y, swR, swR * 0.55, 0, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.strokeStyle = `rgba(255,150,60,${0.35 * swA})`;
+        ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.moveTo(x - stemBaseW + wobbleX, stemBaseY);
-        ctx.quadraticCurveTo(x - stemTopW, (stemBaseY + stemTopY) * 0.5, x - stemTopW, stemTopY);
-        ctx.lineTo(x + stemTopW, stemTopY);
-        ctx.quadraticCurveTo(x + stemTopW, (stemBaseY + stemTopY) * 0.5, x + stemBaseW + wobbleX, stemBaseY);
-        ctx.closePath();
-        ctx.fill();
-    }
-
-    // Mushroom cap — composed of billowing smoke puffs
-    const capY = stemTopY;
-    const capRX = rx * 0.5 + rx * 2.0 * s;
-    const capRY = rx * 0.12 + rx * 0.55 * s;
-
-    if (s > 0.25) {
-        // Main cap base — wide dark ellipse
-        const capMainGrad = ctx.createRadialGradient(x, capY - capRY * 0.1, capRX * 0.15, x, capY, capRX);
-        capMainGrad.addColorStop(0, `rgba(55,40,30,${0.8 * fadeScale})`);
-        capMainGrad.addColorStop(0.35, `rgba(38,28,20,${0.65 * fadeScale})`);
-        capMainGrad.addColorStop(0.7, `rgba(22,15,10,${0.4 * fadeScale})`);
-        capMainGrad.addColorStop(1, 'rgba(12,7,3,0)');
-        ctx.fillStyle = capMainGrad;
-        ctx.beginPath();
-        ctx.ellipse(x, capY, capRX, capRY, 0, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Billowing puffs around the cap edge — "rolling" mushroom look
-        const numPuffs = 9;
-        for (let i = 0; i < numPuffs; i++) {
-            const baseAngle = (i / numPuffs) * Math.PI * 2;
-            // Each puff rotates slowly and undulates independently
-            const billowRot = time * 0.25;
-            const billowWave = Math.sin(time * 0.9 + i * 1.1) * 0.18;
-            const puffAngle = baseAngle + billowRot;
-            const puffDist = capRX * (0.65 + billowWave);
-            const puffX = x + Math.cos(puffAngle) * puffDist;
-            const puffY = capY + Math.sin(puffAngle) * capRY * 0.5;
-            const puffR = rx * (0.22 + Math.sin(time * 0.7 + i * 1.4) * 0.06) * s;
-
-            const puffGrad = ctx.createRadialGradient(puffX, puffY, 0, puffX, puffY, puffR);
-            puffGrad.addColorStop(0, `rgba(50,38,28,${0.55 * fadeScale})`);
-            puffGrad.addColorStop(0.5, `rgba(32,22,15,${0.35 * fadeScale})`);
-            puffGrad.addColorStop(1, 'rgba(15,10,5,0)');
-            ctx.fillStyle = puffGrad;
-            ctx.beginPath();
-            ctx.arc(puffX, puffY, puffR, 0, Math.PI * 2);
-            ctx.fill();
-        }
-
-        // Smaller inner puffs for the rolling "cauliflower" texture
-        for (let i = 0; i < 7; i++) {
-            const dAngle = (i / 7) * Math.PI * 2 + time * 0.35;
-            const dDist = capRX * (0.3 + Math.sin(time * 1.1 + i) * 0.3);
-            const dx = x + Math.cos(dAngle) * dDist;
-            const dy = capY - capRY * 0.25 + Math.sin(dAngle) * capRY * 0.35;
-            const dR = rx * 0.14 * s;
-
-            ctx.fillStyle = `rgba(60,45,34,${0.32 * fadeScale})`;
-            ctx.beginPath();
-            ctx.arc(dx, dy, dR, 0, Math.PI * 2);
-            ctx.fill();
-        }
-    }
-
-    // Faint outer smoke ring — slow expansion
-    if (s > 0.2) {
-        ctx.strokeStyle = `rgba(40,28,20,${0.25 * fadeScale})`;
-        ctx.lineWidth = 2 * s;
-        ctx.beginPath();
-        ctx.arc(x, y, rx * 0.8 + (1 - life) * rx * 1.2, 0, Math.PI * 2);
+        ctx.ellipse(x, y, swR * 0.92, swR * 0.5, 0, 0, Math.PI * 2);
         ctx.stroke();
     }
 
+    // 地面闪光 — 爆心极强的初始辉光
+    if (heat > 0.05) {
+        const flashR = rx * (0.8 + heat * 1.4);
+        const flashGrad = ctx.createRadialGradient(x, y, 0, x, y, flashR);
+        flashGrad.addColorStop(0, `rgba(255,252,235,${0.85 * heat * vis})`);
+        flashGrad.addColorStop(0.25, `rgba(255,210,110,${0.55 * heat * vis})`);
+        flashGrad.addColorStop(0.55, `rgba(255,120,35,${0.25 * heat * vis})`);
+        flashGrad.addColorStop(1, 'rgba(180,40,0,0)');
+        ctx.fillStyle = flashGrad;
+        ctx.beginPath();
+        ctx.ellipse(x, y, flashR, flashR * 0.7, 0, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
     ctx.restore();
+}
+
+// 战术核弹蘑菇云 — 上升的火球/烟柱/蘑菇盖，渲染在单位之上以达到震撼效果
+function drawNukeMushroomClouds() {
+    for (const cz of game.craterZones) {
+        if (cz.type !== 'missile_nuke') continue;
+        const P = nukePhases(cz);
+        if (P.vis <= 0.01) continue;
+        const { x, y } = cz;
+        const { rx, time, grow, vis, heat, ember, rise, capY, capRX, capRY, stemBaseW, stemTopW, t } = P;
+
+        ctx.save();
+        ctx.globalAlpha = 1;
+
+        // 烟柱 — 从地面翻涌上升，底部带高温辉光
+        if (grow > 0.08) {
+            const wob = Math.sin(time * 0.8 + x * 0.1) * rx * 0.10 * vis;
+            const wob2 = Math.cos(time * 1.1 + x * 0.07) * rx * 0.06 * vis;
+            ctx.fillStyle = `rgba(30,24,18,${0.6 * vis})`;
+            ctx.beginPath();
+            ctx.moveTo(x - stemBaseW * 1.25 + wob, y);
+            ctx.quadraticCurveTo(x - stemTopW * 1.3 + wob2, (y + capY) * 0.5, x - stemTopW * 1.3, capY);
+            ctx.lineTo(x + stemTopW * 1.3, capY);
+            ctx.quadraticCurveTo(x + stemTopW * 1.3 + wob2, (y + capY) * 0.5, x + stemBaseW * 1.25 + wob, y);
+            ctx.closePath();
+            ctx.fill();
+            const colGrad = ctx.createLinearGradient(x, y, x, capY);
+            const ht = heat * 0.5;
+            colGrad.addColorStop(0, `rgba(${Math.floor(130 + 125 * ht)},${Math.floor(60 + 30 * ht)},20,${0.75 * vis})`);
+            colGrad.addColorStop(0.35, `rgba(70,58,44,${0.65 * vis})`);
+            colGrad.addColorStop(0.75, `rgba(48,40,30,${0.55 * vis})`);
+            colGrad.addColorStop(1, `rgba(34,28,20,${0.4 * vis})`);
+            ctx.fillStyle = colGrad;
+            ctx.beginPath();
+            ctx.moveTo(x - stemBaseW + wob, y);
+            ctx.quadraticCurveTo(x - stemTopW, (y + capY) * 0.5, x - stemTopW, capY);
+            ctx.lineTo(x + stemTopW, capY);
+            ctx.quadraticCurveTo(x + stemTopW, (y + capY) * 0.5, x + stemBaseW + wob, y);
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        // 火球辉光 — 升起的炽热核心，随时间由白→黄→橙→消失
+        if (heat > 0.05) {
+            const fbR = rx * (0.32 + grow * 0.55) * (0.7 + heat * 0.5);
+            const fbGrad = ctx.createRadialGradient(x, capY, 0, x, capY, fbR);
+            fbGrad.addColorStop(0, `rgba(255,250,225,${0.9 * heat * vis})`);
+            fbGrad.addColorStop(0.3, `rgba(255,200,80,${0.7 * heat * vis})`);
+            fbGrad.addColorStop(0.65, `rgba(255,110,30,${0.4 * heat * vis})`);
+            fbGrad.addColorStop(1, 'rgba(160,30,0,0)');
+            ctx.fillStyle = fbGrad;
+            ctx.beginPath();
+            ctx.ellipse(x, capY, fbR, fbR * 0.85, 0, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // 蘑菇盖 — 翻涌的花椰菜状烟盖
+        if (grow > 0.10) {
+            // 盖内余烬辉光（橙色，较久才消退）
+            if (ember > 0.02) {
+                const emR = capRX * 0.6;
+                const emGrad = ctx.createRadialGradient(x, capY + capRY * 0.1, 0, x, capY + capRY * 0.1, emR);
+                emGrad.addColorStop(0, `rgba(255,120,40,${0.5 * ember * vis})`);
+                emGrad.addColorStop(0.5, `rgba(220,60,20,${0.25 * ember * vis})`);
+                emGrad.addColorStop(1, 'rgba(120,20,0,0)');
+                ctx.fillStyle = emGrad;
+                ctx.beginPath();
+                ctx.ellipse(x, capY + capRY * 0.1, emR, emR * 0.7, 0, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            // 主盖体 — 顶部偏亮的深色烟雾
+            const capGrad = ctx.createRadialGradient(x, capY - capRY * 0.25, capRX * 0.1, x, capY, capRX);
+            capGrad.addColorStop(0, `rgba(150,134,116,${0.8 * vis})`);
+            capGrad.addColorStop(0.3, `rgba(95,82,68,${0.7 * vis})`);
+            capGrad.addColorStop(0.7, `rgba(48,40,30,${0.5 * vis})`);
+            capGrad.addColorStop(1, 'rgba(25,20,14,0)');
+            ctx.fillStyle = capGrad;
+            ctx.beginPath();
+            ctx.ellipse(x, capY, capRX, capRY, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 盖缘翻涌的圆胖烟团
+            const numPuffs = 8;
+            for (let i = 0; i < numPuffs; i++) {
+                const baseA = (i / numPuffs) * Math.PI * 2;
+                const rot = time * 0.22;
+                const wave = Math.sin(time * 0.9 + i * 1.1) * 0.16;
+                const pa = baseA + rot;
+                const pd = capRX * (0.62 + wave);
+                const px = x + Math.cos(pa) * pd;
+                const py = capY + Math.sin(pa) * capRY * 0.55;
+                const pr = rx * (0.20 + Math.sin(time * 0.7 + i * 1.4) * 0.05) * vis;
+                const pg = ctx.createRadialGradient(px - pr * 0.2, py - pr * 0.3, 0, px, py, pr);
+                pg.addColorStop(0, `rgba(132,116,98,${0.5 * vis})`);
+                pg.addColorStop(0.55, `rgba(70,58,46,${0.32 * vis})`);
+                pg.addColorStop(1, 'rgba(30,24,18,0)');
+                ctx.fillStyle = pg;
+                ctx.beginPath();
+                ctx.arc(px, py, pr, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            // 盖内细碎烟团（高温时带余烬色）
+            for (let i = 0; i < 5; i++) {
+                const da = (i / 5) * Math.PI * 2 + time * 0.35;
+                const dd = capRX * (0.28 + Math.sin(time * 1.1 + i) * 0.26);
+                const dx = x + Math.cos(da) * dd;
+                const dy = capY - capRY * 0.2 + Math.sin(da) * capRY * 0.4;
+                const dr = rx * 0.12 * vis;
+                const tint = ember * 0.4;
+                ctx.fillStyle = `rgba(${Math.floor(90 + 165 * tint)},${Math.floor(70 + 50 * tint)},50,${0.3 * vis})`;
+                ctx.beginPath();
+                ctx.arc(dx, dy, dr, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        // 外层薄雾 — 整团烟雾的柔和光晕
+        if (vis > 0.2) {
+            const hazeR = rx * (1.2 + t * 0.8);
+            ctx.fillStyle = `rgba(60,50,40,${0.12 * vis})`;
+            ctx.beginPath();
+            ctx.arc(x, capY + rise * 0.3, hazeR, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        ctx.restore();
+    }
 }
 
 // 默认炮塔弹坑
@@ -10429,6 +10501,9 @@ function render() {
     for (const e of game.enemies) entities.push({ y: e.y, draw: () => drawEnemy(e) });
     entities.sort((a, b) => a.y - b.y);
     for (const ent of entities) ent.draw();
+
+    // Layer 4.5: Nuclear mushroom clouds — above units so the explosion dominates
+    drawNukeMushroomClouds();
 
     // Layer 5: Laser link beams (on top of towers so connections are visible)
     drawLaserLinks();
