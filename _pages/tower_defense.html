@@ -394,6 +394,24 @@ title: "塔防战争"
             box-shadow: 0 8px 18px rgba(0,0,0,0.34);
         }
 
+        /* -- Last-modified badge (corner) -- */
+        #lastModified {
+            position: fixed;
+            bottom: 6px;
+            right: 8px;
+            color: var(--muted);
+            font-size: 11px;
+            font-family: 'Microsoft YaHei', 'PingFang SC', Arial, sans-serif;
+            background: rgba(22, 28, 25, 0.72);
+            padding: 3px 9px;
+            border-radius: 5px;
+            border: 1px solid var(--panel-border);
+            z-index: 200;
+            pointer-events: none;
+            backdrop-filter: blur(4px);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+
         /* -- Mobile / Small screens -- */
         @media (max-width: 700px) {
             body { padding: 0 4px; }
@@ -501,6 +519,7 @@ title: "塔防战争"
 </div>
 
 <div id="tooltip"></div>
+<div id="lastModified"></div>
 
 <script>
 "use strict";
@@ -10927,6 +10946,29 @@ if (document.readyState === 'loading') {
 } else {
     init();
 }
+</script>
+
+<script>
+// 显示页面最后更新时间（读取 HTTP last-modified 响应头）
+(function () {
+    const el = document.getElementById('lastModified');
+    if (!el) return;
+    fetch(window.location.href)
+        .then(response => {
+            const lastModified = response.headers.get('last-modified');
+            if (lastModified) {
+                const date = new Date(lastModified);
+                const formattedDate = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+                const formattedTime = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+                el.textContent = `最后更新: ${formattedDate} ${formattedTime}`;
+            } else {
+                el.textContent = '最后更新时间未知';
+            }
+        })
+        .catch(() => {
+            el.textContent = '最后更新时间未知';
+        });
+})();
 </script>
 </body>
 </html>
