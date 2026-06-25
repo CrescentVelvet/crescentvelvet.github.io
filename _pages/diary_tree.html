@@ -366,7 +366,7 @@ let allEntries = [];       // { year, month, day, text, wordCount, paraCount, ca
 let treeData = {};         // year → month → day → entries[]
 let viewX = 0, viewY = 0;
 let scale = 1;
-const SCALE_MIN = 0.32, SCALE_MAX = 5;
+const SCALE_MIN = 0.15, SCALE_MAX = 5;
 const DAY_NODE_SCALE = 1.08;
 const DAY_LABEL_SCALE = 1.55;
 const DAY_DETAIL_SCALE = 2.15;
@@ -1124,12 +1124,14 @@ function draw() {
         const yearStats = statsCache.year.get(`${yl.year}`);
         const yLabelY = 13;
         ctx.fillStyle = 'rgba(70, 46, 34, 0.9)';
-        ctx.font = `700 14px "Segoe UI","Microsoft YaHei",sans-serif`;
+        // Scale-compensated: keep the year readable (~12px on screen) even at the
+        // fit-all overview zoom, where a fixed 14px world font would shrink to ~4px.
+        ctx.font = `700 ${Math.min(40, 12 / scale)}px "Segoe UI","Microsoft YaHei",sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
         ctx.fillText(yl.year, yl.x + yl.width / 2, yLabelY);
 
-        if (scale > 0.46) {
+        if (scale > 0.7) {
             ctx.fillStyle = yearColor(yi, years.length, 0.68);
             ctx.font = `8.5px "Segoe UI","Microsoft YaHei",sans-serif`;
             ctx.fillText(`${yearStats.monthCount}月 · ${yearStats.entryCount}篇`, yl.x + yl.width / 2, yLabelY + 17);
@@ -1196,12 +1198,20 @@ function zoomAt(cx, cy, factor) {
     requestRender();
 }
 
-function resetView() {
-    scale = 1;
+// Fit all year columns into the viewport so later years (e.g. 2023+) are
+// visible by default instead of being pushed off-screen on narrow phones.
+function fitAllYears() {
+    const w = canvas._w || window.innerWidth;
+    const tw = layout.totalWidth || 1;
+    scale = Math.max(SCALE_MIN, Math.min(1, w / tw));
     viewX = 0;
     viewY = 0;
+}
+
+function resetView() {
     selectedNode = null;
     popup.classList.remove('visible');
+    fitAllYears();
     render();
 }
 
@@ -1570,9 +1580,13 @@ document.getElementById('unlockBtn').onclick = async function() {
     window.allEntries = allEntries;
     treeData = buildTree(allEntries);
 
+    console.log('[diary_tree] years parsed:', Object.keys(treeData).map(Number).sort((a, b) => a - b));
+
     document.getElementById('auth-overlay').classList.add('hidden');
     resize();
     rebuildAll();
+    fitAllYears();
+    render();
 
     status.textContent = `成功解密 ${filesFetched} 个文件，共 ${allEntries.length} 条日记`;
 };
