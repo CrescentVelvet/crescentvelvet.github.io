@@ -835,30 +835,32 @@ title: "飞机大战小游戏"
 
         // ===== 像素艺术系统 =====
 
-        // 玩家飞机精灵 (16x16 像素网格)
+        // 玩家飞机精灵 (16x16 像素网格) - 战斗机造型
+        // 机头朝上：尖锐机头 + 后掠主翼 + 尾翼 + 双引擎 + 座舱
         const PLAYER_SPRITE = [
-            '       ##       ',
-            '      ####      ',
-            '     ######     ',
-            '  ############  ',
-            '  ############  ',
-            ' ##  ######  ## ',
-            ' ############## ',
-            ' ############## ',
-            ' #####CCCC##### ',
-            ' ############## ',
-            ' ############## ',
-            ' ##  ######  ## ',
-            '  ##  ####  ##  ',
-            '   ##EEEE##     ',
-            '    ##EE##      ',
-            '     ####       ',
+            '         #          ',
+            '        ###         ',
+            '       W###W        ',
+            '      WW#C#WW       ',
+            '        ###         ',
+            '       ##C##        ',
+            '      ##CCC##       ',
+            '     ##CCCCC##      ',
+            '  W##############W  ',
+            'WW################WW',
+            '  W##  #####  ##W   ',
+            '        ###         ',
+            '       # # #        ',
+            '       # E #        ',
+            '       ## ##        ',
+            '        EEE         ',
         ];
 
         const PLAYER_PALETTE = {
             '#': '#7a8a9a',  // 机身
             'C': '#4dc9f6',  // 座舱
             'E': '#ff6622',  // 引擎
+            'W': '#3a4a5a',  // 机翼深色（后掠翼边缘）
         };
 
         // 敌机精灵 (10x11 像素网格) - 菱形
@@ -903,20 +905,29 @@ title: "飞机大战小游戏"
         function drawPlayer() {
             drawPixelSprite(PLAYER_SPRITE, player.x, player.y, player.width, player.height, PLAYER_PALETTE);
 
-            // 引擎火焰
-            const flameHeight = 8 + Math.random() * 4;
+            // 引擎火焰 (双发喷流，匹配战斗机双引擎)
+            const flameHeight = 8 + Math.random() * 5;
             const flameGradient = ctx.createLinearGradient(
-                player.x + player.width / 2, player.y + player.height * 0.9,
+                player.x + player.width / 2, player.y + player.height * 0.95,
                 player.x + player.width / 2, player.y + player.height + flameHeight
             );
-            flameGradient.addColorStop(0, '#ff9900');
-            flameGradient.addColorStop(1, '#ff0000');
+            flameGradient.addColorStop(0, '#ffff00');
+            flameGradient.addColorStop(0.4, '#ff9900');
+            flameGradient.addColorStop(1, 'rgba(255, 0, 0, 0)');
 
             ctx.fillStyle = flameGradient;
+            // 左引擎火焰
             ctx.beginPath();
-            ctx.moveTo(player.x + player.width * 0.3, player.y + player.height * 0.92);
-            ctx.lineTo(player.x + player.width / 2, player.y + player.height + flameHeight);
-            ctx.lineTo(player.x + player.width * 0.7, player.y + player.height * 0.92);
+            ctx.moveTo(player.x + player.width * 0.40, player.y + player.height * 0.96);
+            ctx.lineTo(player.x + player.width * 0.46, player.y + player.height + flameHeight);
+            ctx.lineTo(player.x + player.width * 0.52, player.y + player.height * 0.96);
+            ctx.closePath();
+            ctx.fill();
+            // 右引擎火焰
+            ctx.beginPath();
+            ctx.moveTo(player.x + player.width * 0.48, player.y + player.height * 0.96);
+            ctx.lineTo(player.x + player.width * 0.54, player.y + player.height + flameHeight);
+            ctx.lineTo(player.x + player.width * 0.60, player.y + player.height * 0.96);
             ctx.closePath();
             ctx.fill();
 
