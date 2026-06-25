@@ -651,7 +651,9 @@ function computeLayout() {
     const yearWidth = Math.max((w - colGap * (years.length + 1)) / years.length, 120);
     const monthCount = 12;
     const gap = monthGap();
-    const monthHeight = Math.max((h - 104) / monthCount, 26);
+    // Larger, fuller month cards: less top whitespace (80 vs 104) and taller
+    // card ratio (0.90 vs 0.72) so each month reads as a generous panel.
+    const monthHeight = Math.max((h - 80) / monthCount, 26);
 
     // Set scalar fields first so getMonthY() (which reads layout.monthHeight)
     // is correct when we build per-month geometry below.
@@ -674,7 +676,7 @@ function computeLayout() {
             const padX = 7;
             const cardX = x + padX;
             const cardW = yearWidth - padX * 2;
-            const cardH = Math.max(monthHeight * 0.72, 20);
+            const cardH = Math.max(monthHeight * 0.90, 20);
             const cardY = cy - cardH / 2;
             const cardR = Math.min(cardH / 2, 10);
             const headerH = 16;
@@ -1051,54 +1053,31 @@ function draw() {
                     const cat = dayStats.category;
                     const dr = Math.max(dotMinR, dayRadius * (0.72 + 0.36 * Math.min(dayStats.wordCount / 2400, 1)));
 
-                    // Soft outer glow — separates the dot from the card background.
-                    ctx.fillStyle = categoryColor(cat, 0.14);
-                    ctx.beginPath();
-                    ctx.arc(dx, dy, dr + 4.5, 0, Math.PI * 2);
-                    ctx.fill();
-
-                    // Main dot — flat category color for a clean, modern look.
+                    // Flat solid dot + thin white rim — clean, modern, no glow/gradient.
                     ctx.fillStyle = categoryColor(cat, 0.95);
                     ctx.beginPath();
                     ctx.arc(dx, dy, dr, 0, Math.PI * 2);
                     ctx.fill();
-
-                    // Soft top-left highlight, only when the dot is big enough to read.
-                    if (dr >= 4) {
-                        const hi = ctx.createRadialGradient(dx - dr * 0.3, dy - dr * 0.3, 0, dx - dr * 0.3, dy - dr * 0.3, dr * 0.85);
-                        hi.addColorStop(0, 'rgba(255,255,255,0.5)');
-                        hi.addColorStop(1, 'rgba(255,255,255,0)');
-                        ctx.fillStyle = hi;
-                        ctx.beginPath();
-                        ctx.arc(dx, dy, dr, 0, Math.PI * 2);
-                        ctx.fill();
-                    }
-
-                    // Thin defining rim in a darker shade of the category color.
-                    ctx.strokeStyle = categoryColor(cat, 0.5);
-                    ctx.lineWidth = 0.8;
+                    ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+                    ctx.lineWidth = 1;
                     ctx.beginPath();
                     ctx.arc(dx, dy, dr, 0, Math.PI * 2);
                     ctx.stroke();
 
-                    // Hovered: a soft accent ring.
+                    // Hovered: a crisp accent ring just outside the dot.
                     if (hoveredNode && hoveredNode.type === 'day' && hoveredNode.year === yl.year && hoveredNode.month === mo.month && hoveredNode.day === day) {
-                        ctx.strokeStyle = 'rgba(184,105,68,0.9)';
-                        ctx.lineWidth = 1.8;
-                        ctx.beginPath();
-                        ctx.arc(dx, dy, dr + 3.5, 0, Math.PI * 2);
-                        ctx.stroke();
-                    }
-                    // Selected: a crisp solid accent ring with a faint outer halo.
-                    if (selectedNode && selectedNode.type === 'day' && selectedNode.year === yl.year && selectedNode.month === mo.month && selectedNode.day === day) {
-                        ctx.fillStyle = 'rgba(211,95,5,0.12)';
-                        ctx.beginPath();
-                        ctx.arc(dx, dy, dr + 6, 0, Math.PI * 2);
-                        ctx.fill();
-                        ctx.strokeStyle = 'rgba(211,95,5,0.9)';
+                        ctx.strokeStyle = 'rgba(184,105,68,0.95)';
                         ctx.lineWidth = 2;
                         ctx.beginPath();
-                        ctx.arc(dx, dy, dr + 4, 0, Math.PI * 2);
+                        ctx.arc(dx, dy, dr + 2.5, 0, Math.PI * 2);
+                        ctx.stroke();
+                    }
+                    // Selected: a bolder accent ring (no halo).
+                    if (selectedNode && selectedNode.type === 'day' && selectedNode.year === yl.year && selectedNode.month === mo.month && selectedNode.day === day) {
+                        ctx.strokeStyle = 'rgba(211,95,5,0.95)';
+                        ctx.lineWidth = 2.5;
+                        ctx.beginPath();
+                        ctx.arc(dx, dy, dr + 3.5, 0, Math.PI * 2);
                         ctx.stroke();
                     }
 
