@@ -1427,6 +1427,22 @@ document.addEventListener('keydown', (e) => {
 });
 
 // ═══ Auth & data loading ═══
+// Run an async mapper over `items` with a bounded concurrency pool so fetch
+// and AES work overlap instead of running strictly sequentially.
+async function runPool(items, mapper, concurrency) {
+    let next = 0;
+    async function loop() {
+        while (true) {
+            const i = next++;
+            if (i >= items.length) return;
+            await mapper(items[i], i);
+        }
+    }
+    const runners = [];
+    for (let r = 0; r < Math.min(concurrency, items.length); r++) runners.push(loop());
+    await Promise.all(runners);
+}
+
 document.getElementById('unlockBtn').onclick = async function() {
     const password = document.getElementById('password').value;
     const status = document.getElementById('auth-status');
@@ -1435,43 +1451,66 @@ document.getElementById('unlockBtn').onclick = async function() {
         status.className = 'error';
         return;
     }
-    status.textContent = '正在解密...';
+    const files = window.files;
+    status.textContent = `正在解密 0/${files.length}...`;
     status.className = 'loading';
 
     const loadedEntries = [];
     let filesFetched = 0;
     let filesFailed = 0;
+    let emptyCount = 0;
+    let completed = 0;
+    let aborted = false;
 
-    for (const file of window.files) {
+    // Concurrency 6: enough to overlap network latency on mobile without
+    // holding too many ciphertext buffers in memory at once.
+    await runPool(files, async function(file) {
+        if (aborted) return;
         try {
             const res = await fetch(`/assets/data/${file}`);
-            if (!res.ok) { filesFailed++; continue; }
-            const ciphertext = await res.text();
-            const bytes = CryptoJS.AES.decrypt(ciphertext, password);
-            const decrypted = bytes.toString(CryptoJS.enc.Utf8);
-            if (!decrypted) {
-                // Decryption produced empty output — likely wrong password
+            if (!res.ok) {
                 filesFailed++;
-                continue;
+            } else {
+                const ciphertext = await res.text();
+                let decrypted = '';
+                try {
+                    const bytes = CryptoJS.AES.decrypt(ciphertext, password);
+                    decrypted = bytes.toString(CryptoJS.enc.Utf8);
+                } catch (decErr) {
+                    // Malformed UTF-8 from a wrong-password decrypt → treat as empty.
+                }
+                if (!decrypted) {
+                    emptyCount++;
+                    filesFailed++;
+                } else {
+                    const entries = parseDecryptedText(decrypted, file);
+                    loadedEntries.push(...entries);
+                    filesFetched++;
+                }
             }
-            const entries = parseDecryptedText(decrypted, file);
-            loadedEntries.push(...entries);
-            filesFetched++;
         } catch (e) {
             filesFailed++;
         }
-    }
+        completed++;
+        status.textContent = `正在解密 ${completed}/${files.length}...`;
+        // Wrong password makes every file decrypt to empty/garbage. Bail out
+        // early once we've seen enough empties with zero success, instead of
+        // grinding through all files.
+        if (!aborted && filesFetched === 0 && emptyCount >= 3) {
+            aborted = true;
+        }
+    }, 6);
 
-    console.log('[diary_tree] files_fetched:', filesFetched, 'files_failed:', filesFailed, 'entries_parsed:', loadedEntries.length);
+    console.log('[diary_tree] files_fetched:', filesFetched, 'files_failed:', filesFailed, 'entries_parsed:', loadedEntries.length, 'aborted:', aborted);
 
     // CryptoJS with wrong password returns garbage bytes (non-empty), so we
     // must check the actual entry count, NOT just whether decryption "succeeded".
     if (loadedEntries.length === 0) {
-        status.textContent = window.files.length === 0
+        status.textContent = files.length === 0
             ? '未找到任何日记数据文件（请确保在 Jekyll 构建后访问）'
             : '密码错误或未找到可解析的日记条目';
         status.className = 'error';
-        console.log('[diary_tree] No entries parsed. window.files count:', window.files.length);
+        console.log('[diary_tree] No entries parsed. window.files count:', files.length);
         return;
     }
 
