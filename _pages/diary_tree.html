@@ -380,6 +380,13 @@ let animationId = null;
 // Layout computed values (recomputed on resize / data change)
 let layout = { years: [], yearWidth: 0, monthHeight: 0, colGap: 0, totalWidth: 0, totalHeight: 0 };
 
+// Cached stats (recomputed on data change). draw() reads these instead of
+// re-iterating every entry each frame.
+let statsCache = { month: new Map(), day: new Map(), year: new Map(), all: null };
+
+// rAF coalescing: multiple input events in one frame collapse into a single draw.
+let renderPending = false;
+
 // Touch state
 let touchDist0 = 0;
 let touchScale0 = 1;
@@ -646,21 +653,81 @@ function computeLayout() {
     const gap = monthGap();
     const monthHeight = Math.max((h - 104) / monthCount, 26);
 
-    layout.years = years.map((year, yi) => {
-        const months = [];
-        for (let m = 1; m <= 12; m++) {
-            const days = treeData[year] && treeData[year][m] ? Object.keys(treeData[year][m]).map(Number).sort((a, b) => a - b) : [];
-            months.push({ month: m, days });
-        }
-        const x = colGap + yi * (yearWidth + colGap);
-        return { year, months, x, width: yearWidth };
-    });
-
+    // Set scalar fields first so getMonthY() (which reads layout.monthHeight)
+    // is correct when we build per-month geometry below.
     layout.yearWidth = yearWidth;
     layout.monthHeight = monthHeight;
     layout.colGap = colGap;
     layout.totalWidth = colGap + years.length * (yearWidth + colGap);
     layout.totalHeight = monthCount * (monthHeight + gap) + 56;
+
+    // Pre-compute every month's card geometry and day-node grid so draw() and
+    // hitTest() can read cached values instead of recomputing per frame.
+    layout.years = years.map((year, yi) => {
+        const x = colGap + yi * (yearWidth + colGap);
+        const months = [];
+        for (let m = 1; m <= 12; m++) {
+            const days = treeData[year] && treeData[year][m] ? Object.keys(treeData[year][m]).map(Number).sort((a, b) => a - b) : [];
+            const myOff = getMonthY(m);
+            const cx = x + yearWidth / 2;
+            const cy = myOff + monthHeight / 2;
+            const padX = 7;
+            const cardX = x + padX;
+            const cardW = yearWidth - padX * 2;
+            const cardH = Math.max(monthHeight * 0.72, 20);
+            const cardY = cy - cardH / 2;
+            const cardR = Math.min(cardH / 2, 10);
+            const headerH = 16;
+            const gridTop = cardY + headerH;
+            const gridAvailH = Math.max((cardY + cardH) - gridTop, 8);
+            const gridCenterY = gridTop + gridAvailH / 2;
+            let dayRadius = 0, dayPositions = [];
+            if (days.length > 0) {
+                const dp = dayNodePositions(cardX, cardW, gridAvailH, gridCenterY, days.length);
+                dayRadius = dp.r;
+                dayPositions = dp.positions;
+            }
+            months.push({
+                month: m, days, cx, cy, cardX, cardW, cardY, cardH, cardR,
+                headerH, gridTop, gridAvailH, gridCenterY, dayRadius, dayPositions
+            });
+        }
+        return { year, months, x, width: yearWidth };
+    });
+}
+
+// ═══ Stats cache ═══
+// Build per-month / per-day / per-year / global stats once (after data load).
+// draw() then reads from Maps instead of re-iterating all entries every frame.
+function rebuildStats() {
+    statsCache.month = new Map();
+    statsCache.day = new Map();
+    statsCache.year = new Map();
+    for (const yl of layout.years) {
+        for (const mo of yl.months) {
+            statsCache.month.set(`${yl.year}-${mo.month}`, getMonthStats(yl.year, mo.month));
+            for (const day of mo.days) {
+                statsCache.day.set(`${yl.year}-${mo.month}-${day}`, getDayStats(yl.year, mo.month, day));
+            }
+        }
+        statsCache.year.set(`${yl.year}`, getYearStats(yl.year));
+    }
+    statsCache.all = getAllStats();
+}
+
+// Coalesce render requests into a single rAF tick. High-frequency input
+// (mousemove / touchmove / wheel) no longer triggers N full redraws per frame.
+function requestRender() {
+    if (renderPending) return;
+    renderPending = true;
+    requestAnimationFrame(() => { renderPending = false; render(); });
+}
+
+// Full rebuild: layout + stats. Call on data change or resize.
+function rebuildAll() {
+    computeLayout();
+    rebuildStats();
+    render();
 }
 
 // ═══ Category color ═══
@@ -696,24 +763,18 @@ function yearColor(yi, total, alpha = 1) {
 function hitTest(mx, my) {
     for (const yl of layout.years) {
         for (const mo of yl.months) {
-            const myOff = getMonthY(mo.month);
-            const cy = myOff + layout.monthHeight / 2;
-            const cx = yl.x + yl.width / 2;
-            const padX = 7;
-            const cardX = yl.x + padX;
-            const cardW = yl.width - padX * 2;
-            const cardH = Math.max(layout.monthHeight * 0.72, 20);
-            const cardY = cy - cardH / 2;
+            const cy = mo.cy;
+            const cx = mo.cx;
+            const cardX = mo.cardX;
+            const cardW = mo.cardW;
+            const cardH = mo.cardH;
+            const cardY = mo.cardY;
 
             // Day nodes take priority once zoomed in enough.
             if (scale >= DAY_NODE_SCALE && mo.days.length > 0) {
                 const dayCount = mo.days.length;
-                // Reserve a header band at the top so the month stats stay visible.
-                const headerH = 16;
-                const gridTop = cardY + headerH;
-                const gridAvailH = Math.max((cardY + cardH) - gridTop, 8);
-                const gridCenterY = gridTop + gridAvailH / 2;
-                const { positions, r: dayRadius } = dayNodePositions(cardX, cardW, gridAvailH, gridCenterY, dayCount);
+                const positions = mo.dayPositions;
+                const dayRadius = mo.dayRadius;
                 for (let di = 0; di < dayCount; di++) {
                     const { dx, dy } = positions[di];
                     const dist = Math.hypot(mx - dx, my - dy);
@@ -770,6 +831,12 @@ function draw() {
         if (hudSummary) hudSummary.textContent = '解密后可以缩小看月份概览，放大看每日记录。';
         return;
     }
+
+    // Visible world bounds for culling (base/world coordinates).
+    const visW0 = -viewX / scale;
+    const visH0 = -viewY / scale;
+    const visW1 = visW0 + w / scale;
+    const visH1 = visH0 + h / scale;
 
     ctx.save();
     // viewX/viewY is the screen-space pan offset; scale zooms uniformly around
@@ -843,17 +910,17 @@ function draw() {
 
     // Draw month summary cards and day detail nodes.
     for (const yl of years) {
+        if (yl.x + yl.width + 8 < visW0 || yl.x - 8 > visW1) continue;
         for (const mo of yl.months) {
-            const myOff = getMonthY(mo.month);
-            const cx = yl.x + yl.width / 2;
-            const cy = myOff + layout.monthHeight / 2;
-            const padX = 7;
-            const cardX = yl.x + padX;
-            const cardW = yl.width - padX * 2;
-            const cardH = Math.max(layout.monthHeight * 0.72, 20);
-            const cardY = cy - cardH / 2;
-            const cardR = Math.min(cardH / 2, 10);
-            const stats = getMonthStats(yl.year, mo.month);
+            if (mo.cardY + mo.cardH < visH0 || mo.cardY > visH1) continue;
+            const cx = mo.cx;
+            const cy = mo.cy;
+            const cardX = mo.cardX;
+            const cardW = mo.cardW;
+            const cardH = mo.cardH;
+            const cardY = mo.cardY;
+            const cardR = mo.cardR;
+            const stats = statsCache.month.get(`${yl.year}-${mo.month}`);
             const hasEntries = stats.entryCount > 0;
             const intensity = Math.min(stats.entryCount / 12, 1);
             const fillAlpha = hasEntries ? 0.72 + intensity * 0.18 : 0.32;
@@ -938,17 +1005,14 @@ function draw() {
             // Day nodes emerge when zoomed in. At high zoom they include compact stats.
             if (scale >= DAY_NODE_SCALE && mo.days.length > 0) {
                 const dayCount = mo.days.length;
-                // Keep dots below the resident month-stats header band.
-                const headerH = 16;
-                const gridTop = cardY + headerH;
-                const gridAvailH = Math.max((cardY + cardH) - gridTop, 8);
-                const gridCenterY = gridTop + gridAvailH / 2;
-                const { positions, r: dayRadius } = dayNodePositions(cardX, cardW, gridAvailH, gridCenterY, dayCount);
+                // Geometry (positions/radius) is pre-computed in computeLayout().
+                const positions = mo.dayPositions;
+                const dayRadius = mo.dayRadius;
                 const dotMinR = dayRadius * 0.6;
 
                 for (let di = 0; di < dayCount; di++) {
                     const day = mo.days[di];
-                    const dayStats = getDayStats(yl.year, mo.month, day);
+                    const dayStats = statsCache.day.get(`${yl.year}-${mo.month}-${day}`);
                     const { dx, dy } = positions[di];
 
                     const cat = dayStats.category;
@@ -1004,7 +1068,8 @@ function draw() {
     // Year labels float above the cards.
     for (let yi = 0; yi < years.length; yi++) {
         const yl = years[yi];
-        const yearStats = getYearStats(yl.year);
+        if (yl.x + yl.width < visW0 || yl.x > visW1) continue;
+        const yearStats = statsCache.year.get(`${yl.year}`);
         const yLabelY = 13;
         ctx.fillStyle = 'rgba(70, 46, 34, 0.9)';
         ctx.font = `700 14px "Segoe UI","Microsoft YaHei",sans-serif`;
@@ -1021,7 +1086,7 @@ function draw() {
 
     ctx.restore();
 
-    const allStats = getAllStats();
+    const allStats = statsCache.all;
     const mode = getViewMode();
     zoomIndicator.textContent = `${Math.round(scale * 100)}% · ${mode}`;
     if (hudSummary) {
@@ -1043,7 +1108,6 @@ function roundRect(ctx, x, y, w, h, r) {
 }
 
 function render() {
-    computeLayout();
     draw();
 }
 
@@ -1064,7 +1128,7 @@ function resize() {
 
 function resizeAndRender() {
     resize();
-    render();
+    rebuildAll();
 }
 
 // ═══ Zoom ═══
@@ -1077,7 +1141,7 @@ function zoomAt(cx, cy, factor) {
     viewX = cx - actualFactor * (cx - viewX);
     viewY = cy - actualFactor * (cy - viewY);
     scale = newScale;
-    render();
+    requestRender();
 }
 
 function resetView() {
@@ -1241,7 +1305,7 @@ canvas.addEventListener('mousemove', (e) => {
         if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
             viewX = dragViewX + dx;
             viewY = dragViewY + dy;
-            render();
+            requestRender();
         }
     } else {
         hoveredNode = hitTest(mx, my);
@@ -1250,7 +1314,7 @@ canvas.addEventListener('mousemove', (e) => {
         } else {
             canvas.style.cursor = 'grab';
         }
-        render();
+        requestRender();
     }
 });
 
@@ -1276,7 +1340,7 @@ canvas.addEventListener('mouseup', (e) => {
 canvas.addEventListener('mouseleave', () => {
     dragging = false;
     hoveredNode = null;
-    render();
+    requestRender();
 });
 
 canvas.addEventListener('wheel', (e) => {
@@ -1318,7 +1382,7 @@ canvas.addEventListener('touchmove', (e) => {
         }
         viewX = dragViewX + dx;
         viewY = dragViewY + dy;
-        render();
+        requestRender();
     } else if (e.touches.length === 2) {
         touchWasZooming = true;
         const dx = e.touches[0].clientX - e.touches[1].clientX;
@@ -1417,7 +1481,7 @@ document.getElementById('unlockBtn').onclick = async function() {
 
     document.getElementById('auth-overlay').classList.add('hidden');
     resize();
-    render();
+    rebuildAll();
 
     status.textContent = `成功解密 ${filesFetched} 个文件，共 ${allEntries.length} 条日记`;
 };
