@@ -1118,9 +1118,9 @@ function draw() {
         const yearStats = statsCache.year.get(`${yl.year}`);
         const yLabelY = 13;
         ctx.fillStyle = 'rgba(70, 46, 34, 0.9)';
-        // Scale-compensated: keep the year readable (~12px on screen) even at the
-        // fit-all overview zoom, where a fixed 14px world font would shrink to ~4px.
-        ctx.font = `700 ${Math.min(40, 12 / scale)}px "Segoe UI","Microsoft YaHei",sans-serif`;
+        // Fixed world font (same logic as the month labels) so the year scales
+        // with zoom instead of holding a constant on-screen size.
+        ctx.font = `700 12px "Segoe UI","Microsoft YaHei",sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
         ctx.fillText(yl.year, yl.x + yl.width / 2, yLabelY);
@@ -1128,7 +1128,18 @@ function draw() {
         if (scale > 0.7) {
             ctx.fillStyle = yearColor(yi, years.length, 0.68);
             ctx.font = `8.5px "Segoe UI","Microsoft YaHei",sans-serif`;
-            ctx.fillText(`${yearStats.monthCount}月 · ${yearStats.entryCount}篇`, yl.x + yl.width / 2, yLabelY + 17);
+            // Show the longest stats variant that fits the column, mirroring the
+            // month header. wordCount here is summed from per-month wordCount.
+            const yearVariants = [
+                `${yearStats.monthCount}月 · ${yearStats.entryCount}篇 · ${formatCompactNumber(yearStats.wordCount)}字`,
+                `${yearStats.monthCount}月 · ${yearStats.entryCount}篇`,
+                `${yearStats.entryCount}篇`
+            ];
+            let yearText = yearVariants[yearVariants.length - 1];
+            for (const v of yearVariants) {
+                if (ctx.measureText(v).width <= yl.width) { yearText = v; break; }
+            }
+            ctx.fillText(yearText, yl.x + yl.width / 2, yLabelY + 17);
         }
     }
 
