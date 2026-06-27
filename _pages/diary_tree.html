@@ -447,8 +447,8 @@ function getViewMode() {
 }
 
 function formatCompactNumber(num) {
+    // 单一中文缩写：≥10000 用「万」，否则直接数字。避免「k字」与「万字」混用。
     if (num >= 10000) return (num / 10000).toFixed(num >= 100000 ? 0 : 1) + '万';
-    if (num >= 1000) return (num / 1000).toFixed(num >= 10000 ? 0 : 1) + 'k';
     return String(num);
 }
 
@@ -650,7 +650,7 @@ function computeLayout() {
     // is applied separately via ctx.scale(scale, scale) in draw().
     const w = canvas._w || window.innerWidth;
     const h = canvas._h || window.innerHeight;
-    const colGap = 44;
+    const colGap = 24;
     const yearWidth = Math.max((w - colGap * (years.length + 1)) / years.length, 120);
     const monthCount = 12;
     const gap = monthGap();
@@ -994,14 +994,7 @@ function draw() {
                     ctx.font = `8.5px "Segoe UI","Microsoft YaHei",sans-serif`;
                     let text = '';
                     if (hasEntries) {
-                        const variants = [
-                            `${stats.dayCount}天 · ${stats.entryCount}篇 · ${formatCompactNumber(stats.wordCount)}字`,
-                            `${stats.dayCount}天 · ${stats.entryCount}篇`,
-                            `${stats.entryCount}篇`
-                        ];
-                        for (const v of variants) {
-                            if (ctx.measureText(v).width <= statsMaxW) { text = v; break; }
-                        }
+                        text = `${stats.dayCount}天 · ${stats.entryCount}篇 · ${formatCompactNumber(stats.wordCount)}字`;
                     } else if (ctx.measureText('无记录').width <= statsMaxW) {
                         text = '无记录';
                     }
@@ -1128,17 +1121,8 @@ function draw() {
         if (scale > 0.7) {
             ctx.fillStyle = yearColor(yi, years.length, 0.68);
             ctx.font = `8.5px "Segoe UI","Microsoft YaHei",sans-serif`;
-            // Show the longest stats variant that fits the column, mirroring the
-            // month header. wordCount here is summed from per-month wordCount.
-            const yearVariants = [
-                `${yearStats.monthCount}月 · ${yearStats.entryCount}篇 · ${formatCompactNumber(yearStats.wordCount)}字`,
-                `${yearStats.monthCount}月 · ${yearStats.entryCount}篇`,
-                `${yearStats.entryCount}篇`
-            ];
-            let yearText = yearVariants[yearVariants.length - 1];
-            for (const v of yearVariants) {
-                if (ctx.measureText(v).width <= yl.width) { yearText = v; break; }
-            }
+            // Full stats always shown (column widened via smaller colGap so it fits).
+            const yearText = `${yearStats.monthCount}月 · ${yearStats.entryCount}篇 · ${formatCompactNumber(yearStats.wordCount)}字`;
             ctx.fillText(yearText, yl.x + yl.width / 2, yLabelY + 17);
         }
     }
