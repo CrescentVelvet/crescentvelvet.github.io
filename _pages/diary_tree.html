@@ -544,12 +544,18 @@ function getAllStats() {
 
 // ═══ Date parsing ═══
 function extractDateFromText(text) {
-    // Support YYYY-MM-DD, YYYY/MM/DD, YYYY.MM.DD — year must be 2000–2099
-    const m = text.match(/\b(20\d{2})[-\/. ](\d{1,2})[-\/. ](\d{1,2})\b/);
+    // Only match dates at the START of a line, preventing mid-body date
+    // references (common in 「未来回顾」 entries) from splitting entries.
+    // Leading whitespace is tolerated. Returns the date plus any remaining
+    // non-date text on the same line via .suffix.
+    const m = text.match(/^\s*(20\d{2})[-\/. ](\d{1,2})[-\/. ](\d{1,2})\b/);
     if (m) {
         const year = parseInt(m[1]), month = parseInt(m[2]), day = parseInt(m[3]);
         if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
-            return { year, month, day };
+            return {
+                year, month, day,
+                suffix: text.slice(m[0].length).trim()
+            };
         }
     }
     return null;
@@ -602,8 +608,11 @@ function parseDecryptedText(text, sourceFile) {
                     });
                 }
             }
-            currentDate = dateMatch;
+            currentDate = { year: dateMatch.year, month: dateMatch.month, day: dateMatch.day };
             currentTextLines = [];
+            if (dateMatch.suffix) {
+                currentTextLines.push(dateMatch.suffix);
+            }
         } else if (currentDate) {
             const trimmed = line.trim();
             if (trimmed && !trimmed.includes('撤回了一条消息')) {
