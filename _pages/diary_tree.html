@@ -544,17 +544,20 @@ function getAllStats() {
 
 // ═══ Date parsing ═══
 function extractDateFromText(text) {
-    // Only match dates at the START of a line, preventing mid-body date
-    // references (common in 「未来回顾」 entries) from splitting entries.
-    // Leading whitespace is tolerated. Returns the date plus any remaining
-    // non-date text on the same line via .suffix.
-    const m = text.match(/^\s*(20\d{2})[-\/. ](\d{1,2})[-\/. ](\d{1,2})\b/);
+    // Match dates only at line starts so mid-body dates (common in 「未来回顾」
+    // entries) don't split entries. Two formats are supported:
+    //   Standard:  2024-06-15 or 2024/06/15 or 2024.06.15
+    //   Review:    （2024.06.15回顾：…  — enc_reader review-highlight export
+    let m = text.match(/^\s*（\s*(20\d{2})[.\/](\d{1,2})[.\/](\d{1,2})\b/);
+    if (!m) {
+        m = text.match(/^\s*(20\d{2})[-\/. ](\d{1,2})[-\/. ](\d{1,2})\b/);
+    }
     if (m) {
         const year = parseInt(m[1]), month = parseInt(m[2]), day = parseInt(m[3]);
         if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
             return {
                 year, month, day,
-                suffix: text.slice(m[0].length).trim()
+                suffix: text.slice(m.index + m[0].length).trim()
             };
         }
     }
@@ -565,7 +568,7 @@ function classifyEntry(text) {
     if (/闲情逸致/.test(text)) return 'leisure';
     if (/梦幻空花/.test(text)) return 'dream';
     if (/做视频想法/.test(text)) return 'video';
-    if (/回顾/.test(text) && /\d{4}[.\-/]\d{1,2}[.\-/]\d{1,2}回顾/.test(text)) return 'review';
+    if (/回顾/.test(text)) return 'review';
     return 'normal';
 }
 
