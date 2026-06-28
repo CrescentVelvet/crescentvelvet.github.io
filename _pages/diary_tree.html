@@ -469,19 +469,26 @@ function dominantCategory(entries) {
     return Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || 'normal';
 }
 
+function daysInMonth(year, month) {
+    // day 0 of next month = last day of this month (month is 1-based here).
+    return new Date(year, month, 0).getDate();
+}
+
 function getMonthStats(year, month) {
     const monthData = treeData[year] && treeData[year][month] ? treeData[year][month] : {};
     const days = Object.keys(monthData).map(Number).sort((a, b) => a - b);
     const entries = getMonthEntries(year, month);
     const wordCount = entries.reduce((sum, entry) => sum + entry.wordCount, 0);
     const paraCount = entries.reduce((sum, entry) => sum + entry.paraCount, 0);
+    const dayCount = days.length;
     return {
         days,
-        dayCount: days.length,
+        dayCount,
         entryCount: entries.length,
         wordCount,
         paraCount,
         category: dominantCategory(entries),
+        isFull: dayCount > 0 && dayCount === daysInMonth(year, month),
         entries
     };
 }
@@ -945,6 +952,21 @@ function draw() {
             roundRect(ctx, cardX, cardY, cardW, cardH, cardR);
             ctx.fill();
             ctx.stroke();
+
+            // Golden border for a "full" month — every day of the month has a diary entry.
+            if (stats.isFull) {
+                // Outer warm halo + a bright gold core so the full-month badge pops.
+                ctx.strokeStyle = 'rgba(245, 197, 66, 0.55)';
+                ctx.lineWidth = 4.5;
+                ctx.beginPath();
+                roundRect(ctx, cardX, cardY, cardW, cardH, cardR);
+                ctx.stroke();
+                ctx.strokeStyle = 'rgba(255, 210, 90, 0.98)';
+                ctx.lineWidth = 2.6;
+                ctx.beginPath();
+                roundRect(ctx, cardX, cardY, cardW, cardH, cardR);
+                ctx.stroke();
+            }
 
             // Activity fill: the wider it is, the more days have entries.
             if (hasEntries) {
