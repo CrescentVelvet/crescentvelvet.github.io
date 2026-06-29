@@ -505,40 +505,10 @@ layout: default
 <body>
     <div class="search-container">
         <h1>论文搜索</h1>
-        
-        <!-- arXiv提取功能开始 -->
-        <div class="arxiv-section filter-card" style="margin-bottom: 30px; background: var(--light-bg);">
-            <h3 style="margin-top:0;">arXiv论文提取</h3>
-            <div class="input-group" style="display:flex;gap:12px;margin-top:15px;align-items:center;">
-                <input type="text" id="arxivInput" class="input-control" style="flex:1" 
-                    placeholder="输入arXiv链接或ID，点击“读取arXiv”按钮（如：2406.12345 或完整链接）">
-                <button id="readArxivBtn" class="btn btn-primary">读取arXiv</button>
-            </div>
-            <div class="input-group" style="display:flex;gap:12px;margin-top:15px;align-items:center;">
-                <select id="llmSelect" class="input-control" style="flex:1;">
-                    <option value="hunyuan" selected>混元 (Tencent)</option>
-                    <option value="kimi">Kimi (Moonshot)</option>
-                    <option value="doubao">豆包 (ByteDance)</option>
-                    <option value="qwen">千问 (Aliyun)</option>
-                </select>
-                <button id="analyzePaperBtn" class="btn btn-primary">分析论文</button>
-            </div>
-            <div id="arxivResult" class="result-box" style="margin-top:15px;padding:15px;border-radius:var(--button-radius);background:var(--text-light);"></div>
-            <div id="kimiResult" class="result-box" style="margin-top:15px;padding:15px;border-radius:var(--button-radius);background:var(--text-light);"></div>
-        </div>
-        <!-- arXiv提取功能结束 -->
 
-        <!-- 导入导出JSON功能开始 -->
-        <div class="button-group" style="margin-bottom:20px;display:flex;gap:12px;">
-                <button id="exportJsonBtn" class="btn btn-secondary">导出为JSON</button>
-                <input type="file" id="importJsonInput" accept=".json" style="display:none;">
-                <button id="importJsonBtn" class="btn btn-secondary">导入JSON</button>
-            </div>
-        <!-- 导入导出JSON功能结束 -->
-        
         <div class="filter-container">
             <div class="conference-filter">
-                <h3>会议筛选</h3>
+                <h3>分类筛选</h3>
             </div>
             
             <div class="year-filter">
@@ -569,9 +539,14 @@ layout: default
     </div>
 
     <script>
+        // media_paper 仓库配置（论文笔记数据源）
+        const MEDIA_PAPER_REPO = 'CrescentVelvet/media_paper';
+        const MEDIA_PAPER_BRANCH = 'main';
+        const MEDIA_PAPER_RAW = `https://raw.githubusercontent.com/${MEDIA_PAPER_REPO}/${MEDIA_PAPER_BRANCH}`;
+        const MEDIA_PAPER_BLOB = `https://github.com/${MEDIA_PAPER_REPO}/blob/${MEDIA_PAPER_BRANCH}`;
+
         let allPapers = []; // 存储所有论文数据
         let savedKeywords = []; // 存储用户保存的关键词
-        let importedPapers = null; // 用于存储导入的论文
 
         // 从本地存储加载保存的关键词
         function loadSavedKeywords() {
@@ -630,9 +605,9 @@ layout: default
             }
         }
 
-        // 从JSON文件加载论文数据
+        // 从 media_paper 仓库加载论文笔记索引
         function loadPapers() {
-            fetch('assets/data/paper_index.json')
+            fetch(`${MEDIA_PAPER_RAW}/knowledge-index.json`)
                 .then(response => {
                     if (!response.ok) {
                         throw new Error(`HTTP error! status: ${response.status}`);
@@ -640,14 +615,26 @@ layout: default
                     return response.json();
                 })
                 .then(data => {
-                    allPapers = data.map(paper => ({
-                        ...paper,
-                        title_lower: paper.title ? paper.title.toLowerCase() : '',
-                        authors_lower: typeof paper.authors === 'string' ? paper.authors.toLowerCase() : '',
-                        abstract_lower: paper.abstract ? paper.abstract.toLowerCase() : '',
-                        keywords_lower: Array.isArray(paper.keywords) ? paper.keywords.map(k => k.toLowerCase()) : []
-                    }));
-                    
+                    const papers = data.papers || [];
+                    allPapers = papers.map(p => {
+                        const year = p.date ? parseInt(p.date.slice(0, 4)) : (p.arxiv ? 2000 + parseInt(p.arxiv.slice(0, 2)) : NaN);
+                        const title = p.title || '';
+                        const keywords = p.tags || [];
+                        return {
+                            title,
+                            authors: [],
+                            year: isNaN(year) ? '' : year,
+                            conference: p.category || '',
+                            abstract: '',
+                            keywords,
+                            url: `${MEDIA_PAPER_BLOB}/${p.file}`,
+                            title_lower: title.toLowerCase(),
+                            authors_lower: '',
+                            abstract_lower: '',
+                            keywords_lower: keywords.map(k => k.toLowerCase())
+                        };
+                    });
+
                     // 设置年份范围的默认值
                     const currentYear = new Date().getFullYear();
                     document.getElementById('yearFrom').value = currentYear - 5; // 默认显示过去5年的论文
@@ -756,7 +743,7 @@ layout: default
                 .map(checkbox => checkbox.value);
             const yearFrom = parseInt(document.getElementById('yearFrom').value) || 0;
             const yearTo = parseInt(document.getElementById('yearTo').value) || 9999;
-            const basePapers = importedPapers || allPapers;
+            const basePapers = allPapers;
             const filteredPapers = basePapers.filter(paper => {
                 // 搜索匹配（标题、作者、摘要、关键词）
                 const matchesSearch = searchTerm === '' || 
@@ -826,36 +813,6 @@ layout: default
         document.addEventListener('DOMContentLoaded', () => {
             loadSavedKeywords();
             loadPapers();
-            document.getElementById('exportJsonBtn').onclick = exportCurrentPapers;
-            document.getElementById('importJsonBtn').onclick = triggerImportJson;
-            document.getElementById('importJsonInput').addEventListener('change', handleImportJson);
-
-            // 监听arXiv输入框的变化 (不再自动触发，需要点击按钮)
-            document.getElementById('arxivInput').addEventListener('input', (e) => {
-                // 仅用于清除之前的错误或结果，不自动触发fetchArxiv
-                const arxivResultDiv = document.getElementById('arxivResult');
-    
-                if (e.target.value.trim() === '') {
-                    arxivResultDiv.innerHTML = '';
-                    kimiResultDiv.innerHTML = '';
-                }
-            });
-
-            // 监听回车键触发
-            document.getElementById('arxivInput').addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
-                    fetchArxiv();
-                }
-            });
-
-            // 监听“读取arXiv”按钮点击事件
-            document.getElementById('readArxivBtn').addEventListener('click', fetchArxiv);
-
-            // 监听“分析论文”按钮点击事件
-            document.getElementById('analyzePaperBtn').addEventListener('click', () => {
-                const selectedLlm = document.getElementById('llmSelect').value;
-                analyzePaperWithLLM(selectedLlm);
-            });
         });
 
         // 全局函数，用于摘要展开/收起和添加关键词
@@ -864,14 +821,9 @@ layout: default
 
         // 动态生成会议筛选复选框
         const conferences = [
-            { name: 'CVPR', value: 'CVPR', checked: true },
-            { name: 'ICCV', value: 'ICCV', checked: true },
-            { name: 'ECCV', value: 'ECCV', checked: false },
-            { name: 'NeurIPS', value: 'NeurIPS', checked: false },
-            { name: 'ICLR', value: 'ICLR', checked: false },
-            { name: 'AAAI', value: 'AAAI', checked: false },
-            { name: 'ACL', value: 'ACL', checked: false },
-            { name: 'arXiv', value: 'arXiv', checked: false }
+            { name: 'CV/AI', value: 'CV/AI', checked: true },
+            { name: 'VideoGen', value: 'VideoGen', checked: true },
+            { name: '3D', value: '3D', checked: true }
         ];
 
         const conferenceFilterDiv = document.querySelector('.conference-filter');
@@ -888,321 +840,6 @@ layout: default
             checkbox.addEventListener('change', filterPapers);
         });
 
-        let currentArxivPdfUrl = null;
-        // arXiv论文信息提取功能
-        function fetchArxiv() {
-            const input = document.getElementById('arxivInput').value.trim();
-            const resultDiv = document.getElementById('arxivResult');
-            // 兼容多种arXiv链接和ID格式
-            let arxivId = null;
-            // 支持@前缀
-            let cleaned = input.replace(/^@/, '').trim();
-            // 匹配 https://arxiv.org/abs/2505.07747 或 https://arxiv.org/pdf/2505.07747
-            let match = cleaned.match(/arxiv\.org\/(abs|pdf)\/(\d{4}\.\d{4,5})(v\d+)?/i);
-            if (match) {
-                arxivId = match[2];
-            } else {
-                // 直接输入ID
-                match = cleaned.match(/^(\d{4}\.\d{4,5})(v\d+)?$/);
-                if (match) {
-                    arxivId = match[1];
-                }
-            }
-            if (!arxivId) {
-                resultDiv.innerHTML = `
-                    <div style="padding: 15px; border-radius: var(--button-radius); background: var(--light-bg);">
-                        <div style="color: var(--accent-color);">⚠️ 请输入正确的 arXiv 链接或ID</div>
-                        <div style="margin-top: 8px; font-size: 0.9em; color: var(--text-secondary);">支持的格式：
-                            <ul style="margin-top: 5px; margin-bottom: 0;">
-                                <li>arXiv ID（如：2406.12345）</li>
-                                <li>完整链接（如：https://arxiv.org/abs/2406.12345）</li>
-                                <li>PDF链接（如：https://arxiv.org/pdf/2406.12345.pdf）</li>
-                            </ul>
-                        </div>
-                    </div>
-                `;
-                document.getElementById('kimiResult').innerHTML = '';
-                return;
-            }
-            resultDiv.innerHTML = `
-                <div style="padding: 15px; border-radius: var(--button-radius); background: var(--light-bg);">
-                    <div style="margin-bottom: 10px;">🔄 正在获取论文信息...</div>
-                </div>
-            `;
-            fetch(`https://export.arxiv.org/api/query?id_list=${arxivId}`)
-                .then(res => res.text())
-                .then(xmlStr => {
-                    const parser = new DOMParser();
-                    const xml = parser.parseFromString(xmlStr, "text/xml");
-                    const entry = xml.querySelector("entry");
-                    if (!entry) {
-                        resultDiv.innerHTML = `
-                            <div style="padding: 15px; border-radius: var(--button-radius); background: var(--light-bg);">
-                                <div style="color: var(--accent-color);">❌ 未找到论文信息</div>
-                                <div style="margin-top: 8px; font-size: 0.9em; color: var(--text-secondary);">请检查输入的ID是否正确</div>
-                            </div>
-                        `;
-                        document.getElementById('kimiResult').innerHTML = '';
-                        return;
-                    }
-                    const title = entry.querySelector("title")?.textContent.trim();
-                    const summary = entry.querySelector("summary")?.textContent.trim();
-                    const authors = Array.from(entry.querySelectorAll("author > name")).map(n => n.textContent).join(', ');
-                    const published = entry.querySelector("published")?.textContent.slice(0,10);
-                    const link = entry.querySelector("id")?.textContent;
-                    resultDiv.innerHTML = `
-                        <div style="padding: 15px; border-radius: var(--button-radius); background: var(--light-bg);">
-                            <div style="margin-bottom: 15px; color: var(--success-color);">✅ 论文信息获取成功</div>
-                            <div class="paper-info">
-                                <div style="margin-bottom: 10px;"><b>标题：</b>${title}</div>
-                                <div style="margin-bottom: 10px;"><b>作者：</b>${authors}</div>
-                                <div style="margin-bottom: 10px;"><b>发表日期：</b>${published}</div>
-                                <div style="margin-bottom: 10px;"><b>摘要：</b>
-                                    <div style="background: var(--text-light); padding: 12px; border-radius: var(--button-radius); margin-top: 5px; font-size: 0.95em;">${summary}</div>
-                                </div>
-                                <div><b>arXiv链接：</b><a href="${link}" target="_blank" style="color: var(--primary-color);">${link}</a></div>
-                            </div>
-                        </div>
-                    `;
-                })
-                .catch(e => {
-                    resultDiv.innerHTML = `
-                        <div style="padding: 15px; border-radius: var(--button-radius); background: var(--light-bg);">
-                            <div style="color: var(--accent-color);">❌ 请求失败</div>
-                            <div style="margin-top: 8px; font-size: 0.9em; color: var(--text-secondary);">${e}</div>
-                        </div>
-                    `;
-                    document.getElementById('kimiResult').innerHTML = '';
-                });
-            currentArxivPdfUrl = `https://arxiv.org/pdf/${arxivId}.pdf`;
-            // 注意：直接从arxiv.org/pdf/下载PDF会遇到CORS问题，因为arxiv服务器没有设置Access-Control-Allow-Origin头。
-            // 客户端JavaScript无法直接跨域下载PDF。如果需要此功能，需要设置一个后端代理服务来转发请求。
-            // 目前，Kimi分析功能将依赖于浏览器是否允许跨域请求，或者用户手动下载PDF。
-            // 自动触发Kimi分析功能已移除，现在需要手动点击“分析论文”按钮
-            document.getElementById('kimiResult').innerHTML = '';
-        }
-        
-        // 将论文分析功能提取为独立函数，支持不同大模型
-        async function analyzePaperWithLLM(model) {
-            const kimiResultDiv = document.getElementById('kimiResult');
-            if (!kimiResultDiv) {
-                console.error('Element with ID "kimiResult" not found.');
-                return;
-            }
-            if (!currentArxivPdfUrl) {
-                kimiResultDiv.innerHTML = '请先提取论文信息';
-                return;
-            }
-
-            let apiUrl = '';
-            let apiKey = '';
-            let modelName = '';
-
-            // 根据选择的模型设置API信息
-            switch (model) {
-                case 'kimi':
-                    apiUrl = 'https://api.moonshot.cn/v1/chat/completions';
-                    apiKey = document.getElementById('kimiApiKey').value; // 从输入字段获取Kimi API Key
-                    modelName = 'moonshot-v1-8k';
-                    break;
-
-                case 'doubao':
-                    apiUrl = 'https://api.doubao.bytedance.com/v1/chat/completions';
-                    apiKey = document.getElementById('doubaoApiKey').value; // 从输入字段获取豆包 API Key
-                    modelName = 'doubao-model-name'; 
-                    break;
-                case 'qwen':
-                    apiUrl = 'https://api.qwen.aliyun.com/v1/chat/completions';
-                    apiKey = document.getElementById('qwenApiKey').value; // 从输入字段获取通义千问 API Key
-                    modelName = 'qwen-model-name';
-                    break;
-                case 'hunyuan':
-                    const hunyuanSecretId = document.getElementById('hunyuanSecretId').value;
-                    const hunyuanSecretKey = document.getElementById('hunyuanSecretKey').value;
-                    apiKey = `SecretId:${hunyuanSecretId},SecretKey:${hunyuanSecretKey}`;
-                    apiUrl = 'https://hunyuan.cloud.tencent.com/gw.json';
-                    modelName = 'Hunyuan-model-name';
-                    break;
-                default:
-                    kimiResultDiv.innerHTML = '不支持的模型选择';
-                    return;
-            }
-
-            kimiResultDiv.innerHTML = `
-                <div style="padding: 15px; border-radius: var(--button-radius); background: var(--light-bg);">
-                    <div style="margin-bottom: 10px;">🔄 正在使用 ${model.toUpperCase()} 处理论文分析，请稍候...</div>
-                    <div style="font-size: 0.9em; color: var(--text-secondary);">正在将论文链接发送给大模型进行分析...</div>
-                </div>
-            `;
-            
-            // 获取论文的arXiv ID和链接
-            const arxivId = currentArxivPdfUrl.split('/').pop().replace('.pdf', '');
-            const arxivAbstractUrl = `https://arxiv.org/abs/${arxivId}`;
-            
-            try {
-                // 根据不同模型构建请求体
-                let requestBody;
-                let headers = {
-                    'Content-Type': 'application/json'
-                };
-                
-                switch (model) {
-                    case 'kimi':
-                        headers['Authorization'] = `Bearer ${apiKey}`;
-                        requestBody = {
-                            model: modelName,
-                            messages: [
-                                {"role": "system", "content": "你是论文解读助手，善于将论文内容结构化总结。"},
-                                {"role": "user", "content": `请帮我分析这篇arXiv论文，论文链接：${arxivAbstractUrl}\n请用简明扼要的中文结构化总结以下内容：\n1. 论文的核心任务\n2. 核心思路\n3. 算法框架\n4. 输入输出\n5. 主要解决了什么问题\n请分点输出。`}
-                            ],
-                            max_tokens: 2048,
-                            temperature: 0.3
-                        };
-                        break;
-                    case 'doubao':
-                        headers['Authorization'] = `Bearer ${apiKey}`;
-                        requestBody = {
-                            model: modelName,
-                            messages: [
-                                {"role": "system", "content": "你是论文解读助手，善于将论文内容结构化总结。"},
-                                {"role": "user", "content": `请帮我分析这篇arXiv论文，论文链接：${arxivAbstractUrl}\n请用简明扼要的中文结构化总结以下内容：\n1. 论文的核心任务\n2. 核心思路\n3. 算法框架\n4. 输入输出\n5. 主要解决了什么问题\n请分点输出。`}
-                            ],
-                            max_tokens: 2048,
-                            temperature: 0.3
-                        };
-                        break;
-                    case 'qwen':
-                        headers['Authorization'] = `Bearer ${apiKey}`;
-                        requestBody = {
-                            model: modelName,
-                            messages: [
-                                {"role": "system", "content": "你是论文解读助手，善于将论文内容结构化总结。"},
-                                {"role": "user", "content": `请帮我分析这篇arXiv论文，论文链接：${arxivAbstractUrl}\n请用简明扼要的中文结构化总结以下内容：\n1. 论文的核心任务\n2. 核心思路\n3. 算法框架\n4. 输入输出\n5. 主要解决了什么问题\n请分点输出。`}
-                            ],
-                            max_tokens: 2048,
-                            temperature: 0.3
-                        };
-                        break;
-                    case 'hunyuan':
-                        // 混元模型需要特殊处理，这里仅为示例
-                        // 实际上混元模型需要签名认证，前端直接调用可能会有问题
-                        const [secretId, secretKey] = apiKey.split(',').map(part => part.split(':')[1]);
-                        requestBody = {
-                            app_id: "123456789", // 需要替换为实际的app_id
-                            secret_id: secretId,
-                            secret_key: secretKey,
-                            query: `请帮我分析这篇arXiv论文，论文链接：${arxivAbstractUrl}\n请用简明扼要的中文结构化总结以下内容：\n1. 论文的核心任务\n2. 核心思路\n3. 算法框架\n4. 输入输出\n5. 主要解决了什么问题\n请分点输出。`
-                        };
-                        break;
-                }
-                
-                // 发送请求到大模型API
-                const response = await fetch(apiUrl, {
-                    method: 'POST',
-                    headers: headers,
-                    body: JSON.stringify(requestBody)
-                });
-                
-                const data = await response.json();
-                let answer = '';
-                
-                // 根据不同模型解析返回结果
-                if (model === 'kimi' || model === 'doubao' || model === 'qwen') {
-                    if (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) {
-                        answer = data.choices[0].message.content.replace(/\n/g, '<br>');
-                    }
-                } else if (model === 'hunyuan') {
-                    // 混元模型返回结果解析，需要根据实际API调整
-                    if (data.response) {
-                        answer = data.response.replace(/\n/g, '<br>');
-                    }
-                }
-                
-                kimiResultDiv.innerHTML = `
-                    <div style="padding: 15px; border-radius: var(--button-radius); background: var(--light-bg);">
-                        <div style="margin-bottom: 10px;">✅ 论文分析完成</div>
-                        <div style="margin-top: 15px; white-space: pre-wrap;">${answer || '未能获取有效分析结果'}</div>
-                    </div>
-                `;
-            } catch (e) {
-                console.error('API调用错误:', e);
-                kimiResultDiv.innerHTML = `
-                    <div style="padding: 15px; border-radius: var(--button-radius); background: var(--light-bg);">
-                        <div style="color: var(--accent-color);">❌ 分析失败</div>
-                        <div style="margin-top: 8px; font-size: 0.9em; color: var(--text-secondary);">错误信息: ${e.message || e}</div>
-                        <div style="margin-top: 8px; font-size: 0.9em; color: var(--text-secondary);">注意: 大多数大模型API可能无法直接通过链接访问论文内容，因为:</div>
-                        <div style="margin-top: 4px; font-size: 0.9em; color: var(--text-secondary);">1. 大模型可能无法直接访问外部URL</div>
-                        <div style="margin-top: 4px; font-size: 0.9em; color: var(--text-secondary);">2. 浏览器的CORS策略限制了跨域请求</div>
-                        <div style="margin-top: 4px; font-size: 0.9em; color: var(--text-secondary);">3. 某些API需要特殊的认证方式</div>
-                        <div style="margin-top: 8px; font-size: 0.9em; color: var(--text-secondary);">建议使用后端代理服务来实现此功能。</div>
-                    </div>
-                `;
-            }
-            // 已在上面的try-catch块中实现了API调用和结果处理
-        };
-
-        // 导出当前搜索结果为JSON
-        function exportCurrentPapers() {
-            // 重新过滤一次，确保导出的是当前显示的
-            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-            const selectedConferences = Array.from(document.querySelectorAll('.conference-filter input:checked'))
-                .map(checkbox => checkbox.value);
-            const yearFrom = parseInt(document.getElementById('yearFrom').value) || 0;
-            const yearTo = parseInt(document.getElementById('yearTo').value) || 9999;
-            const basePapers = importedPapers || allPapers;
-            const filteredPapers = basePapers.filter(paper => {
-                const matchesSearch = searchTerm === '' ||
-                    paper.title_lower.includes(searchTerm) ||
-                    paper.authors_lower.includes(searchTerm) ||
-                    paper.abstract_lower.includes(searchTerm) ||
-                    paper.keywords_lower.some(k => k.includes(searchTerm));
-                const matchesConference = selectedConferences.length === 0 ||
-                    selectedConferences.some(conf => paper.conference.includes(conf));
-                const year = parseInt(paper.year);
-                const matchesYear = isNaN(year) || (year >= yearFrom && year <= yearTo);
-                return matchesSearch && matchesConference && matchesYear;
-            });
-            const jsonStr = JSON.stringify(filteredPapers, null, 2);
-            const blob = new Blob([jsonStr], {type: "application/json"});
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = "papers_export.json";
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-        }
-
-        // 触发文件选择
-        function triggerImportJson() {
-            document.getElementById('importJsonInput').click();
-        }
-
-        // 处理文件导入
-        function handleImportJson(e) {
-            const file = e.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = function(evt) {
-                try {
-                    const papers = JSON.parse(evt.target.result);
-                    if (!Array.isArray(papers)) throw new Error("格式错误");
-                    importedPapers = papers.map(paper => ({
-                        ...paper,
-                        title_lower: paper.title ? paper.title.toLowerCase() : '',
-                        authors_lower: typeof paper.authors === 'string' ? paper.authors.toLowerCase() : (Array.isArray(paper.authors) ? paper.authors.join(',').toLowerCase() : ''),
-                        abstract_lower: paper.abstract ? paper.abstract.toLowerCase() : '',
-                        keywords_lower: Array.isArray(paper.keywords) ? paper.keywords.map(k => k.toLowerCase()) : []
-                    }));
-                    renderPapers(importedPapers);
-                    document.getElementById('searchStats').textContent = `已导入 ${importedPapers.length} 篇论文（本地浏览，不影响原始数据）`;
-                } catch (err) {
-                    alert("导入失败：" + err.message);
-                }
-            };
-            reader.readAsText(file, "utf-8");
-        }
     </script>
 </body>
 </html>
