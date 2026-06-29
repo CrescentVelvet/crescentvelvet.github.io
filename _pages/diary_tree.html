@@ -543,15 +543,18 @@ function getAllStats() {
 }
 
 // ═══ Date parsing ═══
+// A "未来回顾" reference line: an optional leading 「（」 + a date + 「回顾」,
+// e.g. （2026.06.28回顾： or 2026.06.28回顾：. It points at a future date but is
+// written on the current day, so it must NOT be parsed as a date header (that
+// would split the entry) — and it should be colored as a review in popups.
+const REVIEW_REF_RE = /^\s*（?\s*\d{4}[.\/\-]\d{1,2}[.\/\-]\d{1,2}\s*回顾/;
+
 function extractDateFromText(text) {
-    // Match dates only at line starts so mid-body dates (common in 「未来回顾」
-    // entries) don't split entries. Two formats are supported:
-    //   Standard:  2024-06-15 or 2024/06/15 or 2024.06.15
-    //   Review:    （2024.06.15回顾：…  — enc_reader review-highlight export
-    let m = text.match(/^\s*（\s*(20\d{2})[.\/](\d{1,2})[.\/](\d{1,2})\b/);
-    if (!m) {
-        m = text.match(/^\s*(20\d{2})[-\/. ](\d{1,2})[-\/. ](\d{1,2})\b/);
-    }
+    // Never treat a "未来回顾" reference as a date header — it belongs to the
+    // current entry's body. Returning null keeps it inline instead of splitting.
+    if (REVIEW_REF_RE.test(text)) return null;
+    // Standard date header at line start: 2024-06-15 / 2024/06/15 / 2024.06.15
+    const m = text.match(/^\s*(20\d{2})[-\/. ](\d{1,2})[-\/. ](\d{1,2})\b/);
     if (m) {
         const year = parseInt(m[1]), month = parseInt(m[2]), day = parseInt(m[3]);
         if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
@@ -1283,7 +1286,13 @@ function renderDiaryHtml(text) {
             last = m.index + m[0].length;
         }
         html += escapeHtml(line.slice(last));
-        out.push(`<p>${html}</p>`);
+        // Color "未来回顾" reference lines (date + 回顾) with the review highlight,
+        // whether or not enc_reader marked them — covers the bare "2026.06.28回顾：" form.
+        if (REVIEW_REF_RE.test(line)) {
+            out.push(`<p><span class="review-highlight">${html}</span></p>`);
+        } else {
+            out.push(`<p>${html}</p>`);
+        }
     }
     return out.join('');
 }
