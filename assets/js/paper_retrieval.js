@@ -2,7 +2,7 @@
 const MEDIA_PAPER_REPO = 'CrescentVelvet/media_paper';
 const MEDIA_PAPER_BRANCH = 'main';
 const MEDIA_PAPER_RAW = `https://raw.githubusercontent.com/${MEDIA_PAPER_REPO}/${MEDIA_PAPER_BRANCH}`;
-const MEDIA_PAPER_BLOB = `https://github.com/${MEDIA_PAPER_REPO}/blob/${MEDIA_PAPER_BRANCH}`;
+const MEDIA_PAPER_BLOB = `https://cdn.jsdelivr.net/gh/${MEDIA_PAPER_REPO}@${MEDIA_PAPER_BRANCH}`;
 
 let allPapers = []; // 存储所有论文数据
 let savedKeywords = []; // 存储用户保存的关键词
