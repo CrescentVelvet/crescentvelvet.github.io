@@ -15,11 +15,11 @@ title: 动画追踪
         :root {
             --bg: #16162a;
             --bg-elev: #1f1f38;
-            --bg-elev-2: #2a2a48;
             --border: #34344f;
             --text: #e8e8f0;
             --text-muted: #9090a8;
             --accent: #f1c40f;
+            --year-bg: #6c5ce7;
             --watched: #4ade80;
             --watched-bg: rgba(74, 222, 128, 0.16);
             --hover: rgba(255, 255, 255, 0.07);
@@ -27,11 +27,9 @@ title: 动画追踪
 
         body {
             margin: 0;
-            padding: 0;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
             background: var(--bg);
             color: var(--text);
-            min-height: 100vh;
             line-height: 1.5;
             -webkit-font-smoothing: antialiased;
         }
@@ -48,7 +46,7 @@ title: 动画追踪
         }
 
         .header-inner {
-            max-width: 1100px;
+            max-width: 1200px;
             margin: 0 auto;
             display: flex;
             align-items: center;
@@ -62,44 +60,6 @@ title: 动画追踪
             color: var(--accent);
             font-weight: 700;
             white-space: nowrap;
-        }
-
-        .search-box {
-            flex: 1;
-            min-width: 160px;
-            position: relative;
-        }
-
-        .search-box input {
-            width: 100%;
-            padding: 8px 12px 8px 32px;
-            background: var(--bg-elev);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            color: var(--text);
-            font-size: 14px;
-            font-family: inherit;
-            outline: none;
-            transition: border-color 0.15s;
-        }
-
-        .search-box input:focus {
-            border-color: var(--accent);
-        }
-
-        .search-box input::placeholder {
-            color: var(--text-muted);
-        }
-
-        .search-box::before {
-            content: "🔍";
-            position: absolute;
-            left: 10px;
-            top: 50%;
-            transform: translateY(-50%);
-            font-size: 12px;
-            opacity: 0.6;
-            pointer-events: none;
         }
 
         .stats {
@@ -117,7 +77,7 @@ title: 动画追踪
         }
 
         .progress-track {
-            width: 90px;
+            width: 100px;
             height: 6px;
             background: var(--bg-elev);
             border-radius: 3px;
@@ -133,6 +93,7 @@ title: 动画追踪
         }
 
         .btn {
+            margin-left: auto;
             padding: 7px 12px;
             background: var(--bg-elev);
             border: 1px solid var(--border);
@@ -150,63 +111,54 @@ title: 动画追踪
         }
 
         .container {
-            max-width: 1100px;
+            max-width: 1200px;
             margin: 0 auto;
-            padding: 20px 16px 40px;
+            padding: 16px;
         }
 
-        .year-section {
-            margin-bottom: 28px;
-        }
-
-        .year-section.hidden {
-            display: none;
-        }
-
-        .year-header {
+        .year-row {
             display: flex;
-            align-items: baseline;
-            gap: 10px;
-            margin-bottom: 12px;
-            padding-bottom: 6px;
-            border-bottom: 1px solid var(--border);
+            flex-wrap: wrap;
+            align-items: stretch;
+            gap: 6px;
+            margin-bottom: 8px;
         }
 
-        .year-title {
-            font-size: 1.15em;
-            font-weight: 700;
-            color: var(--accent);
-        }
-
-        .year-count {
-            font-size: 12px;
-            color: var(--text-muted);
-        }
-
-        .year-progress {
-            margin-left: auto;
-            font-size: 12px;
-            color: var(--text-muted);
-        }
-
-        .year-progress b {
-            color: var(--watched);
+        .year-label {
+            flex: 0 0 60px;
+            min-height: 48px;
+            background: var(--year-bg);
+            color: #fff;
+            border-radius: 6px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 4px;
             font-weight: 700;
         }
 
-        .anime-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-            gap: 8px;
+        .year-label .y {
+            font-size: 14px;
+            line-height: 1.2;
+        }
+
+        .year-label .c {
+            font-size: 10px;
+            font-weight: 400;
+            opacity: 0.85;
+            margin-top: 2px;
         }
 
         .anime-cell {
-            padding: 10px 12px;
+            width: 104px;
+            min-height: 48px;
+            padding: 6px 4px;
             background: var(--bg-elev);
             border: 1px solid var(--border);
-            border-radius: 8px;
+            border-radius: 6px;
             cursor: pointer;
-            font-size: 13px;
+            font-size: 12px;
             color: var(--text);
             text-align: center;
             word-break: break-word;
@@ -214,7 +166,6 @@ title: 动画追踪
             -webkit-tap-highlight-color: transparent;
             touch-action: manipulation;
             transition: background-color 0.15s, border-color 0.15s, transform 0.05s;
-            min-height: 44px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -239,33 +190,27 @@ title: 动画追踪
         .anime-cell.watched::after {
             content: "✓";
             position: absolute;
-            top: 3px;
-            right: 6px;
+            top: 2px;
+            right: 5px;
             font-size: 11px;
             font-weight: bold;
         }
 
-        .empty-state {
-            text-align: center;
-            color: var(--text-muted);
-            padding: 60px 20px;
-            font-size: 14px;
+        .anime-cell.placeholder {
+            background: transparent;
+            border: 1px dashed var(--border);
+            color: #606080;
+            cursor: default;
+            opacity: 0.55;
         }
 
-        @media (max-width: 600px) {
-            .header { padding: 10px 12px; }
-            .container { padding: 16px 12px 32px; }
-            .anime-grid {
-                grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-                gap: 6px;
-            }
-            .anime-cell {
-                font-size: 12px;
-                padding: 8px 6px;
-                min-height: 40px;
-            }
-            h1 { font-size: 1em; }
-            .progress-track { width: 60px; }
+        .anime-cell.placeholder:hover {
+            background: transparent;
+            border-color: var(--border);
+        }
+
+        .anime-cell.placeholder:active {
+            transform: none;
         }
     </style>
 </head>
@@ -273,9 +218,6 @@ title: 动画追踪
     <div class="header">
         <div class="header-inner">
             <h1>动画世代</h1>
-            <div class="search-box">
-                <input type="text" id="searchInput" placeholder="搜索动画名…" autocomplete="off">
-            </div>
             <div class="stats">
                 <span>看过 <b id="watchedCount">0</b> / <span id="totalCount">0</span></span>
                 <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
@@ -296,19 +238,19 @@ title: 动画追踪
             "2021": ["86-不存在的战区", "无职转生", "回复术士的重来人生", "奇巧计程车", "打了300年的史莱姆不知不觉就练到了满级", "漂流少年", "堀与宫村", "战斗员派遣中！", "古见同学有交流障碍症", "奇蛋物语", "我们的重制人生", "看得见的女孩"],
             "2020": ["异种族风俗娘评鉴指南", "魔女之旅", "安达与岛村", "异度侵入", "别对映像研出手！", "咒术回战", "总之就是非常可爱", "隐瞒之事", "虚构推理", "恋爱小行星", "你与我最后的战场，亦或是世界的终结", "邪神与厨二病少女"],
             "2019": ["冰海战记", "辉夜大小姐想让我告白", "街角魔族", "鬼灭之刃", "炎炎消防队", "女高中生的虚度日常", "慎重勇者", "天使降临到我身边", "不吉波普不笑", "笨拙的上野同学", "五等分的新娘", "约定的梦幻岛"],
-            "2018": ["刀剑神域", "魔卡少女樱", "莉兹与青鸟", "强风吹拂", "Fate/EXTRA Last Encore", "魔法禁书目录", "比宇宙更远的地方", "SSSS.GRIDMAN", "青春笨蛋少年不做兔女郎学姐的梦", "终将成为你"],
+            "2018": ["刀剑神域", "魔卡少女樱", "莉兹与青鸟", "强风吹拂", "Fate/EXTRA Last Encore", "魔法禁书目录", "比宇宙更远的地方", "SSSS.GRIDMAN", "青春笨蛋少年不做兔女郎学姐的梦", "终将成为你", "待补充", "待补充"],
             "2017": ["少女终末旅行", "来自深渊", "小林家的龙女仆", "狂赌之渊", "来自风平浪静的明天", "月色真美", "重启咲良田", "BanG Dream!", "幼女战记", "小魔女学园", "Just Because!", "埃罗芒阿老师"],
-            "2016": ["为美好的世界献上祝福!", "月曜日的妹妹", "Re:LIFE", "乔乔的奇妙冒险", "Re：从零开始的异世界生活", "在下坂本，有何贵干", "魔法少女育成计划", "这个美术社大有问题", "轻音少女", "NEW GAME!"],
-            "2015": ["黑子的篮球", "新番警察", "一拳超人", "终结的炽天使", "夏洛特", "OVERLORD", "监狱学园", "可塑性记忆", "在地下城寻求邂逅是否搞错了什么", "干物妹小埋", "终物语"],
+            "2016": ["为美好的世界献上祝福!", "月曜日的妹妹", "Re:LIFE", "乔乔的奇妙冒险", "Re：从零开始的异世界生活", "在下坂本，有何贵干", "魔法少女育成计划", "这个美术社大有问题", "轻音少女", "NEW GAME!", "待补充", "待补充"],
+            "2015": ["黑子的篮球", "新番警察", "一拳超人", "终结的炽天使", "夏洛特", "OVERLORD", "监狱学园", "可塑性记忆", "在地下城寻求邂逅是否搞错了什么", "干物妹小埋", "终物语", "待补充"],
             "2014": ["白箱", "月刊少女野崎君", "Fate/stay night Unlimited", "漫画家生活", "乒乓", "甘城光辉游乐园", "寄生兽", "虫师", "刀剑神域", "请问您今天要来点兔子吗", "新妹魔王的契约者", "大图书馆的牧羊人"],
-            "2013": ["生命的巨人", "罪恶王冠", "我的青春恋爱物语果然有问题", "伪恋", "王者天下", "向山进发", "兵长大战巨人", "进击的巨人", "我的脑内选项正在全力妨碍学院恋爱喜剧", "魔法战争"],
+            "2013": ["生命的巨人", "罪恶王冠", "我的青春恋爱物语果然有问题", "伪恋", "王者天下", "向山进发", "兵长大战巨人", "进击的巨人", "我的脑内选项正在全力妨碍学院恋爱喜剧", "魔法战争", "待补充", "待补充"],
             "2012": ["冰果", "JOJO的奇妙冒险", "男子高中生的日常", "中二病也要谈恋爱", "来自新世界", "伪物语", "Another", "黑子的篮球", "少女与战车", "刀剑神域", "力动漫场", "人类衰退之后"],
-            "2011": ["命运石之门", "日常", "Fate/Zero", "魔法少女小圆", "回转企鹅罐", "摇曳百合", "未来日记", "花开物语", "偶像大师", "GOSICK", "我的妹妹不可能那么可爱"],
+            "2011": ["命运石之门", "日常", "Fate/Zero", "魔法少女小圆", "回转企鹅罐", "摇曳百合", "未来日记", "花开物语", "偶像大师", "GOSICK", "我的妹妹不可能那么可爱", "待补充"],
             "2010": ["荒川爆笑团", "四叶游戏", "会长是女仆", "轻音少女", "天降之物", "天使心", "无法逃离的背叛", "我的朋友很少", "金色琴弦", "我的妹妹不可能那么可爱", "女仆咖啡厅", "萝莉的时间"],
-            "2009": ["钢之炼金术师", "破刃之剑", "轻音部", "守护甜心", "学生会的一己之见", "天降之物", "天才麻将少女", "白色相簿", "好想告诉你"],
-            "2008": ["出包王女", "龙与虎", "魔法禁书目录", "黑执事", "神枪", "枪与剑", "伯爵与妖精"],
-            "2007": ["幸运星", "CLANNAD", "天元突破红莲螺岩", "地狱少女", "灼眼的夏娜", "传说中勇者的传说", "秒速五厘米", "南瓜剪子心", "日在校园"],
-            "2006": ["死亡笔记", "银魂", "黑之契约者", "Code Geass 反叛的鲁路修", "欢迎来到NHK!", "Fate/stay night", "凉宫春日的忧郁", "零之使魔", "Kanon", "传说", "xxxHOLiC"]
+            "2009": ["钢之炼金术师", "破刃之剑", "轻音部", "守护甜心", "学生会的一己之见", "天降之物", "天才麻将少女", "白色相簿", "好想告诉你", "待补充", "待补充", "待补充"],
+            "2008": ["出包王女", "龙与虎", "魔法禁书目录", "黑执事", "神枪", "枪与剑", "伯爵与妖精", "待补充", "待补充", "待补充", "待补充", "待补充"],
+            "2007": ["幸运星", "CLANNAD", "天元突破红莲螺岩", "地狱少女", "灼眼的夏娜", "传说中勇者的传说", "秒速五厘米", "南瓜剪子心", "日在校园", "待补充", "待补充", "待补充"],
+            "2006": ["死亡笔记", "银魂", "黑之契约者", "Code Geass 反叛的鲁路修", "欢迎来到NHK!", "Fate/stay night", "凉宫春日的忧郁", "零之使魔", "Kanon", "传说", "xxxHOLiC", "待补充"]
         };
 
         var container = document.getElementById('animeContainer');
@@ -316,7 +258,6 @@ title: 动画追踪
         var totalCountEl = document.getElementById('totalCount');
         var progressPercentEl = document.getElementById('progressPercent');
         var progressFillEl = document.getElementById('progressFill');
-        var searchInput = document.getElementById('searchInput');
         var resetBtn = document.getElementById('resetBtn');
 
         var watched;
@@ -326,41 +267,35 @@ title: 动画追踪
             watched = [];
         }
 
+        var PLACEHOLDER = '待补充';
+
         var years = Object.keys(animeData).sort(function(a, b) { return b - a; });
-        var yearSections = {};
-        var cellMap = {};
         var totalCells = 0;
 
         years.forEach(function(year) {
             var animes = animeData[year];
-            var section = document.createElement('section');
-            section.className = 'year-section';
+            var realCount = animes.filter(function(a) { return a !== PLACEHOLDER; }).length;
+            totalCells += realCount;
 
-            var header = document.createElement('div');
-            header.className = 'year-header';
+            var row = document.createElement('div');
+            row.className = 'year-row';
+            row.dataset.year = year;
 
-            var title = document.createElement('span');
-            title.className = 'year-title';
-            title.textContent = year;
-
-            var count = document.createElement('span');
-            count.className = 'year-count';
-            count.textContent = animes.length + ' 部';
-
-            var prog = document.createElement('span');
-            prog.className = 'year-progress';
-            prog.innerHTML = '已看 <b>0</b> / ' + animes.length;
-
-            header.appendChild(title);
-            header.appendChild(count);
-            header.appendChild(prog);
-
-            var grid = document.createElement('div');
-            grid.className = 'anime-grid';
+            var label = document.createElement('div');
+            label.className = 'year-label';
+            label.innerHTML = '<span class="y">' + year + '</span><span class="c">0/' + realCount + '</span>';
+            row.appendChild(label);
 
             animes.forEach(function(anime) {
-                totalCells++;
                 var cell = document.createElement('div');
+
+                if (anime === PLACEHOLDER) {
+                    cell.className = 'anime-cell placeholder';
+                    cell.textContent = anime;
+                    row.appendChild(cell);
+                    return;
+                }
+
                 var isWatched = watched.indexOf(anime) !== -1;
                 cell.className = 'anime-cell' + (isWatched ? ' watched' : '');
                 cell.textContent = anime;
@@ -382,24 +317,25 @@ title: 动画追踪
                     } catch (e) {}
 
                     updateStats();
-                    updateYearProgress(year, prog);
+                    updateYearCount(row, animes);
                 });
 
-                grid.appendChild(cell);
-                cellMap[anime] = cell;
+                row.appendChild(cell);
             });
 
-            section.appendChild(header);
-            section.appendChild(grid);
-            container.appendChild(section);
-            yearSections[year] = { section: section, prog: prog, total: animes.length };
+            container.appendChild(row);
+            updateYearCount(row, animes);
         });
 
-        function updateYearProgress(year, progEl) {
-            var data = yearSections[year];
-            var cnt = 0;
-            animeData[year].forEach(function(a) { if (watched.indexOf(a) !== -1) cnt++; });
-            data.prog.innerHTML = '已看 <b>' + cnt + '</b> / ' + data.total;
+        function updateYearCount(row, animes) {
+            var realCount = 0, cnt = 0;
+            animes.forEach(function(a) {
+                if (a === PLACEHOLDER) return;
+                realCount++;
+                if (watched.indexOf(a) !== -1) cnt++;
+            });
+            var c = row.querySelector('.year-label .c');
+            if (c) c.textContent = cnt + '/' + realCount;
         }
 
         function updateStats() {
@@ -411,37 +347,20 @@ title: 动画追踪
             progressFillEl.style.width = pct + '%';
         }
 
-        function applyFilter(query) {
-            query = (query || '').trim().toLowerCase();
-            years.forEach(function(year) {
-                var data = yearSections[year];
-                var anyVisible = false;
-                animeData[year].forEach(function(anime) {
-                    var cell = cellMap[anime];
-                    var match = !query || anime.toLowerCase().indexOf(query) !== -1;
-                    cell.style.display = match ? '' : 'none';
-                    if (match) anyVisible = true;
-                });
-                data.section.classList.toggle('hidden', !anyVisible);
-            });
-        }
-
-        searchInput.addEventListener('input', function() {
-            applyFilter(this.value);
-        });
-
         resetBtn.addEventListener('click', function() {
             if (!confirm('确定要清除所有已选记录吗？')) return;
             watched = [];
             try { localStorage.removeItem('watchedAnimes'); } catch (e) {}
-            Object.keys(cellMap).forEach(function(name) {
-                cellMap[name].classList.remove('watched');
+            var rows = container.querySelectorAll('.year-row');
+            rows.forEach(function(row) {
+                row.querySelectorAll('.anime-cell:not(.placeholder)').forEach(function(cell) {
+                    cell.classList.remove('watched');
+                });
+                updateYearCount(row, animeData[row.dataset.year]);
             });
-            years.forEach(function(year) { updateYearProgress(year); });
             updateStats();
         });
 
-        years.forEach(function(year) { updateYearProgress(year); });
         updateStats();
     })();
     </script>
