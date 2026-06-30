@@ -117,6 +117,7 @@ title: "加密日志阅读器"
         button:active { transform: translateY(1px); }
 
         /* 次级按钮 */
+        #copyBtn,
         #exportBtn,
         #findNextBtn,
         #replaceBtn,
@@ -127,6 +128,7 @@ title: "加密日志阅读器"
             border: 1px solid #cdd7e3;
             box-shadow: none;
         }
+        #copyBtn:hover,
         #exportBtn:hover,
         #findNextBtn:hover,
         #replaceBtn:hover,
@@ -318,6 +320,7 @@ title: "加密日志阅读器"
         </div>
         <div class="action-row">
             <button id="decryptBtn">解密并显示</button>
+            <button id="copyBtn">复制内容</button>
             <button id="exportBtn">导出加密日志</button>
         </div>
         <div class="sticky-wrap">
@@ -401,6 +404,44 @@ title: "加密日志阅读器"
         } catch (e) {
             status.textContent = '解密失败：' + e.message;
             status.className = 'error';
+        }
+    };
+    </script>
+    <script>
+    // 复制输出区内容到剪贴板
+    function fallbackCopyText(text, status) {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        try {
+            document.execCommand('copy');
+            status.textContent = '已复制到剪贴板';
+            status.className = 'success';
+        } catch (e) {
+            status.textContent = '复制失败';
+            status.className = 'error';
+        }
+        document.body.removeChild(ta);
+    }
+    document.getElementById('copyBtn').onclick = function() {
+        const output = document.getElementById('output');
+        const status = document.getElementById('status');
+        const text = output.innerText || output.textContent || '';
+        if (!text.trim()) {
+            status.textContent = '没有可复制的内容';
+            status.className = 'error';
+            return;
+        }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(() => {
+                status.textContent = '已复制到剪贴板';
+                status.className = 'success';
+            }).catch(() => fallbackCopyText(text, status));
+        } else {
+            fallbackCopyText(text, status);
         }
     };
     </script>
