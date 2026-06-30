@@ -208,12 +208,6 @@ layout: null
             cursor: pointer;
         }
 
-        .select-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 8px;
-        }
-
         .form-container button {
             width: 100%;
             padding: 11px 12px;
@@ -504,7 +498,6 @@ layout: null
         }
 
         @media (max-width: 380px) {
-            .select-row,
             .button-grid {
                 grid-template-columns: 1fr;
             }
@@ -534,16 +527,10 @@ layout: null
                     <div id="arrival-suggestions" class="autocomplete-suggestions"></div>
                 </div>
                 <input type="datetime-local" id="flight-time">
-                <div class="select-row">
-                    <select id="travel-mode">
-                        <option value="flight">✈️ 飞机</option>
-                        <option value="train">🚄 火车</option>
-                    </select>
-                    <select id="flight-type">
-                        <option value="direct">直线</option>
-                        <option value="curved">弧线</option>
-                    </select>
-                </div>
+                <select id="travel-mode">
+                    <option value="flight">✈️ 飞机</option>
+                    <option value="train">🚄 火车</option>
+                </select>
                 <button class="btn-add" onclick="addFlight()">➕ 添加行程</button>
                 <button id="toggleAnimationBtn" class="btn-animate" onclick="toggleAnimation()">▶ 播放航线动画</button>
                 <div class="button-grid">
@@ -1239,13 +1226,12 @@ layout: null
             var arrivalInput = document.getElementById('arrival');
             var timeInput = document.getElementById('flight-time');
             var modeSelect = document.getElementById('travel-mode');
-            var typeSelect = document.getElementById('flight-type');
 
             var departure = departureInput.value.trim();
             var arrival = arrivalInput.value.trim();
             var time = timeInput.value;
             var mode = modeSelect.value;
-            var type = typeSelect.value;
+            var type = 'curved';
 
             if (!departure || !arrival) {
                 alert('请输入出发和到达地点');
