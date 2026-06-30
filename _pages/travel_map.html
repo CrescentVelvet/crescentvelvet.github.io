@@ -18,6 +18,39 @@ layout: null
     <style>
         *, *::before, *::after { box-sizing: border-box; }
 
+        :root {
+            --primary: #1E90FF;
+            --primary-dark: #187bcd;
+            --primary-soft: rgba(30,144,255,0.12);
+            --accent: #FF6347;
+            --accent-dark: #e55a40;
+            --accent-soft: rgba(255,99,71,0.12);
+            --teal: #008B8B;
+            --teal-dark: #006a6a;
+            --amber: #FF8C00;
+            --green: #5cb522;
+            --green-dark: #4a9a1c;
+            --home: #FF4500;
+            --home-dark: #d93a00;
+            --danger: #e74c3c;
+            --danger-dark: #c0392b;
+            --text: #1a2332;
+            --text-muted: #5b6878;
+            --text-soft: #94a3b8;
+            --border: #e3e8f0;
+            --border-soft: #eef2f7;
+            --panel: #ffffff;
+            --panel-soft: #f7f9fc;
+            --panel-hover: #fff5f3;
+            --shadow-sm: 0 1px 2px rgba(15,23,42,0.05);
+            --shadow: 0 4px 16px rgba(15,23,42,0.08);
+            --shadow-lg: 0 12px 40px rgba(15,23,42,0.14);
+            --radius-sm: 8px;
+            --radius: 12px;
+            --radius-lg: 16px;
+            --header-h: 56px;
+        }
+
         html, body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
             margin: 0;
@@ -26,27 +59,35 @@ layout: null
             width: 100%;
             overflow: hidden;
             -webkit-font-smoothing: antialiased;
+            color: var(--text);
         }
 
         body {
             display: flex;
             flex-direction: column;
+            background: var(--panel-soft);
         }
 
         .header {
-            background: linear-gradient(135deg, #1E90FF, #187bcd);
+            background: linear-gradient(135deg, #1E90FF 0%, #187bcd 60%, #155a96 100%);
             color: white;
-            padding: 12px 20px;
-            text-align: center;
+            padding: 0 24px;
+            height: var(--header-h);
+            display: flex;
+            align-items: center;
+            justify-content: center;
             z-index: 100;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            box-shadow: 0 4px 20px rgba(30,144,255,0.28);
+            flex-shrink: 0;
+            position: relative;
         }
 
         .header h1 {
             margin: 0;
-            font-size: 22px;
+            font-size: 20px;
             font-weight: 600;
             letter-spacing: 2px;
+            text-shadow: 0 1px 4px rgba(0,0,0,0.15);
         }
 
         .content {
@@ -62,27 +103,28 @@ layout: null
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            background-color: rgba(255, 255, 255, 0.95);
-            padding: 20px 28px;
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            background-color: rgba(255, 255, 255, 0.96);
+            padding: 22px 30px;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-lg);
             z-index: 2000;
             display: flex;
             flex-direction: column;
             align-items: center;
             font-size: 14px;
-            color: #333;
+            color: var(--text);
             pointer-events: none;
+            min-width: 180px;
         }
 
         .loading-spinner {
-            border: 3px solid #e0e0e0;
-            border-top: 3px solid #1E90FF;
+            border: 3px solid #e8edf3;
+            border-top: 3px solid var(--primary);
             border-radius: 50%;
-            width: 32px;
-            height: 32px;
+            width: 36px;
+            height: 36px;
             animation: spin 0.8s linear infinite;
-            margin-bottom: 12px;
+            margin-bottom: 14px;
         }
 
         @keyframes spin {
@@ -91,183 +133,231 @@ layout: null
         }
 
         .sidebar {
-            width: 320px;
-            min-width: 320px;
-            background-color: #f8f9fa;
-            padding: 16px;
+            width: 340px;
+            min-width: 340px;
+            background: linear-gradient(180deg, #fbfcfe 0%, #f3f6fb 100%);
+            padding: 18px;
             overflow-y: auto;
             z-index: 200;
-            box-shadow: 2px 0 12px rgba(0,0,0,0.08);
+            box-shadow: 2px 0 24px rgba(15,23,42,0.07);
             display: flex;
             flex-direction: column;
-            gap: 12px;
+            gap: 16px;
         }
 
         .sidebar::-webkit-scrollbar { width: 6px; }
-        .sidebar::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
+        .sidebar::-webkit-scrollbar-track { background: transparent; }
+        .sidebar::-webkit-scrollbar-thumb { background: #cdd5e0; border-radius: 3px; }
+        .sidebar::-webkit-scrollbar-thumb:hover { background: #b0bbcb; }
 
         #map {
             flex: 1;
             z-index: 1;
             position: relative;
             min-width: 0;
+            background: #e8edf3;
         }
 
         .form-container {
             display: flex;
             flex-direction: column;
-            gap: 0;
-        }
-
-        .form-container label {
-            font-size: 12px;
-            color: #666;
-            font-weight: 600;
-            margin: 8px 0 2px 2px;
+            gap: 10px;
+            background: var(--panel);
+            padding: 16px;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border-soft);
         }
 
         .form-container input,
-        .form-container select,
-        .form-container button {
+        .form-container select {
             width: 100%;
             padding: 10px 12px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
             font-size: 14px;
             font-family: inherit;
+            background: var(--panel);
+            color: var(--text);
             transition: border-color 0.2s, box-shadow 0.2s;
+            margin: 0;
         }
 
         .form-container input:focus,
         .form-container select:focus {
             outline: none;
-            border-color: #1E90FF;
-            box-shadow: 0 0 0 3px rgba(30,144,255,0.15);
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px var(--primary-soft);
         }
 
-        .form-container input {
-            margin-bottom: 8px;
+        .form-container input::placeholder {
+            color: var(--text-soft);
         }
 
         .form-container select {
-            margin-bottom: 8px;
-            background: white;
+            cursor: pointer;
+            background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path fill='%236b7686' d='M6 8L2 4h8z'/></svg>");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            padding-right: 32px;
+            appearance: none;
+            -webkit-appearance: none;
+        }
+
+        .form-container input[type="datetime-local"] {
             cursor: pointer;
         }
 
+        .select-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
         .form-container button {
+            width: 100%;
+            padding: 11px 12px;
             border: none;
+            border-radius: var(--radius-sm);
+            font-size: 14px;
+            font-family: inherit;
             color: white;
             cursor: pointer;
             font-weight: 600;
             letter-spacing: 0.5px;
-            transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s;
+            transition: transform 0.15s, box-shadow 0.15s, background-color 0.15s;
         }
 
         .form-container button:hover {
             transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.18);
         }
 
         .form-container button:active {
             transform: translateY(0);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.12);
         }
 
-        .btn-add { background-color: #1E90FF; }
-        .btn-add:hover { background-color: #187bcd; }
+        .button-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
 
-        .btn-clear { background-color: #008B8B; }
-        .btn-clear:hover { background-color: #007070; }
+        .btn-add { background-color: var(--primary); }
+        .btn-add:hover { background-color: var(--primary-dark); }
 
-        .btn-animate { background-color: #FF6347; }
-        .btn-animate:hover { background-color: #e55a40; }
-        .btn-animate.btn-pause { background-color: #FF8C00; }
+        .btn-clear { background-color: var(--teal); }
+        .btn-clear:hover { background-color: var(--teal-dark); }
 
-        .btn-export { background-color: #77c306; }
-        .btn-export:hover { background-color: #68a805; }
+        .btn-animate { background-color: var(--accent); }
+        .btn-animate:hover { background-color: var(--accent-dark); }
+        .btn-animate.btn-pause { background-color: var(--amber); }
+        .btn-animate.btn-pause:hover { background-color: #d97700; }
 
-        .btn-home { background-color: #FF4500; }
-        .btn-home:hover { background-color: #e03e00; }
+        .btn-export { background-color: var(--green); }
+        .btn-export:hover { background-color: var(--green-dark); }
+
+        .btn-home { background-color: var(--home); }
+        .btn-home:hover { background-color: var(--home-dark); }
+
+        .flight-list-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin: 4px 2px 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .flight-list-title .count {
+            background: var(--primary-soft);
+            color: var(--primary);
+            font-size: 12px;
+            padding: 2px 10px;
+            border-radius: 999px;
+            letter-spacing: 0;
+            font-weight: 700;
+        }
 
         .location-item {
-            background-color: white;
-            padding: 12px;
-            border-radius: 10px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-            border-left: 4px solid #1E90FF;
-            transition: box-shadow 0.2s;
+            background-color: var(--panel);
+            padding: 12px 14px;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-sm);
+            border-left: 4px solid var(--primary);
+            transition: box-shadow 0.2s, transform 0.2s, border-color 0.2s, background-color 0.2s;
         }
 
         .location-item:hover,
         .location-item-hover {
-            box-shadow: 0 4px 14px rgba(0,0,0,0.1);
-            border-left-color: #FF6347;
-            background-color: #fff5f5;
+            box-shadow: var(--shadow);
+            transform: translateX(2px);
+            border-left-color: var(--accent);
+            background-color: var(--panel-hover);
         }
 
         .location-item h4 {
             margin: 0 0 6px 0;
             font-size: 15px;
-            color: #333;
+            color: var(--text);
+            font-weight: 600;
         }
 
         .location-item p {
             margin: 3px 0;
             font-size: 13px;
-            color: #666;
+            color: var(--text-muted);
         }
 
         .location-item button {
             margin-top: 8px;
             padding: 6px 14px;
-            background-color: #e74c3c;
+            background-color: var(--danger);
             color: white;
             border: none;
-            border-radius: 6px;
+            border-radius: var(--radius-sm);
             cursor: pointer;
             font-size: 13px;
             transition: background-color 0.2s;
+            font-family: inherit;
         }
 
         .location-item button:hover {
-            background-color: #c0392b;
+            background-color: var(--danger-dark);
+        }
+
+        .airport-marker-dep,
+        .airport-marker-arr,
+        .station-marker-dep,
+        .station-marker-arr {
+            color: white;
+            width: 28px;
+            height: 28px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            border: 2px solid white;
         }
 
         .airport-marker-dep {
-            background-color: #1E90FF;
-            color: white;
+            background-color: var(--primary);
             border-radius: 50%;
-            width: 28px;
-            height: 28px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-weight: bold;
             font-size: 11px;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-            border: 2px solid white;
         }
 
         .airport-marker-arr {
-            background-color: #FF6347;
-            color: white;
+            background-color: var(--accent);
             border-radius: 50%;
-            width: 28px;
-            height: 28px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-weight: bold;
             font-size: 11px;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-            border: 2px solid white;
         }
 
-        .plane-icon {
-            font-size: 22px;
-            filter: drop-shadow(0 1px 3px rgba(0,0,0,0.3));
-        }
-
+        .plane-icon,
         .train-icon {
             font-size: 22px;
             filter: drop-shadow(0 1px 3px rgba(0,0,0,0.3));
@@ -275,32 +365,14 @@ layout: null
 
         .station-marker-dep {
             background-color: #2E8B57;
-            color: white;
             border-radius: 6px;
-            width: 28px;
-            height: 28px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-weight: bold;
             font-size: 10px;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-            border: 2px solid white;
         }
 
         .station-marker-arr {
             background-color: #CD853F;
-            color: white;
             border-radius: 6px;
-            width: 28px;
-            height: 28px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-weight: bold;
             font-size: 10px;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-            border: 2px solid white;
         }
 
         .animated-plane,
@@ -318,86 +390,127 @@ layout: null
             top: 100%;
             left: 0;
             right: 0;
-            border: 1px solid #ddd;
+            border: 1px solid var(--border);
             border-top: none;
             max-height: 180px;
             overflow-y: auto;
-            background-color: white;
+            background-color: var(--panel);
             z-index: 3000;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-            border-radius: 0 0 8px 8px;
+            box-shadow: 0 8px 20px rgba(15,23,42,0.12);
+            border-radius: 0 0 var(--radius-sm) var(--radius-sm);
         }
 
         .suggestion-item {
             padding: 10px 12px;
             cursor: pointer;
             font-size: 13px;
+            color: var(--text);
             transition: background-color 0.15s;
         }
 
         .suggestion-item:hover {
-            background-color: #e8f4fd;
+            background-color: var(--primary-soft);
         }
 
         .sidebar-toggle-btn {
             display: none;
-            width: 100%;
-            background: #1E90FF;
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 600;
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: var(--primary);
             color: #fff;
             border: none;
-            padding: 12px;
-            font-size: 16px;
+            box-shadow: 0 6px 22px rgba(30,144,255,0.45);
             cursor: pointer;
-            font-weight: 600;
-            letter-spacing: 1px;
+            font-size: 22px;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.2s, background-color 0.2s, box-shadow 0.2s;
         }
 
         .sidebar-toggle-btn:hover {
-            background: #187bcd;
+            background: var(--primary-dark);
+            transform: scale(1.05);
+        }
+
+        .sidebar-toggle-btn.is-open {
+            background: var(--accent);
+            box-shadow: 0 6px 22px rgba(255,99,71,0.45);
+        }
+
+        .sidebar-toggle-btn.is-open:hover {
+            background: var(--accent-dark);
         }
 
         @media (max-width: 768px) {
+            .header {
+                padding: 0 16px;
+                height: 52px;
+            }
+
+            .header h1 {
+                font-size: 17px;
+                letter-spacing: 1px;
+            }
+
             .content {
                 flex-direction: column;
             }
 
+            #map {
+                flex: 1;
+                min-height: 0;
+            }
+
             .sidebar {
+                position: absolute;
+                left: 0;
+                right: 0;
+                bottom: 0;
                 width: 100%;
                 min-width: 0;
-                max-height: 55vh;
-                overflow-y: auto;
-                box-shadow: 0 -2px 12px rgba(0,0,0,0.08);
-                border-radius: 16px 16px 0 0;
-                padding: 12px 14px;
-                transition: max-height 0.35s ease, padding 0.35s ease, opacity 0.35s ease;
+                max-height: 72vh;
+                border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+                box-shadow: 0 -8px 32px rgba(15,23,42,0.18);
+                padding: 18px 16px 24px;
+                transform: translateY(0);
+                transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease;
+                z-index: 500;
+            }
+
+            .sidebar::before {
+                content: '';
+                display: block;
+                width: 40px;
+                height: 4px;
+                background: var(--border);
+                border-radius: 2px;
+                margin: -4px auto 14px;
             }
 
             .sidebar.collapsed {
-                max-height: 0;
-                padding-top: 0;
-                padding-bottom: 0;
-                overflow: hidden;
+                transform: translateY(100%);
                 opacity: 0;
-            }
-
-            #map {
-                flex: 1;
-                min-height: 40vh;
+                pointer-events: none;
             }
 
             .sidebar-toggle-btn {
-                display: block;
-                border-radius: 0;
-            }
-
-            .header h1 {
-                font-size: 18px;
+                display: flex;
             }
         }
 
-        @media (min-width: 769px) {
-            .sidebar-toggle-btn {
-                display: none;
+        @media (max-width: 380px) {
+            .select-row,
+            .button-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .header h1 {
+                font-size: 16px;
             }
         }
     </style>
@@ -407,7 +520,9 @@ layout: null
         <h1>我的航旅足迹</h1>
     </div>
     <div class="content">
-        <button class="sidebar-toggle-btn" onclick="toggleSidebar()">☰ 显示/隐藏航线操作区</button>
+        <button class="sidebar-toggle-btn" onclick="toggleSidebar()" aria-label="切换操作面板">
+            <span class="toggle-icon">☰</span>
+        </button>
         <div class="sidebar">
             <div class="form-container">
                 <div class="autocomplete-wrapper">
@@ -419,19 +534,27 @@ layout: null
                     <div id="arrival-suggestions" class="autocomplete-suggestions"></div>
                 </div>
                 <input type="datetime-local" id="flight-time">
-                <select id="travel-mode">
-                    <option value="flight">✈️ 飞机</option>
-                    <option value="train">🚄 火车</option>
-                </select>
-                <select id="flight-type">
-                    <option value="direct">直线</option>
-                    <option value="curved">弧线</option>
-                </select>
-                <button class="btn-add" onclick="addFlight()">添加行程</button>
-                <button class="btn-clear" onclick="clearFlights()">清除所有航线</button>
-                <button id="toggleAnimationBtn" class="btn-animate" onclick="toggleAnimation()">播放航线动画</button>
-                <button class="btn-export" onclick="exportFlightPaths()">导出航线</button>
-                <button class="btn-home" onclick="window.location.href='index.html'">返回首页</button>
+                <div class="select-row">
+                    <select id="travel-mode">
+                        <option value="flight">✈️ 飞机</option>
+                        <option value="train">🚄 火车</option>
+                    </select>
+                    <select id="flight-type">
+                        <option value="direct">直线</option>
+                        <option value="curved">弧线</option>
+                    </select>
+                </div>
+                <button class="btn-add" onclick="addFlight()">➕ 添加行程</button>
+                <button id="toggleAnimationBtn" class="btn-animate" onclick="toggleAnimation()">▶ 播放航线动画</button>
+                <div class="button-grid">
+                    <button class="btn-export" onclick="exportFlightPaths()">⬇ 导出</button>
+                    <button class="btn-clear" onclick="clearFlights()">✕ 清除</button>
+                </div>
+                <button class="btn-home" onclick="window.location.href='/'">🏠 返回首页</button>
+            </div>
+            <div class="flight-list-title">
+                <span>航线列表</span>
+                <span class="count" id="flight-count">0</span>
             </div>
             <div id="flight-list"></div>
         </div>
@@ -1050,6 +1173,9 @@ layout: null
             var flightList = document.getElementById('flight-list');
             flightList.innerHTML = '';
 
+            var countEl = document.getElementById('flight-count');
+            if (countEl) countEl.textContent = flightInfo.length;
+
             // 按时间排序显示（未设置时间的排在后面）
             var sortedIndices = flightInfo.map(function(_, i) { return i; });
             sortedIndices.sort(function(a, b) {
@@ -1070,6 +1196,7 @@ layout: null
                     <h4>${modeIcon} ${info.from.code} → ${info.to.code}</h4>
                     <p>${info.from.name} → ${info.to.name}</p>
                     <p>${info.time || '未设置时间'}</p>
+                    <button onclick="removeFlight(${originalIndex})">删除</button>
                 `;
 
                 // 鼠标悬停时高亮地图上对应航线
@@ -1408,7 +1535,14 @@ layout: null
         // 折叠侧栏函数
         function toggleSidebar() {
             var sidebar = document.querySelector('.sidebar');
+            var btn = document.querySelector('.sidebar-toggle-btn');
             sidebar.classList.toggle('collapsed');
+            if (btn) {
+                var isCollapsed = sidebar.classList.contains('collapsed');
+                btn.classList.toggle('is-open', !isCollapsed);
+                var icon = btn.querySelector('.toggle-icon');
+                if (icon) icon.textContent = isCollapsed ? '☰' : '✕';
+            }
         }
 
         // 绑定导出按钮事件
@@ -1416,6 +1550,12 @@ layout: null
             const exportBtn = document.getElementById('exportFlightsBtn');
             if (exportBtn) {
                 exportBtn.addEventListener('click', exportFlightPaths);
+            }
+
+            // 移动端默认折叠侧栏，优先显示地图
+            if (window.matchMedia('(max-width: 768px)').matches) {
+                var sidebar = document.querySelector('.sidebar');
+                if (sidebar) sidebar.classList.add('collapsed');
             }
 
             // 自动补全逻辑
