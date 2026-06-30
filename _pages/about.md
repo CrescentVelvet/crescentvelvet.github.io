@@ -148,7 +148,6 @@ redirect_from:
     <div class="button-grid">
         <a href="/chat_bot.html" class="link-button">大模型对话</a>
         <a href="/travel_map.html" class="link-button">旅行足迹</a>
-        <a href="/multi_translator.html" class="link-button">多语言翻译</a>
         <a href="/course_recorder.html" class="link-button">进度记录</a>
         <a href="/db_viewer.html" class="link-button">数据库解析</a>
         <a href="/text_processor.html" class="link-button">文本加密</a>
