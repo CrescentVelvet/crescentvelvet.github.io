@@ -10,127 +10,173 @@ title: "文本处理工具"
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>文本处理工具</title>
     <style>
+        :root {
+            --primary: #4f6df5;
+            --primary-dark: #3b54d8;
+            --primary-light: #eef1ff;
+            --success: #2ec27e;
+            --success-dark: #25a968;
+            --danger: #ef4f6f;
+            --danger-dark: #d63856;
+            --neutral: #6b7280;
+            --neutral-dark: #4b5563;
+            --bg: #f0f2f8;
+            --card: #ffffff;
+            --border: #e5e7eb;
+            --text: #1f2937;
+            --text-muted: #6b7280;
+            --shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+            --radius: 10px;
+            --radius-sm: 6px;
+        }
+        * {
+            box-sizing: border-box;
+        }
         body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-            background-color: #f4f4f4;
-            color: #333;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", Arial, sans-serif;
+            margin: 0;
+            padding: 30px 20px;
+            background: linear-gradient(135deg, #f0f2f8 0%, #e8ebf5 100%);
+            color: var(--text);
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
         }
         .container {
-            max-width: 1000px;
+            max-width: 1100px;
             margin: 0 auto;
-            background-color: #fff;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            background: var(--card);
+            padding: 32px;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
             display: flex;
             flex-direction: column;
         }
-        .info-box {
-            background-color: #e7f3ff;
-            border: 1px solid #b8daff;
-            border-radius: 4px;
-            padding: 15px;
-            margin-bottom: 20px;
-            font-size: 14px;
-            line-height: 1.5;
-        }
-        .info-title {
-            font-weight: bold;
-            margin-bottom: 10px;
-            color: #0056b3;
-        }
-        .info-feature {
-            margin-bottom: 5px;
-        }
         h1 {
-            color: #0056b3;
+            color: var(--primary-dark);
             text-align: center;
-            margin-bottom: 20px;
+            margin: 0 0 28px;
+            font-size: 28px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+        h2 {
+            color: var(--primary-dark);
+            margin: 0 0 12px;
+            font-size: 16px;
+            font-weight: 600;
         }
         .content-area {
             display: flex;
             flex-wrap: wrap;
-            gap: 20px;
+            gap: 24px;
         }
         .input-section, .output-section {
             flex: 1;
-            min-width: 300px;
+            min-width: 320px;
         }
         textarea {
             width: 100%;
             height: 400px;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
+            padding: 14px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
             font-size: 14px;
+            font-family: inherit;
             resize: vertical;
+            background: #fafbfc;
+            transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+        }
+        textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            background: #fff;
+            box-shadow: 0 0 0 3px rgba(79, 109, 245, 0.15);
         }
         .buttons-section {
             display: flex;
             flex-wrap: wrap;
             gap: 10px;
-            margin: 20px 0;
+            margin: 24px 0 16px;
         }
         button {
-            background-color: #007bff;
-            color: white;
-            padding: 10px 15px;
+            background: var(--primary);
+            color: #fff;
+            padding: 10px 16px;
             border: none;
-            border-radius: 4px;
+            border-radius: var(--radius-sm);
             cursor: pointer;
             font-size: 14px;
+            font-family: inherit;
             flex-grow: 1;
             min-width: 120px;
+            transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
+            box-shadow: 0 2px 6px rgba(79, 109, 245, 0.2);
         }
         button:hover {
-            background-color: #0056b3;
+            background: var(--primary-dark);
+            box-shadow: 0 4px 12px rgba(79, 109, 245, 0.3);
+        }
+        button:active {
+            transform: translateY(1px);
         }
         .step-button {
-            background-color: #28a745;
+            background: var(--success);
+            box-shadow: 0 2px 6px rgba(46, 194, 126, 0.2);
         }
         .step-button:hover {
-            background-color: #218838;
+            background: var(--success-dark);
+            box-shadow: 0 4px 12px rgba(46, 194, 126, 0.3);
         }
         .reset-button {
-            background-color: #dc3545;
+            background: var(--danger);
+            box-shadow: 0 2px 6px rgba(239, 79, 111, 0.2);
         }
         .reset-button:hover {
-            background-color: #c82333;
+            background: var(--danger-dark);
+            box-shadow: 0 4px 12px rgba(239, 79, 111, 0.3);
         }
         .copy-button {
-            background-color: #6c757d;
+            background: var(--neutral);
+            box-shadow: 0 2px 6px rgba(107, 114, 128, 0.2);
         }
         .copy-button:hover {
-            background-color: #5a6268;
-        }
-        h2 {
-            color: #0056b3;
-            margin-top: 0;
+            background: var(--neutral-dark);
+            box-shadow: 0 4px 12px rgba(107, 114, 128, 0.3);
         }
         .output-preview {
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            padding: 10px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 14px;
             min-height: 400px;
             max-height: 400px; /* 设置最大高度 */
-            background-color: #fff;
+            background: #fafbfc;
             overflow-y: auto; /* 垂直滚动条 */
             white-space: pre-wrap;
             word-wrap: break-word;
             font-size: 14px;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .output-preview::-webkit-scrollbar {
+            width: 8px;
+        }
+        .output-preview::-webkit-scrollbar-thumb {
+            background: #c7cdd9;
+            border-radius: 4px;
+        }
+        .output-preview::-webkit-scrollbar-thumb:hover {
+            background: #a9b0c0;
         }
         .date-highlight {
             font-weight: bold;
-            color: #0056b3;
+            color: var(--primary-dark);
             padding: 2px 0;
             font-size: 20px; /* 三号字体 */
         }
         .toc {
-            background-color: #f8f9fa;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            padding: 10px;
+            background: var(--primary-light);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 12px;
             margin-bottom: 20px;
         }
         .toc-title {
@@ -141,17 +187,38 @@ title: "文本处理工具"
             margin-left: 20px;
         }
         .status {
-            margin-top: 10px;
-            padding: 10px;
-            border-radius: 4px;
-            background-color: #e9ecef;
+            margin-top: 12px;
+            padding: 12px;
+            border-radius: var(--radius-sm);
+            background: #f3f4f6;
             text-align: center;
+            font-size: 14px;
+            transition: all 0.2s;
         }
         .success {
-            color: #28a745;
+            color: var(--success-dark);
         }
         .error {
-            color: #dc3545;
+            color: var(--danger-dark);
+        }
+        .info-box {
+            background: var(--primary-light);
+            border: 1px solid #c7d2fe;
+            border-left: 4px solid var(--primary);
+            border-radius: var(--radius-sm);
+            padding: 18px 20px;
+            margin-top: 24px;
+            font-size: 14px;
+            line-height: 1.7;
+        }
+        .info-title {
+            font-weight: 700;
+            margin-bottom: 10px;
+            color: var(--primary-dark);
+            font-size: 15px;
+        }
+        .info-feature {
+            margin-bottom: 4px;
         }
         /* 预览区域样式 */
         .preview-content {
