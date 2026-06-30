@@ -8,7 +8,7 @@ layout: default
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>论文搜索</title>
+    <title>论文调研</title>
     <style>
         :root {
             --primary-color: #4a90e2; /* 主色调：清新蓝色 */
@@ -504,7 +504,7 @@ layout: default
 </head>
 <body>
     <div class="search-container">
-        <h1>论文搜索</h1>
+        <h1>论文调研</h1>
 
         <div class="filter-container">
             <div class="conference-filter">
@@ -635,10 +635,7 @@ layout: default
                         };
                     });
 
-                    // 设置年份范围的默认值
-                    const currentYear = new Date().getFullYear();
-                    document.getElementById('yearFrom').value = currentYear - 5; // 默认显示过去5年的论文
-                    document.getElementById('yearTo').value = currentYear;
+                    // 默认展示所有论文（年份输入框留空，筛选逻辑使用 0-9999 范围）
 
                     filterPapers();
                 })

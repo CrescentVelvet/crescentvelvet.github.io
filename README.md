@@ -20,8 +20,8 @@
 
 1. Windows本地下载本仓库
 2. 访问 [Git 官方下载页面](https://git-scm.com/downloads) 下载并安装 Git
-3. 访问 [RubyInstaller 官方下载页面](https://rubyinstaller.org/downloads/) 下载并安装 Ruby+Devkit，安装时勾选 “Run ridk install”
-4. 打开命令提示符或 PowerShell，运行 `gem install bundler` 安装 Bundler
+3. 访问 [RubyInstaller 官方下载页面](https://rubyinstaller.org/downloads/) 下载并安装 Ruby 3.4.0 + Devkit，安装时勾选 “Run ridk install”
+4. 打开命令提示符或 PowerShell，运行 `gem install bundler` 安装 Bundler 2.6.8
 5. 运行 `bundle install` 来安装 Ruby 依赖包
 6. 如果使用 Ruby 3.4 或更高版本，`wdm` 可能无法编译。当前 Gemfile 已限制 `wdm` 只在 Ruby 3.4 以下启用，因此直接重新运行 `bundle install` 即可
 7. 如果 Ruby 安装在 `D:\Program Files\Ruby34-x64` 这类带空格的目录下，`bundle exec jekyll serve` 可能会因为路径被拆分而失败。可以改用下面的命令启动：
