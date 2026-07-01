@@ -110,6 +110,34 @@ title: 动画追踪
             border-color: var(--text-muted);
         }
 
+        .rank-banner {
+            max-width: 1200px;
+            margin: 10px auto 0;
+            padding: 0 16px;
+            text-align: center;
+        }
+
+        .rank-title {
+            font-size: 1.4em;
+            font-weight: 700;
+            color: var(--rank-color, #7f8c9a);
+            text-shadow: 0 0 14px var(--rank-glow, rgba(127, 140, 154, 0.3));
+            letter-spacing: 2px;
+            transition: color 0.4s ease, text-shadow 0.4s ease;
+        }
+
+        .rank-desc {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 4px;
+            letter-spacing: 0.5px;
+        }
+
+        @media (max-width: 600px) {
+            .rank-title { font-size: 1.15em; letter-spacing: 1px; }
+            .rank-desc { font-size: 11px; }
+        }
+
         .container {
             max-width: 1200px;
             margin: 0 auto;
@@ -225,6 +253,10 @@ title: 动画追踪
             </div>
             <button class="btn" id="resetBtn" title="清除所有已选">重置</button>
         </div>
+        <div class="rank-banner">
+            <div class="rank-title" id="rankTitle">「虚无的观测者」</div>
+            <div class="rank-desc" id="rankDesc">仍在虚数空间中沉睡，尚未踏出第一步</div>
+        </div>
     </div>
 
     <div class="container" id="animeContainer"></div>
@@ -261,6 +293,9 @@ title: 动画追踪
         var progressPercentEl = document.getElementById('progressPercent');
         var progressFillEl = document.getElementById('progressFill');
         var resetBtn = document.getElementById('resetBtn');
+        var rankTitleEl = document.getElementById('rankTitle');
+        var rankDescEl = document.getElementById('rankDesc');
+        var rankBannerEl = document.querySelector('.rank-banner');
 
         var watched;
         try {
@@ -270,6 +305,28 @@ title: 动画追踪
         }
 
         var PLACEHOLDER = '待补充';
+
+        var ranks = [
+            { min: 100, title: '「全知全能之神」',   desc: '已抵达全知全能之境，俯瞰整个动画世代',     color: '#00e5ff', glow: 'rgba(0,229,255,0.55)' },
+            { min: 91,  title: '「永劫的支配者」',   desc: '永劫的支配，距神座仅一步之遥',             color: '#f1c40f', glow: 'rgba(241,196,15,0.5)' },
+            { min: 81,  title: '「神灭的霸者」',     desc: '踏上神之领域，所到之处皆为足迹',           color: '#ff6b9d', glow: 'rgba(255,107,157,0.5)' },
+            { min: 71,  title: '「终焉的魔眼」',     desc: '直视终焉的魔眼已然开眼',                   color: '#e0556a', glow: 'rgba(224,85,106,0.5)' },
+            { min: 61,  title: '「漆黑的剑圣」',     desc: '漆黑之刃已斩断过半因果',                   color: '#c0392b', glow: 'rgba(192,57,43,0.5)' },
+            { min: 51,  title: '「炼狱的斗士」',     desc: '历经炼狱的淬炼，灵魂已半数觉醒',           color: '#e67e22', glow: 'rgba(230,126,34,0.5)' },
+            { min: 41,  title: '「常夜的开辟者」',   desc: '于永夜中开辟属于自己的圣域',               color: '#9b59b6', glow: 'rgba(155,89,182,0.5)' },
+            { min: 31,  title: '「星霜的巡礼者」',   desc: '跨越星霜，追寻逝去的帧数',                 color: '#3a6ea5', glow: 'rgba(58,110,165,0.45)' },
+            { min: 21,  title: '「黄昏的迷子」',     desc: '在现实与二次元的夹缝中徘徊',               color: '#48c9b0', glow: 'rgba(72,201,176,0.45)' },
+            { min: 11,  title: '「微光的旅人」',     desc: '手持残烛，步入无尽的番剧之森',             color: '#5dade2', glow: 'rgba(93,174,226,0.45)' },
+            { min: 1,   title: '「原初的觉醒者」',   desc: '灵魂深处的齿轮开始转动，窥见了世界的一角', color: '#b0b8c4', glow: 'rgba(176,184,196,0.4)' },
+            { min: 0,   title: '「虚无的观测者」',   desc: '仍在虚数空间中沉睡，尚未踏出第一步',       color: '#7f8c9a', glow: 'rgba(127,140,154,0.35)' }
+        ];
+
+        function getRank(pct) {
+            for (var i = 0; i < ranks.length; i++) {
+                if (pct >= ranks[i].min) return ranks[i];
+            }
+            return ranks[ranks.length - 1];
+        }
 
         var years = Object.keys(animeData).sort(function(a, b) { return b - a; });
         var totalCells = 0;
@@ -347,6 +404,12 @@ title: 动画追踪
             var pct = totalCells > 0 ? Math.round(watchedCells / totalCells * 100) : 0;
             progressPercentEl.textContent = pct;
             progressFillEl.style.width = pct + '%';
+
+            var rank = getRank(pct);
+            rankTitleEl.textContent = rank.title;
+            rankDescEl.textContent = rank.desc;
+            rankBannerEl.style.setProperty('--rank-color', rank.color);
+            rankBannerEl.style.setProperty('--rank-glow', rank.glow);
         }
 
         resetBtn.addEventListener('click', function() {
