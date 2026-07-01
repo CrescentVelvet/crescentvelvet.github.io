@@ -247,9 +247,9 @@ title: "文本处理工具"
             font-weight: bold;
         }
         .review-highlight {
-            color: #e67e22; /* 橙色高亮 */
-            background: #fffbe6;
-            border-left: 4px solid #e67e22;
+            color: #0d9488; /* 青色高亮，与 diary_tree / enc_reader 一致 */
+            background: #eaf7f4;
+            border-left: 4px solid #0d9488;
             padding-left: 8px;
         }
     </style>
@@ -365,8 +365,8 @@ title: "文本处理工具"
             // 新增：匹配无年份的 "MM-DD HH:MM:SS ..." 或 "M/D HH:MM:SS ..." 行
             // 前置否定回顾断言确保不在带年份的日期上触发（如 "2023-01-01 16:45:33"）
             const noYearDateTimeRegex = /.*?(?<!\d[-/])(\d{1,2})[-/](\d{1,2})\s+\d{1,2}:\d{2}:\d{2}.*/g;
-            // 新增：匹配“（YYYY.MM.DD回顾：”格式
-            const reviewDateRegex = /^（\d{4}\.\d{2}\.\d{2}回顾：.*$/;
+            // 匹配“未来回顾”引用行：可选“（”、日期分隔符可为 . / -、月日 1-2 位、无需冒号（与 diary_tree 的 REVIEW_REF_RE 对齐）
+            const reviewDateRegex = /^\s*（?\s*\d{4}[.\/\-]\d{1,2}[.\/\-]\d{1,2}\s*回顾/;
 
             let content = outputPreview.innerHTML;
             // 确保处理的是纯文本，而不是HTML内容

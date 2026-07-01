@@ -446,6 +446,37 @@ title: "加密日志阅读器"
     };
     </script>
     <script>
+    // 导出加密日志：将输出区内容用 AES 加密后下载为文件
+    document.getElementById('exportBtn').onclick = function() {
+        const output = document.getElementById('output');
+        const status = document.getElementById('status');
+        const content = output.innerHTML;
+        if (!content.trim()) {
+            status.textContent = '没有可加密的内容';
+            status.className = 'error';
+            return;
+        }
+        const password = prompt('请输入加密密码：');
+        if (!password) return;
+        try {
+            const ciphertext = CryptoJS.AES.encrypt(content, password).toString();
+            const blob = new Blob([ciphertext], { type: 'text/plain' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'encrypted_log.txt';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(a.href);
+            status.textContent = '已加密导出';
+            status.className = 'success';
+        } catch (e) {
+            status.textContent = '导出失败：' + e.message;
+            status.className = 'error';
+        }
+    };
+    </script>
+    <script>
     // 自动生成目录（TOC）并支持跳转
     function generateTOC() {
         const output = document.getElementById('output');
@@ -729,8 +760,8 @@ title: "加密日志阅读器"
         // 4. 日期处理
         // 匹配形如 "YYYY-MM-DD" 或 "YYYY/MM/DD" 的日期行
         const dateTimeUserRegex = /.*?(\d{4}[-/]\d{1,2}[-/]\d{1,2})\s+\d{1,2}:\d{2}:\d{2}.*/g;
-        // 新增：匹配“（YYYY.MM.DD回顾：”格式
-        const reviewDateRegex = /^（\d{4}\.\d{2}\.\d{2}回顾：/.test(line.trim());
+        // 匹配“未来回顾”引用行：可选“（”、日期分隔符可为 . / -、月日 1-2 位、无需冒号（与 diary_tree 的 REVIEW_REF_RE 对齐）
+        const reviewDateRegex = /^\s*（?\s*\d{4}[.\/\-]\d{1,2}[.\/\-]\d{1,2}\s*回顾/;
         // 将 YYYY/MM/DD 格式的日期转换为 YYYY-MM-DD
         formattedLines = formattedLines.replace(/(\d{4})\/(\d{1,2})\/(\d{1,2})/g, '$1-$2-$3');
         // 替换日期时间用户ID行，只保留日期部分
