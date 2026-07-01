@@ -175,7 +175,7 @@ title: "日记时间轴"
         #info-popup .popup-preview .leisure-highlight { color: #d35f05; font-weight: 600; }
         #info-popup .popup-preview .dream-highlight   { color: #8A2BE2; font-weight: 600; }
         #info-popup .popup-preview .video-highlight   { color: #0056b3; font-weight: 600; }
-        #info-popup .popup-preview .review-highlight  { color: #e67e22; background: rgba(230,126,34,0.10); border-left: 3px solid #e67e22; padding-left: 6px; }
+        #info-popup .popup-preview .review-highlight  { color: #0d9488; background: rgba(13,148,136,0.10); border-left: 3px solid #0d9488; padding-left: 6px; }
         #info-popup .popup-preview .date-highlight    { color: var(--accent); font-weight: 700; }
         #info-popup .popup-preview p { margin: 0 0 6px; }
         #info-popup .popup-preview .popup-sep { display: block; color: var(--muted); font-size: 0.75rem; text-align: center; margin: 6px 0; opacity: 0.6; }
@@ -330,7 +330,7 @@ title: "日记时间轴"
     <span><span class="dot" style="background:#d35f05;"></span> 闲情逸致</span>
     <span><span class="dot" style="background:#8A2BE2;"></span> 梦幻空花</span>
     <span><span class="dot" style="background:#0056b3;"></span> 做视频想法</span>
-    <span><span class="dot" style="background:#e67e22;"></span> 未来回顾</span>
+    <span><span class="dot" style="background:#0d9488;"></span> 未来回顾</span>
 </div>
 <div id="zoom-panel" aria-label="缩放控制">
     <button id="zoomOut" type="button" title="缩小">−</button>
@@ -763,7 +763,7 @@ function categoryColor(cat, alpha = 1) {
         leisure: `rgba(211,95,5,${alpha})`,
         dream: `rgba(138,43,226,${alpha})`,
         video: `rgba(0,86,179,${alpha})`,
-        review: `rgba(230,126,34,${alpha})`,
+        review: `rgba(13,148,136,${alpha})`,
         normal: `rgba(74,144,226,${alpha})`
     };
     return colors[cat] || colors.normal;
