@@ -92,8 +92,13 @@ title: 动画追踪
             border-radius: 3px;
         }
 
-        .btn {
+        .actions {
             margin-left: auto;
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn {
             padding: 7px 12px;
             background: var(--bg-elev);
             border: 1px solid var(--border);
@@ -108,6 +113,11 @@ title: 动画追踪
         .btn:hover {
             color: var(--text);
             border-color: var(--text-muted);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: default;
         }
 
         .rank-banner {
@@ -251,7 +261,10 @@ title: 动画追踪
                 <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
                 <span><b id="progressPercent">0</b>%</span>
             </div>
-            <button class="btn" id="resetBtn" title="清除所有已选">重置</button>
+            <div class="actions">
+                <button class="btn" id="exportBtn" title="导出为图片分享">导出图片</button>
+                <button class="btn" id="resetBtn" title="清除所有已选">重置</button>
+            </div>
         </div>
         <div class="rank-banner">
             <div class="rank-title" id="rankTitle">「虚无的观测者」</div>
@@ -431,6 +444,240 @@ title: 动画追踪
                 updateYearCount(row, animeData[row.dataset.year]);
             });
             updateStats();
+        });
+
+        var exportBtn = document.getElementById('exportBtn');
+        var SITE_URL = 'https://crescentvelvet.github.io/anime-tracker/';
+        var qrLibLoaded = false;
+
+        function loadQrLib() {
+            if (qrLibLoaded) return Promise.resolve();
+            return new Promise(function(resolve, reject) {
+                var s = document.createElement('script');
+                s.src = 'https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js';
+                s.onload = function() { qrLibLoaded = true; resolve(); };
+                s.onerror = function() { reject(new Error('二维码库加载失败，请检查网络')); };
+                document.head.appendChild(s);
+            });
+        }
+
+        function roundRect(ctx, x, y, w, h, r) {
+            ctx.beginPath();
+            ctx.moveTo(x + r, y);
+            ctx.lineTo(x + w - r, y);
+            ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+            ctx.lineTo(x + w, y + h - r);
+            ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+            ctx.lineTo(x + r, y + h);
+            ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+            ctx.lineTo(x, y + r);
+            ctx.quadraticCurveTo(x, y, x + r, y);
+            ctx.closePath();
+        }
+
+        function wrapLines(ctx, text, maxWidth) {
+            var lines = [], cur = '';
+            for (var i = 0; i < text.length; i++) {
+                var t = cur + text[i];
+                if (ctx.measureText(t).width > maxWidth && cur) {
+                    lines.push(cur);
+                    cur = text[i];
+                } else {
+                    cur = t;
+                }
+            }
+            if (cur) lines.push(cur);
+            return lines;
+        }
+
+        function drawCellText(ctx, text, x, y, w, h, color, font) {
+            ctx.fillStyle = color;
+            ctx.font = font;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            var maxW = w - 10;
+            var lines = wrapLines(ctx, text, maxW);
+            if (lines.length > 2) {
+                lines = lines.slice(0, 2);
+                var last = lines[1];
+                while (last.length > 0 && ctx.measureText(last + '…').width > maxW) {
+                    last = last.slice(0, -1);
+                }
+                lines[1] = last + '…';
+            }
+            var lh = 14;
+            var sy = y + h / 2 - (lines.length - 1) * lh / 2;
+            for (var i = 0; i < lines.length; i++) {
+                ctx.fillText(lines[i], x + w / 2, sy + i * lh);
+            }
+        }
+
+        function exportImage() {
+            var orig = exportBtn.textContent;
+            exportBtn.textContent = '生成中…';
+            exportBtn.disabled = true;
+
+            loadQrLib().then(function() {
+                var qr = qrcode(0, 'M');
+                qr.addData(SITE_URL);
+                qr.make();
+                var modules = qr.getModuleCount();
+                var qrCell = 5;
+                var qrSize = modules * qrCell;
+
+                var SCALE = 2;
+                var PAD = 28, CELL_W = 132, CELL_H = 46, GAP = 6, COLS = 7;
+                var HEADER_H = 112, FOOTER_H = qrSize + 60, YM = 8;
+
+                var gridW = COLS * CELL_W + (COLS - 1) * GAP;
+                var cw = gridW + PAD * 2;
+                var perY = 2 * CELL_H + GAP;
+                var tableH = years.length * perY + (years.length - 1) * YM;
+                var ch = PAD + HEADER_H + tableH + FOOTER_H + PAD;
+
+                var canvas = document.createElement('canvas');
+                canvas.width = cw * SCALE;
+                canvas.height = ch * SCALE;
+                var ctx = canvas.getContext('2d');
+                ctx.scale(SCALE, SCALE);
+
+                ctx.fillStyle = '#16162a';
+                ctx.fillRect(0, 0, cw, ch);
+
+                var pct = totalCells > 0 ? Math.round(watched.length / totalCells * 100) : 0;
+                var rank = getRank(pct);
+
+                ctx.textBaseline = 'top';
+                ctx.textAlign = 'left';
+                ctx.fillStyle = '#f1c40f';
+                ctx.font = 'bold 40px sans-serif';
+                ctx.fillText('动画世代', PAD, PAD);
+                ctx.fillStyle = '#9090a8';
+                ctx.font = '22px sans-serif';
+                ctx.textAlign = 'right';
+                ctx.fillText('看过 ' + watched.length + ' / ' + totalCells + '  (' + pct + '%)', cw - PAD, PAD + 8);
+                ctx.textAlign = 'left';
+                ctx.fillStyle = rank.color;
+                ctx.font = 'bold 26px sans-serif';
+                ctx.fillText(rank.title, PAD, PAD + 52);
+                ctx.fillStyle = '#9090a8';
+                ctx.font = '16px sans-serif';
+                ctx.fillText(rank.desc, PAD, PAD + 86);
+
+                var gy = PAD + HEADER_H;
+                var cellFont = '12px sans-serif';
+
+                years.forEach(function(year) {
+                    var animes = animeData[year];
+                    var realCount = 0, wcnt = 0;
+                    animes.forEach(function(a) {
+                        if (a === PLACEHOLDER) return;
+                        realCount++;
+                        if (watched.indexOf(a) !== -1) wcnt++;
+                    });
+
+                    var lx = PAD, ly = gy;
+                    ctx.fillStyle = '#6c5ce7';
+                    roundRect(ctx, lx, ly, CELL_W, CELL_H, 6); ctx.fill();
+                    ctx.fillStyle = '#fff';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.font = 'bold 15px sans-serif';
+                    ctx.fillText(year, lx + CELL_W / 2, ly + CELL_H / 2 - 8);
+                    ctx.font = '10px sans-serif';
+                    ctx.globalAlpha = 0.85;
+                    ctx.fillText(wcnt + '/' + realCount, lx + CELL_W / 2, ly + CELL_H / 2 + 9);
+                    ctx.globalAlpha = 1;
+
+                    animes.forEach(function(anime, i) {
+                        var idx = i + 1;
+                        var col = idx % COLS;
+                        var row = Math.floor(idx / COLS);
+                        var cx = PAD + col * (CELL_W + GAP);
+                        var cy = gy + row * (CELL_H + GAP);
+
+                        if (anime === PLACEHOLDER) {
+                            ctx.strokeStyle = '#34344f';
+                            ctx.lineWidth = 1;
+                            ctx.setLineDash([4, 3]);
+                            roundRect(ctx, cx, cy, CELL_W, CELL_H, 6); ctx.stroke();
+                            ctx.setLineDash([]);
+                            drawCellText(ctx, anime, cx, cy, CELL_W, CELL_H, '#606080', cellFont);
+                        } else if (watched.indexOf(anime) !== -1) {
+                            ctx.fillStyle = 'rgba(74,222,128,0.16)';
+                            roundRect(ctx, cx, cy, CELL_W, CELL_H, 6); ctx.fill();
+                            ctx.strokeStyle = '#4ade80';
+                            ctx.lineWidth = 1;
+                            roundRect(ctx, cx, cy, CELL_W, CELL_H, 6); ctx.stroke();
+                            ctx.fillStyle = '#4ade80';
+                            ctx.font = 'bold 12px sans-serif';
+                            ctx.textAlign = 'right';
+                            ctx.textBaseline = 'top';
+                            ctx.fillText('✓', cx + CELL_W - 6, cy + 2);
+                            drawCellText(ctx, anime, cx, cy, CELL_W, CELL_H, '#4ade80', cellFont);
+                        } else {
+                            ctx.fillStyle = '#1f1f38';
+                            roundRect(ctx, cx, cy, CELL_W, CELL_H, 6); ctx.fill();
+                            ctx.strokeStyle = '#34344f';
+                            ctx.lineWidth = 1;
+                            roundRect(ctx, cx, cy, CELL_W, CELL_H, 6); ctx.stroke();
+                            drawCellText(ctx, anime, cx, cy, CELL_W, CELL_H, '#e8e8f0', cellFont);
+                        }
+                    });
+
+                    gy += perY + YM;
+                });
+
+                var fy = PAD + HEADER_H + tableH;
+                var qrX = cw - PAD - qrSize;
+                var qrY = fy + 30;
+                ctx.fillStyle = '#fff';
+                ctx.fillRect(qrX - 10, qrY - 10, qrSize + 20, qrSize + 20);
+                ctx.fillStyle = '#000';
+                for (var r = 0; r < modules; r++) {
+                    for (var c = 0; c < modules; c++) {
+                        if (qr.isDark(r, c)) {
+                            ctx.fillRect(qrX + c * qrCell, qrY + r * qrCell, qrCell, qrCell);
+                        }
+                    }
+                }
+
+                ctx.textBaseline = 'middle';
+                ctx.textAlign = 'left';
+                ctx.fillStyle = '#e8e8f0';
+                ctx.font = '22px sans-serif';
+                ctx.fillText('扫码生成你的动画追番表', PAD, qrY + qrSize / 2 - 14);
+                ctx.fillStyle = '#9090a8';
+                ctx.font = '17px sans-serif';
+                ctx.fillText(SITE_URL, PAD, qrY + qrSize / 2 + 16);
+
+                return new Promise(function(resolve) {
+                    canvas.toBlob(function(blob) {
+                        var link = document.createElement('a');
+                        link.download = 'anime-tracker-' + Date.now() + '.png';
+                        link.href = URL.createObjectURL(blob);
+                        link.click();
+                        URL.revokeObjectURL(link.href);
+                        resolve();
+                    }, 'image/png');
+                });
+            }).catch(function(err) {
+                alert('导出失败：' + (err.message || err));
+            }).then(function() {
+                exportBtn.textContent = orig;
+                exportBtn.disabled = false;
+            });
+        }
+
+        exportBtn.addEventListener('click', exportImage);
+        document.addEventListener('keydown', function(e) {
+            if (e.ctrlKey || e.metaKey || e.altKey) return;
+            var tag = (e.target.tagName || '').toLowerCase();
+            if (tag === 'input' || tag === 'textarea') return;
+            if (e.key && e.key.toLowerCase() === 'e') {
+                e.preventDefault();
+                exportImage();
+            }
         });
 
         updateStats();
