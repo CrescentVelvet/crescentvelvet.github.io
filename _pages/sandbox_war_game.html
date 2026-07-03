@@ -953,6 +953,11 @@ permalink: /sandbox_war_game.html
                 this.strafeDirection = Math.random() > 0.5 ? 1 : -1;
                 this.lastStrafeSwitch = Date.now();
 
+                // 履带车辆（坦克/火炮）：只能沿车体朝向前进/后退，
+                // 改变方向需先原地旋转再行驶；步兵可自由平移
+                this.isTracked = false;
+                this.alignTolerance = 12;
+
                 // ---- 反复移动循环修复：状态滞回与目标稳定 ----
                 // 目标锁定：避免在两个等距敌人间反复切换
                 this.targetLockUntil = 0;
@@ -1384,10 +1389,24 @@ permalink: /sandbox_war_game.html
             // 关键修复：strafe 目标点只在周期到期或目标大幅移动时重算，
             // 不再每帧随单位位置漂移（这是导致永续轨道运动的根因）
             holdAndAttack(target, distance, range) {
+                const now = Date.now();
+
+                // 履带车辆（坦克/火炮）：不可侧向走位，
+                // 进入最佳射程带后立即停车转向敌人开火
+                if (this.isTracked) {
+                    if (this.isMoving) {
+                        this.isMoving = false;
+                        this.path = [];
+                        if (this.element) this.element.classList.remove('moving');
+                    }
+                    this.turnToward(target);
+                    this.tryAttack(target);
+                    return;
+                }
+
+                // 步兵：停下攻击 + 间歇性侧向走位（闪避）
                 this.turnToward(target);
                 this.tryAttack(target);
-
-                const now = Date.now();
 
                 // 若正在执行一次走位机动，让其完成再停下
                 if (this.isMoving && this.path.length === 0) {
@@ -1395,16 +1414,13 @@ permalink: /sandbox_war_game.html
                     const mdx = moveTarget.x - this.x;
                     const mdy = moveTarget.y - this.y;
                     if (Math.sqrt(mdx * mdx + mdy * mdy) > 4) {
-                        // 仍在走向走位点，途中继续攻击
                         this.tryAttack(target);
                         return;
                     }
-                    // 到达走位点 → 停下
                     this.isMoving = false;
                     if (this.element) this.element.classList.remove('moving');
                 }
 
-                // 停留时：每隔一段时间发起一次短促侧向走位（闪避）
                 const strafeInterval = 2200 + Math.random() * 1800;
                 if (now - this.lastStrafeSwitch > strafeInterval) {
                     this.lastStrafeSwitch = now;
@@ -1415,7 +1431,6 @@ permalink: /sandbox_war_game.html
                     const dist = Math.sqrt(dx * dx + dy * dy) || 1;
                     const perpX = -dy / dist;
                     const perpY = dx / dist;
-                    // 走位幅度适中，且带轻微射程修正
                     const rangeCorrection = (dist - range * 0.7) * 0.2;
                     const strafeDist = 32 + Math.random() * 22;
 
@@ -1474,9 +1489,16 @@ permalink: /sandbox_war_game.html
             }
 
             updatePosition(deltaTime, allUnits) {
-                // 1. 视觉朝向：攻击/停留时面朝目标，撤退/后撤时朝移动方向
-                if (this.currentTarget && !this.currentTarget.isDead() &&
-                    (this.state === 'hold' || this.state === 'skirmish')) {
+                // 1. 视觉朝向
+                // 履带车辆移动时必须朝移动方向（否则无法行驶），
+                // 停下时才转向敌人开火
+                if (this.isTracked && this.isMoving) {
+                    const moveTarget = this.getMoveTarget();
+                    this.setDesiredAngle(this.angleToPoint(moveTarget.x, moveTarget.y));
+                } else if (this.currentTarget && !this.currentTarget.isDead() &&
+                    (this.state === 'hold' || this.state === 'skirmish' ||
+                     this.state === 'firing' || this.state === 'deploying' ||
+                     this.state === 'standby')) {
                     this.setDesiredAngle(this.getAngleTo(this.currentTarget));
                 } else if (this.isMoving) {
                     const moveTarget = this.getMoveTarget();
@@ -1519,6 +1541,56 @@ permalink: /sandbox_war_game.html
                     return;
                 }
 
+                // 履带车辆（坦克/火炮）：只能沿车体朝向前进或后退，
+                // 侧向偏移过大时先原地旋转对准再行驶
+                if (this.isTracked) {
+                    const moveAngle = this.angleToPoint(moveTarget.x, moveTarget.y);
+                    const angleDelta = this.shortestAngleDelta(this.angle, moveAngle);
+
+                    if (Math.abs(angleDelta) > this.alignTolerance) {
+                        // 未对准：原地旋转，不产生位移（updateRotation 负责转向）
+                        this.stuckTime = 0;
+                        return;
+                    }
+
+                    // 已对准：沿车体前方轴线行驶
+                    const forward = this.forwardVector();
+                    const dirX = dx / distance;
+                    const dirY = dy / distance;
+                    const dot = forward.x * dirX + forward.y * dirY;
+                    const reverseFactor = dot >= 0 ? 1 : 0.5;
+                    const moveSpeed = this.maxSpeed * reverseFactor * deltaTime;
+                    const stepX = forward.x * moveSpeed * Math.sign(dot || 1);
+                    const stepY = forward.y * moveSpeed * Math.sign(dot || 1);
+                    const nextX = this.x + stepX;
+                    const nextY = this.y + stepY;
+
+                    if (!this.checkCollision(nextX, nextY, allUnits)) {
+                        this.x = nextX;
+                        this.y = nextY;
+                        this.stuckTime = 0;
+                    } else {
+                        // 前方受阻：履带车不可侧滑，原地等待重寻路
+                        this.stuckTime += deltaTime;
+                        if (this.stuckTime > 0.5) {
+                            const escAngle = Math.random() * Math.PI * 2;
+                            const esc = 14 + Math.random() * 16;
+                            const nx = this.x + Math.cos(escAngle) * esc * deltaTime * 10;
+                            const ny = this.y + Math.sin(escAngle) * esc * deltaTime * 10;
+                            if (!this.checkCollision(nx, ny, allUnits)) {
+                                this.x = nx;
+                                this.y = ny;
+                            }
+                            if (this.stuckTime > 1.0) {
+                                this.updatePathToTarget(true);
+                                this.stuckTime = 0;
+                            }
+                        }
+                    }
+                    return;
+                }
+
+                // 自由平移（步兵等）：直接朝目标移动 + 碰撞滑行
                 const moveSpeed = this.maxSpeed * deltaTime;
                 const nextX = this.x + (dx / distance) * moveSpeed;
                 const nextY = this.y + (dy / distance) * moveSpeed;
@@ -1534,8 +1606,6 @@ permalink: /sandbox_war_game.html
                     this.y = nextY;
                     this.stuckTime = 0;
                 } else {
-                    // 三轴全堵：不再每帧强制重寻路（会导致反复寻路循环）
-                    // 改为累计卡死时间，超过阈值才重寻路，并加随机扰动脱离死锁
                     this.stuckTime += deltaTime;
                     if (this.stuckTime > 0.5) {
                         const angle = Math.random() * Math.PI * 2;
@@ -1627,9 +1697,10 @@ permalink: /sandbox_war_game.html
                 this.attackRange = 230;
                 this.attackPower = 30;
                 this.maxSpeed = 28;
-                this.maxTurnSpeed = 95; // 坦克车体转向(仅视觉)
-                this.attackCooldown = 2000; // 2秒攻击冷却
-                this.moveCooldown = 500; // 0.5秒移动冷却
+                this.maxTurnSpeed = 95;
+                this.attackCooldown = 2000;
+                this.moveCooldown = 500;
+                this.isTracked = true;
             }
 
             getAttackDamage() {
@@ -1640,7 +1711,7 @@ permalink: /sandbox_war_game.html
                 this.setDesiredAngle(this.getAngleTo(target));
             }
 
-            // 移动继承基类 — 方向无关自由平移
+            // 移动继承基类 — isTracked=true，先转后驶
 
         }
 
@@ -1673,6 +1744,7 @@ permalink: /sandbox_war_game.html
                 this.maxTurnSpeed = 70;
                 this.attackCooldown = 3000;
                 this.moveCooldown = 600;
+                this.isTracked = true;
                 this.deployed = false;
                 this.deploying = false;
                 this.deployStartTime = 0;
