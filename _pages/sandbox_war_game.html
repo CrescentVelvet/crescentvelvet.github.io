@@ -952,6 +952,15 @@ permalink: /sandbox_war_game.html
                 this.maxSpeed = 22; // 像素/秒
                 this.strafeDirection = Math.random() > 0.5 ? 1 : -1;
                 this.lastStrafeSwitch = Date.now();
+
+                // ---- 反复移动循环修复：状态滞回与目标稳定 ----
+                // 目标锁定：避免在两个等距敌人间反复切换
+                this.targetLockUntil = 0;
+                // 卡死检测：三轴全堵时累计时间，超阈值才重寻路
+                this.stuckTime = 0;
+                // 稳定的撤退锚点（仅在目标大幅移动时重算）
+                this.strafeAnchorX = NaN;
+                this.strafeAnchorY = NaN;
             }
 
             // 模板方法
@@ -1145,23 +1154,46 @@ permalink: /sandbox_war_game.html
                 if (this.isDead()) return;
 
                 const nearestEnemy = this.acquireTarget(allUnits);
-                
+
                 if (nearestEnemy) {
                     const distance = this.getDistance(nearestEnemy);
+                    const range = this.attackRange;
 
-                    if (this.health < this.maxHealth * 0.3 && distance < this.attackRange * 1.1) {
-                        this.state = 'retreat';
-                        this.moveAwayFrom(nearestEnemy, 160);
-                    } else if (distance > this.attackRange * 0.9) {
-                        this.state = 'chase';
-                        this.moveTowards(nearestEnemy);
-                    } else if (distance < this.attackRange * 0.45) {
-                        this.state = 'backoff';
-                        this.moveAwayFrom(nearestEnemy, 110);
+                    // 滞回带（hysteresis）：根据当前状态使用不同阈值，杜绝边界反复跳变
+                    // chase → skirmish 的退出阈值要小于 skirmish → chase 的进入阈值
+                    // backoff → skirmish 的退出阈值要大于 skirmish → backoff 的进入阈值
+                    let chaseLine, backoffLine;
+                    if (this.state === 'chase') {
+                        chaseLine = range * 0.82;   // 追击中：进入更近才停下，防止 chase↔skirmish 抖动
+                        backoffLine = range * 0.40;
+                    } else if (this.state === 'backoff') {
+                        chaseLine = range * 0.96;
+                        backoffLine = range * 0.60; // 后撤中：拉远到更安全距离才停
                     } else {
-                        this.state = 'skirmish';
-                        this.strafeAround(nearestEnemy);
-                        this.tryAttack(nearestEnemy);
+                        chaseLine = range * 0.96;   // 默认/停留中：敌人远到这个线才追
+                        backoffLine = range * 0.40; // 敌人近到这个线才后撤
+                    }
+
+                    const lowHealth = this.health < this.maxHealth * 0.28;
+
+                    if (lowHealth && distance < range * 1.25) {
+                        // 撤退：低血量优先远离
+                        this.state = 'retreat';
+                        this.retreatFrom(nearestEnemy);
+                    } else if (distance > chaseLine) {
+                        if (this.state !== 'chase') {
+                            this.state = 'chase';
+                        }
+                        this.moveTowards(nearestEnemy);
+                    } else if (distance < backoffLine) {
+                        if (this.state !== 'backoff') {
+                            this.state = 'backoff';
+                        }
+                        this.moveAwayFrom(nearestEnemy, 90);
+                    } else {
+                        // 最佳射程带：停下攻击，间歇性机动走位
+                        this.state = 'hold';
+                        this.holdAndAttack(nearestEnemy, distance, range);
                     }
                 } else {
                     this.state = 'patrol';
@@ -1191,17 +1223,27 @@ permalink: /sandbox_war_game.html
             }
 
             acquireTarget(allUnits) {
+                const now = Date.now();
                 if (
                     this.currentTarget &&
                     !this.currentTarget.isDead() &&
                     this.currentTarget.team !== this.team &&
                     allUnits.includes(this.currentTarget) &&
-                    this.getDistance(this.currentTarget) < this.attackRange * 1.8
+                    this.getDistance(this.currentTarget) < this.attackRange * 1.8 &&
+                    now < this.targetLockUntil
                 ) {
                     return this.currentTarget;
                 }
 
-                this.currentTarget = this.findNearestEnemy(allUnits);
+                const newTarget = this.findNearestEnemy(allUnits);
+                if (newTarget && newTarget !== this.currentTarget) {
+                    // 目标切换：锁定较长时间，避免在等距敌人间反复翻转
+                    this.targetLockUntil = now + 700;
+                } else if (newTarget) {
+                    // 同一目标续锁：允许周期性重评估但不逐帧切换
+                    this.targetLockUntil = now + 350;
+                }
+                this.currentTarget = newTarget;
                 return this.currentTarget;
             }
 
@@ -1303,13 +1345,19 @@ permalink: /sandbox_war_game.html
                 const dist = Math.sqrt(dx * dx + dy * dy);
 
                 if (dist > 0) {
-                    const stopDist = this.attackRange * 0.72;
+                    // 停距与 hold 状态进入阈值对齐：停在 chaseLine 内侧，
+                    // 使单位进入 hold 而非在 chase↔hold 边界反复横跳
+                    const stopDist = this.attackRange * 0.88;
                     const ratio = Math.max(0, dist - stopDist) / dist;
-                    
+
                     this.targetX = myCenterX + dx * ratio - this.getSize() / 2;
                     this.targetY = myCenterY + dy * ratio - this.getSize() / 2;
                     this.setDesiredAngle(Math.atan2(dy, dx) * 180 / Math.PI + 90);
-                    this.clampTarget();
+                    // 仅在目标有实际变化时才走 clampTarget，减少每帧无谓寻路
+                    if (Math.abs(this.targetX - this.pathTargetX) > 6 ||
+                        Math.abs(this.targetY - this.pathTargetY) > 6 || !this.isMoving) {
+                        this.clampTarget();
+                    }
                 }
             }
 
@@ -1321,27 +1369,90 @@ permalink: /sandbox_war_game.html
                 this.targetX = this.x + (dx / dist) * distance;
                 this.targetY = this.y + (dy / dist) * distance;
                 this.setDesiredAngle(Math.atan2(-dy, -dx) * 180 / Math.PI + 90);
-                this.clampTarget();
+                if (Math.abs(this.targetX - this.pathTargetX) > 6 ||
+                    Math.abs(this.targetY - this.pathTargetY) > 6 || !this.isMoving) {
+                    this.clampTarget();
+                }
             }
 
             strafeAround(target) {
+                // 保留接口兼容，实际逻辑由 holdAndAttack 接管
+                this.holdAndAttack(target, this.getDistance(target), this.attackRange);
+            }
+
+            // 最佳射程带内的行为：停下攻击 + 间歇性短促走位
+            // 关键修复：strafe 目标点只在周期到期或目标大幅移动时重算，
+            // 不再每帧随单位位置漂移（这是导致永续轨道运动的根因）
+            holdAndAttack(target, distance, range) {
+                this.turnToward(target);
+                this.tryAttack(target);
+
                 const now = Date.now();
-                if (now - this.lastStrafeSwitch > 1800 + Math.random() * 900) {
-                    this.strafeDirection *= -1;
-                    this.lastStrafeSwitch = now;
+
+                // 若正在执行一次走位机动，让其完成再停下
+                if (this.isMoving && this.path.length === 0) {
+                    const moveTarget = this.getMoveTarget();
+                    const mdx = moveTarget.x - this.x;
+                    const mdy = moveTarget.y - this.y;
+                    if (Math.sqrt(mdx * mdx + mdy * mdy) > 4) {
+                        // 仍在走向走位点，途中继续攻击
+                        this.tryAttack(target);
+                        return;
+                    }
+                    // 到达走位点 → 停下
+                    this.isMoving = false;
+                    if (this.element) this.element.classList.remove('moving');
                 }
 
-                const dx = target.x - this.x;
-                const dy = target.y - this.y;
-                const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-                const perpendicularX = -dy / dist;
-                const perpendicularY = dx / dist;
-                const rangeCorrection = (dist - this.attackRange * 0.68) * 0.25;
+                // 停留时：每隔一段时间发起一次短促侧向走位（闪避）
+                const strafeInterval = 2200 + Math.random() * 1800;
+                if (now - this.lastStrafeSwitch > strafeInterval) {
+                    this.lastStrafeSwitch = now;
+                    this.strafeDirection *= -1;
 
-                this.targetX = this.x + perpendicularX * this.strafeDirection * 80 + (dx / dist) * rangeCorrection;
-                this.targetY = this.y + perpendicularY * this.strafeDirection * 80 + (dy / dist) * rangeCorrection;
-                this.turnToward(target);
-                this.clampTarget();
+                    const dx = target.x - this.x;
+                    const dy = target.y - this.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+                    const perpX = -dy / dist;
+                    const perpY = dx / dist;
+                    // 走位幅度适中，且带轻微射程修正
+                    const rangeCorrection = (dist - range * 0.7) * 0.2;
+                    const strafeDist = 32 + Math.random() * 22;
+
+                    const bf = document.getElementById('battlefield');
+                    const maxX = bf.offsetWidth - this.getSize();
+                    const maxY = bf.offsetHeight - this.getSize();
+                    this.targetX = Math.max(0, Math.min(maxX,
+                        this.x + perpX * this.strafeDirection * strafeDist + (dx / dist) * rangeCorrection));
+                    this.targetY = Math.max(0, Math.min(maxY,
+                        this.y + perpY * this.strafeDirection * strafeDist + (dy / dist) * rangeCorrection));
+                    this.path = [];
+                    this.isMoving = true;
+                }
+            }
+
+            // 撤退：选定一个稳定的远离方向目标，避免每帧随相对位置漂移
+            retreatFrom(target) {
+                // 锚点失效条件：目标大幅移动、或锚点尚未设定
+                const anchorStale = isNaN(this.strafeAnchorX) ||
+                    Math.abs(target.x - this.strafeAnchorX) > 60 ||
+                    Math.abs(target.y - this.strafeAnchorY) > 60;
+
+                if (anchorStale || !this.isMoving) {
+                    const dx = this.x - target.x;
+                    const dy = this.y - target.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+                    const bf = document.getElementById('battlefield');
+                    const maxX = bf.offsetWidth - this.getSize();
+                    const maxY = bf.offsetHeight - this.getSize();
+                    // 撤退到尽可能远的位置
+                    this.targetX = Math.max(0, Math.min(maxX, this.x + (dx / dist) * 220));
+                    this.targetY = Math.max(0, Math.min(maxY, this.y + (dy / dist) * 220));
+                    this.strafeAnchorX = target.x;
+                    this.strafeAnchorY = target.y;
+                    this.setDesiredAngle(Math.atan2(-dy, -dx) * 180 / Math.PI + 90);
+                    this.clampTarget();
+                }
             }
 
             randomMove(deltaTime) {
@@ -1363,8 +1474,9 @@ permalink: /sandbox_war_game.html
             }
 
             updatePosition(deltaTime, allUnits) {
-                // 1. 视觉朝向：攻击时面朝目标，移动时面朝方向
-                if (this.currentTarget && !this.currentTarget.isDead() && this.state !== 'retreat' && this.state !== 'backoff') {
+                // 1. 视觉朝向：攻击/停留时面朝目标，撤退/后撤时朝移动方向
+                if (this.currentTarget && !this.currentTarget.isDead() &&
+                    (this.state === 'hold' || this.state === 'skirmish')) {
                     this.setDesiredAngle(this.getAngleTo(this.currentTarget));
                 } else if (this.isMoving) {
                     const moveTarget = this.getMoveTarget();
@@ -1403,6 +1515,7 @@ permalink: /sandbox_war_game.html
                         this.isMoving = false;
                     }
                     if (this.element) this.element.classList.remove('moving');
+                    this.stuckTime = 0;
                     return;
                 }
 
@@ -1413,12 +1526,31 @@ permalink: /sandbox_war_game.html
                 if (!this.checkCollision(nextX, nextY, allUnits)) {
                     this.x = nextX;
                     this.y = nextY;
+                    this.stuckTime = 0;
                 } else if (!this.checkCollision(nextX, this.y, allUnits)) {
                     this.x = nextX;
+                    this.stuckTime = 0;
                 } else if (!this.checkCollision(this.x, nextY, allUnits)) {
                     this.y = nextY;
+                    this.stuckTime = 0;
                 } else {
-                    this.updatePathToTarget(true);
+                    // 三轴全堵：不再每帧强制重寻路（会导致反复寻路循环）
+                    // 改为累计卡死时间，超过阈值才重寻路，并加随机扰动脱离死锁
+                    this.stuckTime += deltaTime;
+                    if (this.stuckTime > 0.5) {
+                        const angle = Math.random() * Math.PI * 2;
+                        const escape = 14 + Math.random() * 16;
+                        const nx = this.x + Math.cos(angle) * escape * deltaTime * 10;
+                        const ny = this.y + Math.sin(angle) * escape * deltaTime * 10;
+                        if (!this.checkCollision(nx, ny, allUnits)) {
+                            this.x = nx;
+                            this.y = ny;
+                        }
+                        if (this.stuckTime > 1.0) {
+                            this.updatePathToTarget(true);
+                            this.stuckTime = 0;
+                        }
+                    }
                 }
             }
 
@@ -1571,6 +1703,8 @@ permalink: /sandbox_war_game.html
 
                 if (nearestEnemy) {
                     const distance = this.getDistance(nearestEnemy);
+                    const minR = this.minRange;
+                    const maxR = this.attackRange;
 
                     if (this.deploying) {
                         const elapsed = Date.now() - this.deployStartTime;
@@ -1578,41 +1712,48 @@ permalink: /sandbox_war_game.html
                             this.deployed = true;
                             this.deploying = false;
                             this.state = 'firing';
-                        } else if (this.isMoving || distance < this.minRange * 1.3) {
+                        } else if (this.isMoving || distance < minR * 1.1) {
+                            // 部署中被打断：仅当真正开始移动或敌人极其靠近才取消
                             this.deploying = false;
                             this.state = 'fallback';
-                            if (distance < this.minRange * 1.3) this.moveAwayFrom(nearestEnemy, 200);
+                            if (distance < minR * 1.1) this.moveAwayFrom(nearestEnemy, 200);
                         }
                     } else if (this.deployed) {
-                        if (distance < this.minRange * 1.3) {
+                        // 已部署：使用更宽松的滞回带，避免距离小幅波动导致反复收起
+                        if (distance < minR * 1.05) {
                             this.deployed = false;
                             this.state = 'fallback';
                             this.moveAwayFrom(nearestEnemy, 220);
-                        } else if (distance <= this.attackRange && distance >= this.minRange) {
+                        } else if (distance <= maxR && distance >= minR) {
                             this.state = 'firing';
                             this.turnToward(nearestEnemy);
                             if (this.isFacing(nearestEnemy)) this.tryAttack(nearestEnemy);
-                        } else if (distance > this.attackRange) {
+                        } else if (distance > maxR) {
                             this.deployed = false;
                             this.state = 'maneuver';
                             this.moveTowards(nearestEnemy);
                         }
                     } else {
-                        if (distance < this.minRange * 1.6) {
+                        // 未部署：使用与已部署不同的阈值，形成滞回
+                        // 部署要求距离更远离 minRange（留足安全余量），
+                        // 这样已部署时的小幅靠近不会立刻触发收起→重新部署循环
+                        if (distance < minR * 1.7) {
                             this.state = 'fallback';
                             this.moveAwayFrom(nearestEnemy, 220);
-                        } else if (distance >= this.minRange * 1.2 && distance <= this.attackRange * 0.8) {
+                        } else if (distance >= minR * 1.9 && distance <= maxR * 0.85) {
                             this.isMoving = false;
                             this.deploying = true;
                             this.deployStartTime = Date.now();
                             this.state = 'deploying';
                             this.turnToward(nearestEnemy);
-                        } else if (distance > this.attackRange * 0.8) {
+                        } else if (distance > maxR * 0.85) {
                             this.state = 'maneuver';
                             this.moveTowards(nearestEnemy);
                         } else {
-                            this.state = 'maneuver';
-                            this.moveAwayFrom(nearestEnemy, 100);
+                            // minR*1.7 ≤ distance < minR*1.9 滞回盲区：保持原地待命
+                            this.state = 'standby';
+                            this.isMoving = false;
+                            this.turnToward(nearestEnemy);
                         }
                     }
                 } else {
