@@ -344,8 +344,7 @@ permalink: /sandbox_war_game.html
 
         .projectile {
             position: absolute;
-            width: 7px;
-            height: 7px;
+            box-sizing: border-box;
             background: #f7e07b;
             border: 2px solid #fff6bd;
             box-shadow: 0 0 8px #f7e07b;
@@ -1978,10 +1977,24 @@ permalink: /sandbox_war_game.html
                 this.damage = damage;
                 this.speed = source.type === 'tank' ? 520 : (source.type === 'artillery' ? 280 : 340);
                 this.radius = source.type === 'tank' ? 12 : (source.type === 'artillery' ? 10 : 9);
+
+                // 视觉尺寸区分：步兵最小、坦克小、火炮大
+                const specs = {
+                    soldier:   { size: 5,  border: 1, glow: 4  },
+                    tank:      { size: 9,  border: 2, glow: 8  },
+                    artillery: { size: 14, border: 3, glow: 12 }
+                };
+                const spec = specs[source.type] || specs.soldier;
+                this.size = spec.size;
+
                 this.x = source.x + source.getSize() / 2;
                 this.y = source.y + source.getSize() / 2;
                 this.element = document.createElement('div');
                 this.element.className = `projectile ${this.team}`;
+                this.element.style.width = this.size + 'px';
+                this.element.style.height = this.size + 'px';
+                this.element.style.borderWidth = spec.border + 'px';
+                this.element.style.boxShadow = `0 0 ${spec.glow}px #f7e07b`;
                 this.element.style.background = this.team === 'ally' ? '#8fd3ff' : '#ff9a8f';
                 this.element.style.borderColor = this.team === 'ally' ? '#d6f1ff' : '#ffd3cd';
                 this.updateVisual();
@@ -2020,8 +2033,8 @@ permalink: /sandbox_war_game.html
             }
 
             updateVisual() {
-                this.element.style.left = (this.x - 5) + 'px';
-                this.element.style.top = (this.y - 5) + 'px';
+                this.element.style.left = (this.x - this.size / 2) + 'px';
+                this.element.style.top = (this.y - this.size / 2) + 'px';
             }
 
             createImpact(x, y) {
