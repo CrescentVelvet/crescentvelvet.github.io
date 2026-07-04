@@ -1,0 +1,799 @@
+---
+permalink: /handwriting_ocr.html
+layout: null
+title: "手写日志识别"
+---
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>手写日志识别</title>
+    <style>
+        :root {
+            --primary: #4f6df5;
+            --primary-dark: #3b54d8;
+            --primary-light: #eef1ff;
+            --success: #2ec27e;
+            --success-dark: #25a968;
+            --danger: #ef4f6f;
+            --danger-dark: #d63856;
+            --neutral: #6b7280;
+            --neutral-dark: #4b5563;
+            --bg: #f0f2f8;
+            --card: #ffffff;
+            --border: #e5e7eb;
+            --text: #1f2937;
+            --text-muted: #6b7280;
+            --shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+            --radius: 10px;
+            --radius-sm: 6px;
+        }
+        * { box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", Arial, sans-serif;
+            margin: 0;
+            padding: 24px 16px;
+            background: linear-gradient(135deg, #f0f2f8 0%, #e8ebf5 100%);
+            color: var(--text);
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+        }
+        .container {
+            max-width: 920px;
+            margin: 0 auto;
+            background: var(--card);
+            padding: 26px 22px;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            display: flex;
+            flex-direction: column;
+        }
+        h1 {
+            color: var(--primary-dark);
+            text-align: center;
+            margin: 0 0 20px;
+            font-size: 24px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+        .toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        #mode-select {
+            flex: 1;
+            min-width: 200px;
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 14px;
+            background: #fff;
+            cursor: pointer;
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        #mode-select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79,109,245,0.15); }
+        #mode-select:disabled { background: #f3f4f6; cursor: not-allowed; }
+        .icon-btn {
+            background: #fff;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 18px;
+            cursor: pointer;
+            padding: 8px 12px;
+            transition: background 0.2s, border-color 0.2s;
+        }
+        .icon-btn:hover { background: #f3f4f6; border-color: #d1d5db; }
+        .back-button {
+            display: inline-block;
+            padding: 10px 18px;
+            background: var(--primary);
+            color: #fff;
+            border-radius: var(--radius-sm);
+            text-decoration: none;
+            font-size: 14px;
+            white-space: nowrap;
+            transition: background 0.2s;
+        }
+        .back-button:hover { background: var(--primary-dark); }
+
+        .upload-area {
+            border: 2px dashed #c7cdd9;
+            border-radius: var(--radius);
+            padding: 36px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color 0.2s, background 0.2s;
+            background: #fafbfc;
+            margin-bottom: 16px;
+        }
+        .upload-area:hover, .upload-area.dragover {
+            border-color: var(--primary);
+            background: var(--primary-light);
+        }
+        .upload-area p { margin: 4px 0; color: var(--text-muted); }
+        .upload-area .main { font-size: 16px; color: var(--text); font-weight: 500; }
+        .upload-area .hint { font-size: 12px; }
+
+        .thumb-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        .thumb {
+            position: relative;
+            width: 96px;
+            height: 96px;
+            border-radius: var(--radius-sm);
+            overflow: hidden;
+            border: 1px solid var(--border);
+            background: #fafbfc;
+            flex-shrink: 0;
+        }
+        .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .thumb .remove {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: rgba(0,0,0,0.55);
+            color: #fff;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            line-height: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+        .thumb .remove:hover { background: var(--danger); }
+        .thumb .order {
+            position: absolute;
+            bottom: 2px;
+            left: 2px;
+            background: rgba(0,0,0,0.55);
+            color: #fff;
+            font-size: 11px;
+            padding: 1px 6px;
+            border-radius: 4px;
+        }
+
+        .buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 8px 0 16px;
+        }
+        button {
+            background: var(--primary);
+            color: #fff;
+            padding: 11px 18px;
+            border: none;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            font-size: 14px;
+            font-family: inherit;
+            flex-grow: 1;
+            min-width: 120px;
+            transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
+            box-shadow: 0 2px 6px rgba(79, 109, 245, 0.2);
+        }
+        button:hover { background: var(--primary-dark); box-shadow: 0 4px 12px rgba(79, 109, 245, 0.3); }
+        button:active { transform: translateY(1px); }
+        button:disabled { background: #b0b0b0; cursor: not-allowed; box-shadow: none; transform: none; }
+        .step-button { background: var(--success); box-shadow: 0 2px 6px rgba(46, 194, 126, 0.2); }
+        .step-button:hover { background: var(--success-dark); box-shadow: 0 4px 12px rgba(46, 194, 126, 0.3); }
+        .reset-button { background: var(--danger); box-shadow: 0 2px 6px rgba(239, 79, 111, 0.2); }
+        .reset-button:hover { background: var(--danger-dark); box-shadow: 0 4px 12px rgba(239, 79, 111, 0.3); }
+        .copy-button { background: var(--neutral); box-shadow: 0 2px 6px rgba(107, 114, 128, 0.2); }
+        .copy-button:hover { background: var(--neutral-dark); box-shadow: 0 4px 12px rgba(107, 114, 128, 0.3); }
+
+        .status {
+            margin: 0 0 16px;
+            padding: 11px;
+            border-radius: var(--radius-sm);
+            background: #f3f4f6;
+            text-align: center;
+            font-size: 14px;
+            transition: all 0.2s;
+            min-height: 20px;
+        }
+        .status.success { color: var(--success-dark); background: #ecfdf5; }
+        .status.error { color: var(--danger-dark); background: #fef2f4; }
+        .status.loading { color: var(--primary-dark); background: var(--primary-light); }
+
+        .output-section { margin-bottom: 16px; }
+        .output-section h2 {
+            color: var(--primary-dark);
+            margin: 0 0 10px;
+            font-size: 15px;
+            font-weight: 600;
+        }
+        textarea {
+            width: 100%;
+            height: 340px;
+            padding: 14px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 14px;
+            font-family: inherit;
+            resize: vertical;
+            background: #fafbfc;
+            transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+            line-height: 1.7;
+        }
+        textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            background: #fff;
+            box-shadow: 0 0 0 3px rgba(79, 109, 245, 0.15);
+        }
+
+        .info-box {
+            background: var(--primary-light);
+            border: 1px solid #c7d2fe;
+            border-left: 4px solid var(--primary);
+            border-radius: var(--radius-sm);
+            padding: 16px 18px;
+            font-size: 13px;
+            line-height: 1.8;
+        }
+        .info-title {
+            font-weight: 700;
+            margin-bottom: 8px;
+            color: var(--primary-dark);
+            font-size: 14px;
+        }
+        .info-feature { margin-bottom: 2px; }
+        .info-warn {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px dashed #c7d2fe;
+            color: #92400e;
+        }
+
+        /* API Key 对话框 */
+        .dialog-overlay {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.4);
+            z-index: 1000;
+            animation: fadeIn 0.2s ease;
+        }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .dialog-box {
+            background: #fff;
+            border-radius: 16px;
+            padding: 26px;
+            max-width: 440px;
+            width: 90%;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+        }
+        .dialog-box h3 { margin: 0 0 6px; font-size: 17px; }
+        .dialog-box .sub { font-size: 12px; color: #999; margin-bottom: 14px; }
+        .apikey-field label {
+            display: block;
+            font-size: 13px;
+            font-weight: 500;
+            margin-bottom: 4px;
+            color: #555;
+        }
+        .apikey-field input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 13px;
+            outline: none;
+            font-family: monospace;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .apikey-field input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79,109,245,0.15); }
+        .apikey-link { font-size: 12px; color: var(--primary); text-decoration: none; }
+        .apikey-link:hover { text-decoration: underline; }
+        .dialog-buttons {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+            margin-top: 18px;
+        }
+        .dialog-buttons button {
+            padding: 10px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background 0.2s;
+            flex-grow: 0;
+            min-width: 0;
+            box-shadow: none;
+        }
+        #apikey-save { background: var(--primary); color: #fff; }
+        #apikey-save:hover { background: var(--primary-dark); }
+        #apikey-cancel { background: #e0e0e0; color: #333; }
+        #apikey-cancel:hover { background: #d0d0d0; }
+
+        /* Loading 点动画 */
+        .dots { display: inline-flex; gap: 4px; vertical-align: middle; margin-left: 6px; }
+        .dots span {
+            width: 6px; height: 6px; border-radius: 50%; background: var(--primary);
+            animation: bounce 1.4s ease-in-out infinite both;
+        }
+        .dots span:nth-child(1) { animation-delay: -0.32s; }
+        .dots span:nth-child(2) { animation-delay: -0.16s; }
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0); opacity: 0.4; }
+            40% { transform: scale(1); opacity: 1; }
+        }
+
+        @media (max-width: 600px) {
+            body { padding: 12px 8px; }
+            .container { padding: 18px 14px; }
+            h1 { font-size: 20px; }
+            .toolbar { flex-wrap: wrap; }
+            #mode-select { min-width: 100%; }
+            .upload-area { padding: 24px 14px; }
+            textarea { height: 260px; }
+            button { padding: 10px 14px; font-size: 13px; }
+            .thumb { width: 72px; height: 72px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>手写日志识别</h1>
+
+        <div class="toolbar">
+            <select id="mode-select" title="选择识别引擎">
+                <option value="ocr-handwrite">OCR 精准模式（手写体 · 约0.01元/页）</option>
+                <option value="glm-4v-flash">GLM-4V-Flash（免费视觉）</option>
+                <option value="glm-4.6v-flash">GLM-4.6V-Flash（免费视觉 · 新版）</option>
+            </select>
+            <button id="apikey-btn" class="icon-btn" title="API Key 设置">🔑</button>
+            <a href="/" class="back-button">返回首页</a>
+        </div>
+
+        <div class="upload-area" id="upload-area">
+            <input type="file" id="file-input" accept="image/*" capture="environment" multiple style="display:none">
+            <p class="main">点击或拖拽上传手写日志照片</p>
+            <p>支持一次上传多张（跨页日志）</p>
+            <p class="hint">手机端可直接调用后置摄像头扫描 · 建议黑墨深色字、浅色背景、清晰无反光</p>
+        </div>
+
+        <div class="thumb-list" id="thumb-list"></div>
+
+        <div class="buttons">
+            <button id="recognize-btn" class="step-button">开始识别</button>
+            <button id="clear-btn" class="reset-button">清空</button>
+        </div>
+
+        <div id="status" class="status"></div>
+
+        <div class="output-section">
+            <h2>识别结果（可编辑校对）</h2>
+            <textarea id="output-text" placeholder="识别后的文字将显示在这里，可手动修正..."></textarea>
+        </div>
+
+        <div class="buttons">
+            <button id="copy-btn" class="copy-button">复制结果</button>
+            <button id="to-processor-btn" class="copy-button">发送到文本处理工具</button>
+        </div>
+
+        <div class="info-box">
+            <div class="info-title">使用说明</div>
+            <div class="info-feature">1. 点击 🔑 填入智谱 API Key（在 <a class="apikey-link" href="https://bigmodel.cn/usercenter/proj-mgmt/apikeys" target="_blank" rel="noopener">bigmodel.cn</a> 创建，新用户有赠送额度）</div>
+            <div class="info-feature">2. 添加一张或多张手写日志照片，点"开始识别"</div>
+            <div class="info-feature">3. <strong>OCR 精准模式</strong>：专攻手写体，逐字纯转录，按上传顺序拼接，最准</div>
+            <div class="info-feature">4. <strong>GLM-4V-Flash</strong>：免费视觉模型，流式输出，多图一次识别</div>
+            <div class="info-feature">5. 结果可编辑，校对后可"复制"或"发送到文本处理工具"继续格式化/加密</div>
+            <div class="info-warn">⚠ 隐私提示：图片会上传至智谱服务器进行识别；API Key 仅保存在本地浏览器 localStorage。</div>
+        </div>
+    </div>
+
+    <!-- API Key 对话框 -->
+    <div id="apikey-dialog" class="dialog-overlay" style="display:none;">
+        <div class="dialog-box">
+            <h3>智谱 API Key 设置</h3>
+            <p class="sub">密钥仅保存在本地浏览器中</p>
+            <div class="apikey-field">
+                <label>智谱 BigModel Key:</label>
+                <input type="password" id="apikey-input" placeholder="your-zhipuai-api-key">
+                <p class="sub" style="margin-top:6px;">获取：<a class="apikey-link" href="https://bigmodel.cn/usercenter/proj-mgmt/apikeys" target="_blank" rel="noopener">bigmodel.cn/usercenter/proj-mgmt/apikeys</a></p>
+            </div>
+            <div class="dialog-buttons">
+                <button id="apikey-cancel">取消</button>
+                <button id="apikey-save">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    (function () {
+        // ============ 配置 ============
+        const ZHIPU_BASE = 'https://open.bigmodel.cn/api/paas/v4/';
+        const LS_KEY = 'apiKeys';          // 与 chat_bot 共用同一 localStorage 键
+        const LS_SUB = 'zhipu';            // 子字段：{ apiKeys: { zhipu: { key: '...' } } }
+        const LS_MODE = 'handwritingMode'; // 记住上次选择
+
+        const FLASH_PROMPT = [
+            '逐字转录图片中手写中文日志的原文。要求：',
+            '- 严格按原文逐字转录，保留原始换行与标点',
+            '- 不要改写、润色、翻译，不要添加任何前缀/标题/注释',
+            '- 多张图片按顺序依次转录，图片之间用空行分隔',
+            '- 无法辨认的字用 ? 占位',
+            '- 只输出转录的纯文本，不要任何解释或多余内容'
+        ].join('\n');
+
+        // ============ DOM ============
+        const els = {
+            modeSelect: document.getElementById('mode-select'),
+            apikeyBtn: document.getElementById('apikey-btn'),
+            uploadArea: document.getElementById('upload-area'),
+            fileInput: document.getElementById('file-input'),
+            thumbList: document.getElementById('thumb-list'),
+            recognizeBtn: document.getElementById('recognize-btn'),
+            clearBtn: document.getElementById('clear-btn'),
+            status: document.getElementById('status'),
+            output: document.getElementById('output-text'),
+            copyBtn: document.getElementById('copy-btn'),
+            toProcessorBtn: document.getElementById('to-processor-btn'),
+            apikeyDialog: document.getElementById('apikey-dialog'),
+            apikeyInput: document.getElementById('apikey-input'),
+            apikeySave: document.getElementById('apikey-save'),
+            apikeyCancel: document.getElementById('apikey-cancel')
+        };
+
+        // ============ 状态 ============
+        // 每项: { blob, dataUrl, name }
+        let images = [];
+        let busy = false;
+
+        // 恢复上次模式
+        const savedMode = localStorage.getItem(LS_MODE);
+        if (savedMode) els.modeSelect.value = savedMode;
+        els.modeSelect.addEventListener('change', () => {
+            localStorage.setItem(LS_MODE, els.modeSelect.value);
+        });
+
+        // ============ API Key ============
+        function getKey() {
+            try {
+                const saved = JSON.parse(localStorage.getItem(LS_KEY) || '{}');
+                return (saved[LS_SUB] && saved[LS_SUB].key) || '';
+            } catch (e) { return ''; }
+        }
+        function setKey(key) {
+            let saved = {};
+            try { saved = JSON.parse(localStorage.getItem(LS_KEY) || '{}'); } catch (e) {}
+            saved[LS_SUB] = { key: key };
+            localStorage.setItem(LS_KEY, JSON.stringify(saved));
+        }
+        function openApikeyDialog() {
+            els.apikeyInput.value = getKey();
+            els.apikeyDialog.style.display = 'flex';
+            setTimeout(() => els.apikeyInput.focus(), 50);
+        }
+        els.apikeyBtn.addEventListener('click', openApikeyDialog);
+        els.apikeySave.addEventListener('click', () => {
+            setKey(els.apikeyInput.value.trim());
+            els.apikeyDialog.style.display = 'none';
+            showStatus('API Key 已保存', 'success');
+        });
+        els.apikeyCancel.addEventListener('click', () => { els.apikeyDialog.style.display = 'none'; });
+        els.apikeyDialog.addEventListener('click', (e) => {
+            if (e.target === els.apikeyDialog) els.apikeyDialog.style.display = 'none';
+        });
+
+        // ============ 状态显示 ============
+        function showStatus(msg, type) {
+            els.status.textContent = msg;
+            els.status.className = 'status' + (type ? ' ' + type : '');
+        }
+        function showLoading(msg) {
+            els.status.innerHTML = msg + '<span class="dots"><span></span><span></span><span></span></span>';
+            els.status.className = 'status loading';
+        }
+
+        // ============ 图片上传 ============
+        els.uploadArea.addEventListener('click', () => els.fileInput.click());
+        els.fileInput.addEventListener('change', () => {
+            addFiles(els.fileInput.files);
+            els.fileInput.value = ''; // 允许重复选同一文件
+        });
+
+        // 拖拽
+        ['dragenter', 'dragover'].forEach(ev => {
+            els.uploadArea.addEventListener(ev, (e) => {
+                e.preventDefault();
+                els.uploadArea.classList.add('dragover');
+            });
+        });
+        ['dragleave', 'drop'].forEach(ev => {
+            els.uploadArea.addEventListener(ev, (e) => {
+                e.preventDefault();
+                els.uploadArea.classList.remove('dragover');
+            });
+        });
+        els.uploadArea.addEventListener('drop', (e) => {
+            const files = e.dataTransfer && e.dataTransfer.files;
+            if (files) addFiles(files);
+        });
+
+        async function addFiles(fileList) {
+            const arr = Array.from(fileList).filter(f => f.type.startsWith('image/'));
+            if (arr.length === 0) { showStatus('请选择图片文件', 'error'); return; }
+            showLoading('正在预处理图片...');
+            for (const f of arr) {
+                try {
+                    const { blob, dataUrl } = await compressImage(f);
+                    images.push({ blob, dataUrl, name: f.name || ('image_' + Date.now() + '.jpg') });
+                } catch (e) {
+                    showStatus('图片处理失败: ' + (f.name || '') + ' — ' + e.message, 'error');
+                }
+            }
+            renderThumbs();
+            showStatus('已添加 ' + arr.length + ' 张照片，共 ' + images.length + ' 张', 'success');
+        }
+
+        // 压缩：长边 ≤1568，JPEG 0.85。返回 { blob, dataUrl }
+        function compressImage(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onerror = () => reject(new Error('读取失败'));
+                reader.onload = () => {
+                    const img = new Image();
+                    img.onerror = () => reject(new Error('图片解码失败'));
+                    img.onload = () => {
+                        const MAX = 1568;
+                        let w = img.naturalWidth, h = img.naturalHeight;
+                        if (Math.max(w, h) > MAX) {
+                            const scale = MAX / Math.max(w, h);
+                            w = Math.round(w * scale);
+                            h = Math.round(h * scale);
+                        }
+                        const canvas = document.createElement('canvas');
+                        canvas.width = w; canvas.height = h;
+                        const ctx = canvas.getContext('2d');
+                        ctx.fillStyle = '#fff';
+                        ctx.fillRect(0, 0, w, h);
+                        ctx.drawImage(img, 0, 0, w, h);
+                        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+                        canvas.toBlob((blob) => {
+                            if (!blob) { reject(new Error('压缩失败')); return; }
+                            resolve({ blob, dataUrl });
+                        }, 'image/jpeg', 0.85);
+                    };
+                    img.src = reader.result;
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function renderThumbs() {
+            els.thumbList.innerHTML = '';
+            images.forEach((it, idx) => {
+                const div = document.createElement('div');
+                div.className = 'thumb';
+                const img = document.createElement('img');
+                img.src = it.dataUrl;
+                img.alt = it.name;
+                const remove = document.createElement('button');
+                remove.className = 'remove';
+                remove.textContent = '×';
+                remove.title = '删除';
+                remove.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    images.splice(idx, 1);
+                    renderThumbs();
+                });
+                const order = document.createElement('span');
+                order.className = 'order';
+                order.textContent = (idx + 1);
+                div.appendChild(img);
+                div.appendChild(order);
+                div.appendChild(remove);
+                els.thumbList.appendChild(div);
+            });
+        }
+
+        // ============ OCR 精准模式（手写体） ============
+        // 端点: POST /files/ocr, multipart, tool_type=hand_write
+        // 返回 words_result[]，每项 { location, words }
+        async function ocrHandwrite(blob, apiKey) {
+            const fd = new FormData();
+            fd.append('file', blob, 'image.jpg');
+            fd.append('tool_type', 'hand_write');
+            fd.append('language_type', 'CHN_ENG');
+            fd.append('probability', 'true');
+
+            const resp = await fetch(ZHIPU_BASE + 'files/ocr', {
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer ' + apiKey },
+                body: fd
+            });
+            if (!resp.ok) {
+                const txt = await safeText(resp);
+                throw new Error('HTTP ' + resp.status + (txt ? ' — ' + txt : ''));
+            }
+            const data = await resp.json();
+            if (data.status && data.status !== 'succeeded') {
+                throw new Error(data.message || '识别未成功');
+            }
+            const words = (data.words_result || []).map(w => w.words || '');
+            return words.join('\n');
+        }
+
+        async function safeText(resp) {
+            try { return (await resp.text()).slice(0, 300); } catch (e) { return ''; }
+        }
+
+        // ============ GLM-4V-Flash 视觉模式（流式） ============
+        // 端点: POST /chat/completions, OpenAI 兼容
+        function flashRecognize(dataUrls, model, apiKey, onDelta) {
+            return new Promise((resolve, reject) => {
+                const content = [{ type: 'text', text: FLASH_PROMPT }];
+                dataUrls.forEach(u => content.push({ type: 'image_url', image_url: { url: u } }));
+
+                fetch(ZHIPU_BASE + 'chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + apiKey
+                    },
+                    body: JSON.stringify({
+                        model: model,
+                        messages: [{ role: 'user', content: content }],
+                        stream: true
+                    })
+                }).then(async (resp) => {
+                    if (!resp.ok) {
+                        const txt = await safeText(resp);
+                        throw new Error('HTTP ' + resp.status + (txt ? ' — ' + txt : ''));
+                    }
+                    const reader = resp.body.getReader();
+                    const decoder = new TextDecoder();
+                    let buffer = '';
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+                        buffer += decoder.decode(value, { stream: true });
+                        const lines = buffer.split('\n');
+                        buffer = lines.pop() || '';
+                        for (const line of lines) {
+                            const trimmed = line.trim();
+                            if (!trimmed || !trimmed.startsWith('data:')) continue;
+                            const dataStr = trimmed.slice(5).trim();
+                            if (dataStr === '[DONE]') continue;
+                            try {
+                                const parsed = JSON.parse(dataStr);
+                                const delta = parsed.choices && parsed.choices[0] && parsed.choices[0].delta && parsed.choices[0].delta.content;
+                                if (delta) onDelta(delta);
+                            } catch (e) { /* 忽略部分块 */ }
+                        }
+                    }
+                    resolve();
+                }).catch(reject);
+            });
+        }
+
+        // ============ 主流程：开始识别 ============
+        els.recognizeBtn.addEventListener('click', recognize);
+
+        async function recognize() {
+            if (busy) return;
+            const key = getKey();
+            if (!key) {
+                showStatus('请先点击 🔑 设置智谱 API Key', 'error');
+                openApikeyDialog();
+                return;
+            }
+            if (images.length === 0) {
+                showStatus('请先添加手写日志照片', 'error');
+                return;
+            }
+
+            busy = true;
+            setBusy(true);
+            els.output.value = '';
+            const mode = els.modeSelect.value;
+
+            try {
+                if (mode === 'ocr-handwrite') {
+                    // 逐张同步识别，按顺序拼接
+                    for (let i = 0; i < images.length; i++) {
+                        showLoading('正在识别第 ' + (i + 1) + '/' + images.length + ' 张...');
+                        const text = await ocrHandwrite(images[i].blob, key);
+                        if (els.output.value) els.output.value += '\n';
+                        els.output.value += text;
+                    }
+                    showStatus('识别完成（共 ' + images.length + ' 张）', 'success');
+                } else {
+                    // Flash 流式
+                    showLoading('正在识别（流式输出中）...');
+                    await flashRecognize(
+                        images.map(i => i.dataUrl),
+                        mode,
+                        key,
+                        (delta) => { els.output.value += delta; }
+                    );
+                    showStatus('识别完成（共 ' + images.length + ' 张）', 'success');
+                }
+            } catch (e) {
+                console.error(e);
+                showStatus('识别失败: ' + e.message, 'error');
+            } finally {
+                busy = false;
+                setBusy(false);
+            }
+        }
+
+        function setBusy(b) {
+            els.recognizeBtn.disabled = b;
+            els.clearBtn.disabled = b;
+            els.copyBtn.disabled = b;
+            els.toProcessorBtn.disabled = b;
+            els.modeSelect.disabled = b;
+        }
+
+        // ============ 清空 ============
+        els.clearBtn.addEventListener('click', () => {
+            if (busy) return;
+            images = [];
+            renderThumbs();
+            els.output.value = '';
+            showStatus('已清空', 'success');
+        });
+
+        // ============ 复制 ============
+        els.copyBtn.addEventListener('click', async () => {
+            const text = els.output.value;
+            if (!text.trim()) { showStatus('没有可复制的内容', 'error'); return; }
+            try {
+                await navigator.clipboard.writeText(text);
+                showStatus('已复制到剪贴板', 'success');
+            } catch (e) {
+                // 降级方案
+                els.output.select();
+                try {
+                    document.execCommand('copy');
+                    showStatus('已复制到剪贴板', 'success');
+                } catch (e2) {
+                    showStatus('复制失败，请手动选择复制', 'error');
+                }
+            }
+        });
+
+        // ============ 发送到文本处理工具 ============
+        els.toProcessorBtn.addEventListener('click', () => {
+            const text = els.output.value;
+            if (!text.trim()) { showStatus('没有可发送的内容', 'error'); return; }
+            try {
+                localStorage.setItem('textProcessorImport', text);
+            } catch (e) {
+                showStatus('保存失败: ' + e.message, 'error');
+                return;
+            }
+            window.location.href = '/text_processor.html';
+        });
+
+        // ============ 初始提示 ============
+        if (!getKey()) {
+            showStatus('首次使用请点击 🔑 设置智谱 API Key', 'loading');
+        } else {
+            showStatus('就绪', '');
+        }
+    })();
+    </script>
+</body>
+</html>

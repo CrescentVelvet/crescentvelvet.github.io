@@ -313,7 +313,15 @@ title: "文本处理工具"
                 statusDiv.className = 'status';
             }, 3000);
         }
-        
+
+        // 从手写日志识别页面导入文本
+        const importedText = localStorage.getItem('textProcessorImport');
+        if (importedText) {
+            inputText.value = importedText;
+            localStorage.removeItem('textProcessorImport');
+            showStatus('已从手写识别页面导入文本');
+        }
+
         // 更新预览
         function updatePreview(text) {
             outputPreview.innerHTML = text;
