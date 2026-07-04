@@ -103,6 +103,48 @@ title: "飞机大战小游戏"
             text-align: center;
             margin-top: 5px;
         }
+
+        /* ===== 肉鸽 P1: 升级浮窗 + 经验条 ===== */
+        #upgradePanel.hidden { display: none; }
+        #upgradePanel {
+            position: fixed; inset: 0; z-index: 2000;
+            background: rgba(0, 0, 0, 0.78);
+            display: flex; flex-direction: column;
+            justify-content: center; align-items: center;
+            color: #fff; font-family: Arial, sans-serif;
+            touch-action: manipulation;
+        }
+        .upgrade-title {
+            font-size: 22px; margin-bottom: 20px;
+            color: #4a90e2; font-weight: bold; text-align: center;
+        }
+        .upgrade-cards {
+            display: flex; gap: 16px; flex-wrap: wrap;
+            justify-content: center; max-width: 92vw;
+        }
+        .upgrade-card {
+            background: rgba(74, 144, 226, 0.15);
+            border: 2px solid rgba(74, 144, 226, 0.7);
+            border-radius: 12px;
+            width: 150px; padding: 16px 12px;
+            color: #fff; cursor: pointer;
+            display: flex; flex-direction: column; align-items: center; gap: 8px;
+            transition: transform .15s ease, border-color .15s ease, background .15s ease;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+        .upgrade-card:hover { transform: translateY(-4px); border-color: #fff; background: rgba(74, 144, 226, 0.3); }
+        .upgrade-card:active { transform: scale(0.97); }
+        .uc-icon { font-size: 34px; line-height: 1; }
+        .uc-name { font-size: 16px; font-weight: bold; text-align: center; }
+        .uc-desc { font-size: 12px; color: rgba(255, 255, 255, 0.8); text-align: center; }
+        .uc-type { font-size: 10px; color: #4a90e2; }
+        #xpBarWrap {
+            width: 130px; height: 8px;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 4px; overflow: hidden; margin-top: 4px;
+        }
+        #xpBar { height: 100%; width: 0%; background: #4a90e2; transition: width .2s ease; }
     </style>
 </head>
 <body>
@@ -112,10 +154,16 @@ title: "飞机大战小游戏"
         <div>时间: <span id="time">0</span></div>
         <div>分数: <span id="score">0</span></div>
         <div>当前帧率: <span id="fps">0</span></div>
+        <div>等级: <span id="level">1</span></div>
+        <div>经验: <span id="xpText">0/20</span></div>
+        <div id="xpBarWrap"><div id="xpBar"></div></div>
     </div>
     <canvas id="gameCanvas"></canvas>
     <div id="mobileControls">
         <!-- Mobile controls will be created dynamically -->
+    </div>
+    <div id="upgradePanel" class="hidden">
+        <!-- 升级三选一浮窗，由 JS 动态生成 -->
     </div>
 
     <script>
@@ -342,14 +390,14 @@ title: "飞机大战小游戏"
          *       通用 updateBullets 按 flag 分支: 追踪转向/撞墙反弹/回旋反向/穿透不消亡
          *
          * 【分阶段实施(慢慢来)】
-         *   P1 地基: 半心制 HP + 经验/等级 + 三选一浮窗骨架 + 升级注册表
+         *   P1 地基: 经验/等级 + 三选一浮窗骨架 + 升级注册表(占位被动) — 已实现
          *   P1.5 图鉴: 📖图鉴按钮(右上)+G键, DOM浮层暂停面板,
          *             全部可见(武器/修饰/被动三栏, 含互斥分支),
          *             数据自动来自 P1 注册表。
          *   P2 武器: 主炮外的 2~3 件武器(散射/侧炮/重炮) + 等级提升
          *   P3 修饰: pierce / 追踪 / 折射 / 分裂 逐个上线
          *   P4 被动 + 平衡: 数值被动、稀有度权重、难度曲线回归调参
-         *   P5 收尾: 旧道具折叠、回血掉落、UI 打磨
+         *   P5 收尾: 半心制 HP(1心=2HP) + 旧道具折叠 + 回血掉落 + UI 打磨
          *   P6(可选) 进化: 在 B 互斥表基础上追加 C 进化路径,
          *             图鉴补"满级进化终极武器"栏
          *
@@ -401,11 +449,134 @@ title: "飞机大战小游戏"
         let invinciblePowerUpDuration = 3000; // 无敌特殊能力持续3秒
         let enemyCounter = 0; // 敌人计数器
         let lastBulletTime = 0; // 上次发射子弹的时间
-        const bulletCooldown = 300; // 子弹发射冷却时间（毫秒）
+        let bulletCooldown = 300; // 子弹发射冷却时间（毫秒）— let: 升级可重算
         let lastFrameTime = 0; // 用于计算 deltaTime
         let fps = 0; // 新增：用于存储计算出的FPS
         let framesThisSecond = 0; // 新增：用于计算每秒的帧数
         let lastFpsUpdate = 0; // 新增：上次FPS更新的时间
+
+        // ===== 肉鸽 P1: 经验/等级/三选一升级 =====
+        let playerLevel = 1;
+        let playerXP = 0;
+        let pendingLevelUps = 0;   // 待结算的升级次数(可叠加)
+        let awaitingUpgrade = false; // 升级选择期间暂停游戏逻辑
+        let currentChoices = [];   // 当前浮窗展示的 3 张卡
+
+        function xpToNext(lv) { return Math.floor(20 * Math.pow(1.35, lv - 1)); }
+
+        // 升级数值据此重算; 重开时回到 BASE
+        const UPGRADE_BASE = { bulletCooldown: 300, bulletSpeed: 7, playerSpeed: 5 };
+
+        // 升级注册表 (P1 占位: 4 个被动; P2/P3 再扩武器与修饰)
+        // level: 当前等级(运行时, 重开复位为0); apply(lv): 按新等级重算效果
+        const UPGRADE_REGISTRY = [
+            { id:'fire_rate', name:'射速', desc:'子弹冷却 -30ms/级', icon:'⚡', type:'passive', maxLevel:5, level:0,
+              apply(lv){ bulletCooldown = Math.max(80, UPGRADE_BASE.bulletCooldown - 30 * lv); } },
+            { id:'bullet_speed', name:'子弹速度', desc:'子弹速度 +1/级', icon:'🚀', type:'passive', maxLevel:5, level:0,
+              apply(lv){ bulletSpeed = UPGRADE_BASE.bulletSpeed + lv; } },
+            { id:'move_speed', name:'移速', desc:'移动速度 +1/级', icon:'👟', type:'passive', maxLevel:5, level:0,
+              apply(lv){ player.speed = UPGRADE_BASE.playerSpeed + lv; } },
+            { id:'max_lives', name:'最大生命', desc:'最大生命 +1/级 (上限5)', icon:'❤️', type:'passive', maxLevel:2, level:0,
+              apply(lv){ lives = Math.min(5, 3 + lv); livesElement.textContent = lives; } },
+        ];
+        const TYPE_LABEL = { weapon:'武器', modifier:'修饰', passive:'被动' };
+
+        function updateXPDisplay() {
+            const need = xpToNext(playerLevel);
+            document.getElementById('level').textContent = playerLevel;
+            document.getElementById('xpText').textContent = playerXP + '/' + need;
+            document.getElementById('xpBar').style.width =
+                (need > 0 ? Math.min(100, playerXP / need * 100) : 0) + '%';
+        }
+
+        function gainXP(amount) {
+            if (gameOver) return;
+            playerXP += amount;
+            while (playerXP >= xpToNext(playerLevel)) {
+                playerXP -= xpToNext(playerLevel);
+                playerLevel++;
+                pendingLevelUps++;
+            }
+            updateXPDisplay();
+            if (pendingLevelUps > 0 && !awaitingUpgrade) showUpgradeChoices();
+        }
+
+        function showUpgradeChoices() {
+            if (pendingLevelUps <= 0) { awaitingUpgrade = false; return; }
+            const available = UPGRADE_REGISTRY.filter(u => u.level < u.maxLevel);
+            if (available.length === 0) {
+                // 全部满级: 跳过选择
+                pendingLevelUps = 0;
+                awaitingUpgrade = false;
+                return;
+            }
+            awaitingUpgrade = true;
+            // 随机抽 3 张 (不足则取全部)
+            const pool = available.slice();
+            for (let i = pool.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [pool[i], pool[j]] = [pool[j], pool[i]];
+            }
+            currentChoices = pool.slice(0, Math.min(3, pool.length));
+            renderUpgradePanel();
+        }
+
+        function renderUpgradePanel() {
+            const panel = document.getElementById('upgradePanel');
+            panel.innerHTML = '';
+            const title = document.createElement('div');
+            title.className = 'upgrade-title';
+            title.textContent = '升级！剩余 ' + pendingLevelUps + ' 次选择';
+            panel.appendChild(title);
+            const cards = document.createElement('div');
+            cards.className = 'upgrade-cards';
+            currentChoices.forEach((u, idx) => {
+                const card = document.createElement('button');
+                card.className = 'upgrade-card';
+                card.innerHTML =
+                    '<div class="uc-icon">' + u.icon + '</div>' +
+                    '<div class="uc-name">' + u.name + ' → Lv.' + (u.level + 1) + '</div>' +
+                    '<div class="uc-desc">' + u.desc + '</div>' +
+                    '<div class="uc-type">' + (TYPE_LABEL[u.type] || u.type) + ' · 按 ' + (idx + 1) + '</div>';
+                card.addEventListener('click', () => pickUpgrade(idx));
+                cards.appendChild(card);
+            });
+            panel.appendChild(cards);
+            panel.classList.remove('hidden');
+        }
+
+        function pickUpgrade(idx) {
+            const u = currentChoices[idx];
+            if (!u) return;
+            u.level++;
+            u.apply(u.level);
+            pendingLevelUps--;
+            updateXPDisplay();
+            if (pendingLevelUps > 0) {
+                showUpgradeChoices();
+            } else {
+                awaitingUpgrade = false;
+                currentChoices = [];
+                document.getElementById('upgradePanel').classList.add('hidden');
+            }
+        }
+
+        function resetUpgrades() {
+            playerLevel = 1;
+            playerXP = 0;
+            pendingLevelUps = 0;
+            awaitingUpgrade = false;
+            currentChoices = [];
+            UPGRADE_REGISTRY.forEach(u => u.level = 0);
+            bulletCooldown = UPGRADE_BASE.bulletCooldown;
+            bulletSpeed = UPGRADE_BASE.bulletSpeed;
+            player.speed = UPGRADE_BASE.playerSpeed;
+            document.getElementById('upgradePanel').classList.add('hidden');
+            updateXPDisplay();
+        }
+
+        updateXPDisplay(); // 初始化经验条显示
+
         let explosions = []; // 爆炸效果数组
         let healthPowerUps = []; // 绿色方块数组（生命奖励）
         let shootingPowerUps = []; // 金色方块数组（射击奖励）
@@ -424,7 +595,7 @@ title: "飞机大战小游戏"
 
         // 子弹数组
         let bullets = [];
-        const bulletSpeed = 7;
+        let bulletSpeed = 7; // let: 升级可重算
 
         // 敌机数组
         let enemies = [];
@@ -579,6 +750,7 @@ title: "飞机大战小游戏"
                     width: enemyWidth,
                     height: enemyHeight,
                     level: level, // 敌机等级
+                    spawnLevel: level, // 生成时等级(用于计算经验)
                     speed: enemySpeed, // 敌机速度
                     originalSpeed: enemySpeed, // 记录原始速度
                     vx: (Math.random() - 0.5) * 2, // 随机左右速度，范围在 -1 到 1 之间
@@ -743,6 +915,7 @@ title: "飞机大战小游戏"
                     kills++;
                     scoreElement.textContent = score;
                     killsElement.textContent = kills;
+                    gainXP(5 + (enemy.spawnLevel || 1) * 3); // 肉鸽: 击杀经验
                 }
             }
 
@@ -957,13 +1130,20 @@ title: "飞机大战小游戏"
 
         // 监听键盘事件
         document.addEventListener('keydown', (e) => {
+            // 升级选择期间: 1/2/3 选卡, 屏蔽其余按键
+            if (awaitingUpgrade) {
+                if (e.code === 'Digit1' || e.code === 'Numpad1') pickUpgrade(0);
+                else if (e.code === 'Digit2' || e.code === 'Numpad2') pickUpgrade(1);
+                else if (e.code === 'Digit3' || e.code === 'Numpad3') pickUpgrade(2);
+                return;
+            }
             if (e.code in keys) {
                 keys[e.code] = true;
-                
+
                 // 空格键用于暂停/继续游戏
                 if (e.code === 'Space' && !gameOver) {
                     gamePaused = !gamePaused;
-                    
+
                     // 如果继续游戏，更新开始时间以避免时间跳跃
                     if (!gamePaused) {
                         const pauseDuration = Date.now() - pauseStartTime;
@@ -1455,7 +1635,7 @@ title: "飞机大战小游戏"
 
             // console.log("deltaTime:", deltaTime); // 调试时可以取消注释
 
-            if (!gamePaused) {
+            if (!gamePaused && !awaitingUpgrade) {
                 if (!gameOver) { // Game logic updates only if not game over
                     gameTime += deltaTime;
                     timeElement.textContent = Math.floor(gameTime);
@@ -1508,6 +1688,7 @@ title: "飞机大战小游戏"
                 gameOver = false;
                 gamePaused = false;
                 enemyInterval = 1000; // 重置难度
+                resetUpgrades(); // 肉鸽: 复位等级/升级
             }
 
             // 清除画布
@@ -1582,7 +1763,7 @@ title: "飞机大战小游戏"
                 
                 // 如果点击暂停按钮
                 if (e.target === pauseBtn) {
-                    if (!gameOver) {
+                    if (!gameOver && !awaitingUpgrade) {
                         gamePaused = !gamePaused;
                         if (!gamePaused) {
                             const pauseDuration = Date.now() - pauseStartTime;
@@ -1677,6 +1858,7 @@ title: "飞机大战小游戏"
                     gameOver = false;
                     gamePaused = false;
                     enemyInterval = 1000;
+                    resetUpgrades(); // 肉鸽: 复位等级/升级
                 }
             });
         } else {
@@ -1706,6 +1888,7 @@ title: "飞机大战小游戏"
                     gameOver = false;
                     gamePaused = false;
                     enemyInterval = 1000;
+                    resetUpgrades(); // 肉鸽: 复位等级/升级
                 }
             });
         }
