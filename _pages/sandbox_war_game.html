@@ -954,9 +954,12 @@ permalink: /sandbox_war_game.html
                 this.lastStrafeSwitch = Date.now();
 
                 // 履带车辆（坦克/火炮）：只能沿车体朝向前进/后退，
-                // 改变方向需先原地旋转再行驶；步兵可自由平移
+                // 改变方向需先原地旋转对准再行驶；步兵可自由平移
                 this.isTracked = false;
                 this.alignTolerance = 12;
+                // 侧向绕行：视线被障碍物遮挡时，沿垂直方向移动寻找清晰射线
+                this.flankDir = Math.random() > 0.5 ? 1 : -1;
+                this.flankBlockedUntil = 0;
 
                 // ---- 反复移动循环修复：状态滞回与目标稳定 ----
                 // 目标锁定：避免在两个等距敌人间反复切换
@@ -1195,8 +1198,13 @@ permalink: /sandbox_war_game.html
                             this.state = 'backoff';
                         }
                         this.moveAwayFrom(nearestEnemy, 90);
+                    } else if (!this.hasLineOfSight(nearestEnemy)) {
+                        // 最佳射程带内但视线被障碍物遮挡：
+                        // 侧向绕行寻找清晰射线，而非原地对着障碍物发呆
+                        this.state = 'flank';
+                        this.flankForShot(nearestEnemy);
                     } else {
-                        // 最佳射程带：停下攻击，间歇性机动走位
+                        // 最佳射程带：视线清晰，停下攻击，间歇性机动走位
                         this.state = 'hold';
                         this.holdAndAttack(nearestEnemy, distance, range);
                     }
@@ -1216,7 +1224,8 @@ permalink: /sandbox_war_game.html
                     if (unit !== this && unit.team !== this.team && !unit.isDead()) {
                         const distance = this.getDistance(unit);
                         const penalty = unit.type === 'artillery' ? 100 : 0;
-                        const score = distance + penalty;
+                        const losPenalty = this.hasLineOfSight(unit) ? 0 : 150;
+                        const score = distance + penalty + losPenalty;
                         if (score < nearestScore) {
                             nearestScore = score;
                             nearestEnemy = unit;
@@ -1263,6 +1272,16 @@ permalink: /sandbox_war_game.html
                 return Math.sqrt(dx * dx + dy * dy);
             }
 
+            // 视线检测：判断与目标之间是否有障碍物遮挡
+            hasLineOfSight(target) {
+                if (!battlefieldManager || battlefieldManager.obstacles.length === 0) return true;
+                const myCX = this.x + this.getSize() / 2;
+                const myCY = this.y + this.getSize() / 2;
+                const tCX = target.x + target.getSize() / 2;
+                const tCY = target.y + target.getSize() / 2;
+                return !battlefieldManager.pathBlockedByObstacle(myCX, myCY, tCX, tCY, 4);
+            }
+
             tryAttack(target) {
                 const now = Date.now();
                 if (now - this.lastAttackTime < this.attackCooldown) return;
@@ -1271,6 +1290,8 @@ permalink: /sandbox_war_game.html
                 if (distance <= this.attackRange && target.team !== this.team && !target.isDead()) {
                     this.turnToward(target);
                     if (!this.isFacing(target)) return;
+
+                    if (!this.hasLineOfSight(target)) return;
 
                     this.lastAttackTime = now;
                     battlefieldManager.spawnProjectile(this, target, this.getAttackDamage());
@@ -1339,7 +1360,7 @@ permalink: /sandbox_war_game.html
                 return { x: waypoint.x, y: waypoint.y, isWaypoint: true };
             }
 
-            moveTowards(target) {
+            moveTowards(target, stopFactor) {
                 const targetCenterX = target.x + target.getSize() / 2;
                 const targetCenterY = target.y + target.getSize() / 2;
                 const myCenterX = this.x + this.getSize() / 2;
@@ -1350,15 +1371,12 @@ permalink: /sandbox_war_game.html
                 const dist = Math.sqrt(dx * dx + dy * dy);
 
                 if (dist > 0) {
-                    // 停距与 hold 状态进入阈值对齐：停在 chaseLine 内侧，
-                    // 使单位进入 hold 而非在 chase↔hold 边界反复横跳
-                    const stopDist = this.attackRange * 0.88;
+                    const stopDist = this.attackRange * (stopFactor !== undefined ? stopFactor : 0.88);
                     const ratio = Math.max(0, dist - stopDist) / dist;
 
                     this.targetX = myCenterX + dx * ratio - this.getSize() / 2;
                     this.targetY = myCenterY + dy * ratio - this.getSize() / 2;
                     this.setDesiredAngle(Math.atan2(dy, dx) * 180 / Math.PI + 90);
-                    // 仅在目标有实际变化时才走 clampTarget，减少每帧无谓寻路
                     if (Math.abs(this.targetX - this.pathTargetX) > 6 ||
                         Math.abs(this.targetY - this.pathTargetY) > 6 || !this.isMoving) {
                         this.clampTarget();
@@ -1383,6 +1401,65 @@ permalink: /sandbox_war_game.html
             strafeAround(target) {
                 // 保留接口兼容，实际逻辑由 holdAndAttack 接管
                 this.holdAndAttack(target, this.getDistance(target), this.attackRange);
+            }
+
+            // 视线被障碍物遮挡时，沿垂直于敌人方向的侧向移动，
+            // 寻找能直射敌人的位置；方向固定且定期翻转，避免原地打转
+            flankForShot(target) {
+                // 正在走向侧向目标点时让其走完，不每帧重算（否则目标随单位漂移→永续轨道）
+                if (this.isMoving && this.path.length === 0) {
+                    const moveTarget = this.getMoveTarget();
+                    const mdx = moveTarget.x - this.x;
+                    const mdy = moveTarget.y - this.y;
+                    if (Math.sqrt(mdx * mdx + mdy * mdy) > 4) {
+                        return;
+                    }
+                    this.isMoving = false;
+                    if (this.element) this.element.classList.remove('moving');
+                }
+
+                const dx = target.x - this.x;
+                const dy = target.y - this.y;
+                const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+                const perpX = -dy / dist;
+                const perpY = dx / dist;
+
+                const now = Date.now();
+                const bf = document.getElementById('battlefield');
+                const maxX = bf.offsetWidth - this.getSize();
+                const maxY = bf.offsetHeight - this.getSize();
+                const nearEdge = this.x < 30 || this.x > maxX - 30 ||
+                    this.y < 30 || this.y > maxY - 30;
+                if (now > this.flankBlockedUntil && (nearEdge || Math.random() < 0.02)) {
+                    this.flankDir *= -1;
+                    this.flankBlockedUntil = now + 1200;
+                }
+
+                const flankDist = 55 + Math.random() * 15;
+                const rangeCorrection = (dist - this.attackRange * 0.7) * 0.15;
+                let fX = Math.max(0, Math.min(maxX,
+                    this.x + perpX * this.flankDir * flankDist + (dx / dist) * rangeCorrection));
+                let fY = Math.max(0, Math.min(maxY,
+                    this.y + perpY * this.flankDir * flankDist + (dy / dist) * rangeCorrection));
+
+                // 侧向目标点在障碍物内：翻转方向重试，仍不行则原地等待
+                if (battlefieldManager.obstacles.length > 0 &&
+                    battlefieldManager.collidesWithObstacle(fX, fY, this.getSize(), this.getSize(), 4)) {
+                    this.flankDir *= -1;
+                    this.flankBlockedUntil = now + 800;
+                    fX = Math.max(0, Math.min(maxX,
+                        this.x + perpX * this.flankDir * flankDist + (dx / dist) * rangeCorrection));
+                    fY = Math.max(0, Math.min(maxY,
+                        this.y + perpY * this.flankDir * flankDist + (dy / dist) * rangeCorrection));
+                    if (battlefieldManager.collidesWithObstacle(fX, fY, this.getSize(), this.getSize(), 4)) {
+                        return;
+                    }
+                }
+
+                this.targetX = fX;
+                this.targetY = fY;
+                this.path = [];
+                this.isMoving = true;
             }
 
             // 最佳射程带内的行为：停下攻击 + 间歇性短促走位
@@ -1437,10 +1514,26 @@ permalink: /sandbox_war_game.html
                     const bf = document.getElementById('battlefield');
                     const maxX = bf.offsetWidth - this.getSize();
                     const maxY = bf.offsetHeight - this.getSize();
-                    this.targetX = Math.max(0, Math.min(maxX,
+                    let sX = Math.max(0, Math.min(maxX,
                         this.x + perpX * this.strafeDirection * strafeDist + (dx / dist) * rangeCorrection));
-                    this.targetY = Math.max(0, Math.min(maxY,
+                    let sY = Math.max(0, Math.min(maxY,
                         this.y + perpY * this.strafeDirection * strafeDist + (dy / dist) * rangeCorrection));
+
+                    // 走位目标点在障碍物内：翻转方向重试，仍不行则跳过本次走位
+                    if (battlefieldManager.obstacles.length > 0 &&
+                        battlefieldManager.collidesWithObstacle(sX, sY, this.getSize(), this.getSize(), 4)) {
+                        this.strafeDirection *= -1;
+                        sX = Math.max(0, Math.min(maxX,
+                            this.x + perpX * this.strafeDirection * strafeDist + (dx / dist) * rangeCorrection));
+                        sY = Math.max(0, Math.min(maxY,
+                            this.y + perpY * this.strafeDirection * strafeDist + (dy / dist) * rangeCorrection));
+                        if (battlefieldManager.collidesWithObstacle(sX, sY, this.getSize(), this.getSize(), 4)) {
+                            return;
+                        }
+                    }
+
+                    this.targetX = sX;
+                    this.targetY = sY;
                     this.path = [];
                     this.isMoving = true;
                 }
@@ -1797,9 +1890,16 @@ permalink: /sandbox_war_game.html
                             this.state = 'fallback';
                             this.moveAwayFrom(nearestEnemy, 220);
                         } else if (distance <= maxR && distance >= minR) {
-                            this.state = 'firing';
-                            this.turnToward(nearestEnemy);
-                            if (this.isFacing(nearestEnemy)) this.tryAttack(nearestEnemy);
+                            if (this.hasLineOfSight(nearestEnemy)) {
+                                this.state = 'firing';
+                                this.turnToward(nearestEnemy);
+                                if (this.isFacing(nearestEnemy)) this.tryAttack(nearestEnemy);
+                            } else {
+                                // 视线被障碍物遮挡：收起部署，机动到有清晰射线的位置
+                                this.deployed = false;
+                                this.state = 'maneuver';
+                                this.moveTowards(nearestEnemy, 0.4);
+                            }
                         } else if (distance > maxR) {
                             this.deployed = false;
                             this.state = 'maneuver';
@@ -1845,10 +1945,10 @@ permalink: /sandbox_war_game.html
                 super.tryAttack(target);
             }
 
-            moveTowards(target) {
+            moveTowards(target, stopFactor) {
                 this.deployed = false;
                 this.deploying = false;
-                super.moveTowards(target);
+                super.moveTowards(target, stopFactor);
             }
 
             moveAwayFrom(target, dist) {
