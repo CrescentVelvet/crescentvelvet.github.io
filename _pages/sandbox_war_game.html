@@ -105,6 +105,14 @@ permalink: /sandbox_war_game.html
         .btn-obstacle { border-color: #9b8f6a; color: #d8c98b; }
         .btn-danger { border-color: #95a5a6; color: #95a5a6; }
 
+        .btn-unit { border-color: #7f8c8d; color: #95a5a6; }
+        .btn-unit.active {
+            border-color: var(--pixel-accent);
+            color: var(--pixel-accent);
+            background: rgba(241, 196, 15, 0.12);
+            box-shadow: 4px 4px 0px rgba(0,0,0,0.5), 0 0 6px rgba(241, 196, 15, 0.35);
+        }
+
         .pixel-input, .pixel-select {
             font-family: 'Press Start 2P', cursive;
             background: #000;
@@ -587,14 +595,11 @@ permalink: /sandbox_war_game.html
         <div class="game-ui">
             <div class="controls-panel">
                 <div class="control-row">
-                    <label>UNIT:</label>
-                    <select id="unitType" class="pixel-select">
-                        <option value="tank">TANK</option>
-                        <option value="soldier">SOLDIER</option>
-                        <option value="artillery">ARTILLERY</option>
-                        <option value="rocket">ROCKET</option>
-                    </select>
-                    
+                    <button onclick="selectUnitType('tank')" id="unitBtn-tank" class="pixel-btn btn-unit">TANK</button>
+                    <button onclick="selectUnitType('soldier')" id="unitBtn-soldier" class="pixel-btn btn-unit">SOLDIER</button>
+                    <button onclick="selectUnitType('artillery')" id="unitBtn-artillery" class="pixel-btn btn-unit">ARTILLERY</button>
+                    <button onclick="selectUnitType('rocket')" id="unitBtn-rocket" class="pixel-btn btn-unit">ROCKET</button>
+
                     <label>HP:</label>
                     <input type="number" id="unitHealth" value="100" min="1" max="200" class="pixel-input" style="width: 60px;">
                 </div>
@@ -2668,6 +2673,14 @@ permalink: /sandbox_war_game.html
 
         // 全局变量
         const battlefieldManager = new BattlefieldManager();
+        let selectedUnitType = 'tank';
+
+        function selectUnitType(type) {
+            selectedUnitType = type;
+            document.querySelectorAll('.btn-unit').forEach(btn => btn.classList.remove('active'));
+            const btn = document.getElementById('unitBtn-' + type);
+            if (btn) btn.classList.add('active');
+        }
 
         // 工具函数
         function logBattle(message, type = 'info') {
@@ -2714,7 +2727,7 @@ permalink: /sandbox_war_game.html
         }
 
         function addUnitWithTeam(team) {
-            const type = document.getElementById('unitType').value;
+            const type = selectedUnitType;
             const health = parseInt(document.getElementById('unitHealth').value);
             const battlefield = document.getElementById('battlefield');
             let unitSize;
@@ -2869,6 +2882,7 @@ permalink: /sandbox_war_game.html
         document.addEventListener('DOMContentLoaded', function() {
             logBattle('SYSTEM READY', 'info');
             addMobileOptimizations();
+            selectUnitType('tank');
             const lastModifiedSpan = document.getElementById('lastModified');
             if (lastModifiedSpan) {
                 lastModifiedSpan.textContent = document.lastModified;
