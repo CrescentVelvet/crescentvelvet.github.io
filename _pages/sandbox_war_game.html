@@ -8,7 +8,7 @@ permalink: /sandbox_war_game.html
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>沙盘战争 - 像素战场</title>
-    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=DotGothic16&display=swap" rel="stylesheet">
     <style>
         :root {
             --pixel-bg: #2c3e50;
@@ -22,7 +22,7 @@ permalink: /sandbox_war_game.html
         body {
             margin: 0;
             padding: 20px;
-            font-family: 'Press Start 2P', cursive;
+            font-family: 'Press Start 2P', 'DotGothic16', cursive;
             background-color: #2c3e50;
             background-image: 
                 linear-gradient(30deg, #34495e 12%, transparent 12.5%, transparent 87%, #34495e 87.5%, #34495e),
@@ -81,7 +81,7 @@ permalink: /sandbox_war_game.html
         }
 
         .pixel-btn {
-            font-family: 'Press Start 2P', cursive;
+            font-family: 'Press Start 2P', 'DotGothic16', cursive;
             padding: 10px 15px;
             border: 4px solid;
             background: transparent;
@@ -114,7 +114,7 @@ permalink: /sandbox_war_game.html
         }
 
         .pixel-input, .pixel-select {
-            font-family: 'Press Start 2P', cursive;
+            font-family: 'Press Start 2P', 'DotGothic16', cursive;
             background: #000;
             border: 2px solid var(--pixel-text);
             color: var(--pixel-text);
@@ -590,41 +590,41 @@ permalink: /sandbox_war_game.html
 </head>
 <body>
     <div class="container">
-        <h1>👾 PIXEL WAR 👾</h1>
+        <h1>👾 像素战争 👾</h1>
         
         <div class="game-ui">
             <div class="controls-panel">
                 <div class="control-row">
-                    <button onclick="selectUnitType('tank')" id="unitBtn-tank" class="pixel-btn btn-unit">TANK</button>
-                    <button onclick="selectUnitType('soldier')" id="unitBtn-soldier" class="pixel-btn btn-unit">SOLDIER</button>
-                    <button onclick="selectUnitType('artillery')" id="unitBtn-artillery" class="pixel-btn btn-unit">ARTILLERY</button>
-                    <button onclick="selectUnitType('rocket')" id="unitBtn-rocket" class="pixel-btn btn-unit">ROCKET</button>
+                    <button onclick="selectUnitType('tank')" id="unitBtn-tank" class="pixel-btn btn-unit">坦克</button>
+                    <button onclick="selectUnitType('soldier')" id="unitBtn-soldier" class="pixel-btn btn-unit">步兵</button>
+                    <button onclick="selectUnitType('artillery')" id="unitBtn-artillery" class="pixel-btn btn-unit">火炮</button>
+                    <button onclick="selectUnitType('rocket')" id="unitBtn-rocket" class="pixel-btn btn-unit">火箭炮</button>
 
-                    <label>HP:</label>
+                    <label>血量:</label>
                     <input type="number" id="unitHealth" value="100" min="1" max="200" class="pixel-input" style="width: 60px;">
                 </div>
                 
                 <div class="control-row">
-                    <button onclick="addAllyUnit()" class="pixel-btn btn-ally">+ ALLY</button>
-                    <button onclick="addEnemyUnit()" class="pixel-btn btn-enemy">+ ENEMY</button>
-                    <button onclick="addObstacle()" class="pixel-btn btn-obstacle">+ COVER</button>
-                    <button onclick="toggleBattle()" id="battleBtn" class="pixel-btn btn-action">START</button>
-                    <button onclick="clearBattlefield()" class="pixel-btn btn-danger">CLEAR</button>
+                    <button onclick="addAllyUnit()" class="pixel-btn btn-ally">+友军</button>
+                    <button onclick="addEnemyUnit()" class="pixel-btn btn-enemy">+敌军</button>
+                    <button onclick="addObstacle()" class="pixel-btn btn-obstacle">+掩体</button>
+                    <button onclick="toggleBattle()" id="battleBtn" class="pixel-btn btn-action">开战</button>
+                    <button onclick="clearBattlefield()" class="pixel-btn btn-danger">清空</button>
                 </div>
             </div>
         </div>
 
         <div class="battlefield" id="battlefield">
             <div class="empty-state" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; opacity: 0.5; pointer-events: none;">
-                <p>DEPLOY UNITS TO START</p>
-                <p style="font-size: 0.8em; margin-top: 10px;">CLICK TO ADD UNITS</p>
+                <p>投放兵力开始战斗</p>
+                <p style="font-size: 0.8em; margin-top: 10px;">点击按钮添加兵力</p>
             </div>
         </div>
 
         <div class="status-bar">
-            <span>FPS: <span id="fpsValue">0</span></span>
-            <span>UNITS: <span id="unitCount">0</span></span>
-            <span>UPDATED: <span id="lastModified"></span></span>
+            <span>帧率: <span id="fpsValue">0</span></span>
+            <span>兵力: <span id="unitCount">0</span></span>
+            <span>更新: <span id="lastModified"></span></span>
         </div>
 
         <div class="battle-log" id="battleLog"></div>
@@ -1140,7 +1140,7 @@ permalink: /sandbox_war_game.html
 
             showInfo(event) {
                 const info = document.getElementById('unitInfo');
-                const typeName = this.type === 'tank' ? '坦克' : (this.type === 'artillery' ? '火炮' : (this.type === 'rocket' ? '火箭炮' : '士兵'));
+                const typeName = this.type === 'tank' ? '坦克' : (this.type === 'artillery' ? '火炮' : (this.type === 'rocket' ? '火箭炮' : '步兵'));
                 let extra = '';
                 if (this.type === 'artillery' && this.deployed !== undefined) {
                     extra = `<br>状态: ${this.deployed ? '已部署' : (this.deploying ? '部署中...' : '移动中')}`;
@@ -2214,7 +2214,7 @@ permalink: /sandbox_war_game.html
 
                 if (dist <= this.radius) {
                     const killed = this.target.takeDamage(this.damage);
-                    logBattle(`${this.team === 'ally' ? 'ALLY' : 'ENEMY'} ${this.source.type.toUpperCase()} HIT ${this.target.team === 'ally' ? 'ALLY' : 'ENEMY'} ${this.target.type.toUpperCase()} (-${this.damage})${killed ? ' - DESTROYED!' : ''}`, `${this.team} attack`);
+                    logBattle(`${this.team === 'ally' ? '友军' : '敌军'} ${unitTypeName(this.source.type)} 命中 ${this.target.team === 'ally' ? '友军' : '敌军'} ${unitTypeName(this.target.type)} (-${this.damage})${killed ? ' 击毁！' : ''}`, `${this.team} attack`);
                     this.createImpact(targetX, targetY);
                     return false;
                 }
@@ -2241,7 +2241,7 @@ permalink: /sandbox_war_game.html
                     const dist = Math.sqrt(dx * dx + dy * dy);
                     if (dist <= this.splashRadius) {
                         const killed = unit.takeDamage(this.damage);
-                        logBattle(`${this.team === 'ally' ? 'ALLY' : 'ENEMY'} ROCKET SPLASH HIT ${unit.team === 'ally' ? 'ALLY' : 'ENEMY'} ${unit.type.toUpperCase()} (-${this.damage})${killed ? ' - DESTROYED!' : ''}`, `${this.team} attack`);
+                        logBattle(`${this.team === 'ally' ? '友军' : '敌军'} 火箭溅射命中 ${unit.team === 'ally' ? '友军' : '敌军'} ${unitTypeName(unit.type)} (-${this.damage})${killed ? ' 击毁！' : ''}`, `${this.team} attack`);
                     }
                 }
             }
@@ -2326,8 +2326,7 @@ permalink: /sandbox_war_game.html
                 this.units.push(unit);
                 const element = unit.createElement();
                 this.battlefield.appendChild(element);
-                const typeLabel = unit.type === 'tank' ? 'TANK' : (unit.type === 'artillery' ? 'ARTILLERY' : (unit.type === 'rocket' ? 'ROCKET' : 'SOLDIER'));
-                logBattle(`DEPLOYED ${unit.team === 'ally' ? 'ALLY' : 'ENEMY'} ${typeLabel}`, unit.team);
+                logBattle(`部署 ${unit.team === 'ally' ? '友军' : '敌军'} ${unitTypeName(unit.type)}`, unit.team);
             }
 
             addObstacle(obstacle) {
@@ -2336,7 +2335,7 @@ permalink: /sandbox_war_game.html
 
                 this.obstacles.push(obstacle);
                 this.battlefield.appendChild(obstacle.element);
-                logBattle('COVER PLACED', 'info');
+                logBattle('掩体已放置', 'info');
             }
 
             collidesWithObstacle(x, y, width, height, padding = 2) {
@@ -2511,9 +2510,9 @@ permalink: /sandbox_war_game.html
                     cancelAnimationFrame(this.animationId);
                     this.animationId = null;
                 }
-                this.battlefield.innerHTML = '<div class="empty-state" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; opacity: 0.5; pointer-events: none;"><p>DEPLOY UNITS TO START</p><p style="font-size: 0.8em; margin-top: 10px;">CLICK TO ADD UNITS</p></div>';
+                this.battlefield.innerHTML = '<div class="empty-state" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; opacity: 0.5; pointer-events: none;"><p>投放兵力开始战斗</p><p style="font-size: 0.8em; margin-top: 10px;">点击按钮添加兵力</p></div>';
                 resetBattleButton();
-                logBattle('BATTLEFIELD CLEARED', 'info');
+                logBattle('战场已清空', 'info');
             }
 
             spawnProjectile(source, target, damage) {
@@ -2533,7 +2532,7 @@ permalink: /sandbox_war_game.html
 
             startBattle() {
                 if (this.units.length < 2) {
-                    alert('DEPLOY AT LEAST 2 UNITS!');
+                    alert('至少投放2个兵力！');
                     return;
                 }
 
@@ -2542,7 +2541,7 @@ permalink: /sandbox_war_game.html
                 this.lastUpdateTime = performance.now();
                 this.lastFrameTime = 0; // 重置帧时间
                 this.framesThisSecond = 0; // 重置帧计数
-                logBattle('BATTLE STARTED!', 'info');
+                logBattle('战斗开始！', 'info');
                 
                 this.animationId = requestAnimationFrame((timestamp) => this.gameLoop(timestamp));
             }
@@ -2639,9 +2638,9 @@ permalink: /sandbox_war_game.html
                 this.isPaused = !this.isPaused;
                 
                 if (this.isPaused) {
-                    logBattle('BATTLE PAUSED', 'info');
+                    logBattle('战斗暂停', 'info');
                 } else {
-                    logBattle('BATTLE RESUMED', 'info');
+                    logBattle('战斗继续', 'info');
                 }
             }
 
@@ -2660,13 +2659,13 @@ permalink: /sandbox_war_game.html
                 const enemyUnits = this.units.filter(unit => unit.team === 'enemy' && !unit.isDead());
                 
                 if (allyUnits.length === 0 && enemyUnits.length === 0) {
-                    logBattle('GAME OVER: DRAW', 'info');
+                    logBattle('游戏结束：平局', 'info');
                 } else if (allyUnits.length === 0) {
-                    logBattle('GAME OVER: ENEMY WINS!', 'info');
+                    logBattle('游戏结束：敌军获胜！', 'info');
                 } else if (enemyUnits.length === 0) {
-                    logBattle('GAME OVER: ALLY WINS!', 'info');
+                    logBattle('游戏结束：友军获胜！', 'info');
                 } else {
-                    logBattle('GAME STOPPED', 'info');
+                    logBattle('战斗中止', 'info');
                 }
             }
         }
@@ -2683,6 +2682,10 @@ permalink: /sandbox_war_game.html
         }
 
         // 工具函数
+        function unitTypeName(type) {
+            return type === 'tank' ? '坦克' : (type === 'artillery' ? '火炮' : (type === 'rocket' ? '火箭炮' : '步兵'));
+        }
+
         function logBattle(message, type = 'info') {
             const logContent = document.getElementById('battleLog'); // 修改了ID
             const logEntry = document.createElement('div');
@@ -2723,7 +2726,7 @@ permalink: /sandbox_war_game.html
                 }
             }
 
-            logBattle('NO ROOM FOR COVER', 'info');
+            logBattle('无空间放置掩体', 'info');
         }
 
         function addUnitWithTeam(team) {
@@ -2755,7 +2758,7 @@ permalink: /sandbox_war_game.html
             }
 
             if (!placed) {
-                logBattle('NO ROOM TO DEPLOY UNIT', 'info');
+                logBattle('无空间投放兵力', 'info');
                 return;
             }
 
@@ -2775,28 +2778,26 @@ permalink: /sandbox_war_game.html
 
         function toggleBattle() {
             const battleBtn = document.getElementById('battleBtn');
-            
+
             if (!battlefieldManager.isBattleActive) {
-                // 开始战斗
                 if (battlefieldManager.units.length < 2) {
-                    alert('DEPLOY AT LEAST 2 UNITS!'); // 英文提示
+                    alert('至少投放2个兵力！');
                     return;
                 }
-                
+
                 battlefieldManager.startBattle();
-                battleBtn.textContent = 'PAUSE'; // 英文按钮
+                battleBtn.textContent = '暂停';
                 battleBtn.style.color = '#f1c40f';
                 battleBtn.style.borderColor = '#f1c40f';
             } else {
-                // 暂停/继续战斗
                 battlefieldManager.pauseBattle();
-                
+
                 if (battlefieldManager.isPaused) {
-                    battleBtn.textContent = 'RESUME'; // 英文按钮
+                    battleBtn.textContent = '继续';
                     battleBtn.style.color = '#2ecc71';
                     battleBtn.style.borderColor = '#2ecc71';
                 } else {
-                    battleBtn.textContent = 'PAUSE'; // 英文按钮
+                    battleBtn.textContent = '暂停';
                     battleBtn.style.color = '#f1c40f';
                     battleBtn.style.borderColor = '#f1c40f';
                 }
@@ -2811,7 +2812,7 @@ permalink: /sandbox_war_game.html
             const battleBtn = document.getElementById('battleBtn');
             if (!battleBtn) return;
 
-            battleBtn.textContent = 'START';
+            battleBtn.textContent = '开战';
             battleBtn.style.color = '#f1c40f';
             battleBtn.style.borderColor = '#f1c40f';
         }
@@ -2880,7 +2881,7 @@ permalink: /sandbox_war_game.html
 
         // 初始化
         document.addEventListener('DOMContentLoaded', function() {
-            logBattle('SYSTEM READY', 'info');
+            logBattle('系统就绪', 'info');
             addMobileOptimizations();
             selectUnitType('tank');
             const lastModifiedSpan = document.getElementById('lastModified');
