@@ -455,7 +455,7 @@ title: "飞机大战小游戏"
          *             全部可见(武器/修饰/被动三栏, 含互斥分支),
          *             数据自动来自 P1 注册表。 — 已实现
          *   P2 武器: 主炮/散射/侧炮/重炮 + 等级提升 + 多武器独立冷却发射 — 已实现
-         *   P3 修饰: pierce / 追踪 / 折射 / 分裂 逐个上线
+         *   P3 修饰: pierce / 追踪 / 折射 / 分裂 + 槽位互斥 — 已实现
          *   P4 被动 + 平衡: 数值被动、稀有度权重、难度曲线回归调参
          *   P5 收尾: 半心制 HP(1心=2HP) + 旧道具折叠 + 回血掉落 + UI 打磨
          *   P6(可选) 进化: 在 B 互斥表基础上追加 C 进化路径,
@@ -541,16 +541,16 @@ title: "飞机大战小游戏"
             { id:'max_lives', name:'最大生命', desc:'最大生命 +1/级 (上限5)', icon:'❤️', type:'passive', maxLevel:2, level:0,
               apply(lv){ lives = Math.min(5, 3 + lv); livesElement.textContent = lives; } },
             // ── 武器 (P2) ──
-            { id:'main', name:'主炮', desc:'前向单发, 伤害=等级', icon:'🔫', type:'weapon', maxLevel:5, level:1,
+            { id:'main', name:'主炮', desc:'前向单发, 伤害=等级', icon:'🔫', type:'weapon', maxLevel:5, level:1, slots:2,
               accepts:['穿透','追踪','折射','分裂','暴击'], rejects:[],
               apply(lv){ ownedWeapons.main = lv; } },
-            { id:'spread', name:'散射枪', desc:'扇形 3/5/7 发', icon:'🌟', type:'weapon', maxLevel:3, level:0,
+            { id:'spread', name:'散射枪', desc:'扇形 3/5/7 发', icon:'🌟', type:'weapon', maxLevel:3, level:0, slots:2,
               accepts:['追踪','折射','暴击'], rejects:['分裂'],
               apply(lv){ ownedWeapons.spread = lv; } },
-            { id:'side', name:'侧炮', desc:'左右各发射 lv 发', icon:'↔️', type:'weapon', maxLevel:3, level:0,
+            { id:'side', name:'侧炮', desc:'左右各发射 lv 发', icon:'↔️', type:'weapon', maxLevel:3, level:0, slots:1,
               accepts:['穿透','暴击'], rejects:['追踪','折射','分裂'],
               apply(lv){ ownedWeapons.side = lv; } },
-            { id:'heavy', name:'重炮', desc:'缓慢巨大弹, 高伤', icon:'💣', type:'weapon', maxLevel:3, level:0,
+            { id:'heavy', name:'重炮', desc:'缓慢巨大弹, 高伤', icon:'💣', type:'weapon', maxLevel:3, level:0, slots:1,
               accepts:['穿透','分裂'], rejects:['追踪','折射'],
               apply(lv){ ownedWeapons.heavy = lv; } },
         ];
@@ -596,11 +596,81 @@ title: "飞机大战小游戏"
                 const w = WEAPONS[id];
                 if (!w) continue;
                 const lv = ownedWeapons[id];
+                const mods = weaponMods[id] || {};
                 const cd = w.cooldown * fireRateMul;
                 if (now - (weaponLastFire[id] || 0) >= cd) {
                     weaponLastFire[id] = now;
-                    w.fire(lv, player, (b) => bullets.push(b));
+                    // push 回调: 给每颗子弹注入本武器已安装的修饰 flag
+                    w.fire(lv, player, (b) => {
+                        b.pierce = mods.pierce || 0;
+                        b.homing = mods.homing || 0;
+                        b.bounce = mods.bounce || 0;
+                        b.split = mods.split || 0;
+                        bullets.push(b);
+                    });
                 }
+            }
+        }
+
+        // ===== 肉鸽 P3: 修饰系统 (槽位 + 互斥) =====
+        // MODIFIERS: 修饰目录; weaponMods[weaponId][modId] = 等级 (运行时)
+        // bullet 修饰字段: pierce(剩余穿透次数), homing(等级), bounce(剩余反弹次数), split(等级)
+        const MODIFIERS = {
+            pierce:  { name:'穿透', desc:'子弹多穿透 N 个敌机', icon:'➡️', maxLevel:3 },
+            homing:  { name:'追踪', desc:'子弹转向追击附近敌机', icon:'🎯', maxLevel:3 },
+            bounce:  { name:'折射', desc:'子弹撞侧墙反弹 N 次', icon:'↩️', maxLevel:3 },
+            split:   { name:'分裂', desc:'命中时分裂出片段', icon:'✴️', maxLevel:3 },
+        };
+        let weaponMods = {}; // weaponId -> { modId: level }
+
+        function findRegistryWeapon(id) { return UPGRADE_REGISTRY.find(u => u.id === id); }
+        function installedModCount(weaponId) {
+            const m = weaponMods[weaponId]; if (!m) return 0;
+            return Object.keys(m).filter(k => m[k] > 0).length;
+        }
+        // (weaponId, modId) 是否可安装: 已拥有 / 武器接受(非互斥) / 未满级 / 新装时有空闲槽
+        function isValidModInstall(weaponId, modId) {
+            if (!ownedWeapons[weaponId]) return false;
+            const w = findRegistryWeapon(weaponId);
+            const mod = MODIFIERS[modId];
+            if (!w || !mod) return false;
+            if (!w.accepts || !w.accepts.includes(mod.name)) return false; // 互斥
+            const cur = (weaponMods[weaponId] && weaponMods[weaponId][modId]) || 0;
+            if (cur >= mod.maxLevel) return false; // 满级
+            if (cur === 0 && installedModCount(weaponId) >= (w.slots || 0)) return false; // 槽满
+            return true;
+        }
+        function installMod(weaponId, modId) {
+            if (!weaponMods[weaponId]) weaponMods[weaponId] = {};
+            weaponMods[weaponId][modId] = (weaponMods[weaponId][modId] || 0) + 1;
+        }
+
+        // 最近的敌机 (追踪用)
+        function findNearestEnemy(x, y) {
+            let best = null, bestD = Infinity;
+            for (const e of enemies) {
+                if (e.dead) continue;
+                const dx = e.x + e.width / 2 - x;
+                const dy = e.y + e.height / 2 - y;
+                const d = dx * dx + dy * dy;
+                if (d < bestD) { bestD = d; best = e; }
+            }
+            return best;
+        }
+
+        // 分裂: 命中时生成短命片段
+        function spawnSplitFragments(bullet) {
+            const count = 2 + (bullet.split || 0); // Lv1→3, Lv2→4, Lv3→5
+            const cx = bullet.x + bullet.width / 2;
+            const cy = bullet.y + bullet.height / 2;
+            for (let i = 0; i < count; i++) {
+                const ang = (i / count) * Math.PI * 2;
+                bullets.push({
+                    x: cx - 2, y: cy - 2, width: 4, height: 4,
+                    vx: Math.cos(ang) * 4, vy: Math.sin(ang) * 4,
+                    color: bullet.color || '#fff', damage: 1, type: 'split',
+                    pierce: 0, homing: 0, bounce: 0, split: 0, life: 0.6
+                });
             }
         }
 
@@ -624,23 +694,57 @@ title: "飞机大战小游戏"
             if (pendingLevelUps > 0 && !awaitingUpgrade) showUpgradeChoices();
         }
 
+        // 构建升级候选 (offer): 注册表条目 + "修饰→武器" 安装组合 (受槽位/互斥约束)
+        function buildOffers() {
+            const offers = [];
+            // 注册表条目 (被动/武器)
+            UPGRADE_REGISTRY.forEach(u => {
+                if (u.level < u.maxLevel) {
+                    offers.push({
+                        icon: u.icon,
+                        name: u.name + ' → Lv.' + (u.level + 1),
+                        desc: u.desc,
+                        typeLabel: TYPE_LABEL[u.type] || u.type,
+                        apply() { u.level++; u.apply(u.level); }
+                    });
+                }
+            });
+            // 修饰安装: 每件已拥有武器 × 每个可装修饰
+            for (const weaponId in ownedWeapons) {
+                if (!ownedWeapons[weaponId]) continue;
+                const w = findRegistryWeapon(weaponId);
+                if (!w) continue;
+                for (const modId in MODIFIERS) {
+                    if (!isValidModInstall(weaponId, modId)) continue;
+                    const mod = MODIFIERS[modId];
+                    const cur = (weaponMods[weaponId] && weaponMods[weaponId][modId]) || 0;
+                    offers.push({
+                        icon: mod.icon,
+                        name: mod.name + ' → ' + w.name + ' Lv.' + (cur + 1),
+                        desc: mod.desc + ' (' + installedModCount(weaponId) + '/' + (w.slots || 0) + ' 槽)',
+                        typeLabel: '修饰',
+                        apply() { installMod(weaponId, modId); }
+                    });
+                }
+            }
+            return offers;
+        }
+
         function showUpgradeChoices() {
             if (pendingLevelUps <= 0) { awaitingUpgrade = false; return; }
-            const available = UPGRADE_REGISTRY.filter(u => u.level < u.maxLevel);
-            if (available.length === 0) {
-                // 全部满级: 跳过选择
-                pendingLevelUps = 0;
+            const offers = buildOffers();
+            if (offers.length === 0) {
+                pendingLevelUps = 0; // 无可选项: 跳过
                 awaitingUpgrade = false;
                 return;
             }
             awaitingUpgrade = true;
             // 随机抽 3 张 (不足则取全部)
-            const pool = available.slice();
-            for (let i = pool.length - 1; i > 0; i--) {
+            for (let i = offers.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
-                [pool[i], pool[j]] = [pool[j], pool[i]];
+                [offers[i], offers[j]] = [offers[j], offers[i]];
             }
-            currentChoices = pool.slice(0, Math.min(3, pool.length));
+            currentChoices = offers.slice(0, Math.min(3, offers.length));
             renderUpgradePanel();
         }
 
@@ -653,14 +757,14 @@ title: "飞机大战小游戏"
             panel.appendChild(title);
             const cards = document.createElement('div');
             cards.className = 'upgrade-cards';
-            currentChoices.forEach((u, idx) => {
+            currentChoices.forEach((o, idx) => {
                 const card = document.createElement('button');
                 card.className = 'upgrade-card';
                 card.innerHTML =
-                    '<div class="uc-icon">' + u.icon + '</div>' +
-                    '<div class="uc-name">' + u.name + ' → Lv.' + (u.level + 1) + '</div>' +
-                    '<div class="uc-desc">' + u.desc + '</div>' +
-                    '<div class="uc-type">' + (TYPE_LABEL[u.type] || u.type) + ' · 按 ' + (idx + 1) + '</div>';
+                    '<div class="uc-icon">' + o.icon + '</div>' +
+                    '<div class="uc-name">' + o.name + '</div>' +
+                    '<div class="uc-desc">' + o.desc + '</div>' +
+                    '<div class="uc-type">' + o.typeLabel + ' · 按 ' + (idx + 1) + '</div>';
                 card.addEventListener('click', () => pickUpgrade(idx));
                 cards.appendChild(card);
             });
@@ -669,10 +773,9 @@ title: "飞机大战小游戏"
         }
 
         function pickUpgrade(idx) {
-            const u = currentChoices[idx];
-            if (!u) return;
-            u.level++;
-            u.apply(u.level);
+            const o = currentChoices[idx];
+            if (!o) return;
+            o.apply();
             pendingLevelUps--;
             updateXPDisplay();
             if (pendingLevelUps > 0) {
@@ -696,16 +799,14 @@ title: "飞机大战小游戏"
             player.speed = UPGRADE_BASE.playerSpeed;
             ownedWeapons = { main: 1 };
             weaponLastFire = {};
+            weaponMods = {};
             document.getElementById('upgradePanel').classList.add('hidden');
             updateXPDisplay();
         }
 
         updateXPDisplay(); // 初始化经验条显示
 
-        // ===== 肉鸽 P1.5: 图鉴 (数据自动来自 UPGRADE_REGISTRY) =====
-        const CODEX_TYPES = ['weapon', 'modifier', 'passive'];
-        const CODEX_TYPE_LABEL = { weapon: '武器', modifier: '修饰', passive: '被动' };
-        const CODEX_TYPE_ROADMAP = { weapon: 'P2', modifier: 'P3', passive: '后续' };
+        // ===== 肉鸽 P1.5/P3: 图鉴 (武器/修饰/被动, 含已装修饰与槽位) =====
 
         function renderCodex() {
             const panel = document.getElementById('codexPanel');
@@ -713,31 +814,66 @@ title: "飞机大战小游戏"
                 + '<div class="codex-title">📖 图鉴</div>'
                 + '<button class="codex-close" id="codexCloseBtn">关闭 (G)</button>'
                 + '</div><div class="codex-body">';
-            CODEX_TYPES.forEach(t => {
-                const items = UPGRADE_REGISTRY.filter(u => u.type === t);
-                html += '<div class="codex-section"><h3>' + CODEX_TYPE_LABEL[t]
-                    + ' (' + items.length + ')</h3>';
-                if (items.length === 0) {
-                    html += '<div class="codex-empty">尚未实装 — 将在 ' + CODEX_TYPE_ROADMAP[t] + ' 加入</div>';
-                } else {
-                    items.forEach(u => {
-                        html += '<div class="codex-item">'
-                            + '<div class="codex-icon">' + u.icon + '</div>'
-                            + '<div class="codex-info">'
-                            + '<div class="codex-name">' + u.name
-                            + '<span class="codex-lv">Lv.' + u.level + '/' + u.maxLevel + '</span></div>'
-                            + '<div class="codex-desc">' + u.desc + '</div>';
-                        if (u.accepts || u.rejects) {
-                            html += '<div class="codex-mods">';
-                            if (u.accepts) html += '<span class="acc">可修饰: ' + u.accepts.join(' ') + '</span> ';
-                            if (u.rejects) html += '<span class="rej">排斥: ' + u.rejects.join(' ') + '</span>';
-                            html += '</div>';
-                        }
-                        html += '</div></div>';
-                    });
-                }
-                html += '</div>';
+
+            // ── 武器 ──
+            const weapons = UPGRADE_REGISTRY.filter(u => u.type === 'weapon');
+            html += '<div class="codex-section"><h3>武器 (' + weapons.length + ')</h3>';
+            weapons.forEach(u => {
+                const owned = (ownedWeapons[u.id] || 0) > 0;
+                const mods = weaponMods[u.id] || {};
+                const installed = Object.keys(mods).filter(k => mods[k] > 0)
+                    .map(k => MODIFIERS[k].name + ' Lv' + mods[k]);
+                html += '<div class="codex-item">'
+                    + '<div class="codex-icon">' + u.icon + '</div>'
+                    + '<div class="codex-info">'
+                    + '<div class="codex-name">' + u.name
+                    + '<span class="codex-lv">Lv.' + u.level + '/' + u.maxLevel
+                    + (owned ? '' : ' · 未拥有') + '</span></div>'
+                    + '<div class="codex-desc">' + u.desc + '</div>'
+                    + '<div class="codex-mods">'
+                    + '<span class="acc">槽 ' + installed.length + '/' + (u.slots || 0) + '</span> '
+                    + (installed.length ? '<span class="acc">已装: ' + installed.join(' ') + '</span> ' : '')
+                    + '<span class="acc">可: ' + (u.accepts || []).join(' ') + '</span> '
+                    + (u.rejects && u.rejects.length ? '<span class="rej">拒: ' + u.rejects.join(' ') + '</span>' : '')
+                    + '</div></div></div>';
             });
+            html += '</div>';
+
+            // ── 修饰 ──
+            const modIds = Object.keys(MODIFIERS);
+            html += '<div class="codex-section"><h3>修饰 (' + modIds.length + ')</h3>';
+            modIds.forEach(mid => {
+                const mod = MODIFIERS[mid];
+                const on = [];
+                for (const wid in weaponMods) {
+                    const lv = weaponMods[wid] && weaponMods[wid][mid];
+                    if (lv > 0) { const w = findRegistryWeapon(wid); if (w) on.push(w.name + ' Lv' + lv); }
+                }
+                html += '<div class="codex-item">'
+                    + '<div class="codex-icon">' + mod.icon + '</div>'
+                    + '<div class="codex-info">'
+                    + '<div class="codex-name">' + mod.name
+                    + '<span class="codex-lv">max ' + mod.maxLevel + '</span></div>'
+                    + '<div class="codex-desc">' + mod.desc + '</div>'
+                    + (on.length ? '<div class="codex-mods"><span class="acc">已装于: ' + on.join(' ') + '</span></div>' : '')
+                    + '</div></div>';
+            });
+            html += '</div>';
+
+            // ── 被动 ──
+            const passives = UPGRADE_REGISTRY.filter(u => u.type === 'passive');
+            html += '<div class="codex-section"><h3>被动 (' + passives.length + ')</h3>';
+            passives.forEach(u => {
+                html += '<div class="codex-item">'
+                    + '<div class="codex-icon">' + u.icon + '</div>'
+                    + '<div class="codex-info">'
+                    + '<div class="codex-name">' + u.name
+                    + '<span class="codex-lv">Lv.' + u.level + '/' + u.maxLevel + '</span></div>'
+                    + '<div class="codex-desc">' + u.desc + '</div>'
+                    + '</div></div>';
+            });
+            html += '</div>';
+
             html += '</div>';
             panel.innerHTML = html;
             document.getElementById('codexCloseBtn').addEventListener('click', closeCodex);
@@ -1096,7 +1232,7 @@ title: "飞机大战小游戏"
                     );
                     
                     // 移除被击中的敌机
-                    enemies.splice(enemies.indexOf(enemy), 1); // 使用indexOf找到并移除，因为循环是倒序的
+                    enemy.dead = true; // 标记死亡, 统一在 checkCollisions 末尾过滤(避免 splice 扰乱循环)
 
                     // 不管是不是子弹击中，都增加分数和击杀数
                     score += 100;
@@ -1110,16 +1246,30 @@ title: "飞机大战小游戏"
             // 子弹击中敌机
             for (let i = bullets.length - 1; i >= 0; i--) {
                 const bullet = bullets[i];
+                if (!bullet.hits) bullet.hits = new Set();
                 for (let j = enemies.length - 1; j >= 0; j--) {
                     const enemy = enemies[j];
+                    if (enemy.dead) continue;
                     if (bullet.x < enemy.x + enemy.width &&
                         bullet.x + bullet.width > enemy.x &&
                         bullet.y < enemy.y + enemy.height &&
                         bullet.y + bullet.height > enemy.y) {
 
-                        handleEnemyDamage(enemy, bullet); // 调用辅助函数处理敌机伤害
-                        bullets.splice(i, 1); // 命中即移除子弹(仅删一次, 避免误删相邻子弹)
-                        break; // 一旦击中敌机就跳出内层循环
+                        // 同一颗子弹不重复命中同一敌机 (穿透时关键)
+                        if (bullet.hits.has(enemy)) continue;
+                        bullet.hits.add(enemy);
+
+                        handleEnemyDamage(enemy, bullet);
+                        if (bullet.split > 0) spawnSplitFragments(bullet);
+
+                        // 穿透: 还有次数则继续, 否则消亡
+                        if (bullet.pierce > 0) {
+                            bullet.pierce--;
+                            continue; // 同帧可能再命中下一敌机
+                        } else {
+                            bullets.splice(i, 1);
+                            break;
+                        }
                     }
                 }
             }
@@ -1172,6 +1322,7 @@ title: "飞机大战小游戏"
             // 敌机撞击玩家
             for (let i = enemies.length - 1; i >= 0; i--) {
                 const enemy = enemies[i];
+                if (enemy.dead) continue;
                 if (player.x < enemy.x + enemy.width &&
                     player.x + player.width > enemy.x &&
                     player.y < enemy.y + enemy.height &&
@@ -1195,6 +1346,8 @@ title: "飞机大战小游戏"
                     }
                 }
             }
+            // 统一清除本帧标记为死亡的敌机 (穿透/分裂不再即时 splice, 避免扰乱循环)
+            enemies = enemies.filter(e => !e.dead);
         }
 
         // 创建绿色方块（生命奖励）
@@ -1376,10 +1529,40 @@ title: "飞机大战小游戏"
         // 更新子弹位置
         function updateBullets(deltaTime) {
             bullets = bullets.filter(bullet => {
+                // 片段生命期 (分裂产物)
+                if (bullet.life !== undefined) {
+                    bullet.life -= deltaTime;
+                    if (bullet.life <= 0) return false;
+                }
+                // 追踪: 朝最近敌机转向 (转向强度随等级)
+                if (bullet.homing > 0) {
+                    const target = findNearestEnemy(bullet.x + bullet.width / 2, bullet.y + bullet.height / 2);
+                    if (target) {
+                        const tx = target.x + target.width / 2 - (bullet.x + bullet.width / 2);
+                        const ty = target.y + target.height / 2 - (bullet.y + bullet.height / 2);
+                        const d = Math.hypot(tx, ty) || 1;
+                        let vx = bullet.vx || 0;
+                        let vy = (bullet.vy !== undefined) ? bullet.vy : -bulletSpeed;
+                        const speed = Math.hypot(vx, vy) || bulletSpeed;
+                        const steer = 0.08 + 0.04 * bullet.homing;
+                        vx += (tx / d) * speed * steer;
+                        vy += (ty / d) * speed * steer;
+                        const ns = Math.hypot(vx, vy) || 1;
+                        bullet.vx = vx / ns * speed;
+                        bullet.vy = vy / ns * speed;
+                    }
+                }
                 const vx = bullet.vx || 0;
                 const vy = (bullet.vy !== undefined) ? bullet.vy : -bulletSpeed;
                 bullet.x += vx * deltaTime * 60;
                 bullet.y += vy * deltaTime * 60;
+                // 折射: 撞侧墙反弹 (仅左右, 避免子弹向下飞)
+                if (bullet.bounce > 0) {
+                    if (bullet.x <= 0) { bullet.x = 0; bullet.vx = Math.abs(vx); bullet.bounce--; }
+                    else if (bullet.x + bullet.width >= canvas.width) {
+                        bullet.x = canvas.width - bullet.width; bullet.vx = -Math.abs(vx); bullet.bounce--;
+                    }
+                }
                 // 子弹在画布范围内才保留 (含侧炮横向飞出)
                 return bullet.y > -20 && bullet.x > -20 && bullet.x < canvas.width + 20;
             });
