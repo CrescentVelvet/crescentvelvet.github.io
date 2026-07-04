@@ -1110,25 +1110,17 @@ title: "飞机大战小游戏"
             // 子弹击中敌机
             for (let i = bullets.length - 1; i >= 0; i--) {
                 const bullet = bullets[i];
-                let bulletHit = false;
-                
                 for (let j = enemies.length - 1; j >= 0; j--) {
                     const enemy = enemies[j];
                     if (bullet.x < enemy.x + enemy.width &&
                         bullet.x + bullet.width > enemy.x &&
                         bullet.y < enemy.y + enemy.height &&
                         bullet.y + bullet.height > enemy.y) {
-                        
-                        handleEnemyDamage(enemy, bullet); // 调用辅助函数处理敌机伤害，并标记为子弹击中
-                        bullets.splice(i, 1); // 移除子弹
-                        bulletHit = true; // 标记子弹已击中敌机
+
+                        handleEnemyDamage(enemy, bullet); // 调用辅助函数处理敌机伤害
+                        bullets.splice(i, 1); // 命中即移除子弹(仅删一次, 避免误删相邻子弹)
                         break; // 一旦击中敌机就跳出内层循环
                     }
-                }
-                
-                // 如果子弹击中了敌机，则移除该子弹
-                if (bulletHit) {
-                    bullets.splice(i, 1);
                 }
             }
 
