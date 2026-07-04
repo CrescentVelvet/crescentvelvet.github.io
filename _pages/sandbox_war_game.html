@@ -99,6 +99,16 @@ permalink: /sandbox_war_game.html
             color: var(--pixel-text);
         }
 
+        /* 阵营标签：友军/敌军 行首标识 */
+        .team-tag {
+            border: 3px solid;
+            background: #000;
+            padding: 4px 12px;
+            line-height: 1.4;
+        }
+        .team-tag.tag-ally  { color: var(--pixel-primary); border-color: var(--pixel-primary); }
+        .team-tag.tag-enemy { color: var(--pixel-secondary); border-color: var(--pixel-secondary); }
+
         .pixel-btn {
             font-family: 'ZCOOL QingKe HuangYou', 'Press Start 2P', 'DotGothic16', monospace;
             padding: 10px 15px;
@@ -649,18 +659,22 @@ permalink: /sandbox_war_game.html
         <div class="game-ui">
             <div class="controls-panel">
                 <div class="control-row">
-                    <button onclick="selectUnitType('tank')" id="unitBtn-tank" class="pixel-btn btn-unit">坦克</button>
-                    <button onclick="selectUnitType('soldier')" id="unitBtn-soldier" class="pixel-btn btn-unit">步兵</button>
-                    <button onclick="selectUnitType('artillery')" id="unitBtn-artillery" class="pixel-btn btn-unit">火炮</button>
-                    <button onclick="selectUnitType('rocket')" id="unitBtn-rocket" class="pixel-btn btn-unit">火箭炮</button>
-
-                    <label>血量:</label>
-                    <input type="number" id="unitHealth" value="100" min="1" max="200" class="pixel-input" style="width: 60px;">
+                    <label class="team-tag tag-ally">友军</label>
+                    <button onclick="addUnit('ally','tank')" class="pixel-btn btn-ally">坦克</button>
+                    <button onclick="addUnit('ally','soldier')" class="pixel-btn btn-ally">步兵</button>
+                    <button onclick="addUnit('ally','artillery')" class="pixel-btn btn-ally">火炮</button>
+                    <button onclick="addUnit('ally','rocket')" class="pixel-btn btn-ally">火箭炮</button>
                 </div>
-                
+
                 <div class="control-row">
-                    <button onclick="addAllyUnit()" class="pixel-btn btn-ally">+友军</button>
-                    <button onclick="addEnemyUnit()" class="pixel-btn btn-enemy">+敌军</button>
+                    <label class="team-tag tag-enemy">敌军</label>
+                    <button onclick="addUnit('enemy','tank')" class="pixel-btn btn-enemy">坦克</button>
+                    <button onclick="addUnit('enemy','soldier')" class="pixel-btn btn-enemy">步兵</button>
+                    <button onclick="addUnit('enemy','artillery')" class="pixel-btn btn-enemy">火炮</button>
+                    <button onclick="addUnit('enemy','rocket')" class="pixel-btn btn-enemy">火箭炮</button>
+                </div>
+
+                <div class="control-row">
                     <button onclick="addObstacle()" class="pixel-btn btn-obstacle">+掩体</button>
                     <button onclick="toggleBattle()" id="battleBtn" class="pixel-btn btn-action">开战</button>
                     <button onclick="clearBattlefield()" class="pixel-btn btn-danger">清空</button>
@@ -2726,14 +2740,14 @@ permalink: /sandbox_war_game.html
 
         // 全局变量
         const battlefieldManager = new BattlefieldManager();
-        let selectedUnitType = 'tank';
 
-        function selectUnitType(type) {
-            selectedUnitType = type;
-            document.querySelectorAll('.btn-unit').forEach(btn => btn.classList.remove('active'));
-            const btn = document.getElementById('unitBtn-' + type);
-            if (btn) btn.classList.add('active');
-        }
+        // 兵种预置属性：血量由兵种决定，不再由玩家设定
+        const UNIT_PRESETS = {
+            tank:      { health: 300 },
+            soldier:   { health: 80 },
+            artillery: { health: 90 },
+            rocket:    { health: 70 }
+        };
 
         // 工具函数
         function unitTypeName(type) {
@@ -2747,14 +2761,6 @@ permalink: /sandbox_war_game.html
             logEntry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
             logContent.appendChild(logEntry);
             logContent.scrollTop = logContent.scrollHeight;
-        }
-
-        function addAllyUnit() {
-            addUnitWithTeam('ally');
-        }
-
-        function addEnemyUnit() {
-            addUnitWithTeam('enemy');
         }
 
         function addObstacle() {
@@ -2783,9 +2789,8 @@ permalink: /sandbox_war_game.html
             logBattle('无空间放置掩体', 'info');
         }
 
-        function addUnitWithTeam(team) {
-            const type = selectedUnitType;
-            const health = parseInt(document.getElementById('unitHealth').value);
+        function addUnit(team, type) {
+            const health = UNIT_PRESETS[type].health;
             const battlefield = document.getElementById('battlefield');
             let unitSize;
             if (type === 'tank') unitSize = 36;
@@ -2937,7 +2942,6 @@ permalink: /sandbox_war_game.html
         document.addEventListener('DOMContentLoaded', function() {
             logBattle('系统就绪', 'info');
             addMobileOptimizations();
-            selectUnitType('tank');
             const lastModifiedSpan = document.getElementById('lastModified');
             if (lastModifiedSpan) {
                 lastModifiedSpan.textContent = document.lastModified;
