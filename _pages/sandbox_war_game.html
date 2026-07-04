@@ -317,6 +317,56 @@ permalink: /sandbox_war_game.html
             to   { opacity: 1; }
         }
 
+        /* ---- 火箭炮 (32px) ---- */
+        .unit.rocket {
+            --unit-size: 32px;
+        }
+
+        .rocket-chassis {
+            position: absolute;
+            width: 26px;
+            height: 9px;
+            left: 3px;
+            top: 18px;
+            background: var(--color-dark);
+            box-shadow: inset 0 0 0 2px var(--color), 0 2px 0 rgba(0,0,0,0.45);
+        }
+
+        .rocket-wheel {
+            position: absolute;
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #1a1a1a;
+            box-shadow: inset 0 0 0 1px #444;
+            top: 24px;
+        }
+        .rocket-wheel.left  { left: 3px; }
+        .rocket-wheel.right { right: 3px; }
+
+        .rocket-rack {
+            position: absolute;
+            width: 20px;
+            height: 13px;
+            left: 6px;
+            top: 4px;
+            background: var(--color);
+            box-shadow: inset 0 0 0 2px var(--color-dark);
+        }
+
+        .rocket-tube {
+            position: absolute;
+            width: 3px;
+            height: 9px;
+            background: #222;
+            box-shadow: inset 0 0 0 1px #555;
+            top: 6px;
+        }
+        .rocket-tube.t1 { left: 9px; }
+        .rocket-tube.t2 { left: 13px; }
+        .rocket-tube.t3 { left: 17px; }
+        .rocket-tube.t4 { left: 21px; }
+
         .unit.selected {
             filter: drop-shadow(0 0 4px #f1c40f);
             z-index: 100;
@@ -542,6 +592,7 @@ permalink: /sandbox_war_game.html
                         <option value="tank">TANK</option>
                         <option value="soldier">SOLDIER</option>
                         <option value="artillery">ARTILLERY</option>
+                        <option value="rocket">ROCKET</option>
                     </select>
                     
                     <label>HP:</label>
@@ -1084,7 +1135,7 @@ permalink: /sandbox_war_game.html
 
             showInfo(event) {
                 const info = document.getElementById('unitInfo');
-                const typeName = this.type === 'tank' ? '坦克' : (this.type === 'artillery' ? '火炮' : '士兵');
+                const typeName = this.type === 'tank' ? '坦克' : (this.type === 'artillery' ? '火炮' : (this.type === 'rocket' ? '火箭炮' : '士兵'));
                 let extra = '';
                 if (this.type === 'artillery' && this.deployed !== undefined) {
                     extra = `<br>状态: ${this.deployed ? '已部署' : (this.deploying ? '部署中...' : '移动中')}`;
@@ -1969,23 +2020,134 @@ permalink: /sandbox_war_game.html
             }
         }
 
+        // 火箭炮类（多管火箭炮：6连发齐射+随机散布+面溅射，无需架设）
+        class RocketLauncher extends Artillery {
+            constructor(x, y, team, health) {
+                super(x, y, team, health);
+                this.type = 'rocket';
+                this.attackRange = 380;
+                this.minRange = 100;
+                this.attackPower = 25;
+                this.maxSpeed = 20;
+                this.maxTurnSpeed = 70;
+                this.attackCooldown = 4000;
+                this.moveCooldown = 600;
+                this.isTracked = true;
+                this.deployDuration = 0;
+                this.volleySize = 6;
+                this.volleyInterval = 150;
+                this.volleyCount = 0;
+                this.volleyTimer = 0;
+            }
+
+            getDisplayMarkup() {
+                const body = '<div class="rocket-rack"></div><div class="rocket-tube t1"></div><div class="rocket-tube t2"></div><div class="rocket-tube t3"></div><div class="rocket-tube t4"></div><div class="rocket-chassis"></div><div class="rocket-wheel left"></div><div class="rocket-wheel right"></div>';
+                return `<div class="unit-body">${body}</div><div class="hp-bar"><div class="hp-fill" style="width:${this.getHealthPercent()}%"></div></div>`;
+            }
+
+            update(deltaTime, allUnits) {
+                if (this.isDead()) return;
+
+                // 齐射进行中：停车不动，逐发发射，齐射期间不受状态机干扰
+                if (this.volleyCount > 0) {
+                    this.volleyTimer += deltaTime * 1000;
+                    if (this.volleyTimer >= this.volleyInterval) {
+                        this.volleyTimer = 0;
+                        this.fireOneRocket(this.currentTarget);
+                        this.volleyCount--;
+                        if (this.volleyCount === 0) {
+                            this.lastAttackTime = Date.now();
+                        }
+                    }
+                    this.state = 'firing';
+                    this.isMoving = false;
+                    if (this.currentTarget && !this.currentTarget.isDead()) {
+                        this.turnToward(this.currentTarget);
+                    }
+                    this.updatePosition(deltaTime, allUnits);
+                    return;
+                }
+
+                const nearestEnemy = this.acquireTarget(allUnits);
+
+                if (nearestEnemy) {
+                    const distance = this.getDistance(nearestEnemy);
+
+                    if (distance < this.minRange) {
+                        this.state = 'fallback';
+                        this.moveAwayFrom(nearestEnemy, 220);
+                    } else if (distance > this.attackRange) {
+                        this.state = 'maneuver';
+                        this.moveTowards(nearestEnemy);
+                    } else if (this.hasLineOfSight(nearestEnemy)) {
+                        this.state = 'firing';
+                        this.isMoving = false;
+                        this.turnToward(nearestEnemy);
+                        if (this.isFacing(nearestEnemy)) {
+                            this.startVolley(nearestEnemy);
+                        }
+                    } else {
+                        this.state = 'flank';
+                        this.flankForShot(nearestEnemy);
+                    }
+                } else {
+                    this.state = 'patrol';
+                    this.randomMove(deltaTime);
+                }
+
+                this.updatePosition(deltaTime, allUnits);
+            }
+
+            startVolley(target) {
+                if (this.volleyCount > 0) return;
+                const now = Date.now();
+                if (now - this.lastAttackTime < this.attackCooldown) return;
+                this.volleyCount = this.volleySize;
+                this.volleyTimer = this.volleyInterval;
+                this.currentTarget = target;
+            }
+
+            fireOneRocket(target) {
+                if (!target || target.isDead()) {
+                    this.volleyCount = 0;
+                    return;
+                }
+                const damage = this.getAttackDamage();
+                const scatterX = (Math.random() - 0.5) * 40;
+                const scatterY = (Math.random() - 0.5) * 40;
+                const targetX = target.x + target.getSize() / 2 + scatterX;
+                const targetY = target.y + target.getSize() / 2 + scatterY;
+                battlefieldManager.spawnScatterProjectile(this, target, targetX, targetY, damage);
+            }
+
+            tryAttack(target) {
+                this.startVolley(target);
+            }
+        }
+
         class Projectile {
             constructor(source, target, damage) {
                 this.source = source;
                 this.target = target;
                 this.team = source.team;
                 this.damage = damage;
-                this.speed = source.type === 'tank' ? 520 : (source.type === 'artillery' ? 280 : 340);
-                this.radius = source.type === 'tank' ? 12 : (source.type === 'artillery' ? 10 : 9);
+                this.speed = source.type === 'tank' ? 520 : (source.type === 'artillery' ? 280 : (source.type === 'rocket' ? 240 : 340));
+                this.radius = source.type === 'tank' ? 12 : (source.type === 'artillery' ? 10 : (source.type === 'rocket' ? 8 : 9));
 
-                // 视觉尺寸区分：步兵最小、坦克小、火炮大
+                // 视觉尺寸区分：步兵最小、坦克小、火炮大、火箭弹中
                 const specs = {
-                    soldier:   { size: 5,  border: 1, glow: 4  },
-                    tank:      { size: 9,  border: 2, glow: 8  },
-                    artillery: { size: 14, border: 3, glow: 12 }
+                    soldier:   { size: 5,  border: 1, glow: 4,  glowColor: '#f7e07b' },
+                    tank:      { size: 9,  border: 2, glow: 8,  glowColor: '#f7e07b' },
+                    artillery: { size: 14, border: 3, glow: 12, glowColor: '#f7e07b' },
+                    rocket:    { size: 11, border: 2, glow: 10, glowColor: '#e67e22' }
                 };
                 const spec = specs[source.type] || specs.soldier;
                 this.size = spec.size;
+
+                // 散布弹道：若设置则飞向固定点而非追踪目标，到达后溅射
+                this.scatterX = undefined;
+                this.scatterY = undefined;
+                this.splashRadius = 0;
 
                 this.x = source.x + source.getSize() / 2;
                 this.y = source.y + source.getSize() / 2;
@@ -1994,13 +2156,44 @@ permalink: /sandbox_war_game.html
                 this.element.style.width = this.size + 'px';
                 this.element.style.height = this.size + 'px';
                 this.element.style.borderWidth = spec.border + 'px';
-                this.element.style.boxShadow = `0 0 ${spec.glow}px #f7e07b`;
+                this.element.style.boxShadow = `0 0 ${spec.glow}px ${spec.glowColor}`;
                 this.element.style.background = this.team === 'ally' ? '#8fd3ff' : '#ff9a8f';
                 this.element.style.borderColor = this.team === 'ally' ? '#d6f1ff' : '#ffd3cd';
                 this.updateVisual();
             }
 
             update(deltaTime) {
+                // 散布弹道：飞向固定点，到达后对范围内所有敌方单位溅射
+                if (this.scatterX !== undefined) {
+                    if (battlefieldManager.collidesWithObstacle(this.x, this.y, 8, 8)) {
+                        this.doSplashDamage(this.x, this.y);
+                        this.createImpact(this.x, this.y);
+                        return false;
+                    }
+
+                    const dx = this.scatterX - this.x;
+                    const dy = this.scatterY - this.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+
+                    if (dist <= this.radius) {
+                        this.doSplashDamage(this.scatterX, this.scatterY);
+                        this.createImpact(this.scatterX, this.scatterY);
+                        return false;
+                    }
+
+                    const step = Math.min(dist, this.speed * deltaTime);
+                    this.x += (dx / dist) * step;
+                    this.y += (dy / dist) * step;
+                    if (battlefieldManager.collidesWithObstacle(this.x, this.y, 8, 8)) {
+                        this.doSplashDamage(this.x, this.y);
+                        this.createImpact(this.x, this.y);
+                        return false;
+                    }
+                    this.updateVisual();
+                    return true;
+                }
+
+                // 追踪弹道（原有逻辑）
                 if (!this.target || this.target.isDead()) return false;
 
                 if (battlefieldManager.collidesWithObstacle(this.x, this.y, 8, 8)) {
@@ -2030,6 +2223,22 @@ permalink: /sandbox_war_game.html
                 }
                 this.updateVisual();
                 return true;
+            }
+
+            doSplashDamage(ix, iy) {
+                if (!this.splashRadius) return;
+                for (const unit of battlefieldManager.units) {
+                    if (unit.team === this.team || unit.isDead()) continue;
+                    const ux = unit.x + unit.getSize() / 2;
+                    const uy = unit.y + unit.getSize() / 2;
+                    const dx = ux - ix;
+                    const dy = uy - iy;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist <= this.splashRadius) {
+                        const killed = unit.takeDamage(this.damage);
+                        logBattle(`${this.team === 'ally' ? 'ALLY' : 'ENEMY'} ROCKET SPLASH HIT ${unit.team === 'ally' ? 'ALLY' : 'ENEMY'} ${unit.type.toUpperCase()} (-${this.damage})${killed ? ' - DESTROYED!' : ''}`, `${this.team} attack`);
+                    }
+                }
             }
 
             updateVisual() {
@@ -2112,7 +2321,7 @@ permalink: /sandbox_war_game.html
                 this.units.push(unit);
                 const element = unit.createElement();
                 this.battlefield.appendChild(element);
-                const typeLabel = unit.type === 'tank' ? 'TANK' : (unit.type === 'artillery' ? 'ARTILLERY' : 'SOLDIER');
+                const typeLabel = unit.type === 'tank' ? 'TANK' : (unit.type === 'artillery' ? 'ARTILLERY' : (unit.type === 'rocket' ? 'ROCKET' : 'SOLDIER'));
                 logBattle(`DEPLOYED ${unit.team === 'ally' ? 'ALLY' : 'ENEMY'} ${typeLabel}`, unit.team);
             }
 
@@ -2304,6 +2513,15 @@ permalink: /sandbox_war_game.html
 
             spawnProjectile(source, target, damage) {
                 const projectile = new Projectile(source, target, damage);
+                this.projectiles.push(projectile);
+                this.battlefield.appendChild(projectile.element);
+            }
+
+            spawnScatterProjectile(source, target, scatterX, scatterY, damage) {
+                const projectile = new Projectile(source, target, damage);
+                projectile.scatterX = scatterX;
+                projectile.scatterY = scatterY;
+                projectile.splashRadius = 24;
                 this.projectiles.push(projectile);
                 this.battlefield.appendChild(projectile.element);
             }
@@ -2501,7 +2719,7 @@ permalink: /sandbox_war_game.html
             const battlefield = document.getElementById('battlefield');
             let unitSize;
             if (type === 'tank') unitSize = 36;
-            else if (type === 'artillery') unitSize = 32;
+            else if (type === 'artillery' || type === 'rocket') unitSize = 32;
             else unitSize = 22;
             const deploymentDepth = Math.min(280, battlefield.offsetWidth * 0.28);
             let x = 0;
@@ -2533,6 +2751,8 @@ permalink: /sandbox_war_game.html
                 unit = new Tank(x, y, team, health);
             } else if (type === 'artillery') {
                 unit = new Artillery(x, y, team, health);
+            } else if (type === 'rocket') {
+                unit = new RocketLauncher(x, y, team, health);
             } else {
                 unit = new Soldier(x, y, team, health);
             }
