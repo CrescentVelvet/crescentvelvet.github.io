@@ -259,7 +259,7 @@ title: "飞机大战小游戏"
          *     │
          *     ├─ if !gamePaused:
          *     │    └─ if !gameOver:
-         *     │         更新 gameTime → updatePlayer → createBullet
+         *     │         更新 gameTime → updatePlayer → fireWeapons
          *     │         → updateBullets → createEnemy → updateEnemies
          *     │         → createXxxPowerUp ×3 → updateXxxPowerUps ×3
          *     │         → updateExplosions → checkCollisions
@@ -285,7 +285,7 @@ title: "飞机大战小游戏"
          * ├─────────────────────────────────────────────────────────┤
          * │ bullets[] — 玩家子弹                                   │
          * │   width4 height10, bulletSpeed=7, dx(斜射分量), color   │
-         * │   冷却: bulletCooldown=300ms 自动连发                    │
+         * │   冷却: 各武器独立 cooldown, ×fireRateMul(被动 fire_rate) │
          * │   强化态: 同时发射中+左斜+右斜三发 (dx=-2/0/+2)         │
          * ├─────────────────────────────────────────────────────────┤
          * │ enemies[] — 下落敌机                                   │
@@ -391,7 +391,7 @@ title: "飞机大战小游戏"
          *   调难度     → 顶部 enemyInterval / Decay / minMaxSpeed / 等级公式
          *   调道具     → healthPowerUpsTimeInterval 等三个 interval
          *               / 各 duration 常量 / 道具 speed
-         *   调玩家     → player 对象 speed/invincibleTime / bulletCooldown
+         *   调玩家     → player 对象 speed/invincibleTime / fireRateMul(射速)
          *   调敌机     → createEnemy 等级公式 / handleEnemyDamage 速度重算
          *   换皮肤     → PLAYER_SPRITE/PALETTE / ENEMY_SPRITE / 调色板生成
          *   加新道具   → 仿 shootingPowerUps 三件套(create/update/draw/collision)
@@ -454,7 +454,7 @@ title: "飞机大战小游戏"
          *   P1.5 图鉴: 📖图鉴按钮(右上)+G键, DOM浮层暂停面板,
          *             全部可见(武器/修饰/被动三栏, 含互斥分支),
          *             数据自动来自 P1 注册表。 — 已实现
-         *   P2 武器: 主炮外的 2~3 件武器(散射/侧炮/重炮) + 等级提升
+         *   P2 武器: 主炮/散射/侧炮/重炮 + 等级提升 + 多武器独立冷却发射 — 已实现
          *   P3 修饰: pierce / 追踪 / 折射 / 分裂 逐个上线
          *   P4 被动 + 平衡: 数值被动、稀有度权重、难度曲线回归调参
          *   P5 收尾: 半心制 HP(1心=2HP) + 旧道具折叠 + 回血掉落 + UI 打磨
@@ -508,8 +508,7 @@ title: "飞机大战小游戏"
         let invinciblePowerUpTimeLeft = 0; // 无敌特殊能力剩余时间
         let invinciblePowerUpDuration = 3000; // 无敌特殊能力持续3秒
         let enemyCounter = 0; // 敌人计数器
-        let lastBulletTime = 0; // 上次发射子弹的时间
-        let bulletCooldown = 300; // 子弹发射冷却时间（毫秒）— let: 升级可重算
+        let fireRateMul = 1; // 全局射速倍率(被动 fire_rate 设置, 越小越快; 乘在各武器冷却上)
         let lastFrameTime = 0; // 用于计算 deltaTime
         let fps = 0; // 新增：用于存储计算出的FPS
         let framesThisSecond = 0; // 新增：用于计算每秒的帧数
@@ -526,21 +525,84 @@ title: "飞机大战小游戏"
         function xpToNext(lv) { return Math.floor(20 * Math.pow(1.35, lv - 1)); }
 
         // 升级数值据此重算; 重开时回到 BASE
-        const UPGRADE_BASE = { bulletCooldown: 300, bulletSpeed: 7, playerSpeed: 5 };
+        const UPGRADE_BASE = { fireRateMul: 1, bulletSpeed: 7, playerSpeed: 5 };
 
-        // 升级注册表 (P1 占位: 4 个被动; P2/P3 再扩武器与修饰)
-        // level: 当前等级(运行时, 重开复位为0); apply(lv): 按新等级重算效果
+        // 升级注册表 (P1 被动 + P2 武器; P3 再加修饰)
+        // level: 当前等级(运行时, 重开复位); apply(lv): 按新等级重算效果
+        // 武器的 accepts/rejects 为图鉴展示的互斥分支 (P3 修饰实装后生效)
         const UPGRADE_REGISTRY = [
-            { id:'fire_rate', name:'射速', desc:'子弹冷却 -30ms/级', icon:'⚡', type:'passive', maxLevel:5, level:0,
-              apply(lv){ bulletCooldown = Math.max(80, UPGRADE_BASE.bulletCooldown - 30 * lv); } },
+            // ── 被动 ──
+            { id:'fire_rate', name:'射速', desc:'全武器冷却 ×0.9/级', icon:'⚡', type:'passive', maxLevel:5, level:0,
+              apply(lv){ fireRateMul = Math.max(0.4, 1 - 0.1 * lv); } },
             { id:'bullet_speed', name:'子弹速度', desc:'子弹速度 +1/级', icon:'🚀', type:'passive', maxLevel:5, level:0,
               apply(lv){ bulletSpeed = UPGRADE_BASE.bulletSpeed + lv; } },
             { id:'move_speed', name:'移速', desc:'移动速度 +1/级', icon:'👟', type:'passive', maxLevel:5, level:0,
               apply(lv){ player.speed = UPGRADE_BASE.playerSpeed + lv; } },
             { id:'max_lives', name:'最大生命', desc:'最大生命 +1/级 (上限5)', icon:'❤️', type:'passive', maxLevel:2, level:0,
               apply(lv){ lives = Math.min(5, 3 + lv); livesElement.textContent = lives; } },
+            // ── 武器 (P2) ──
+            { id:'main', name:'主炮', desc:'前向单发, 伤害=等级', icon:'🔫', type:'weapon', maxLevel:5, level:1,
+              accepts:['穿透','追踪','折射','分裂','暴击'], rejects:[],
+              apply(lv){ ownedWeapons.main = lv; } },
+            { id:'spread', name:'散射枪', desc:'扇形 3/5/7 发', icon:'🌟', type:'weapon', maxLevel:3, level:0,
+              accepts:['追踪','折射','暴击'], rejects:['分裂'],
+              apply(lv){ ownedWeapons.spread = lv; } },
+            { id:'side', name:'侧炮', desc:'左右各发射 lv 发', icon:'↔️', type:'weapon', maxLevel:3, level:0,
+              accepts:['穿透','暴击'], rejects:['追踪','折射','分裂'],
+              apply(lv){ ownedWeapons.side = lv; } },
+            { id:'heavy', name:'重炮', desc:'缓慢巨大弹, 高伤', icon:'💣', type:'weapon', maxLevel:3, level:0,
+              accepts:['穿透','分裂'], rejects:['追踪','折射'],
+              apply(lv){ ownedWeapons.heavy = lv; } },
         ];
         const TYPE_LABEL = { weapon:'武器', modifier:'修饰', passive:'被动' };
+
+        // ===== 肉鸽 P2: 武器发射系统 =====
+        // 每件武器独立冷却; fire(lv, player, push) 生成子弹, push = b => bullets.push(b)
+        // bullet 字段: x,y,width,height,vx,vy,color,damage,type
+        const WEAPONS = {
+            main: { cooldown: 300, fire(lv, pl, push) {
+                const color = shootingPowerUpActive ? '#FFD700' : '#fff';
+                push({ x: pl.x + pl.width/2 - 2, y: pl.y, width:4, height:10, vx:0, vy:-bulletSpeed, color, damage: lv, type:'main' });
+                if (shootingPowerUpActive) { // 射击强化道具: 主炮追加左右斜射
+                    push({ x: pl.x + pl.width/2 - 2, y: pl.y, width:4, height:10, vx:-2, vy:-bulletSpeed, color, damage: lv, type:'main' });
+                    push({ x: pl.x + pl.width/2 - 2, y: pl.y, width:4, height:10, vx:2, vy:-bulletSpeed, color, damage: lv, type:'main' });
+                }
+            }},
+            spread: { cooldown: 600, fire(lv, pl, push) {
+                const count = 3 + 2 * (lv - 1); // 3/5/7
+                for (let i = 0; i < count; i++) {
+                    const t = count > 1 ? (i / (count - 1) - 0.5) : 0; // -0.5..0.5
+                    push({ x: pl.x + pl.width/2 - 2, y: pl.y, width:4, height:10, vx: t * 6, vy:-bulletSpeed, color:'#9cf', damage:1, type:'spread' });
+                }
+            }},
+            side: { cooldown: 700, fire(lv, pl, push) {
+                for (let i = 0; i < lv; i++) {
+                    const off = (i - (lv - 1) / 2) * 6;
+                    const y = pl.y + pl.height/2 + off;
+                    push({ x: pl.x + pl.width/2 - 5, y, width:10, height:4, vx:-4, vy:0, color:'#f9f', damage:1, type:'side' });
+                    push({ x: pl.x + pl.width/2 - 5, y, width:10, height:4, vx:4, vy:0, color:'#f9f', damage:1, type:'side' });
+                }
+            }},
+            heavy: { cooldown: 1200, fire(lv, pl, push) {
+                push({ x: pl.x + pl.width/2 - 8, y: pl.y - 6, width:16, height:16, vx:0, vy:-2.5, color:'#f80', damage: 3 + lv, type:'heavy' });
+            }},
+        };
+        let ownedWeapons = { main: 1 }; // 运行时: weaponId -> 等级 (main 默认拥有)
+        let weaponLastFire = {};        // 运行时: weaponId -> 上次发射时间
+
+        function fireWeapons() {
+            const now = Date.now();
+            for (const id in ownedWeapons) {
+                const w = WEAPONS[id];
+                if (!w) continue;
+                const lv = ownedWeapons[id];
+                const cd = w.cooldown * fireRateMul;
+                if (now - (weaponLastFire[id] || 0) >= cd) {
+                    weaponLastFire[id] = now;
+                    w.fire(lv, player, (b) => bullets.push(b));
+                }
+            }
+        }
 
         function updateXPDisplay() {
             const need = xpToNext(playerLevel);
@@ -628,10 +690,12 @@ title: "飞机大战小游戏"
             pendingLevelUps = 0;
             awaitingUpgrade = false;
             currentChoices = [];
-            UPGRADE_REGISTRY.forEach(u => u.level = 0);
-            bulletCooldown = UPGRADE_BASE.bulletCooldown;
+            UPGRADE_REGISTRY.forEach(u => u.level = (u.id === 'main' ? 1 : 0));
+            fireRateMul = UPGRADE_BASE.fireRateMul;
             bulletSpeed = UPGRADE_BASE.bulletSpeed;
             player.speed = UPGRADE_BASE.playerSpeed;
+            ownedWeapons = { main: 1 };
+            weaponLastFire = {};
             document.getElementById('upgradePanel').classList.add('hidden');
             updateXPDisplay();
         }
@@ -974,8 +1038,9 @@ title: "飞机大战小游戏"
 
             // 辅助函数：处理敌机被击中时的逻辑
             function handleEnemyDamage(enemy, bullet) { // bullet is now an optional parameter
-                // 降低敌机等级
-                enemy.level--;
+                // 降低敌机等级 (按子弹伤害; 玩家撞击为 1)
+                const dmg = (bullet && bullet.damage) ? bullet.damage : 1;
+                enemy.level -= dmg;
                 
                 // 更新敌机体积和速度
                 enemy.width = enemySizeForLevel(enemy.level);
@@ -1001,8 +1066,8 @@ title: "飞机大战小游戏"
                     enemy.hitTime = Date.now(); // 记录被击中时间
                     
                     // 稍微影响水平速度
-                    if (typeof bullet.dx !== 'undefined') {
-                        enemy.vx += bullet.dx * 0.05;
+                    if (typeof bullet.vx !== 'undefined') {
+                        enemy.vx += bullet.vx * 0.05;
                     }
                 }
 
@@ -1094,7 +1159,6 @@ title: "飞机大战小游戏"
                     // 激活特殊能力
                     shootingPowerUpActive = true;
                     shootingPowerUpTimeLeft = shootingPowerUpDuration; // 5秒特殊能力时间
-                    player.speed = 8; // 提升移动速度
                 }
             });
 
@@ -1203,7 +1267,6 @@ title: "飞机大战小游戏"
                 shootingPowerUpTimeLeft = Math.max(0, shootingPowerUpTimeLeft - deltaTime * 1000); // 假设60fps，约16ms每帧
                 if (shootingPowerUpTimeLeft <= 0) {
                     shootingPowerUpActive = false;
-                    player.speed = 5; // 恢复正常速度
                 }
             }
         }
@@ -1316,59 +1379,17 @@ title: "飞机大战小游戏"
             player.y = Math.max(0, Math.min(canvas.height - player.height, player.y));
         }
 
-        // 创建子弹
-        function createBullet() {
-            const currentTime = Date.now();
-            // 自动发射子弹，只需检查冷却时间
-            if (currentTime - lastBulletTime > bulletCooldown) {
-                // 更新上次发射时间
-                lastBulletTime = currentTime;
-                
-                // 根据特殊能力状态决定子弹颜色
-                const bulletColor = shootingPowerUpActive ? '#FFD700' : '#fff';
-                
-                // 创建中间的子弹
-                bullets.push({
-                    x: player.x + player.width / 2 - 2,
-                    y: player.y,
-                    width: 4,
-                    height: 10,
-                    dx: 0, // 水平速度分量
-                    color: bulletColor // 添加颜色属性
-                });
-        
-                // 如果特殊能力激活，创建斜向子弹
-                if (shootingPowerUpActive) {
-                    // 左斜向子弹
-                    bullets.push({
-                        x: player.x + player.width / 2 - 2,
-                        y: player.y,
-                        width: 4,
-                        height: 10,
-                        dx: -2, // 向左的速度分量
-                        color: bulletColor // 添加颜色属性
-                    });
-        
-                    // 右斜向子弹
-                    bullets.push({
-                        x: player.x + player.width / 2 - 2,
-                        y: player.y,
-                        width: 4,
-                        height: 10,
-                        dx: 2, // 向右的速度分量
-                        color: bulletColor // 添加颜色属性
-                    });
-                }
-            }
-        }
+        // 创建子弹: 已由 fireWeapons() 接管 (见 P2 武器系统)
 
         // 更新子弹位置
         function updateBullets(deltaTime) {
             bullets = bullets.filter(bullet => {
-                bullet.y -= bulletSpeed * deltaTime * 60;
-                bullet.x += (bullet.dx || 0) * deltaTime * 60; // 添加水平移动
-                // 子弹在画布范围内才保留
-                return bullet.y > 0 && bullet.x > 0 && bullet.x < canvas.width;
+                const vx = bullet.vx || 0;
+                const vy = (bullet.vy !== undefined) ? bullet.vy : -bulletSpeed;
+                bullet.x += vx * deltaTime * 60;
+                bullet.y += vy * deltaTime * 60;
+                // 子弹在画布范围内才保留 (含侧炮横向飞出)
+                return bullet.y > -20 && bullet.x > -20 && bullet.x < canvas.width + 20;
             });
         }
 
@@ -1506,22 +1527,15 @@ title: "飞机大战小游戏"
         
             // 绘制子弹
             bullets.forEach(bullet => {
-                // 创建子弹的渐变色
+                // 创建子弹的渐变色 (按 bullet.color 通用着色)
+                const bColor = bullet.color || '#fff';
                 const bulletGradient = ctx.createLinearGradient(
                     bullet.x, bullet.y,
                     bullet.x, bullet.y + bullet.height
                 );
-                
-                if (bullet.color === '#FFD700') {
-                    // 金色子弹渐变
-                    bulletGradient.addColorStop(0, '#FFD700');
-                    bulletGradient.addColorStop(1, '#FFA500');
-                } else {
-                    // 普通子弹渐变
-                    bulletGradient.addColorStop(0, '#ffffff');
-                    bulletGradient.addColorStop(1, '#aaaaaa');
-                }
-                
+                bulletGradient.addColorStop(0, bColor);
+                bulletGradient.addColorStop(1, 'rgba(255,255,255,0.25)');
+
                 ctx.fillStyle = bulletGradient;
                 
                 // 绘制圆形子弹
@@ -1772,7 +1786,7 @@ title: "飞机大战小游戏"
 
                     // Game logic updates
                     updatePlayer(deltaTime);
-                    createBullet();
+                    fireWeapons();
                     updateBullets(deltaTime);
                     createEnemy();
                     updateEnemies(deltaTime);
