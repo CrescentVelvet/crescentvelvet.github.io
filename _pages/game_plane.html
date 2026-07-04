@@ -592,6 +592,13 @@ title: "飞机大战小游戏"
         let enemyIntervalDecay = 0.995; // 每帧递减
         let minEnemySpeed = 1.2; // 敌机最小速度
         let maxEnemySpeed = 4.5; // 敌机最大速度
+        // 敌机体型: 亚线性增长 + 封顶, 防止后期铺满屏幕
+        // size = min(75, 30 + 8 * sqrt(level-1))  调 8=增长快慢, 75=封顶
+        const maxEnemySize = 75;
+        const enemySizeGrowth = 8;
+        function enemySizeForLevel(level) {
+            return Math.min(maxEnemySize, 30 + enemySizeGrowth * Math.sqrt(Math.max(0, level - 1)));
+        }
 
         // 子弹数组
         let bullets = [];
@@ -737,8 +744,8 @@ title: "飞机大战小游戏"
                 const level = Math.min(enemyMaxLevel, 1 + Math.floor(gameTime / 10)); 
 
                 // 根据等级设置敌机属性
-                const enemyWidth = 30 + (level - 1) * 10; // 等级越高，体积越大
-                const enemyHeight = 30 + (level - 1) * 10;
+                const enemyWidth = enemySizeForLevel(level); // 等级越高体积越大(亚线性+封顶)
+                const enemyHeight = enemySizeForLevel(level);
                 // 敌机速度随时间递增，难度平滑提升
                 let baseSpeed = Math.max(minEnemySpeed, maxEnemySpeed - (level - 1) * 0.18 - gameTime * 0.01);
                 baseSpeed = Math.max(minEnemySpeed, Math.min(maxEnemySpeed, baseSpeed));
@@ -853,10 +860,8 @@ title: "飞机大战小游戏"
                 enemy.level--;
                 
                 // 更新敌机体积和速度
-                const baseSize = 30;
-                const sizeIncrement = 10;
-                enemy.width = baseSize + (enemy.level - 1) * sizeIncrement;
-                enemy.height = baseSize + (enemy.level - 1) * sizeIncrement;
+                enemy.width = enemySizeForLevel(enemy.level);
+                enemy.height = enemySizeForLevel(enemy.level);
 
                 // enemy.speed = Math.max(-0.5, 4 - (enemy.level - 1)); // 速度上限为4，下限为-0.5，避免被子弹撞得下不来
                 // 确保速度始终为正，并设置最小下落速度，避免向上飞出屏幕
