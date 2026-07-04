@@ -145,6 +145,62 @@ title: "飞机大战小游戏"
             border-radius: 4px; overflow: hidden; margin-top: 4px;
         }
         #xpBar { height: 100%; width: 0%; background: #4a90e2; transition: width .2s ease; }
+
+        /* ===== 肉鸽 P1.5: 图鉴 ===== */
+        #codexBtn {
+            position: fixed; top: 10px; right: 10px; z-index: 101;
+            background: rgba(74, 144, 226, 0.3);
+            border: 2px solid rgba(74, 144, 226, 0.7);
+            color: #fff; padding: 6px 12px; border-radius: 8px;
+            font-size: 14px; font-family: Arial, sans-serif; cursor: pointer;
+            touch-action: manipulation; user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        #codexBtn:active { transform: scale(0.95); }
+        #codexPanel.hidden { display: none; }
+        #codexPanel {
+            position: fixed; inset: 0; z-index: 2000;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex; flex-direction: column;
+            color: #fff; font-family: Arial, sans-serif;
+            overflow: hidden; touch-action: manipulation;
+        }
+        .codex-header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 14px 20px; border-bottom: 1px solid rgba(74, 144, 226, 0.4);
+        }
+        .codex-title { font-size: 22px; font-weight: bold; color: #4a90e2; }
+        .codex-close {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: #fff; padding: 6px 14px; border-radius: 6px;
+            cursor: pointer; font-size: 14px;
+        }
+        .codex-close:active { transform: scale(0.95); }
+        .codex-body {
+            overflow-y: auto; -webkit-overflow-scrolling: touch;
+            padding: 16px 20px; max-width: 720px; margin: 0 auto; width: 100%; box-sizing: border-box;
+        }
+        .codex-section { margin-bottom: 24px; }
+        .codex-section h3 {
+            color: #4a90e2; border-bottom: 1px solid rgba(74, 144, 226, 0.3);
+            padding-bottom: 6px; margin: 0 0 12px; font-size: 16px;
+        }
+        .codex-empty { color: rgba(255, 255, 255, 0.4); font-size: 13px; font-style: italic; }
+        .codex-item {
+            display: flex; align-items: flex-start; gap: 12px;
+            padding: 10px 12px; background: rgba(74, 144, 226, 0.08);
+            border: 1px solid rgba(74, 144, 226, 0.25); border-radius: 8px;
+            margin-bottom: 8px;
+        }
+        .codex-icon { font-size: 26px; line-height: 1.2; }
+        .codex-info { flex: 1; }
+        .codex-name { font-size: 15px; font-weight: bold; }
+        .codex-lv { font-size: 12px; color: #4a90e2; margin-left: 8px; }
+        .codex-desc { font-size: 12px; color: rgba(255, 255, 255, 0.75); margin-top: 3px; }
+        .codex-mods { font-size: 11px; color: rgba(255, 255, 255, 0.6); margin-top: 4px; }
+        .codex-mods .acc { color: #6f6; }
+        .codex-mods .rej { color: #f66; text-decoration: line-through; }
     </style>
 </head>
 <body>
@@ -164,6 +220,10 @@ title: "飞机大战小游戏"
     </div>
     <div id="upgradePanel" class="hidden">
         <!-- 升级三选一浮窗，由 JS 动态生成 -->
+    </div>
+    <button id="codexBtn">📖 图鉴 (G)</button>
+    <div id="codexPanel" class="hidden">
+        <!-- 图鉴浮层，由 JS 动态生成 -->
     </div>
 
     <script>
@@ -393,7 +453,7 @@ title: "飞机大战小游戏"
          *   P1 地基: 经验/等级 + 三选一浮窗骨架 + 升级注册表(占位被动) — 已实现
          *   P1.5 图鉴: 📖图鉴按钮(右上)+G键, DOM浮层暂停面板,
          *             全部可见(武器/修饰/被动三栏, 含互斥分支),
-         *             数据自动来自 P1 注册表。
+         *             数据自动来自 P1 注册表。 — 已实现
          *   P2 武器: 主炮外的 2~3 件武器(散射/侧炮/重炮) + 等级提升
          *   P3 修饰: pierce / 追踪 / 折射 / 分裂 逐个上线
          *   P4 被动 + 平衡: 数值被动、稀有度权重、难度曲线回归调参
@@ -461,6 +521,7 @@ title: "飞机大战小游戏"
         let pendingLevelUps = 0;   // 待结算的升级次数(可叠加)
         let awaitingUpgrade = false; // 升级选择期间暂停游戏逻辑
         let currentChoices = [];   // 当前浮窗展示的 3 张卡
+        let codexOpen = false;     // 图鉴打开期间暂停游戏逻辑
 
         function xpToNext(lv) { return Math.floor(20 * Math.pow(1.35, lv - 1)); }
 
@@ -576,6 +637,63 @@ title: "飞机大战小游戏"
         }
 
         updateXPDisplay(); // 初始化经验条显示
+
+        // ===== 肉鸽 P1.5: 图鉴 (数据自动来自 UPGRADE_REGISTRY) =====
+        const CODEX_TYPES = ['weapon', 'modifier', 'passive'];
+        const CODEX_TYPE_LABEL = { weapon: '武器', modifier: '修饰', passive: '被动' };
+        const CODEX_TYPE_ROADMAP = { weapon: 'P2', modifier: 'P3', passive: '后续' };
+
+        function renderCodex() {
+            const panel = document.getElementById('codexPanel');
+            let html = '<div class="codex-header">'
+                + '<div class="codex-title">📖 图鉴</div>'
+                + '<button class="codex-close" id="codexCloseBtn">关闭 (G)</button>'
+                + '</div><div class="codex-body">';
+            CODEX_TYPES.forEach(t => {
+                const items = UPGRADE_REGISTRY.filter(u => u.type === t);
+                html += '<div class="codex-section"><h3>' + CODEX_TYPE_LABEL[t]
+                    + ' (' + items.length + ')</h3>';
+                if (items.length === 0) {
+                    html += '<div class="codex-empty">尚未实装 — 将在 ' + CODEX_TYPE_ROADMAP[t] + ' 加入</div>';
+                } else {
+                    items.forEach(u => {
+                        html += '<div class="codex-item">'
+                            + '<div class="codex-icon">' + u.icon + '</div>'
+                            + '<div class="codex-info">'
+                            + '<div class="codex-name">' + u.name
+                            + '<span class="codex-lv">Lv.' + u.level + '/' + u.maxLevel + '</span></div>'
+                            + '<div class="codex-desc">' + u.desc + '</div>';
+                        if (u.accepts || u.rejects) {
+                            html += '<div class="codex-mods">';
+                            if (u.accepts) html += '<span class="acc">可修饰: ' + u.accepts.join(' ') + '</span> ';
+                            if (u.rejects) html += '<span class="rej">排斥: ' + u.rejects.join(' ') + '</span>';
+                            html += '</div>';
+                        }
+                        html += '</div></div>';
+                    });
+                }
+                html += '</div>';
+            });
+            html += '</div>';
+            panel.innerHTML = html;
+            document.getElementById('codexCloseBtn').addEventListener('click', closeCodex);
+        }
+
+        function openCodex() {
+            if (awaitingUpgrade) return; // 升级选择期间不打开图鉴
+            codexOpen = true;
+            renderCodex();
+            document.getElementById('codexPanel').classList.remove('hidden');
+        }
+        function closeCodex() {
+            codexOpen = false;
+            document.getElementById('codexPanel').classList.add('hidden');
+        }
+        function toggleCodex() { codexOpen ? closeCodex() : openCodex(); }
+
+        // 图鉴内滚动不冒泡到 body (移动端 body 禁止 touchmove)
+        document.getElementById('codexPanel').addEventListener('touchmove', function (e) { e.stopPropagation(); });
+        document.getElementById('codexBtn').addEventListener('click', toggleCodex);
 
         let explosions = []; // 爆炸效果数组
         let healthPowerUps = []; // 绿色方块数组（生命奖励）
@@ -1135,6 +1253,13 @@ title: "飞机大战小游戏"
 
         // 监听键盘事件
         document.addEventListener('keydown', (e) => {
+            // G 键: 切换图鉴
+            if (e.code === 'KeyG') { toggleCodex(); return; }
+            // 图鉴打开期间: Esc 关闭, 屏蔽其余按键
+            if (codexOpen) {
+                if (e.code === 'Escape') closeCodex();
+                return;
+            }
             // 升级选择期间: 1/2/3 选卡, 屏蔽其余按键
             if (awaitingUpgrade) {
                 if (e.code === 'Digit1' || e.code === 'Numpad1') pickUpgrade(0);
@@ -1640,7 +1765,7 @@ title: "飞机大战小游戏"
 
             // console.log("deltaTime:", deltaTime); // 调试时可以取消注释
 
-            if (!gamePaused && !awaitingUpgrade) {
+            if (!gamePaused && !awaitingUpgrade && !codexOpen) {
                 if (!gameOver) { // Game logic updates only if not game over
                     gameTime += deltaTime;
                     timeElement.textContent = Math.floor(gameTime);
@@ -1670,7 +1795,7 @@ title: "飞机大战小游戏"
                     lastFpsUpdate = timestamp;
                     if (fpsElement) fpsElement.textContent = fps; // 更新FPS显示
                 }
-            } else if (gameOver && (keys.Space || isMobile)) { // Restart logic
+            } else if (!codexOpen && gameOver && (keys.Space || isMobile)) { // Restart logic
                 // 重置游戏
                 score = 0;
                 lives = 3;
@@ -1904,7 +2029,7 @@ title: "飞机大战小游戏"
 <style>
     #lastModified {
         position: fixed;
-        top: 10px;
+        top: 48px;
         right: 10px;
         color: #fff;
         font-size: 14px;
