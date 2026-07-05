@@ -437,7 +437,7 @@ title: "飞机大战小游戏"
          *     / 重炮(缓慢巨大弹) / 回旋镖(飞出返回, 往返两判)
          *   子弹修饰(给所有武器加属性, 可升级):
          *     穿透+N / 追踪(转向强度↑) / 折射+N墙反弹 / 分裂(命中spawn片段)
-         *     / 暴击(概率双倍)
+         *     / 暴击(概率双倍) / 爆炸(命中溅射, 重炮专属)
          *   被动: 射速+ / 伤害+ / 移速+ / 最大HP+ / 拾取范围+ / 子弹速度+ / 回血
          *
          * 【经验/等级】
@@ -564,7 +564,7 @@ title: "飞机大战小游戏"
               accepts:['穿透','暴击'], rejects:['追踪','折射','分裂'],
               apply(lv){ ownedWeapons.side = lv; } },
             { id:'heavy', name:'重炮', desc:'缓慢巨大弹, 高伤', icon:'💣', type:'weapon', maxLevel:3, level:0, slots:1, rarity:'rare',
-              accepts:['穿透','分裂'], rejects:['追踪','折射'],
+              accepts:['穿透','分裂','爆炸'], rejects:['追踪','折射'],
               apply(lv){ ownedWeapons.heavy = lv; } },
         ];
         const TYPE_LABEL = { weapon:'武器', modifier:'修饰', passive:'被动' };
@@ -620,6 +620,7 @@ title: "飞机大战小游戏"
                         b.bounce = mods.bounce || 0;
                         b.split = mods.split || 0;
                         b.crit = mods.crit || 0;
+                        b.blast = mods.blast || 0;
                         b.damage = (b.damage || 1) + damageBonus;
                         bullets.push(b);
                     });
@@ -636,6 +637,7 @@ title: "飞机大战小游戏"
             bounce:  { name:'折射', desc:'子弹撞侧墙反弹 N 次', icon:'↩️', maxLevel:3, rarity:'common' },
             split:   { name:'分裂', desc:'命中时分裂出片段', icon:'✴️', maxLevel:3, rarity:'uncommon' },
             crit:    { name:'暴击', desc:'15%/级 概率双倍伤害', icon:'💥', maxLevel:3, rarity:'uncommon' },
+            blast:   { name:'爆炸', desc:'命中时对周围敌机溅射', icon:'🔥', maxLevel:3, rarity:'rare' },
         };
         let weaponMods = {}; // weaponId -> { modId: level }
 
@@ -687,6 +689,23 @@ title: "飞机大战小游戏"
                     color: bullet.color || '#fff', damage: 1, type: 'split',
                     pierce: 0, homing: 0, bounce: 0, split: 0, life: 0.6
                 });
+            }
+        }
+
+        // 爆炸: 命中时对周围敌机造成溅射伤害 (重炮专属, 半伤)
+        function applyBlast(bullet, hitEnemy) {
+            const cx = hitEnemy.x + hitEnemy.width / 2;
+            const cy = hitEnemy.y + hitEnemy.height / 2;
+            const radius = 40 + 10 * (bullet.blast || 0); // Lv1→50, Lv2→60, Lv3→70
+            const splashDmg = Math.max(1, Math.floor((bullet.damage || 1) / 2)); // 半伤
+            createExplosion(cx, cy, radius * 1.5, '#ff8'); // 视觉爆心
+            for (const e of enemies) {
+                if (e.dead || e === hitEnemy) continue;
+                const dx = e.x + e.width / 2 - cx;
+                const dy = e.y + e.height / 2 - cy;
+                if (Math.hypot(dx, dy) < radius) {
+                    handleEnemyDamage(e, { damage: splashDmg }); // 合成子弹, 无修饰, 不递归
+                }
             }
         }
 
@@ -1301,6 +1320,7 @@ title: "飞机大战小游戏"
 
                         handleEnemyDamage(enemy, bullet);
                         if (bullet.split > 0) spawnSplitFragments(bullet);
+                        if (bullet.blast > 0) applyBlast(bullet, enemy);
 
                         // 穿透: 还有次数则继续, 否则消亡
                         if (bullet.pierce > 0) {
