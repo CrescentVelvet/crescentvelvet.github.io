@@ -525,6 +525,10 @@ title: "飞机大战小游戏"
         let awaitingUpgrade = false; // 升级选择期间暂停游戏逻辑
         let currentChoices = [];   // 当前浮窗展示的 3 张卡
         let codexOpen = false;     // 图鉴打开期间暂停游戏逻辑
+        // 小 Boss: 每 N 次击杀生成一只, 高等级厚血量, 击杀给大量经验
+        let bossRef = null;            // 当前 Boss 引用 (null=无)
+        let nextBossAt = 25;           // 下次 Boss 出现的击杀数
+        const bossEveryKills = 25;     // Boss 间隔(击杀数)
 
         function xpToNext(lv) { return Math.floor(20 * Math.pow(1.35, lv - 1)); }
 
@@ -965,6 +969,8 @@ title: "飞机大战小游戏"
             weaponLastFire = {};
             weaponMods = {};
             vortices = [];
+            bossRef = null;
+            nextBossAt = bossEveryKills;
             document.getElementById('upgradePanel').classList.add('hidden');
             updateXPDisplay();
         }
@@ -1189,6 +1195,25 @@ title: "飞机大战小游戏"
             ctx.stroke();
         }
 
+        // 生成小 Boss (高等级, 大体型, 慢速, 击杀给大量经验)
+        function spawnBoss() {
+            const level = Math.min(enemyMaxLevel, 1 + Math.floor(gameTime / 10) + 5);
+            const size = Math.min(110, 50 + 10 * Math.sqrt(level));
+            const speed = Math.max(minEnemySpeed, maxEnemySpeed - (level - 1) * 0.18 - gameTime * 0.01) * 0.55;
+            const boss = {
+                x: Math.random() * (canvas.width - size),
+                y: -size,
+                width: size, height: size,
+                level, spawnLevel: level, bossMaxLevel: level,
+                speed, originalSpeed: speed,
+                vx: (Math.random() - 0.5) * 1.2,
+                hitTime: 0,
+                isBoss: true
+            };
+            enemies.push(boss);
+            bossRef = boss;
+        }
+
         // 创建敌机
         function createEnemy() {
             // 每隔一段时间或达到一定条件生成敌机
@@ -1398,7 +1423,7 @@ title: "飞机大战小游戏"
                     kills++;
                     scoreElement.textContent = score;
                     killsElement.textContent = kills;
-                    gainXP(5 + (enemy.spawnLevel || 1) * 3); // 肉鸽: 击杀经验
+                    gainXP(enemy.isBoss ? (50 + enemy.spawnLevel * 10) : (5 + (enemy.spawnLevel || 1) * 3)); // Boss 给大量经验
                 }
             }
 
@@ -1849,6 +1874,20 @@ title: "飞机大战小游戏"
                 }
             }
 
+            // Boss 血条 (顶部居中)
+            if (bossRef && !bossRef.dead && bossRef.y < canvas.height) {
+                const bw = 220, bh = 12, bx = (canvas.width - bw) / 2, by = 50;
+                ctx.fillStyle = 'rgba(0,0,0,0.6)';
+                ctx.fillRect(bx - 2, by - 2, bw + 4, bh + 4);
+                const pct = Math.max(0, bossRef.level / bossRef.bossMaxLevel);
+                ctx.fillStyle = '#f44';
+                ctx.fillRect(bx, by, bw * pct, bh);
+                ctx.strokeStyle = '#fff'; ctx.lineWidth = 1;
+                ctx.strokeRect(bx, by, bw, bh);
+                ctx.fillStyle = '#fff'; ctx.font = 'bold 12px Arial'; ctx.textAlign = 'center';
+                ctx.fillText('👑 BOSS', canvas.width / 2, by - 6);
+            }
+
             // 绘制玩家（无敌状态闪烁）
             if (!player.invincible || Math.floor(Date.now() / 100) % 2) {
                 drawPlayer();
@@ -1900,6 +1939,19 @@ title: "飞机大战小游戏"
                 };
 
                 drawPixelSprite(ENEMY_SPRITE, enemy.x, enemy.y, enemy.width, enemy.height, enemyPalette);
+
+                // Boss: 红色发光描边 + 皇冠
+                if (enemy.isBoss) {
+                    ctx.strokeStyle = '#f44';
+                    ctx.lineWidth = 3;
+                    ctx.shadowBlur = 12;
+                    ctx.shadowColor = '#f00';
+                    ctx.strokeRect(enemy.x - 3, enemy.y - 3, enemy.width + 6, enemy.height + 6);
+                    ctx.shadowBlur = 0;
+                    ctx.font = '16px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('👑', enemy.x + enemy.width / 2, enemy.y - 6);
+                }
 
                 // 等级数字
                 const fontSize = Math.max(10, enemy.width / 4);
@@ -2121,6 +2173,9 @@ title: "飞机大战小游戏"
                     fireWeapons();
                     updateBullets(deltaTime);
                     createEnemy();
+                    // 小 Boss: 击杀数达标且当前无存活 Boss 时生成
+                    const bossAlive = bossRef && !bossRef.dead && bossRef.y < canvas.height;
+                    if (kills >= nextBossAt && !bossAlive) { spawnBoss(); nextBossAt = kills + bossEveryKills; }
                     updateEnemies(deltaTime);
                     createHealthPowerUp();
                     createInvinciblePowerUp();
