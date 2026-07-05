@@ -459,7 +459,7 @@ title: "飞机大战小游戏"
          *   P4 被动+平衡: 暴击修饰 + 伤害/拾取/回血被动 + 稀有度加权 + maxLives — 已实现
          *   P5 收尾: 半心制 HP(1心=2HP) + 旧道具折叠(移除金色射击强化) + 回血掉落 + UI 打磨 — 已实现
          *   P6(可选) 进化: 在 B 互斥表基础上追加 C 进化路径,
-         *             图鉴补"满级进化终极武器"栏 — 首条进化(主炮Lv5→激光)已实装
+         *             图鉴补"满级进化终极武器"栏 — 已实装: 主炮Lv5→激光, 散炮Lv5→苍穹炮
          *
          * ============================================================
          */
@@ -559,8 +559,9 @@ title: "飞机大战小游戏"
               accepts:['穿透','追踪','分裂','暴击','中毒','冰霜'], rejects:['折射'],
               evolve: 'Lv5→激光炮(高频低伤·全屏穿透光束)',
               apply(lv){ ownedWeapons.main = lv; } },
-            { id:'spread', name:'散炮', desc:'扇形 4/6/8 发', icon:'🌟', type:'weapon', maxLevel:3, level:0, slots:2, rarity:'uncommon',
+            { id:'spread', name:'散炮', desc:'扇形 4/6/8/10/12 发', icon:'🌟', type:'weapon', maxLevel:5, level:0, slots:2, rarity:'uncommon',
               accepts:['折射','暴击','中毒','冰霜'], rejects:['分裂','追踪'],
+              evolve: 'Lv5→苍穹炮(180°全弧覆盖)',
               apply(lv){ ownedWeapons.spread = lv; } },
             { id:'side', name:'侧炮', desc:'左右各发射 lv 发', icon:'↔️', type:'weapon', maxLevel:3, level:0, slots:2, rarity:'uncommon',
               accepts:['穿透','暴击','中毒','冰霜'], rejects:['追踪','折射','分裂'],
@@ -605,6 +606,21 @@ title: "飞机大战小游戏"
         const LASER_DAMAGE = 1;      // 低伤
         const LASER_HALF_WIDTH = 3;  // 光束半宽
 
+        // 给子弹注入本武器已安装的修饰 flag + 全局伤害加成
+        function injectMods(b, mods) {
+            b.pierce = mods.pierce || 0;
+            b.homing = mods.homing || 0;
+            b.bounce = mods.bounce || 0;
+            b.split = mods.split || 0;
+            b.crit = mods.crit || 0;
+            b.blast = mods.blast || 0;
+            b.vortex = mods.vortex || 0;
+            b.poison = mods.poison || 0;
+            b.frost = mods.frost || 0;
+            b.damage = (b.damage || 1) + damageBonus;
+            return b;
+        }
+
         function fireWeapons() {
             const now = Date.now();
             for (const id in ownedWeapons) {
@@ -612,29 +628,30 @@ title: "飞机大战小游戏"
                 if (!w) continue;
                 const lv = ownedWeapons[id];
                 const mods = weaponMods[id] || {};
-                const evolved = (id === 'main' && lv >= 5);
-                const cd = (evolved ? LASER_COOLDOWN : w.cooldown) * fireRateMul;
+                const evolvedMain = (id === 'main' && lv >= 5);
+                const evolvedSpread = (id === 'spread' && lv >= 5);
+                const cd = (evolvedMain ? LASER_COOLDOWN : w.cooldown) * fireRateMul;
                 if (now - (weaponLastFire[id] || 0) >= cd) {
                     weaponLastFire[id] = now;
-                    if (evolved) {
-                        fireLaser(mods);
+                    if (evolvedMain) { fireLaser(mods); continue; }
+                    if (evolvedSpread) {
+                        fireArc(player, (b) => bullets.push(injectMods(b, mods)));
                         continue;
                     }
-                    // push 回调: 给每颗子弹注入本武器已安装的修饰 flag + 全局伤害加成
-                    w.fire(lv, player, (b) => {
-                        b.pierce = mods.pierce || 0;
-                        b.homing = mods.homing || 0;
-                        b.bounce = mods.bounce || 0;
-                        b.split = mods.split || 0;
-                        b.crit = mods.crit || 0;
-                        b.blast = mods.blast || 0;
-                        b.vortex = mods.vortex || 0;
-                        b.poison = mods.poison || 0;
-                        b.frost = mods.frost || 0;
-                        b.damage = (b.damage || 1) + damageBonus;
-                        bullets.push(b);
-                    });
+                    w.fire(lv, player, (b) => bullets.push(injectMods(b, mods)));
                 }
+            }
+        }
+
+        // 苍穹炮: 散炮 Lv5 进化 — 180° 上半弧全覆盖 (左水平→上→右水平), 无中央弹
+        function fireArc(pl, push) {
+            const count = 16;
+            for (let i = 0; i < count; i++) {
+                const t = (i + 0.5) / count - 0.5;      // -0.5..0.5, 无 0
+                const ang = t * Math.PI;                 // -90°..+90° (相对竖直向上)
+                const vx = Math.sin(ang) * bulletSpeed;
+                const vy = -Math.cos(ang) * bulletSpeed;
+                push({ x: pl.x + pl.width / 2 - 2, y: pl.y, width: 4, height: 10, vx, vy, color: '#9cf', damage: 1, type: 'spread' });
             }
         }
 
