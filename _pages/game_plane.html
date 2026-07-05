@@ -1320,7 +1320,7 @@ title: "飞机大战小游戏"
 
                         handleEnemyDamage(enemy, bullet);
                         if (bullet.split > 0) spawnSplitFragments(bullet);
-                        if (bullet.blast > 0) applyBlast(bullet, enemy);
+                        if (bullet.blast > 0) { applyBlast(bullet, enemy); bullet.blast = 0; } // 每颗子弹只爆一次
 
                         // 穿透: 还有次数则继续, 否则消亡
                         if (bullet.pierce > 0) {
