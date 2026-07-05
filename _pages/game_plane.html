@@ -459,7 +459,7 @@ title: "飞机大战小游戏"
          *   P4 被动+平衡: 暴击修饰 + 伤害/拾取/回血被动 + 稀有度加权 + maxLives — 已实现
          *   P5 收尾: 半心制 HP(1心=2HP) + 旧道具折叠(移除金色射击强化) + 回血掉落 + UI 打磨 — 已实现
          *   P6(可选) 进化: 在 B 互斥表基础上追加 C 进化路径,
-         *             图鉴补"满级进化终极武器"栏
+         *             图鉴补"满级进化终极武器"栏 — 首条进化(主炮Lv5→激光)已实装
          *
          * ============================================================
          */
@@ -553,6 +553,7 @@ title: "飞机大战小游戏"
             // ── 武器 (P2) ──
             { id:'main', name:'主炮', desc:'前向单发, 伤害=等级', icon:'🔫', type:'weapon', maxLevel:5, level:1, slots:2, rarity:'common',
               accepts:['穿透','追踪','分裂','暴击'], rejects:['折射'],
+              evolve: 'Lv5→激光炮(高频低伤·全屏穿透光束)',
               apply(lv){ ownedWeapons.main = lv; } },
             { id:'spread', name:'散炮', desc:'扇形 4/6/8 发', icon:'🌟', type:'weapon', maxLevel:3, level:0, slots:2, rarity:'uncommon',
               accepts:['折射','暴击'], rejects:['分裂','追踪'],
@@ -595,6 +596,11 @@ title: "飞机大战小游戏"
         let ownedWeapons = { main: 1 }; // 运行时: weaponId -> 等级 (main 默认拥有)
         let weaponLastFire = {};        // 运行时: weaponId -> 上次发射时间
 
+        // 主炮 Lv5 进化: 激光炮 (真·持续光束, 全屏穿透, 高频低伤)
+        const LASER_COOLDOWN = 60;   // ms, 远短于主炮 300
+        const LASER_DAMAGE = 1;      // 低伤
+        const LASER_HALF_WIDTH = 3;  // 光束半宽
+
         function fireWeapons() {
             const now = Date.now();
             for (const id in ownedWeapons) {
@@ -602,9 +608,14 @@ title: "飞机大战小游戏"
                 if (!w) continue;
                 const lv = ownedWeapons[id];
                 const mods = weaponMods[id] || {};
-                const cd = w.cooldown * fireRateMul;
+                const evolved = (id === 'main' && lv >= 5);
+                const cd = (evolved ? LASER_COOLDOWN : w.cooldown) * fireRateMul;
                 if (now - (weaponLastFire[id] || 0) >= cd) {
                     weaponLastFire[id] = now;
+                    if (evolved) {
+                        fireLaser(mods);
+                        continue;
+                    }
                     // push 回调: 给每颗子弹注入本武器已安装的修饰 flag + 全局伤害加成
                     w.fire(lv, player, (b) => {
                         b.pierce = mods.pierce || 0;
@@ -619,6 +630,38 @@ title: "飞机大战小游戏"
                     });
                 }
             }
+        }
+
+        // 激光: 一帧打整列敌机 (命中不消亡, 全屏穿透), 继承暴击; noImpulse 不击退
+        function fireLaser(mods) {
+            const beamX = player.x + player.width / 2;
+            const crit = mods.crit || 0;
+            for (const e of enemies) {
+                if (e.dead) continue;
+                if (e.y + e.height < player.y && // 在玩家上方
+                    e.x + e.width > beamX - LASER_HALF_WIDTH &&
+                    e.x < beamX + LASER_HALF_WIDTH) {
+                    handleEnemyDamage(e, { damage: LASER_DAMAGE, crit: crit, noImpulse: true });
+                }
+            }
+        }
+
+        // 绘制激光光束 (主炮进化时每帧渲染, 金色发光+闪烁)
+        function drawLaser() {
+            if ((ownedWeapons.main || 0) < 5) return;
+            const beamX = player.x + player.width / 2;
+            const flicker = 0.75 + Math.random() * 0.25;
+            const grad = ctx.createLinearGradient(beamX, 0, beamX, player.y);
+            grad.addColorStop(0, 'rgba(255,215,0,0.15)');
+            grad.addColorStop(1, 'rgba(255,235,80,0.95)');
+            ctx.fillStyle = grad;
+            ctx.globalAlpha = flicker;
+            ctx.fillRect(beamX - LASER_HALF_WIDTH, 0, LASER_HALF_WIDTH * 2, player.y);
+            ctx.shadowBlur = 12;
+            ctx.shadowColor = '#FFD700';
+            ctx.fillRect(beamX - LASER_HALF_WIDTH, 0, LASER_HALF_WIDTH * 2, player.y);
+            ctx.shadowBlur = 0;
+            ctx.globalAlpha = 1;
         }
 
         // ===== 肉鸽 P3: 修饰系统 (槽位 + 互斥) =====
@@ -938,6 +981,7 @@ title: "飞机大战小游戏"
                     + '<span class="codex-lv">Lv.' + u.level + '/' + u.maxLevel
                     + (owned ? '' : ' · 未拥有') + '</span></div>'
                     + '<div class="codex-desc">' + u.desc + '</div>'
+                    + (u.evolve ? '<div class="codex-mods"><span class="acc">进化: ' + u.evolve + (u.level >= u.maxLevel ? ' ✓' : '') + '</span></div>' : '')
                     + '<div class="codex-mods">'
                     + '<span class="acc">槽 ' + installed.length + '/' + (u.slots || 0) + '</span> '
                     + (installed.length ? '<span class="acc">已装: ' + installed.join(' ') + '</span> ' : '')
@@ -1275,12 +1319,12 @@ title: "飞机大战小游戏"
                     enemy.speed = Math.abs(enemy.speed) * 0.5; // 反弹并减速
                 }
 
-                // 子弹击中敌机时，给敌机一个短暂的向上阻碍
-                if (bullet) {
+                // 子弹击中敌机时，给敌机一个短暂的向上阻碍 (激光 noImpulse 跳过, 避免光束把敌机顶在空中)
+                if (bullet && !bullet.noImpulse) {
                     const impulseStrength = 3; // 减小冲量强度
                     enemy.speed = -impulseStrength; // 短暂向上
                     enemy.hitTime = Date.now(); // 记录被击中时间
-                    
+
                     // 稍微影响水平速度
                     if (typeof bullet.vx !== 'undefined') {
                         enemy.vx += bullet.vx * 0.05;
@@ -1803,7 +1847,10 @@ title: "飞机大战小游戏"
                 ctx.fill();
                 ctx.shadowBlur = 0; // 重置阴影
             });
-        
+
+            // 绘制激光 (主炮进化)
+            drawLaser();
+
             // 绘制敌机 (像素风格)
             enemies.forEach(enemy => {
                 const hue = (enemy.level * 20) % 360;
