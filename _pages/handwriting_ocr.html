@@ -819,14 +819,43 @@ title: "手写识别"
         });
 
         // ============ 去逗号换行 ============
-        // 删去逗号（中/英）后的回车换行，把下一行接到逗号之后
+        // 删去多余换行，把下一行接上来，命中其一即拼接：
+        // - 行末是逗号（中/英），或
+        // - 行末没有终止符号（末字符是字母/数字，含中文）
+        // 行末是句号/问号/感叹号/冒号等符号则保留换行；
+        // 空行（段落分隔）与纯日期行（MM-DD）不参与拼接，也不断到日期行。
+        const DATE_LINE = /^\s*\d{1,2}-\d{1,2}\s*$/;
         els.joinCommaBtn.addEventListener('click', () => {
             const text = els.output.value;
             if (!text.trim()) { showStatus('没有可处理的内容', 'error'); return; }
+            const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+            let out = '';
             let count = 0;
-            const out = text.replace(/([，,])[ \t]*[\r\n]+[ \t]*/g, (m, c) => { count++; return c; });
+            let prevJoined = false;
+            for (let i = 0; i < lines.length; i++) {
+                let line = lines[i];
+                if (prevJoined) line = line.replace(/^[ \t]+/, ''); // 接到上行后，去本行首部空格
+                const trimmed = line.replace(/[ \t]+$/, '');
+                const last = trimmed.slice(-1);
+                const isLast = (i === lines.length - 1);
+                const nextLine = isLast ? '' : lines[i + 1];
+                const join = !isLast
+                    && !DATE_LINE.test(line)        // 当前行不是纯日期
+                    && !DATE_LINE.test(nextLine)    // 下一行不是纯日期（别把内容拼到日期上）
+                    && trimmed !== ''               // 空行不拼
+                    && nextLine.trim() !== ''       // 下一行非空（保留段落分隔）
+                    && (/[，,]/.test(last) || /[\p{L}\p{N}]/u.test(last)); // 逗号 或 字母/数字(无符号)
+                if (join) {
+                    out += trimmed;
+                    count++;
+                    prevJoined = true;
+                } else {
+                    out += line + (isLast ? '' : '\n');
+                    prevJoined = false;
+                }
+            }
             els.output.value = out;
-            showStatus('已删除 ' + count + ' 处逗号后的换行', 'success');
+            showStatus('已删除 ' + count + ' 处多余换行', 'success');
         });
 
         // ============ 规范日期 ============
