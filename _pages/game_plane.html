@@ -554,7 +554,7 @@ title: "飞机大战小游戏"
             { id:'main', name:'主炮', desc:'前向单发, 伤害=等级', icon:'🔫', type:'weapon', maxLevel:5, level:1, slots:2, rarity:'common',
               accepts:['穿透','追踪','分裂','暴击'], rejects:['折射'],
               apply(lv){ ownedWeapons.main = lv; } },
-            { id:'spread', name:'散炮', desc:'扇形 3/5/7 发', icon:'🌟', type:'weapon', maxLevel:3, level:0, slots:2, rarity:'uncommon',
+            { id:'spread', name:'散炮', desc:'扇形 4/6/8 发', icon:'🌟', type:'weapon', maxLevel:3, level:0, slots:2, rarity:'uncommon',
               accepts:['折射','暴击'], rejects:['分裂','追踪'],
               apply(lv){ ownedWeapons.spread = lv; } },
             { id:'side', name:'侧炮', desc:'左右各发射 lv 发', icon:'↔️', type:'weapon', maxLevel:3, level:0, slots:2, rarity:'uncommon',
@@ -574,9 +574,9 @@ title: "飞机大战小游戏"
                 push({ x: pl.x + pl.width/2 - 2, y: pl.y, width:4, height:10, vx:0, vy:-bulletSpeed, color:'#fff', damage: lv, type:'main' });
             }},
             spread: { cooldown: 600, fire(lv, pl, push) {
-                const count = 3 + 2 * (lv - 1); // 3/5/7
+                const count = 4 + 2 * (lv - 1); // 4/6/8 (偶数, 无中央弹, 与主炮区分)
                 for (let i = 0; i < count; i++) {
-                    const t = count > 1 ? (i / (count - 1) - 0.5) : 0; // -0.5..0.5
+                    const t = (i + 0.5) / count - 0.5; // -0.5..0.5 对称且无 0
                     push({ x: pl.x + pl.width/2 - 2, y: pl.y, width:4, height:10, vx: t * 6, vy:-bulletSpeed, color:'#9cf', damage:1, type:'spread' });
                 }
             }},
