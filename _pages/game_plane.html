@@ -433,7 +433,7 @@ title: "飞机大战小游戏"
          *
          * 【升级目录(草案)】
          *   主动武器(可共存, 各有等级):
-         *     主炮(默认) / 散射枪(3/5/7路) / 侧炮 / 后炮 / 环形轨道
+         *     主炮(默认) / 散炮(3/5/7路) / 侧炮 / 后炮 / 环形轨道
          *     / 重炮(缓慢巨大弹) / 回旋镖(飞出返回, 往返两判)
          *   子弹修饰(给所有武器加属性, 可升级):
          *     穿透+N / 追踪(转向强度↑) / 折射+N墙反弹 / 分裂(命中spawn片段)
@@ -542,9 +542,9 @@ title: "飞机大战小游戏"
               apply(lv){ lives = Math.min(5, 3 + lv); livesElement.textContent = lives; } },
             // ── 武器 (P2) ──
             { id:'main', name:'主炮', desc:'前向单发, 伤害=等级', icon:'🔫', type:'weapon', maxLevel:5, level:1, slots:2,
-              accepts:['穿透','追踪','折射','分裂','暴击'], rejects:[],
+              accepts:['穿透','追踪','分裂','暴击'], rejects:['折射'],
               apply(lv){ ownedWeapons.main = lv; } },
-            { id:'spread', name:'散射枪', desc:'扇形 3/5/7 发', icon:'🌟', type:'weapon', maxLevel:3, level:0, slots:2,
+            { id:'spread', name:'散炮', desc:'扇形 3/5/7 发', icon:'🌟', type:'weapon', maxLevel:3, level:0, slots:2,
               accepts:['追踪','折射','暴击'], rejects:['分裂'],
               apply(lv){ ownedWeapons.spread = lv; } },
             { id:'side', name:'侧炮', desc:'左右各发射 lv 发', icon:'↔️', type:'weapon', maxLevel:3, level:0, slots:1,
