@@ -161,7 +161,31 @@ title: "手写识别"
         }
         .thumb:hover .remove { opacity: 1; }
         .thumb .remove:hover { background: var(--danger); }
-        @media (hover: none) { .thumb .remove { opacity: 1; } } /* 触屏始终可见 */
+        .thumb .rotate {
+            position: absolute;
+            bottom: 3px;
+            right: 3px;
+            width: 18px;
+            height: 18px;
+            min-width: 0;
+            padding: 0;
+            flex-grow: 0;
+            border-radius: 50%;
+            background: rgba(0,0,0,0.4);
+            color: #fff;
+            border: none;
+            cursor: pointer;
+            font-size: 13px;
+            line-height: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: background 0.2s, opacity 0.2s;
+        }
+        .thumb:hover .rotate { opacity: 1; }
+        .thumb .rotate:hover { background: var(--primary); }
+        @media (hover: none) { .thumb .remove, .thumb .rotate { opacity: 1; } } /* 触屏始终可见 */
         .thumb .order {
             position: absolute;
             bottom: 2px;
@@ -623,6 +647,31 @@ title: "手写识别"
             });
         }
 
+        // 逆时针旋转 90°：返回新的 { blob, dataUrl }
+        function rotateCCW(dataUrl) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onerror = () => reject(new Error('图片解码失败'));
+                img.onload = () => {
+                    const ow = img.naturalWidth, oh = img.naturalHeight;
+                    const canvas = document.createElement('canvas');
+                    canvas.width = oh; canvas.height = ow; // 旋转后宽高互换
+                    const ctx = canvas.getContext('2d');
+                    ctx.fillStyle = '#fff';
+                    ctx.fillRect(0, 0, oh, ow);
+                    ctx.translate(0, ow);
+                    ctx.rotate(-Math.PI / 2); // 逆时针 90°
+                    ctx.drawImage(img, 0, 0);
+                    const newDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+                    canvas.toBlob((blob) => {
+                        if (!blob) { reject(new Error('旋转失败')); return; }
+                        resolve({ blob, dataUrl: newDataUrl });
+                    }, 'image/jpeg', 0.85);
+                };
+                img.src = dataUrl;
+            });
+        }
+
         function renderThumbs() {
             els.thumbList.innerHTML = '';
             images.forEach((it, idx) => {
@@ -643,8 +692,26 @@ title: "手写识别"
                 const order = document.createElement('span');
                 order.className = 'order';
                 order.textContent = (idx + 1);
+                const rotate = document.createElement('button');
+                rotate.className = 'rotate';
+                rotate.textContent = '↺';
+                rotate.title = '逆时针旋转90°';
+                rotate.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    if (busy) { showStatus('识别进行中，请稍后再旋转', 'error'); return; }
+                    try {
+                        const r = await rotateCCW(it.dataUrl);
+                        it.blob = r.blob;
+                        it.dataUrl = r.dataUrl;
+                        renderThumbs();
+                        showStatus('已逆时针旋转90°', 'success');
+                    } catch (err) {
+                        showStatus('旋转失败: ' + err.message, 'error');
+                    }
+                });
                 div.appendChild(img);
                 div.appendChild(order);
+                div.appendChild(rotate);
                 div.appendChild(remove);
                 els.thumbList.appendChild(div);
             });
