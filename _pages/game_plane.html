@@ -335,7 +335,7 @@ title: "飞机大战小游戏"
          *     调色板: 按敌机等级 hue=(level*20)%360 动态生成
          *     1=暗 2=中 3=亮，中央叠加等级数字(白字黑描边)
          *
-         *   道具图形: drawStar(星形,5角) / drawShield(盾牌+十字)
+         *   道具图形: drawShield(盾牌+十字, 用于无敌道具)
          *             + 呼吸缩放 scale=0.9+sin(t)*0.1
          *
          * ============================================================
@@ -1037,33 +1037,6 @@ title: "飞机大战小游戏"
                     }
                 }
             }
-        }
-
-        // 绘制星形（用于金色方块）
-        function drawStar(cx, cy, radius, spikes) {
-            let rot = Math.PI / 2 * 3;
-            let step = Math.PI / spikes;
-            
-            ctx.beginPath();
-            ctx.moveTo(cx, cy - radius);
-            
-            for (let i = 0; i < spikes; i++) {
-                ctx.lineTo(
-                    cx + Math.cos(rot) * radius,
-                    cy + Math.sin(rot) * radius
-                );
-                rot += step;
-                
-                ctx.lineTo(
-                    cx + Math.cos(rot) * radius * 0.4,
-                    cy + Math.sin(rot) * radius * 0.4
-                );
-                rot += step;
-            }
-            
-            ctx.lineTo(cx, cy - radius);
-            ctx.closePath();
-            ctx.fill();
         }
 
         // 绘制盾牌形状（用于无敌奖励）
