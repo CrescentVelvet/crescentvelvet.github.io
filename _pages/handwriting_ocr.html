@@ -202,6 +202,21 @@ title: "手写识别"
         .reset-button:hover { background: var(--danger-dark); box-shadow: 0 4px 12px rgba(239, 79, 111, 0.3); }
         .copy-button { background: var(--neutral); box-shadow: 0 2px 6px rgba(107, 114, 128, 0.2); }
         .copy-button:hover { background: var(--neutral-dark); box-shadow: 0 4px 12px rgba(107, 114, 128, 0.3); }
+        #year-input {
+            width: 64px;
+            flex-grow: 0;
+            min-width: 0;
+            padding: 11px 8px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 14px;
+            font-family: inherit;
+            text-align: center;
+            background: #fff;
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        #year-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79,109,245,0.15); }
 
         .status {
             margin: 0 0 16px;
@@ -396,6 +411,7 @@ title: "手写识别"
             <button id="copy-btn" class="copy-button">复制结果</button>
             <button id="punct-btn" class="copy-button">标点转中文</button>
             <button id="join-comma-btn" class="copy-button">去逗号换行</button>
+            <input id="year-input" type="text" inputmode="numeric" maxlength="4" placeholder="年份" title="填入年份，如 2017">
             <button id="norm-date-btn" class="copy-button">规范日期</button>
             <button id="del-watermark-btn" class="copy-button">去水印</button>
             <button id="to-processor-btn" class="copy-button">发送到文本处理工具</button>
@@ -436,6 +452,7 @@ title: "手写识别"
         const LS_KEY = 'apiKeys';          // 与 chat_bot 共用同一 localStorage 键
         const LS_SUB = 'zhipu';            // 子字段：{ apiKeys: { zhipu: { key: '...' } } }
         const LS_MODE = 'handwritingMode'; // 记住上次选择
+        const LS_YEAR = 'handwritingYear'; // 记住年份
 
         const FLASH_PROMPT = [
             '逐字转录图片中手写中文日志的原文。要求：',
@@ -461,6 +478,7 @@ title: "手写识别"
             punctBtn: document.getElementById('punct-btn'),
             joinCommaBtn: document.getElementById('join-comma-btn'),
             normDateBtn: document.getElementById('norm-date-btn'),
+            yearInput: document.getElementById('year-input'),
             delWatermarkBtn: document.getElementById('del-watermark-btn'),
             toProcessorBtn: document.getElementById('to-processor-btn'),
             apikeyDialog: document.getElementById('apikey-dialog'),
@@ -479,6 +497,16 @@ title: "手写识别"
         if (savedMode) els.modeSelect.value = savedMode;
         els.modeSelect.addEventListener('change', () => {
             localStorage.setItem(LS_MODE, els.modeSelect.value);
+        });
+
+        // 恢复年份
+        const savedYear = localStorage.getItem(LS_YEAR);
+        if (savedYear) els.yearInput.value = savedYear;
+        els.yearInput.addEventListener('input', () => {
+            // 只保留数字
+            const digits = els.yearInput.value.replace(/\D/g, '').slice(0, 4);
+            if (digits !== els.yearInput.value) els.yearInput.value = digits;
+            localStorage.setItem(LS_YEAR, digits);
         });
 
         // ============ API Key ============
@@ -834,7 +862,7 @@ title: "手写识别"
         // - 行末没有终止符号（末字符是字母/数字，含中文）
         // 行末是句号/问号/感叹号则保留换行；
         // 空行（段落分隔）与纯日期行（MM-DD）不参与拼接，也不断到日期行。
-        const DATE_LINE = /^\s*\d{1,2}-\d{1,2}\s*$/;
+        const DATE_LINE = /^\s*(?:\d{4}-)?\d{1,2}-\d{1,2}\s*$/;
         els.joinCommaBtn.addEventListener('click', () => {
             const text = els.output.value;
             if (!text.trim()) { showStatus('没有可处理的内容', 'error'); return; }
@@ -869,23 +897,26 @@ title: "手写识别"
         });
 
         // ============ 规范日期 ============
-        // "10.19: "（M.D 紧跟冒号/句号/逗号，须位于行首/空格后）→ "10-19\n"
-        // "10月19日" → "10-19\n"（日后若紧跟句号/逗号/冒号一并删去）
+        // "10.19: "（M.D 紧跟冒号/句号/逗号，须位于行首/空格后）→ "MM-DD\n" 或 "YYYY-MM-DD\n"
+        // "10月19日" → 同上
         // 月/日不足两位前补 0，如 1-9 → 01-09；日期后不留空格、直接换行
+        // 若填了年份（如 2017），结果前置年份 → 2017-01-09
         // 注意：M.D 必须后接 句号/逗号/冒号 才视为日期，"7:30" 这种纯冒号时间不动；
         //       且要求日期前为空白/行首，避免误伤 "v1.2:" 这类版本号。
         const pad2 = (s) => String(s).padStart(2, '0');
         els.normDateBtn.addEventListener('click', () => {
             const text = els.output.value;
             if (!text.trim()) { showStatus('没有可处理的内容', 'error'); return; }
+            const year = els.yearInput.value.trim();
+            const prefix = year ? (year + '-') : '';
             let count = 0;
             const out = text
                 // M.D 后紧跟 句号/逗号/冒号（中/英），且 M 前为空白或行首；标点及周围空白一并去掉，日期后换行
-                .replace(/(?<!\S)(\d{1,2})\.(\d{1,2})\s*[.。,，:：]\s*/g, (m, a, b) => { count++; return pad2(a) + '-' + pad2(b) + '\n'; })
+                .replace(/(?<!\S)(\d{1,2})\.(\d{1,2})\s*[.。,，:：]\s*/g, (m, a, b) => { count++; return prefix + pad2(a) + '-' + pad2(b) + '\n'; })
                 // 月日：10月19日 → 10-19（吞掉日后可能紧跟的句号/逗号/冒号及空白，统一换行）
-                .replace(/(\d{1,2})月(\d{1,2})日\s*[.。,，:：]?\s*/g, (m, a, b) => { count++; return pad2(a) + '-' + pad2(b) + '\n'; });
+                .replace(/(\d{1,2})月(\d{1,2})日\s*[.。,，:：]?\s*/g, (m, a, b) => { count++; return prefix + pad2(a) + '-' + pad2(b) + '\n'; });
             els.output.value = out;
-            showStatus('已规范 ' + count + ' 处日期为 MM-DD 格式', 'success');
+            showStatus('已规范 ' + count + ' 处日期为 ' + (year ? year + '-MM-DD' : 'MM-DD') + ' 格式', 'success');
         });
 
         // ============ 去水印 ============
