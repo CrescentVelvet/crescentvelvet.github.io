@@ -459,7 +459,7 @@ title: "飞机大战小游戏"
          *   P4 被动+平衡: 暴击修饰 + 伤害/拾取/回血被动 + 稀有度加权 + maxLives — 已实现
          *   P5 收尾: 半心制 HP(1心=2HP) + 旧道具折叠(移除金色射击强化) + 回血掉落 + UI 打磨 — 已实现
          *   P6(可选) 进化: 在 B 互斥表基础上追加 C 进化路径,
-         *             图鉴补"满级进化终极武器"栏 — 已实装: 主炮Lv5→激光, 散炮Lv5→苍穹炮
+         *             图鉴补"满级进化终极武器"栏 — 已实装: 主炮Lv5→激光, 散炮Lv5→苍穹炮, 侧炮Lv5→燕返
          *
          * ============================================================
          */
@@ -563,8 +563,9 @@ title: "飞机大战小游戏"
               accepts:['折射','暴击','中毒','冰霜'], rejects:['分裂','追踪'],
               evolve: 'Lv5→苍穹炮(180°全弧覆盖)',
               apply(lv){ ownedWeapons.spread = lv; } },
-            { id:'side', name:'侧炮', desc:'左右各发射 lv 发', icon:'↔️', type:'weapon', maxLevel:3, level:0, slots:2, rarity:'uncommon',
+            { id:'side', name:'侧炮', desc:'左右各发射 lv 发', icon:'↔️', type:'weapon', maxLevel:5, level:0, slots:2, rarity:'uncommon',
               accepts:['穿透','暴击','中毒','冰霜'], rejects:['追踪','折射','分裂'],
+              evolve: 'Lv5→燕返(飞出折返, 往返双程打击)',
               apply(lv){ ownedWeapons.side = lv; } },
             { id:'heavy', name:'重炮', desc:'缓慢巨大弹, 高伤', icon:'💣', type:'weapon', maxLevel:3, level:0, slots:2, rarity:'rare',
               accepts:['穿透','分裂','爆炸','漩涡'], rejects:['追踪','折射'],
@@ -630,14 +631,13 @@ title: "飞机大战小游戏"
                 const mods = weaponMods[id] || {};
                 const evolvedMain = (id === 'main' && lv >= 5);
                 const evolvedSpread = (id === 'spread' && lv >= 5);
+                const evolvedSide = (id === 'side' && lv >= 5);
                 const cd = (evolvedMain ? LASER_COOLDOWN : w.cooldown) * fireRateMul;
                 if (now - (weaponLastFire[id] || 0) >= cd) {
                     weaponLastFire[id] = now;
                     if (evolvedMain) { fireLaser(mods); continue; }
-                    if (evolvedSpread) {
-                        fireArc(player, (b) => bullets.push(injectMods(b, mods)));
-                        continue;
-                    }
+                    if (evolvedSpread) { fireArc(player, (b) => bullets.push(injectMods(b, mods))); continue; }
+                    if (evolvedSide) { fireBoomerang(player, (b) => bullets.push(injectMods(b, mods))); continue; }
                     w.fire(lv, player, (b) => bullets.push(injectMods(b, mods)));
                 }
             }
@@ -653,6 +653,20 @@ title: "飞机大战小游戏"
                 const vy = -Math.cos(ang) * bulletSpeed;
                 push({ x: pl.x + pl.width / 2 - 2, y: pl.y, width: 4, height: 10, vx, vy, color: '#9cf', damage: 1, type: 'spread' });
             }
+        }
+
+        // 燕返: 侧炮 Lv5 进化 — 左右各一发飞出后折返, 往返双程打击
+        // bullet: boom=true, age/turnAt/maxLife 控制折返与消亡; 折返时清 hits 允许回程再打
+        function fireBoomerang(pl, push) {
+            const cx = pl.x + pl.width / 2;
+            const cy = pl.y + pl.height / 2;
+            const mk = (vx) => ({
+                x: cx - 5, y: cy - 5, width: 10, height: 10, vx, vy: 0,
+                color: '#f9f', damage: 1, type: 'side',
+                boom: true, age: 0, turnAt: 0.5, maxLife: 1.1, turned: false
+            });
+            push(mk(-5));  // 左飞
+            push(mk(5));   // 右飞
         }
 
         // 激光: 一帧打整列敌机 (命中不消亡, 全屏穿透), 继承暴击; noImpulse 不击退
@@ -1711,6 +1725,16 @@ title: "飞机大战小游戏"
                     bullet.life -= deltaTime;
                     if (bullet.life <= 0) return false;
                 }
+                // 燕返: 飞出后折返, 往返双程 (折返时清空 hits 允许回程再打同一敌机)
+                if (bullet.boom) {
+                    bullet.age += deltaTime;
+                    if (!bullet.turned && bullet.age >= bullet.turnAt) {
+                        bullet.vx = -bullet.vx;
+                        bullet.turned = true;
+                        bullet.hits = new Set();
+                    }
+                    if (bullet.age >= bullet.maxLife) return false;
+                }
                 // 追踪: 朝最近敌机转向 (转向强度随等级)
                 if (bullet.homing > 0) {
                     const target = findNearestEnemy(bullet.x + bullet.width / 2, bullet.y + bullet.height / 2);
@@ -1740,6 +1764,8 @@ title: "飞机大战小游戏"
                         bullet.x = canvas.width - bullet.width; bullet.vx = -Math.abs(vx); bullet.bounce--;
                     }
                 }
+                // 燕返由 age/maxLife 控制, 不受边界
+                if (bullet.boom) return true;
                 // 子弹在画布范围内才保留 (含侧炮横向飞出)
                 return bullet.y > -20 && bullet.x > -20 && bullet.x < canvas.width + 20;
             });
