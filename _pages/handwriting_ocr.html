@@ -388,6 +388,7 @@ title: "手写识别"
         <div class="buttons">
             <button id="copy-btn" class="copy-button">复制结果</button>
             <button id="punct-btn" class="copy-button">标点转中文</button>
+            <button id="join-comma-btn" class="copy-button">去逗号换行</button>
             <button id="to-processor-btn" class="copy-button">发送到文本处理工具</button>
         </div>
 
@@ -449,6 +450,7 @@ title: "手写识别"
             output: document.getElementById('output-text'),
             copyBtn: document.getElementById('copy-btn'),
             punctBtn: document.getElementById('punct-btn'),
+            joinCommaBtn: document.getElementById('join-comma-btn'),
             toProcessorBtn: document.getElementById('to-processor-btn'),
             apikeyDialog: document.getElementById('apikey-dialog'),
             apikeyInput: document.getElementById('apikey-input'),
@@ -745,6 +747,7 @@ title: "手写识别"
             els.clearBtn.disabled = b;
             els.copyBtn.disabled = b;
             els.punctBtn.disabled = b;
+            els.joinCommaBtn.disabled = b;
             els.toProcessorBtn.disabled = b;
             els.modeSelect.disabled = b;
         }
@@ -793,6 +796,17 @@ title: "手写识别"
                 });
             els.output.value = out;
             showStatus('已转换 ' + count + ' 处英文标点为中文标点', 'success');
+        });
+
+        // ============ 去逗号换行 ============
+        // 删去逗号（中/英）后的回车换行，把下一行接到逗号之后
+        els.joinCommaBtn.addEventListener('click', () => {
+            const text = els.output.value;
+            if (!text.trim()) { showStatus('没有可处理的内容', 'error'); return; }
+            let count = 0;
+            const out = text.replace(/([，,])[ \t]*[\r\n]+[ \t]*/g, (m, c) => { count++; return c; });
+            els.output.value = out;
+            showStatus('已删除 ' + count + ' 处逗号后的换行', 'success');
         });
 
         els.toProcessorBtn.addEventListener('click', () => {
