@@ -387,6 +387,7 @@ title: "手写识别"
 
         <div class="buttons">
             <button id="copy-btn" class="copy-button">复制结果</button>
+            <button id="punct-btn" class="copy-button">标点转中文</button>
             <button id="to-processor-btn" class="copy-button">发送到文本处理工具</button>
         </div>
 
@@ -447,6 +448,7 @@ title: "手写识别"
             status: document.getElementById('status'),
             output: document.getElementById('output-text'),
             copyBtn: document.getElementById('copy-btn'),
+            punctBtn: document.getElementById('punct-btn'),
             toProcessorBtn: document.getElementById('to-processor-btn'),
             apikeyDialog: document.getElementById('apikey-dialog'),
             apikeyInput: document.getElementById('apikey-input'),
@@ -742,6 +744,7 @@ title: "手写识别"
             els.recognizeBtn.disabled = b;
             els.clearBtn.disabled = b;
             els.copyBtn.disabled = b;
+            els.punctBtn.disabled = b;
             els.toProcessorBtn.disabled = b;
             els.modeSelect.disabled = b;
         }
@@ -774,7 +777,24 @@ title: "手写识别"
             }
         });
 
-        // ============ 发送到文本处理工具 ============
+        // ============ 标点转中文 ============
+        // 英文逗号 , → 中文逗号 ，
+        // 英文句号 . → 中文句号 。（数字间小数点 3.14 保留）
+        els.punctBtn.addEventListener('click', () => {
+            const text = els.output.value;
+            if (!text.trim()) { showStatus('没有可处理的内容', 'error'); return; }
+            let count = 0;
+            const out = text
+                .replace(/,/g, () => { count++; return '，'; })
+                .replace(/\./g, (m, off, s) => {
+                    const before = s[off - 1], after = s[off + 1];
+                    if (/\d/.test(before) && /\d/.test(after)) return m; // 小数点保留
+                    count++; return '。';
+                });
+            els.output.value = out;
+            showStatus('已转换 ' + count + ' 处英文标点为中文标点', 'success');
+        });
+
         els.toProcessorBtn.addEventListener('click', () => {
             const text = els.output.value;
             if (!text.trim()) { showStatus('没有可发送的内容', 'error'); return; }
