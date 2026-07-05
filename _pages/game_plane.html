@@ -459,7 +459,7 @@ title: "飞机大战小游戏"
          *   P4 被动+平衡: 暴击修饰 + 伤害/拾取/回血被动 + 稀有度加权 + maxLives — 已实现
          *   P5 收尾: 半心制 HP(1心=2HP) + 旧道具折叠(移除金色射击强化) + 回血掉落 + UI 打磨 — 已实现
          *   P6(可选) 进化: 在 B 互斥表基础上追加 C 进化路径,
-         *             图鉴补"满级进化终极武器"栏 — 已实装: 主炮Lv5→激光, 散炮Lv5→苍穹炮, 侧炮Lv5→燕返
+         *             图鉴补"满级进化终极武器"栏 — 已实装: 主炮Lv5→激光, 散炮Lv5→苍穹炮, 侧炮Lv5→燕返, 重炮Lv5→噬星
          *
          * ============================================================
          */
@@ -567,8 +567,9 @@ title: "飞机大战小游戏"
               accepts:['穿透','暴击','中毒','冰霜'], rejects:['追踪','折射','分裂'],
               evolve: 'Lv5→燕返(飞出折返, 往返双程打击)',
               apply(lv){ ownedWeapons.side = lv; } },
-            { id:'heavy', name:'重炮', desc:'缓慢巨大弹, 高伤', icon:'💣', type:'weapon', maxLevel:3, level:0, slots:2, rarity:'rare',
+            { id:'heavy', name:'重炮', desc:'缓慢巨大弹, 高伤', icon:'💣', type:'weapon', maxLevel:5, level:0, slots:2, rarity:'rare',
               accepts:['穿透','分裂','爆炸','漩涡'], rejects:['追踪','折射'],
+              evolve: 'Lv5→噬星(黑洞吞噬+坍缩爆裂)',
               apply(lv){ ownedWeapons.heavy = lv; } },
         ];
         const TYPE_LABEL = { weapon:'武器', modifier:'修饰', passive:'被动' };
@@ -632,12 +633,14 @@ title: "飞机大战小游戏"
                 const evolvedMain = (id === 'main' && lv >= 5);
                 const evolvedSpread = (id === 'spread' && lv >= 5);
                 const evolvedSide = (id === 'side' && lv >= 5);
+                const evolvedHeavy = (id === 'heavy' && lv >= 5);
                 const cd = (evolvedMain ? LASER_COOLDOWN : w.cooldown) * fireRateMul;
                 if (now - (weaponLastFire[id] || 0) >= cd) {
                     weaponLastFire[id] = now;
                     if (evolvedMain) { fireLaser(mods); continue; }
                     if (evolvedSpread) { fireArc(player, (b) => bullets.push(injectMods(b, mods))); continue; }
                     if (evolvedSide) { fireBoomerang(player, (b) => bullets.push(injectMods(b, mods))); continue; }
+                    if (evolvedHeavy) { fireBlackHole(player, mods); continue; }
                     w.fire(lv, player, (b) => bullets.push(injectMods(b, mods)));
                 }
             }
@@ -667,6 +670,63 @@ title: "飞机大战小游戏"
             });
             push(mk(-5));  // 左飞
             push(mk(5));   // 右飞
+        }
+
+        // 噬星: 重炮 Lv5 进化 — 缓慢上行的黑色奇点, 飞行中强引力吞噬, 结束时坍缩爆裂
+        function fireBlackHole(pl, mods) {
+            bullets.push({
+                x: pl.x + pl.width / 2 - 15, y: pl.y - 30,
+                width: 30, height: 30,
+                vx: 0, vy: -1.5,
+                color: '#000', type: 'heavy',
+                blackhole: true,
+                pullRadius: 130, pullForce: 2.5, coreRadius: 18,
+                crit: (mods && mods.crit) || 0,
+                damageTick: 0, age: 0, maxLife: 2.5, angle: 0
+            });
+        }
+
+        // 噤星坍缩: 大半径爆裂 (视觉 + 伤害)
+        function collapseBlast(bh) {
+            const cx = bh.x + bh.width / 2, cy = bh.y + bh.height / 2;
+            const radius = 110;
+            createExplosion(cx, cy, radius * 1.8, '#c8f');
+            for (const e of enemies) {
+                if (e.dead) continue;
+                const d = Math.hypot(e.x + e.width / 2 - cx, e.y + e.height / 2 - cy);
+                if (d < radius) handleEnemyDamage(e, { damage: 3, noImpulse: true });
+            }
+        }
+
+        // 绘制噬星 (黑核 + 旋转吸积盘 + 紫黑引力晕)
+        function drawBlackHoles() {
+            bullets.forEach(b => {
+                if (!b.blackhole) return;
+                const cx = b.x + b.width / 2, cy = b.y + b.height / 2;
+                ctx.save();
+                ctx.translate(cx, cy);
+                // 引力晕
+                const grad = ctx.createRadialGradient(0, 0, b.width / 4, 0, 0, b.pullRadius);
+                grad.addColorStop(0, 'rgba(0,0,0,0.95)');
+                grad.addColorStop(0.18, 'rgba(20,0,40,0.5)');
+                grad.addColorStop(0.4, 'rgba(120,60,200,0.25)');
+                grad.addColorStop(1, 'rgba(120,60,200,0)');
+                ctx.fillStyle = grad;
+                ctx.beginPath(); ctx.arc(0, 0, b.pullRadius, 0, Math.PI * 2); ctx.fill();
+                // 吸积盘
+                ctx.strokeStyle = 'rgba(190,130,255,0.7)';
+                ctx.lineWidth = 2;
+                for (let k = 0; k < 3; k++) {
+                    const r = b.width / 2 + 4 + k * 3;
+                    ctx.beginPath();
+                    ctx.ellipse(0, 0, r, r * 0.4, b.angle + k * 0.8, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+                // 黑核
+                ctx.fillStyle = '#000';
+                ctx.beginPath(); ctx.arc(0, 0, b.width / 2.5, 0, Math.PI * 2); ctx.fill();
+                ctx.restore();
+            });
         }
 
         // 激光: 一帧打整列敌机 (命中不消亡, 全屏穿透), 继承暴击; noImpulse 不击退
@@ -1461,6 +1521,7 @@ title: "飞机大战小游戏"
             // 子弹击中敌机
             for (let i = bullets.length - 1; i >= 0; i--) {
                 const bullet = bullets[i];
+                if (bullet.blackhole) continue; // 噤星由 updateBullets 处理, 不参与子弹碰撞
                 if (!bullet.hits) bullet.hits = new Set();
                 for (let j = enemies.length - 1; j >= 0; j--) {
                     const enemy = enemies[j];
@@ -1735,6 +1796,38 @@ title: "飞机大战小游戏"
                     }
                     if (bullet.age >= bullet.maxLife) return false;
                 }
+                // 噬星: 黑洞飞行中强引力吞噬 + 核心伤害, 结束坍缩爆裂
+                if (bullet.blackhole) {
+                    bullet.age += deltaTime;
+                    bullet.angle += deltaTime * 4;
+                    if (bullet.age >= bullet.maxLife) { collapseBlast(bullet); return false; }
+                    const cx = bullet.x + bullet.width / 2, cy = bullet.y + bullet.height / 2;
+                    // 牵引半径内敌机向圆心
+                    for (const e of enemies) {
+                        if (e.dead) continue;
+                        const ex = e.x + e.width / 2, ey = e.y + e.height / 2;
+                        const dx = cx - ex, dy = cy - ey;
+                        const d = Math.hypot(dx, dy) || 1;
+                        if (d < bullet.pullRadius) {
+                            const force = bullet.pullForce * (1 - d / bullet.pullRadius);
+                            e.x += (dx / d) * force;
+                            e.y += (dy / d) * force;
+                        }
+                    }
+                    // 核心伤害 (每 0.2s 打所有在核心内的敌机, 继承暴击)
+                    bullet.damageTick -= deltaTime;
+                    if (bullet.damageTick <= 0) {
+                        bullet.damageTick = 0.2;
+                        for (const e of enemies) {
+                            if (e.dead) continue;
+                            const d = Math.hypot(cx - (e.x + e.width / 2), cy - (e.y + e.height / 2));
+                            if (d < bullet.coreRadius + Math.max(e.width, e.height) / 2) {
+                                handleEnemyDamage(e, { damage: 2, crit: bullet.crit, noImpulse: true });
+                            }
+                        }
+                    }
+                    return true; // 不受边界, 由 age 控制
+                }
                 // 追踪: 朝最近敌机转向 (转向强度随等级)
                 if (bullet.homing > 0) {
                     const target = findNearestEnemy(bullet.x + bullet.width / 2, bullet.y + bullet.height / 2);
@@ -1938,6 +2031,7 @@ title: "飞机大战小游戏"
         
             // 绘制子弹
             bullets.forEach(bullet => {
+                if (bullet.blackhole) return; // 噤星由 drawBlackHoles 绘制
                 // 创建子弹的渐变色 (按 bullet.color 通用着色)
                 const bColor = bullet.color || '#fff';
                 const bulletGradient = ctx.createLinearGradient(
@@ -1969,6 +2063,8 @@ title: "飞机大战小游戏"
 
             // 绘制激光 (主炮进化)
             drawLaser();
+            // 绘制噬星 (重炮进化)
+            drawBlackHoles();
 
             // 绘制敌机 (像素风格)
             enemies.forEach(enemy => {
