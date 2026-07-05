@@ -797,6 +797,8 @@ title: "手写识别"
         // 英文逗号 , → 中文逗号 ，
         // 英文句号 . → 中文句号 。（数字间小数点 3.14 保留）
         // 英文冒号 : → 中文冒号 ：（数字间时间 7:30 保留）
+        // 英文感叹号 ! → 中文感叹号 ！
+        // 英文问号 ? → 中文问号 ？
         // 英文双引号 " → 中文弯引号 “”（交替开/合）
         els.punctBtn.addEventListener('click', () => {
             const text = els.output.value;
@@ -815,6 +817,8 @@ title: "手写识别"
                     if (/\d/.test(before) && /\d/.test(after)) return m; // 时间 7:30 保留
                     count++; return '：';
                 })
+                .replace(/!/g, () => { count++; return '！'; })
+                .replace(/\?/g, () => { count++; return '？'; })
                 .replace(/"/g, () => {
                     count++;
                     quoteOpen = !quoteOpen;
