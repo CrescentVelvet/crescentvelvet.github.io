@@ -560,10 +560,10 @@ title: "飞机大战小游戏"
             { id:'spread', name:'散炮', desc:'扇形 3/5/7 发', icon:'🌟', type:'weapon', maxLevel:3, level:0, slots:2, rarity:'uncommon',
               accepts:['折射','暴击'], rejects:['分裂','追踪'],
               apply(lv){ ownedWeapons.spread = lv; } },
-            { id:'side', name:'侧炮', desc:'左右各发射 lv 发', icon:'↔️', type:'weapon', maxLevel:3, level:0, slots:1, rarity:'uncommon',
+            { id:'side', name:'侧炮', desc:'左右各发射 lv 发', icon:'↔️', type:'weapon', maxLevel:3, level:0, slots:2, rarity:'uncommon',
               accepts:['穿透','暴击'], rejects:['追踪','折射','分裂'],
               apply(lv){ ownedWeapons.side = lv; } },
-            { id:'heavy', name:'重炮', desc:'缓慢巨大弹, 高伤', icon:'💣', type:'weapon', maxLevel:3, level:0, slots:1, rarity:'rare',
+            { id:'heavy', name:'重炮', desc:'缓慢巨大弹, 高伤', icon:'💣', type:'weapon', maxLevel:3, level:0, slots:2, rarity:'rare',
               accepts:['穿透','分裂','爆炸'], rejects:['追踪','折射'],
               apply(lv){ ownedWeapons.heavy = lv; } },
         ];
