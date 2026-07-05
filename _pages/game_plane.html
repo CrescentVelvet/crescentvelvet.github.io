@@ -456,7 +456,7 @@ title: "飞机大战小游戏"
          *             数据自动来自 P1 注册表。 — 已实现
          *   P2 武器: 主炮/散射/侧炮/重炮 + 等级提升 + 多武器独立冷却发射 — 已实现
          *   P3 修饰: pierce / 追踪 / 折射 / 分裂 + 槽位互斥 — 已实现
-         *   P4 被动 + 平衡: 数值被动、稀有度权重、难度曲线回归调参
+         *   P4 被动+平衡: 暴击修饰 + 伤害/拾取/回血被动 + 稀有度加权 + maxLives — 已实现
          *   P5 收尾: 半心制 HP(1心=2HP) + 旧道具折叠 + 回血掉落 + UI 打磨
          *   P6(可选) 进化: 在 B 互斥表基础上追加 C 进化路径,
          *             图鉴补"满级进化终极武器"栏
@@ -509,6 +509,13 @@ title: "飞机大战小游戏"
         let invinciblePowerUpDuration = 3000; // 无敌特殊能力持续3秒
         let enemyCounter = 0; // 敌人计数器
         let fireRateMul = 1; // 全局射速倍率(被动 fire_rate 设置, 越小越快; 乘在各武器冷却上)
+        let damageBonus = 0; // 全子弹伤害加成(被动 damage)
+        let pickupRange = 0; // 道具吸附范围(被动 pickup)
+        let maxLives = 3;    // 最大生命上限(被动 max_lives 提升, 硬上限 5)
+        let regenInterval = 0; // 回血间隔秒数(被动 regen; 0=关闭)
+        let regenTimer = 0;    // 回血计时器
+        // 稀有度权重: 越稀有出现概率越低
+        const RARITY_WEIGHT = { common: 1.0, uncommon: 0.5, rare: 0.25 };
         let lastFrameTime = 0; // 用于计算 deltaTime
         let fps = 0; // 新增：用于存储计算出的FPS
         let framesThisSecond = 0; // 新增：用于计算每秒的帧数
@@ -525,32 +532,38 @@ title: "飞机大战小游戏"
         function xpToNext(lv) { return Math.floor(20 * Math.pow(1.35, lv - 1)); }
 
         // 升级数值据此重算; 重开时回到 BASE
-        const UPGRADE_BASE = { fireRateMul: 1, bulletSpeed: 7, playerSpeed: 5 };
+        const UPGRADE_BASE = { fireRateMul: 1, bulletSpeed: 7, playerSpeed: 5, damageBonus: 0, pickupRange: 0 };
 
         // 升级注册表 (P1 被动 + P2 武器; P3 再加修饰)
         // level: 当前等级(运行时, 重开复位); apply(lv): 按新等级重算效果
-        // 武器的 accepts/rejects 为图鉴展示的互斥分支 (P3 修饰实装后生效)
+        // rarity: 抽卡权重(common/uncommon/rare); 武器 accepts/rejects 为互斥分支
         const UPGRADE_REGISTRY = [
             // ── 被动 ──
-            { id:'fire_rate', name:'射速', desc:'全武器冷却 ×0.9/级', icon:'⚡', type:'passive', maxLevel:5, level:0,
+            { id:'fire_rate', name:'射速', desc:'全武器冷却 ×0.9/级', icon:'⚡', type:'passive', maxLevel:5, level:0, rarity:'common',
               apply(lv){ fireRateMul = Math.max(0.4, 1 - 0.1 * lv); } },
-            { id:'bullet_speed', name:'子弹速度', desc:'子弹速度 +1/级', icon:'🚀', type:'passive', maxLevel:5, level:0,
+            { id:'bullet_speed', name:'子弹速度', desc:'子弹速度 +1/级', icon:'🚀', type:'passive', maxLevel:5, level:0, rarity:'common',
               apply(lv){ bulletSpeed = UPGRADE_BASE.bulletSpeed + lv; } },
-            { id:'move_speed', name:'移速', desc:'移动速度 +1/级', icon:'👟', type:'passive', maxLevel:5, level:0,
+            { id:'move_speed', name:'移速', desc:'移动速度 +1/级', icon:'👟', type:'passive', maxLevel:5, level:0, rarity:'common',
               apply(lv){ player.speed = UPGRADE_BASE.playerSpeed + lv; } },
-            { id:'max_lives', name:'最大生命', desc:'最大生命 +1/级 (上限5)', icon:'❤️', type:'passive', maxLevel:2, level:0,
-              apply(lv){ lives = Math.min(5, 3 + lv); livesElement.textContent = lives; } },
+            { id:'damage', name:'伤害', desc:'全子弹伤害 +1/级', icon:'🗡️', type:'passive', maxLevel:5, level:0, rarity:'uncommon',
+              apply(lv){ damageBonus = UPGRADE_BASE.damageBonus + lv; } },
+            { id:'pickup', name:'拾取范围', desc:'道具吸附范围 +30/级', icon:'🧲', type:'passive', maxLevel:3, level:0, rarity:'common',
+              apply(lv){ pickupRange = UPGRADE_BASE.pickupRange + 30 * lv; } },
+            { id:'max_lives', name:'最大生命', desc:'最大生命 +1/级 (上限5)', icon:'❤️', type:'passive', maxLevel:2, level:0, rarity:'uncommon',
+              apply(lv){ maxLives = Math.min(5, 3 + lv); lives = maxLives; livesElement.textContent = lives; } },
+            { id:'regen', name:'回血', desc:'每 8/6/4 秒回 1 心', icon:'➕', type:'passive', maxLevel:3, level:0, rarity:'rare',
+              apply(lv){ regenInterval = [0, 8, 6, 4][lv]; regenTimer = 0; } },
             // ── 武器 (P2) ──
-            { id:'main', name:'主炮', desc:'前向单发, 伤害=等级', icon:'🔫', type:'weapon', maxLevel:5, level:1, slots:2,
+            { id:'main', name:'主炮', desc:'前向单发, 伤害=等级', icon:'🔫', type:'weapon', maxLevel:5, level:1, slots:2, rarity:'common',
               accepts:['穿透','追踪','分裂','暴击'], rejects:['折射'],
               apply(lv){ ownedWeapons.main = lv; } },
-            { id:'spread', name:'散炮', desc:'扇形 3/5/7 发', icon:'🌟', type:'weapon', maxLevel:3, level:0, slots:2,
+            { id:'spread', name:'散炮', desc:'扇形 3/5/7 发', icon:'🌟', type:'weapon', maxLevel:3, level:0, slots:2, rarity:'uncommon',
               accepts:['追踪','折射','暴击'], rejects:['分裂'],
               apply(lv){ ownedWeapons.spread = lv; } },
-            { id:'side', name:'侧炮', desc:'左右各发射 lv 发', icon:'↔️', type:'weapon', maxLevel:3, level:0, slots:1,
+            { id:'side', name:'侧炮', desc:'左右各发射 lv 发', icon:'↔️', type:'weapon', maxLevel:3, level:0, slots:1, rarity:'uncommon',
               accepts:['穿透','暴击'], rejects:['追踪','折射','分裂'],
               apply(lv){ ownedWeapons.side = lv; } },
-            { id:'heavy', name:'重炮', desc:'缓慢巨大弹, 高伤', icon:'💣', type:'weapon', maxLevel:3, level:0, slots:1,
+            { id:'heavy', name:'重炮', desc:'缓慢巨大弹, 高伤', icon:'💣', type:'weapon', maxLevel:3, level:0, slots:1, rarity:'rare',
               accepts:['穿透','分裂'], rejects:['追踪','折射'],
               apply(lv){ ownedWeapons.heavy = lv; } },
         ];
@@ -600,12 +613,14 @@ title: "飞机大战小游戏"
                 const cd = w.cooldown * fireRateMul;
                 if (now - (weaponLastFire[id] || 0) >= cd) {
                     weaponLastFire[id] = now;
-                    // push 回调: 给每颗子弹注入本武器已安装的修饰 flag
+                    // push 回调: 给每颗子弹注入本武器已安装的修饰 flag + 全局伤害加成
                     w.fire(lv, player, (b) => {
                         b.pierce = mods.pierce || 0;
                         b.homing = mods.homing || 0;
                         b.bounce = mods.bounce || 0;
                         b.split = mods.split || 0;
+                        b.crit = mods.crit || 0;
+                        b.damage = (b.damage || 1) + damageBonus;
                         bullets.push(b);
                     });
                 }
@@ -616,10 +631,11 @@ title: "飞机大战小游戏"
         // MODIFIERS: 修饰目录; weaponMods[weaponId][modId] = 等级 (运行时)
         // bullet 修饰字段: pierce(剩余穿透次数), homing(等级), bounce(剩余反弹次数), split(等级)
         const MODIFIERS = {
-            pierce:  { name:'穿透', desc:'子弹多穿透 N 个敌机', icon:'➡️', maxLevel:3 },
-            homing:  { name:'追踪', desc:'子弹转向追击附近敌机', icon:'🎯', maxLevel:3 },
-            bounce:  { name:'折射', desc:'子弹撞侧墙反弹 N 次', icon:'↩️', maxLevel:3 },
-            split:   { name:'分裂', desc:'命中时分裂出片段', icon:'✴️', maxLevel:3 },
+            pierce:  { name:'穿透', desc:'子弹多穿透 N 个敌机', icon:'➡️', maxLevel:3, rarity:'common' },
+            homing:  { name:'追踪', desc:'子弹转向追击附近敌机', icon:'🎯', maxLevel:3, rarity:'uncommon' },
+            bounce:  { name:'折射', desc:'子弹撞侧墙反弹 N 次', icon:'↩️', maxLevel:3, rarity:'common' },
+            split:   { name:'分裂', desc:'命中时分裂出片段', icon:'✴️', maxLevel:3, rarity:'uncommon' },
+            crit:    { name:'暴击', desc:'15%/级 概率双倍伤害', icon:'💥', maxLevel:3, rarity:'uncommon' },
         };
         let weaponMods = {}; // weaponId -> { modId: level }
 
@@ -705,6 +721,7 @@ title: "飞机大战小游戏"
                         name: u.name + ' → Lv.' + (u.level + 1),
                         desc: u.desc,
                         typeLabel: TYPE_LABEL[u.type] || u.type,
+                        rarity: u.rarity || 'common',
                         apply() { u.level++; u.apply(u.level); }
                     });
                 }
@@ -723,11 +740,32 @@ title: "飞机大战小游戏"
                         name: mod.name + ' → ' + w.name + ' Lv.' + (cur + 1),
                         desc: mod.desc + ' (' + installedModCount(weaponId) + '/' + (w.slots || 0) + ' 槽)',
                         typeLabel: '修饰',
+                        rarity: mod.rarity || 'common',
                         apply() { installMod(weaponId, modId); }
                     });
                 }
             }
             return offers;
+        }
+
+        // 按稀有度加权随机抽 n 张 (不放回): 越稀有权重越低
+        function weightedPick(offers, n) {
+            const pool = offers.slice();
+            const result = [];
+            for (let k = 0; k < n && pool.length > 0; k++) {
+                const weights = pool.map(o => RARITY_WEIGHT[o.rarity] || 1);
+                let total = 0;
+                for (const w of weights) total += w;
+                let r = Math.random() * total;
+                let idx = 0;
+                for (let i = 0; i < pool.length; i++) {
+                    r -= weights[i];
+                    if (r <= 0) { idx = i; break; }
+                }
+                result.push(pool[idx]);
+                pool.splice(idx, 1);
+            }
+            return result;
         }
 
         function showUpgradeChoices() {
@@ -739,12 +777,8 @@ title: "飞机大战小游戏"
                 return;
             }
             awaitingUpgrade = true;
-            // 随机抽 3 张 (不足则取全部)
-            for (let i = offers.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [offers[i], offers[j]] = [offers[j], offers[i]];
-            }
-            currentChoices = offers.slice(0, Math.min(3, offers.length));
+            // 按稀有度加权抽 3 张 (不足则取全部)
+            currentChoices = weightedPick(offers, Math.min(3, offers.length));
             renderUpgradePanel();
         }
 
@@ -797,6 +831,11 @@ title: "飞机大战小游戏"
             fireRateMul = UPGRADE_BASE.fireRateMul;
             bulletSpeed = UPGRADE_BASE.bulletSpeed;
             player.speed = UPGRADE_BASE.playerSpeed;
+            damageBonus = UPGRADE_BASE.damageBonus;
+            pickupRange = UPGRADE_BASE.pickupRange;
+            maxLives = 3;
+            regenInterval = 0;
+            regenTimer = 0;
             ownedWeapons = { main: 1 };
             weaponLastFire = {};
             weaponMods = {};
@@ -1175,7 +1214,8 @@ title: "飞机大战小游戏"
             // 辅助函数：处理敌机被击中时的逻辑
             function handleEnemyDamage(enemy, bullet) { // bullet is now an optional parameter
                 // 降低敌机等级 (按子弹伤害; 玩家撞击为 1)
-                const dmg = (bullet && bullet.damage) ? bullet.damage : 1;
+                let dmg = (bullet && bullet.damage) ? bullet.damage : 1;
+                if (bullet && bullet.crit && Math.random() < 0.15 * bullet.crit) dmg *= 2; // 暴击双倍
                 enemy.level -= dmg;
                 
                 // 更新敌机体积和速度
@@ -1283,7 +1323,7 @@ title: "飞机大战小游戏"
                     player.y + player.height > powerUp.y
                 ) {
                     healthPowerUps.splice(index, 1); // 移除道具
-                    if (lives < 5) { // 生命值上限为5
+                    if (lives < maxLives) { // 生命值上限为 maxLives
                         lives++;
                         livesElement.textContent = lives;
                     }
@@ -1393,9 +1433,24 @@ title: "飞机大战小游戏"
         }
 
         // 更新绿色方块位置
+        // 道具吸附 (被动 pickup 范围内把道具拉向玩家)
+        function applyPickupMagnet(pu) {
+            if (pickupRange <= 0) return;
+            const pcx = player.x + player.width / 2, pcy = player.y + player.height / 2;
+            const cx = pu.x + pu.width / 2, cy = pu.y + pu.height / 2;
+            const dx = pcx - cx, dy = pcy - cy;
+            const d = Math.hypot(dx, dy) || 1;
+            if (d < pickupRange) {
+                const pull = 4;
+                pu.x += (dx / d) * pull;
+                pu.y += (dy / d) * pull;
+            }
+        }
+
         function updateHealthPowerUps(deltaTime) {
             healthPowerUps = healthPowerUps.filter(powerUp => {
                 powerUp.y += powerUp.speed * deltaTime * 60;
+                applyPickupMagnet(powerUp);
                 return powerUp.y < canvas.height;
             });
         }
@@ -1404,6 +1459,7 @@ title: "飞机大战小游戏"
         function updateShootingPowerUp(deltaTime) {
             shootingPowerUps = shootingPowerUps.filter(powerUp => {
                 powerUp.y += powerUp.speed  * deltaTime * 60;
+                applyPickupMagnet(powerUp);
                 return powerUp.y < canvas.height;
             });
 
@@ -1420,6 +1476,7 @@ title: "飞机大战小游戏"
         function updateInvinciblePowerUps(deltaTime) {
             invinciblePowerUps = invinciblePowerUps.filter(powerUp => {
                 powerUp.y += powerUp.speed * deltaTime * 60;
+                applyPickupMagnet(powerUp);
                 return powerUp.y < canvas.height;
             });
         
@@ -1958,6 +2015,16 @@ title: "飞机大战小游戏"
                 if (!gameOver) { // Game logic updates only if not game over
                     gameTime += deltaTime;
                     timeElement.textContent = Math.floor(gameTime);
+
+                    // 回血 (被动 regen)
+                    if (regenInterval > 0 && lives < maxLives) {
+                        regenTimer += deltaTime;
+                        if (regenTimer >= regenInterval) {
+                            regenTimer -= regenInterval;
+                            lives++;
+                            livesElement.textContent = lives;
+                        }
+                    }
 
                     // Game logic updates
                     updatePlayer(deltaTime);
