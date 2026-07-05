@@ -391,6 +391,7 @@ title: "手写识别"
             <button id="punct-btn" class="copy-button">标点转中文</button>
             <button id="join-comma-btn" class="copy-button">去逗号换行</button>
             <button id="norm-date-btn" class="copy-button">规范日期</button>
+            <button id="del-watermark-btn" class="copy-button">去水印</button>
             <button id="to-processor-btn" class="copy-button">发送到文本处理工具</button>
         </div>
 
@@ -454,6 +455,7 @@ title: "手写识别"
             punctBtn: document.getElementById('punct-btn'),
             joinCommaBtn: document.getElementById('join-comma-btn'),
             normDateBtn: document.getElementById('norm-date-btn'),
+            delWatermarkBtn: document.getElementById('del-watermark-btn'),
             toProcessorBtn: document.getElementById('to-processor-btn'),
             apikeyDialog: document.getElementById('apikey-dialog'),
             apikeyInput: document.getElementById('apikey-input'),
@@ -752,6 +754,7 @@ title: "手写识别"
             els.punctBtn.disabled = b;
             els.joinCommaBtn.disabled = b;
             els.normDateBtn.disabled = b;
+            els.delWatermarkBtn.disabled = b;
             els.toProcessorBtn.disabled = b;
             els.modeSelect.disabled = b;
         }
@@ -844,6 +847,23 @@ title: "手写识别"
                 .replace(/(\d{1,2})月(\d{1,2})日\s*[.。,，:：]?\s*/g, (m, a, b) => { count++; return pad2(a) + '-' + pad2(b) + '\n'; });
             els.output.value = out;
             showStatus('已规范 ' + count + ' 处日期为 MM-DD 格式', 'success');
+        });
+
+        // ============ 去水印 ============
+        // 删去纸张上预印的字样：HiMe HOIQ MOEQ（大小写不敏感，token 间允许任意空白，
+        // 含跨行拆分）与 爱国敬业。整行只剩水印时连换行一并删去，避免留空行。
+        els.delWatermarkBtn.addEventListener('click', () => {
+            const text = els.output.value;
+            if (!text.trim()) { showStatus('没有可处理的内容', 'error'); return; }
+            let count = 0;
+            const out = text
+                // 整行只有水印（含跨行拆分）→ 删掉整行
+                .replace(/^[ \t]*(?:HiMe\s*HOIQ\s*MOEQ|爱国敬业)[ \t]*\r?\n/gim, () => { count++; return ''; })
+                // 行内残留的水印 → 删字样，两侧空格收缩为一个空格
+                .replace(/[ \t]*HiMe\s*HOIQ\s*MOEQ[ \t]*/gi, () => { count++; return ' '; })
+                .replace(/[ \t]*爱国敬业[ \t]*/g, () => { count++; return ' '; });
+            els.output.value = out;
+            showStatus('已删除 ' + count + ' 处水印字样', 'success');
         });
 
         els.toProcessorBtn.addEventListener('click', () => {
