@@ -205,7 +205,7 @@ title: "飞机大战小游戏"
 </head>
 <body>
     <div id="gameInfo">
-        <div>生命值: <span id="lives">3</span></div>
+        <div>生命: <span id="lives">6/6</span></div>
         <div>击杀数: <span id="kills">0</span></div>
         <div>时间: <span id="time">0</span></div>
         <div>分数: <span id="score">0</span></div>
@@ -296,7 +296,7 @@ title: "飞机大战小游戏"
          * ├─────────────────────────────────────────────────────────┤
          * │ 道具 ×3 (均为 20×20 方块，下落速度 2)                  │
          * │   healthPowerUps[]   绿色十字    生命+1 (上限5)        │
-         * │   shootingPowerUps[] 金色星形    5秒射击强化(三发散射) │
+         * │   (金色射击道具已折叠入永久武器 P5)                │
          * │   invinciblePowerUps[] 蓝色盾牌  3秒无敌              │
          * │   生成条件: enemyCounter % interval === 0 且当前无存货 │
          * ├─────────────────────────────────────────────────────────┤
@@ -394,7 +394,7 @@ title: "飞机大战小游戏"
          *   调玩家     → player 对象 speed/invincibleTime / fireRateMul(射速)
          *   调敌机     → createEnemy 等级公式 / handleEnemyDamage 速度重算
          *   换皮肤     → PLAYER_SPRITE/PALETTE / ENEMY_SPRITE / 调色板生成
-         *   加新道具   → 仿 shootingPowerUps 三件套(create/update/draw/collision)
+         *   加新道具   → 仿 healthPowerUps 三件套(create/update/draw/collision)
          *   加新敌人种 → enemies[] 增加 type 字段, drawEnemy 分支渲染
          *
          * ============================================================
@@ -457,7 +457,7 @@ title: "飞机大战小游戏"
          *   P2 武器: 主炮/散射/侧炮/重炮 + 等级提升 + 多武器独立冷却发射 — 已实现
          *   P3 修饰: pierce / 追踪 / 折射 / 分裂 + 槽位互斥 — 已实现
          *   P4 被动+平衡: 暴击修饰 + 伤害/拾取/回血被动 + 稀有度加权 + maxLives — 已实现
-         *   P5 收尾: 半心制 HP(1心=2HP) + 旧道具折叠 + 回血掉落 + UI 打磨
+         *   P5 收尾: 半心制 HP(1心=2HP) + 旧道具折叠(移除金色射击强化) + 回血掉落 + UI 打磨 — 已实现
          *   P6(可选) 进化: 在 B 互斥表基础上追加 C 进化路径,
          *             图鉴补"满级进化终极武器"栏
          *
@@ -494,16 +494,13 @@ title: "飞机大战小游戏"
 
         // 游戏状态
         let score = 0;
-        let lives = 3;
+        let lives = 6; let maxHP = 6; // 半心制: 1心=2HP, 默认3心=6HP (lives 即当前 HP)
         let kills = 0;
         let gameTime = 0;
         let gameOver = false;
         let gamePaused = false; // 添加暂停状态变量
         let startTime = Date.now();
         let pauseStartTime = 0; // 暂停开始时间
-        let shootingPowerUpActive = false; // 射击特殊能力状态
-        let shootingPowerUpTimeLeft = 0; // 射击特殊能力剩余时间
-        let shootingPowerUpDuration = 5000; // 射击特殊能力持续5秒
         let invinciblePowerUpActive = false; // 无敌特殊能力状态
         let invinciblePowerUpTimeLeft = 0; // 无敌特殊能力剩余时间
         let invinciblePowerUpDuration = 3000; // 无敌特殊能力持续3秒
@@ -550,7 +547,7 @@ title: "飞机大战小游戏"
             { id:'pickup', name:'拾取范围', desc:'道具吸附范围 +30/级', icon:'🧲', type:'passive', maxLevel:3, level:0, rarity:'common',
               apply(lv){ pickupRange = UPGRADE_BASE.pickupRange + 30 * lv; } },
             { id:'max_lives', name:'最大生命', desc:'最大生命 +1/级 (上限5)', icon:'❤️', type:'passive', maxLevel:2, level:0, rarity:'uncommon',
-              apply(lv){ maxLives = Math.min(5, 3 + lv); lives = maxLives; livesElement.textContent = lives; } },
+              apply(lv){ maxLives = Math.min(5, 3 + lv); maxHP = maxLives * 2; lives = maxHP; livesElement.textContent = lives + '/' + maxHP; } },
             { id:'regen', name:'回血', desc:'每 8/6/4 秒回 1 心', icon:'➕', type:'passive', maxLevel:3, level:0, rarity:'rare',
               apply(lv){ regenInterval = [0, 8, 6, 4][lv]; regenTimer = 0; } },
             // ── 武器 (P2) ──
@@ -574,12 +571,7 @@ title: "飞机大战小游戏"
         // bullet 字段: x,y,width,height,vx,vy,color,damage,type
         const WEAPONS = {
             main: { cooldown: 300, fire(lv, pl, push) {
-                const color = shootingPowerUpActive ? '#FFD700' : '#fff';
-                push({ x: pl.x + pl.width/2 - 2, y: pl.y, width:4, height:10, vx:0, vy:-bulletSpeed, color, damage: lv, type:'main' });
-                if (shootingPowerUpActive) { // 射击强化道具: 主炮追加左右斜射
-                    push({ x: pl.x + pl.width/2 - 2, y: pl.y, width:4, height:10, vx:-2, vy:-bulletSpeed, color, damage: lv, type:'main' });
-                    push({ x: pl.x + pl.width/2 - 2, y: pl.y, width:4, height:10, vx:2, vy:-bulletSpeed, color, damage: lv, type:'main' });
-                }
+                push({ x: pl.x + pl.width/2 - 2, y: pl.y, width:4, height:10, vx:0, vy:-bulletSpeed, color:'#fff', damage: lv, type:'main' });
             }},
             spread: { cooldown: 600, fire(lv, pl, push) {
                 const count = 3 + 2 * (lv - 1); // 3/5/7
@@ -853,6 +845,9 @@ title: "飞机大战小游戏"
             damageBonus = UPGRADE_BASE.damageBonus;
             pickupRange = UPGRADE_BASE.pickupRange;
             maxLives = 3;
+            maxHP = 6;
+            lives = 6;
+            livesElement.textContent = lives + '/' + maxHP;
             regenInterval = 0;
             regenTimer = 0;
             ownedWeapons = { main: 1 };
@@ -955,10 +950,8 @@ title: "飞机大战小游戏"
 
         let explosions = []; // 爆炸效果数组
         let healthPowerUps = []; // 绿色方块数组（生命奖励）
-        let shootingPowerUps = []; // 金色方块数组（射击奖励）
         let invinciblePowerUps = []; // 蓝色方块数组（无敌奖励）
         let healthPowerUpsTimeInterval = 23; // 每23个敌人生成一个绿色方块
-        let shootingPowerUpsTimeInterval = 13; // 每13个敌人生成一个金色方块
         let invinciblePowerUpsTimeInterval = 17; // 每17个敌人生成一个蓝色方块
         let enemyMaxLevel = 100; // 最大敌机等级
         let lastEnemyTime = 0; // 上次生成敌机的时间
@@ -1343,24 +1336,10 @@ title: "飞机大战小游戏"
                     player.y + player.height > powerUp.y
                 ) {
                     healthPowerUps.splice(index, 1); // 移除道具
-                    if (lives < maxLives) { // 生命值上限为 maxLives
-                        lives++;
-                        livesElement.textContent = lives;
+                    if (lives < maxHP) { // 回血上限为 maxHP
+                        lives = Math.min(maxHP, lives + 2); // +1 整心
+                        livesElement.textContent = lives + '/' + maxHP;
                     }
-                }
-            });
-
-            // 玩家碰到金色方块（射击奖励）
-            shootingPowerUps.forEach((powerUp, index) => {
-                if (player.x < powerUp.x + powerUp.width &&
-                    player.x + player.width > powerUp.x &&
-                    player.y < powerUp.y + powerUp.height &&
-                    player.y + player.height > powerUp.y) {
-                    // 移除金色方块
-                    shootingPowerUps.splice(index, 1);
-                    // 激活特殊能力
-                    shootingPowerUpActive = true;
-                    shootingPowerUpTimeLeft = shootingPowerUpDuration; // 5秒特殊能力时间
                 }
             });
 
@@ -1392,8 +1371,8 @@ title: "飞机大战小游戏"
                     
                     // 只有在非无敌状态下才受到伤害
                     if (!player.invincible) {
-                        lives--;
-                        livesElement.textContent = lives;
+                        lives -= 2; // 撞击扣 1 整心 (2 HP)
+                        livesElement.textContent = lives + '/' + maxHP;
                         if (lives <= 0) {
                             gameOver = true;
                         } else {
@@ -1415,20 +1394,6 @@ title: "飞机大战小游戏"
             // 只在enemyCounter是23的倍数，且大于0时创建一个绿色方块
             if (enemyCounter % healthPowerUpsTimeInterval === 0 && enemyCounter > 0 && healthPowerUps.length === 0) {
                 healthPowerUps.push({
-                    x: Math.random() * (canvas.width - 20),
-                    y: -20,
-                    width: 20,
-                    height: 20,
-                    speed: 2
-                });
-            }
-        }
-
-        // 创建金色方块（射击奖励）
-        function createShootingPowerUp() {
-            // 只在enemyCounter是11的倍数，且大于0时创建一个金色方块
-            if (enemyCounter % shootingPowerUpsTimeInterval === 0 && enemyCounter > 0 && shootingPowerUps.length === 0) {
-                shootingPowerUps.push({
                     x: Math.random() * (canvas.width - 20),
                     y: -20,
                     width: 20,
@@ -1473,23 +1438,6 @@ title: "飞机大战小游戏"
                 applyPickupMagnet(powerUp);
                 return powerUp.y < canvas.height;
             });
-        }
-
-        // 更新金色方块位置
-        function updateShootingPowerUp(deltaTime) {
-            shootingPowerUps = shootingPowerUps.filter(powerUp => {
-                powerUp.y += powerUp.speed  * deltaTime * 60;
-                applyPickupMagnet(powerUp);
-                return powerUp.y < canvas.height;
-            });
-
-            // 更新特殊能力时间
-            if (shootingPowerUpActive) {
-                shootingPowerUpTimeLeft = Math.max(0, shootingPowerUpTimeLeft - deltaTime * 1000); // 假设60fps，约16ms每帧
-                if (shootingPowerUpTimeLeft <= 0) {
-                    shootingPowerUpActive = false;
-                }
-            }
         }
 
         // 更新蓝色方块位置
@@ -1762,13 +1710,32 @@ title: "飞机大战小游戏"
         function draw() {
             // Background and stars are now drawn directly in gameLoop before this call
 
-            // 绘制生命值爱心
+            // 绘制生命值爱心 (半心制: 满心/半心/空槽)
             if (heartImageLoaded) {
-                const heartSize = 25; // 爱心图像的大小
-                const heartSpacing = 30; // 爱心图像之间的间隔
-
-                for (let i = 0; i < lives; i++) {
-                    ctx.drawImage(heartImage, 20 + i * heartSpacing, 20, heartSize, heartSize);
+                const heartSize = 25;
+                const heartSpacing = 30;
+                for (let i = 0; i < maxLives; i++) {
+                    const x = 20 + i * heartSpacing;
+                    const slotHP = lives - i * 2; // 该心槽剩余 HP (2=满, 1=半, <=0=空)
+                    if (slotHP >= 2) {
+                        ctx.drawImage(heartImage, x, 20, heartSize, heartSize);
+                    } else if (slotHP === 1) {
+                        // 半心: 左半实心 + 右半暗影
+                        ctx.save();
+                        ctx.beginPath();
+                        ctx.rect(x, 20, heartSize / 2, heartSize);
+                        ctx.clip();
+                        ctx.drawImage(heartImage, x, 20, heartSize, heartSize);
+                        ctx.restore();
+                        ctx.globalAlpha = 0.2;
+                        ctx.drawImage(heartImage, x, 20, heartSize, heartSize);
+                        ctx.globalAlpha = 1;
+                    } else {
+                        // 空槽: 暗影占位 (显示容量)
+                        ctx.globalAlpha = 0.2;
+                        ctx.drawImage(heartImage, x, 20, heartSize, heartSize);
+                        ctx.globalAlpha = 1;
+                    }
                 }
             }
 
@@ -1861,32 +1828,6 @@ title: "飞机大战小游戏"
                 ctx.restore();
             });
 
-            // 绘制金色方块（射击奖励）
-            shootingPowerUps.forEach(powerUp => {
-                // 创建金色方块的渐变
-                const powerUpGradient = ctx.createLinearGradient(
-                    powerUp.x, powerUp.y,
-                    powerUp.x + powerUp.width, powerUp.y + powerUp.height
-                );
-                powerUpGradient.addColorStop(0, '#FFD700');
-                powerUpGradient.addColorStop(0.5, '#FFC000');
-                powerUpGradient.addColorStop(1, '#FFD700');
-            
-                ctx.fillStyle = powerUpGradient;
-                
-                // 绘制闪烁的星形
-                const time = Date.now() / 200;
-                const scale = 0.9 + Math.sin(time) * 0.1; // 脉动效果
-                
-                ctx.save();
-                ctx.translate(powerUp.x + powerUp.width / 2, powerUp.y + powerUp.height / 2);
-                ctx.scale(scale, scale);
-                
-                drawStar(0, 0, powerUp.width / 2, 5);
-                
-                ctx.restore();
-            });
-        
             // 绘制蓝色方块（无敌奖励）
             invinciblePowerUps.forEach(powerUp => {
                 // 创建蓝色方块的渐变
@@ -2036,13 +1977,13 @@ title: "飞机大战小游戏"
                     gameTime += deltaTime;
                     timeElement.textContent = Math.floor(gameTime);
 
-                    // 回血 (被动 regen)
-                    if (regenInterval > 0 && lives < maxLives) {
+                    // 回血 (被动 regen, 每次 +半心)
+                    if (regenInterval > 0 && lives < maxHP) {
                         regenTimer += deltaTime;
                         if (regenTimer >= regenInterval) {
                             regenTimer -= regenInterval;
-                            lives++;
-                            livesElement.textContent = lives;
+                            lives = Math.min(maxHP, lives + 1);
+                            livesElement.textContent = lives + '/' + maxHP;
                         }
                     }
 
@@ -2053,10 +1994,8 @@ title: "飞机大战小游戏"
                     createEnemy();
                     updateEnemies(deltaTime);
                     createHealthPowerUp();
-                    createShootingPowerUp();
                     createInvinciblePowerUp();
                     updateHealthPowerUps(deltaTime);
-                    updateShootingPowerUp(deltaTime);
                     updateInvinciblePowerUps(deltaTime);
                     updateExplosions();
                     checkCollisions();
@@ -2074,22 +2013,19 @@ title: "飞机大战小游戏"
             } else if (!codexOpen && gameOver && (keys.Space || isMobile)) { // Restart logic
                 // 重置游戏
                 score = 0;
-                lives = 3;
+                lives = 6;
                 kills = 0;
                 gameTime = 0;
                 startTime = Date.now();
                 enemyCounter = 0; // 重置敌人计数器
                 scoreElement.textContent = score;
-                livesElement.textContent = lives;
+                livesElement.textContent = lives + '/' + maxHP;
                 killsElement.textContent = kills;
                 timeElement.textContent = gameTime;
                 player.x = canvas.width / 2;
                 player.invincible = false;
-                shootingPowerUpActive = false;
-                shootingPowerUpTimeLeft = 0;
                 bullets = [];
                 enemies = [];
-                shootingPowerUps = [];
                 invinciblePowerUps = [];
                 gameOver = false;
                 gamePaused = false;
@@ -2244,22 +2180,19 @@ title: "飞机大战小游戏"
                 if (gameOver) {
                     // 重置游戏
                     score = 0;
-                    lives = 3;
+                    lives = 6;
                     kills = 0;
                     gameTime = 0;
                     startTime = Date.now();
                     enemyCounter = 0;
                     scoreElement.textContent = score;
-                    livesElement.textContent = lives;
+                    livesElement.textContent = lives + '/' + maxHP;
                     killsElement.textContent = kills;
                     timeElement.textContent = gameTime;
                     player.x = canvas.width / 2;
                     player.invincible = false;
-                    shootingPowerUpActive = false;
-                    shootingPowerUpTimeLeft = 0;
                     bullets = [];
                     enemies = [];
-                    shootingPowerUps = [];
                     invinciblePowerUps = [];
                     gameOver = false;
                     gamePaused = false;
@@ -2274,22 +2207,19 @@ title: "飞机大战小游戏"
             canvas.addEventListener('mousedown', function(e) {
                 if (gameOver) {
                     score = 0;
-                    lives = 3;
+                    lives = 6;
                     kills = 0;
                     gameTime = 0;
                     startTime = Date.now();
                     enemyCounter = 0;
                     scoreElement.textContent = score;
-                    livesElement.textContent = lives;
+                    livesElement.textContent = lives + '/' + maxHP;
                     killsElement.textContent = kills;
                     timeElement.textContent = gameTime;
                     player.x = canvas.width / 2;
                     player.invincible = false;
-                    shootingPowerUpActive = false;
-                    shootingPowerUpTimeLeft = 0;
                     bullets = [];
                     enemies = [];
-                    shootingPowerUps = [];
                     invinciblePowerUps = [];
                     gameOver = false;
                     gamePaused = false;
