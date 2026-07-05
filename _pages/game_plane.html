@@ -1444,10 +1444,8 @@ title: "飞机大战小游戏"
         }
 
         // 碰撞检测
-        function checkCollisions() {
-
-            // 辅助函数：处理敌机被击中时的逻辑
-            function handleEnemyDamage(enemy, bullet) { // bullet is now an optional parameter
+        // 处理敌机被击中 (子弹/玩家撞击/DoT/激光/爆炸/噬星共用) — 顶层函数, 各处均可调用
+        function handleEnemyDamage(enemy, bullet) { // bullet 可选: 子弹/激光/DoT/爆炸溅射等
                 // 降低敌机等级 (按子弹伤害; 玩家撞击为 1)
                 let dmg = (bullet && bullet.damage) ? bullet.damage : 1;
                 if (bullet && bullet.crit && Math.random() < 0.15 * bullet.crit) dmg *= 2; // 暴击双倍
@@ -1516,7 +1514,9 @@ title: "飞机大战小游戏"
                     killsElement.textContent = kills;
                     gainXP(enemy.isBoss ? (50 + enemy.spawnLevel * 10) : (5 + (enemy.spawnLevel || 1) * 3)); // Boss 给大量经验
                 }
-            }
+        }
+
+        function checkCollisions() {
 
             // 子弹击中敌机
             for (let i = bullets.length - 1; i >= 0; i--) {
