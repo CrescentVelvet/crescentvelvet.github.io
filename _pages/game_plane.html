@@ -596,7 +596,7 @@ title: "飞机大战小游戏"
                     push({ x: pl.x + pl.width/2 - 5, y, width:10, height:4, vx:4, vy:0, color:'#f9f', damage:1, type:'side' });
                 }
             }},
-            heavy: { cooldown: 1200, fire(lv, pl, push) {
+            heavy: { cooldown: 1500, fire(lv, pl, push) {
                 push({ x: pl.x + pl.width/2 - 8, y: pl.y - 6, width:16, height:16, vx:0, vy:-2.5, color:'#f80', damage: 3 + lv, type:'heavy' });
             }},
         };
@@ -607,6 +607,9 @@ title: "飞机大战小游戏"
         const LASER_COOLDOWN = 60;   // ms, 远短于主炮 300
         const LASER_DAMAGE = 1;      // 低伤
         const LASER_HALF_WIDTH = 3;  // 光束半宽
+
+        // 重炮 Lv5 进化: 噬星黑洞 (远长于重炮基础冷却, 营造压迫感)
+        const BLACKHOLE_COOLDOWN = 3000; // ms
 
         // 给子弹注入本武器已安装的修饰 flag + 全局伤害加成
         function injectMods(b, mods) {
@@ -634,7 +637,7 @@ title: "飞机大战小游戏"
                 const evolvedSpread = (id === 'spread' && lv >= 5);
                 const evolvedSide = (id === 'side' && lv >= 5);
                 const evolvedHeavy = (id === 'heavy' && lv >= 5);
-                const cd = (evolvedMain ? LASER_COOLDOWN : w.cooldown) * fireRateMul;
+                const cd = (evolvedMain ? LASER_COOLDOWN : evolvedHeavy ? BLACKHOLE_COOLDOWN : w.cooldown) * fireRateMul;
                 if (now - (weaponLastFire[id] || 0) >= cd) {
                     weaponLastFire[id] = now;
                     if (evolvedMain) { fireLaser(mods); continue; }
@@ -684,12 +687,12 @@ title: "飞机大战小游戏"
             bullets.push({
                 x: pl.x + pl.width / 2 - 15, y: pl.y - 30,
                 width: 30, height: 30,
-                vx: 0, vy: -2,
+                vx: 0, vy: -2.5,
                 color: '#000', type: 'heavy',
                 blackhole: true,
                 pullRadius: 130, pullForce: 2.5, coreRadius: 18,
                 crit: (mods && mods.crit) || 0,
-                damageTick: 0, age: 0, maxLife: 2.5, angle: 0
+                damageTick: 0, age: 0, maxLife: 6, angle: 0
             });
         }
 
@@ -1896,7 +1899,7 @@ title: "飞机大战小游戏"
                 if (bullet.blackhole) {
                     bullet.age += deltaTime;
                     bullet.angle += deltaTime * 4;
-                    if (bullet.age >= bullet.maxLife) { collapseBlast(bullet); return false; }
+                    if (bullet.age >= bullet.maxLife || bullet.y + bullet.height < 50) { collapseBlast(bullet); return false; }
                     // 向前推进 (原此处 return 前未更新位置, 导致黑洞原地不动)
                     bullet.x += (bullet.vx || 0) * deltaTime * 60;
                     bullet.y += (bullet.vy || 0) * deltaTime * 60;
