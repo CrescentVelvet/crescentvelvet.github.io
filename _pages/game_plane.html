@@ -684,7 +684,7 @@ title: "飞机大战小游戏"
             bullets.push({
                 x: pl.x + pl.width / 2 - 15, y: pl.y - 30,
                 width: 30, height: 30,
-                vx: 0, vy: -1.5,
+                vx: 0, vy: -2,
                 color: '#000', type: 'heavy',
                 blackhole: true,
                 pullRadius: 130, pullForce: 2.5, coreRadius: 18,
@@ -945,6 +945,33 @@ title: "飞机大战小游戏"
                 ctx.fill();
                 ctx.shadowBlur = 0;
                 ctx.restore();
+            });
+            ctx.lineCap = 'butt';
+        }
+
+        // 绘制散炮子弹: 沿速度方向的流线曳光弹 (无光晕, 避免数量多时遮盖其他)
+        function drawSpreadBullets() {
+            ctx.lineCap = 'round';
+            bullets.forEach(b => {
+                if (b.type !== 'spread') return;
+                const cx = b.x + b.width / 2;
+                const cy = b.y + b.height / 2;
+                const vx = b.vx || 0, vy = b.vy || 0;
+                const sp = Math.hypot(vx, vy) || 1;
+                const dx = vx / sp, dy = vy / sp;       // 单位方向
+                const len = 12;
+                const tipX = cx + dx * len * 0.5, tipY = cy + dy * len * 0.5;
+                const tailX = cx - dx * len * 0.5, tailY = cy - dy * len * 0.5;
+                const g = ctx.createLinearGradient(tailX, tailY, tipX, tipY);
+                g.addColorStop(0, 'rgba(120,210,255,0)');
+                g.addColorStop(0.55, '#66c8ff');
+                g.addColorStop(1, '#eafdff');
+                ctx.strokeStyle = g;
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(tailX, tailY);
+                ctx.lineTo(tipX, tipY);
+                ctx.stroke();
             });
             ctx.lineCap = 'butt';
         }
@@ -1870,6 +1897,9 @@ title: "飞机大战小游戏"
                     bullet.age += deltaTime;
                     bullet.angle += deltaTime * 4;
                     if (bullet.age >= bullet.maxLife) { collapseBlast(bullet); return false; }
+                    // 向前推进 (原此处 return 前未更新位置, 导致黑洞原地不动)
+                    bullet.x += (bullet.vx || 0) * deltaTime * 60;
+                    bullet.y += (bullet.vy || 0) * deltaTime * 60;
                     const cx = bullet.x + bullet.width / 2, cy = bullet.y + bullet.height / 2;
                     // 牵引半径内敌机向圆心
                     for (const e of enemies) {
@@ -2102,6 +2132,7 @@ title: "飞机大战小游戏"
             bullets.forEach(bullet => {
                 if (bullet.blackhole) return; // 噤星由 drawBlackHoles 绘制
                 if (bullet.boom) return;       // 燕刃由 drawBoomerangBlades 绘制
+                if (bullet.type === 'spread') return; // 散炮由 drawSpreadBullets 绘制
                 // 创建子弹的渐变色 (按 bullet.color 通用着色)
                 const bColor = bullet.color || '#fff';
                 const bulletGradient = ctx.createLinearGradient(
@@ -2137,6 +2168,8 @@ title: "飞机大战小游戏"
             drawBlackHoles();
             // 绘制燕刃 (侧炮进化)
             drawBoomerangBlades();
+            // 绘制散炮曳光弹
+            drawSpreadBullets();
 
             // 绘制敌机 (像素风格)
             enemies.forEach(enemy => {
