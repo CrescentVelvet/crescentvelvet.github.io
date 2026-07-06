@@ -1986,7 +1986,7 @@ title: "飞机大战小游戏"
                 const heartSize = 25;
                 const heartSpacing = 30;
                 for (let i = 0; i < maxLives; i++) {
-                    const x = 20 + i * heartSpacing;
+                    const x = canvas.width - 20 - heartSize - (maxLives - 1 - i) * heartSpacing;
                     const slotHP = lives - i * 2; // 该心槽剩余 HP (2=满, 1=半, <=0=空)
                     if (slotHP >= 2) {
                         ctx.drawImage(heartImage, x, 20, heartSize, heartSize);
