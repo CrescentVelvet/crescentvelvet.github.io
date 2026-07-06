@@ -927,6 +927,15 @@ title: "飞机大战小游戏"
             if (pendingLevelUps > 0 && !awaitingUpgrade) showUpgradeChoices();
         }
 
+        // 测试用开挂键: 立即升一级 (跳过 XP 攒取), 便于快速满级检查子弹效果
+        function cheatGrantLevel() {
+            if (gameOver) return;
+            playerLevel++;
+            pendingLevelUps++;
+            updateXPDisplay();
+            if (!awaitingUpgrade) showUpgradeChoices();
+        }
+
         // 构建升级候选 (offer): 注册表条目 + "修饰→武器" 安装组合 (受槽位/互斥约束)
         function buildOffers() {
             const offers = [];
@@ -1720,6 +1729,8 @@ title: "飞机大战小游戏"
                 if (e.code === 'Escape') closeCodex();
                 return;
             }
+            // 测试用开挂键: L 键立即升一级 (屏蔽按住连发)
+            if (e.code === 'KeyL' && !e.repeat) { cheatGrantLevel(); return; }
             // 升级选择期间: 1/2/3 选卡, 屏蔽其余按键
             if (awaitingUpgrade) {
                 if (e.code === 'Digit1' || e.code === 'Numpad1') pickUpgrade(0);
