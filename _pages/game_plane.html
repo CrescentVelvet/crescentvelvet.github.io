@@ -565,7 +565,7 @@ title: "飞机大战小游戏"
               apply(lv){ ownedWeapons.spread = lv; } },
             { id:'side', name:'侧炮', desc:'左右各发射 lv 发', icon:'↔️', type:'weapon', maxLevel:5, level:0, slots:2, rarity:'uncommon',
               accepts:['穿透','暴击','中毒','冰霜'], rejects:['追踪','折射','分裂'],
-              evolve: 'Lv5→燕返(飞出折返, 往返双程打击)',
+              evolve: 'Lv5→燕返(六片燕刃扇射折返, 往返双程打击)',
               apply(lv){ ownedWeapons.side = lv; } },
             { id:'heavy', name:'重炮', desc:'缓慢巨大弹, 高伤', icon:'💣', type:'weapon', maxLevel:5, level:0, slots:2, rarity:'rare',
               accepts:['穿透','分裂','爆炸','漩涡'], rejects:['追踪','折射'],
@@ -658,18 +658,25 @@ title: "飞机大战小游戏"
             }
         }
 
-        // 燕返: 侧炮 Lv5 进化 — 左右各一发飞出后折返, 往返双程打击
-        // bullet: boom=true, age/turnAt/maxLife 控制折返与消亡; 折返时清 hits 允许回程再打
+        // 燕返: 侧炮 Lv5 进化 — 左右各 3 片扇形燕刃, 飞出后折返, 往返双程打击
+        // bullet: boom=true, age/turnAt/maxLife 控制折返与消亡; spin 控制刃体旋转; 折返时清 hits 允许回程再打
         function fireBoomerang(pl, push) {
             const cx = pl.x + pl.width / 2;
             const cy = pl.y + pl.height / 2;
-            const mk = (vx) => ({
-                x: cx - 5, y: cy - 5, width: 10, height: 10, vx, vy: 0,
-                color: '#f9f', damage: 1, type: 'side',
-                boom: true, age: 0, turnAt: 0.5, maxLife: 1.1, turned: false
+            const perSide = 3;                          // 每侧 3 片, 共 6 片燕刃
+            const speed = 5;
+            const mkBlade = (vx, vy) => ({
+                x: cx - 7, y: cy - 7, width: 14, height: 14,
+                vx, vy, color: '#f6c', damage: 2, type: 'side',
+                boom: true, age: 0, turnAt: 0.55, maxLife: 1.3, turned: false, spin: 0
             });
-            push(mk(-5));  // 左飞
-            push(mk(5));   // 右飞
+            for (let i = 0; i < perSide; i++) {
+                const spread = (i - (perSide - 1) / 2) * 0.22;   // 扇形偏角
+                const vx = Math.cos(spread) * speed;
+                const vy = Math.sin(spread) * speed;             // 带纵向弧度, 折返时反向
+                push(mkBlade(-vx, vy));   // 左飞燕刃
+                push(mkBlade( vx, vy));   // 右飞燕刃
+            }
         }
 
         // 噬星: 重炮 Lv5 进化 — 缓慢上行的黑色奇点, 飞行中强引力吞噬, 结束时坍缩爆裂
@@ -897,6 +904,51 @@ title: "飞机大战小游戏"
             });
         }
 
+        // 绘制燕返燕刃 (侧炮进化): 旋转双刃 + 拖尾, 区别于普通圆弹
+        function drawBoomerangBlades() {
+            bullets.forEach(b => {
+                if (!b.boom) return;
+                const cx = b.x + b.width / 2;
+                const cy = b.y + b.height / 2;
+                const vx = b.vx || 0, vy = b.vy || 0;
+                const sp = Math.hypot(vx, vy) || 1;
+                // 反向拖尾
+                const trailLen = 24;
+                const tx = cx - (vx / sp) * trailLen;
+                const ty = cy - (vy / sp) * trailLen;
+                const tg = ctx.createLinearGradient(cx, cy, tx, ty);
+                tg.addColorStop(0, 'rgba(255,120,210,0.85)');
+                tg.addColorStop(1, 'rgba(255,120,210,0)');
+                ctx.strokeStyle = tg;
+                ctx.lineWidth = b.width * 0.55;
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.moveTo(cx, cy);
+                ctx.lineTo(tx, ty);
+                ctx.stroke();
+                // 旋转双刃 (十字叶片, 自旋)
+                ctx.save();
+                ctx.translate(cx, cy);
+                ctx.rotate(b.spin || 0);
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = '#f6c';
+                ctx.fillStyle = '#f6c';
+                ctx.beginPath();
+                ctx.ellipse(0, 0, b.width * 0.55, b.height * 0.18, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.ellipse(0, 0, b.width * 0.18, b.height * 0.55, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#fff';
+                ctx.beginPath();
+                ctx.arc(0, 0, b.width * 0.16, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.shadowBlur = 0;
+                ctx.restore();
+            });
+            ctx.lineCap = 'butt';
+        }
+
         // 状态: 中毒(DoT) / 冰霜(减速) — 不可叠, 命中刷新时长 (激光不触发)
         function applyPoison(enemy, level) {
             if (!enemy.statuses) enemy.statuses = {};
@@ -1044,6 +1096,8 @@ title: "飞机大战小游戏"
                 awaitingUpgrade = false;
                 currentChoices = [];
                 document.getElementById('upgradePanel').classList.add('hidden');
+                // 升级浮窗期间真实时间流逝, 重置武器冷却避免恢复后立即开火(尤其重炮连发)
+                for (const id in ownedWeapons) weaponLastFire[id] = Date.now();
             }
         }
 
@@ -1555,6 +1609,8 @@ title: "飞机大战小游戏"
                         if (bullet.pierce > 0) {
                             bullet.pierce--;
                             continue; // 同帧可能再命中下一敌机
+                        } else if (bullet.boom) {
+                            break;   // 燕刃不消亡(由 age/maxLife 控制), hits Set 防止同程重复命中
                         } else {
                             bullets.splice(i, 1);
                             break;
@@ -1797,11 +1853,13 @@ title: "飞机大战小游戏"
                     bullet.life -= deltaTime;
                     if (bullet.life <= 0) return false;
                 }
-                // 燕返: 飞出后折返, 往返双程 (折返时清空 hits 允许回程再打同一敌机)
+                // 燕返: 飞出后折返, 往返双程 (折返时反向 vx/vy 并清空 hits 允许回程再打同一敌机)
                 if (bullet.boom) {
                     bullet.age += deltaTime;
+                    bullet.spin = (bullet.spin || 0) + deltaTime * 14;   // 刃体自旋
                     if (!bullet.turned && bullet.age >= bullet.turnAt) {
                         bullet.vx = -bullet.vx;
+                        bullet.vy = -bullet.vy;   // 纵向也反向, 支持扇形燕刃折返
                         bullet.turned = true;
                         bullet.hits = new Set();
                     }
@@ -2043,6 +2101,7 @@ title: "飞机大战小游戏"
             // 绘制子弹
             bullets.forEach(bullet => {
                 if (bullet.blackhole) return; // 噤星由 drawBlackHoles 绘制
+                if (bullet.boom) return;       // 燕刃由 drawBoomerangBlades 绘制
                 // 创建子弹的渐变色 (按 bullet.color 通用着色)
                 const bColor = bullet.color || '#fff';
                 const bulletGradient = ctx.createLinearGradient(
@@ -2076,6 +2135,8 @@ title: "飞机大战小游戏"
             drawLaser();
             // 绘制噬星 (重炮进化)
             drawBlackHoles();
+            // 绘制燕刃 (侧炮进化)
+            drawBoomerangBlades();
 
             // 绘制敌机 (像素风格)
             enemies.forEach(enemy => {
