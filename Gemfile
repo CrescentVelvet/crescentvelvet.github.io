@@ -19,7 +19,8 @@ gem 'tzinfo-data', platforms: [:mingw, :mswin, :x64_mingw, :jruby]
 
 # gem "jekyll"
 
-gem "wdm", "~> 0.1.0" if Gem.win_platform? && Gem::Version.new(RUBY_VERSION) < Gem::Version.new("3.4.0")
+# wdm 在 Ruby 3.x 上无法编译(已移除 API),Jekyll 通过 listen gem 在 Windows 上即可监听文件变化。
+# gem "wdm", "~> 0.1.0" if Gem.win_platform? && Gem::Version.new(RUBY_VERSION) < Gem::Version.new("3.4.0")
 
 # 以下插件已由 github-pages gem 自带并锁定兼容版本，
 # 单独列出（且不锁版本）会与 github-pages 冲突，触发

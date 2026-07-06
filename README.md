@@ -23,21 +23,23 @@
 3. 访问 [RubyInstaller 官方下载页面](https://rubyinstaller.org/downloads/) 下载并安装 Ruby 3.4.0 + Devkit，安装时勾选 “Run ridk install”
 4. 打开命令提示符或 PowerShell，运行 `gem install bundler` 安装 Bundler 2.6.8
 5. 运行 `bundle install` 来安装 Ruby 依赖包
-6. 如果使用 Ruby 3.4 或更高版本，`wdm` 可能无法编译。当前 Gemfile 已限制 `wdm` 只在 Ruby 3.4 以下启用，因此直接重新运行 `bundle install` 即可
-7. 如果 Ruby 安装在 `D:\Program Files\Ruby34-x64` 这类带空格的目录下，`bundle exec jekyll serve` 可能会因为路径被拆分而失败。可以改用下面的命令启动：
-
+   1. 如果安装失败，是连接 rubygems.org 的网络超时(国内访问常受限)。推荐换用国内镜像，不改 Gemfile，全局生效：`bundle config mirror.https://rubygems.org https://gems.ruby-china.com`
+   2. `wdm` gem（旧版 Jekyll 用于 Windows 文件监听）在 Ruby 3.x 上无法编译，报 `implicit declaration of function 'rb_thread_call_without_gvl'`，因其调用的 API 已被移除。现代 Jekyll 通过 `listen` gem 在 Windows 上即可监听文件变化，无需 `wdm`，当前 Gemfile 已将其注释掉，正常情况下不会触发编译。
+6. 运行启动命令
    ```powershell
-   ruby -rbundler/setup "D:/Program Files/Ruby34-x64/lib/ruby/gems/3.4.0/gems/jekyll-3.10.0/exe/jekyll" serve --host 127.0.0.1 --port 4000
+   bundle exec jekyll serve
    ```
-
-8. 打开浏览器，访问 [http://127.0.0.1:4000](http://127.0.0.1:4000) 查看网页
-9. 修改代码保存后，可以实时预览网页，无需重复运行上述命令
-10. 如果需要停止本地服务，在 PowerShell 中查找并结束占用 4000 端口的进程：
-
-   ```powershell
-   netstat -ano | Select-String ":4000"
-   Stop-Process -Id <PID>
-   ```
+   1. 如果 Ruby 安装在 `D:\Program Files\Ruby34-x64` 这类带空格的目录下，`bundle exec jekyll serve` 可能会因为路径被拆分而失败。可以改用下面的命令启动：
+      ```powershell
+      ruby -rbundler/setup "D:/Program Files/Ruby34-x64/lib/ruby/gems/3.4.0/gems/jekyll-3.10.0/exe/jekyll" serve --host 127.0.0.1 --port 4000
+      ```
+7. 打开浏览器，访问 [http://127.0.0.1:4000](http://127.0.0.1:4000) 查看网页
+   1. 修改代码保存后，可以实时预览网页，无需重复运行上述命令
+   2. 如果需要停止本地服务，在 PowerShell 中查找并结束占用 4000 端口的进程：
+      ```powershell
+      netstat -ano | Select-String ":4000"
+      Stop-Process -Id <PID>
+      ```
 
 ## MacOS本地运行
 
