@@ -1478,11 +1478,10 @@ title: "飞机大战小游戏"
                 if (enemy.x <= 0 || enemy.x + enemy.width >= canvas.width) {
                     enemy.vx *= -1; // 反转水平方向
                 }
-
-                // // 顶部墙壁反弹 (如果需要，通常敌机不会向上反弹)
-                // if (enemy.y <= -100) { // 这里设置为 -10 以确保敌机不会留在空中下不来
-                //     enemy.speed *= -1; // 反转垂直方向
-                // }
+                // 边界钳制 (防被打出屏外: 黑洞牵引/弹性碰撞/子弹冲量)
+                if (enemy.x < 0) enemy.x = 0;
+                else if (enemy.x + enemy.width > canvas.width) enemy.x = canvas.width - enemy.width;
+                if (enemy.y < -enemy.height) enemy.y = -enemy.height; // 顶部不高于生成位置
 
                 return enemy.y < canvas.height; // 移除超出屏幕底部的敌机
             });
