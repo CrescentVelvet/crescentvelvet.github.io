@@ -99,16 +99,6 @@ permalink: /sandbox_war_game.html
             color: var(--pixel-text);
         }
 
-        /* 阵营标签：友军/敌军 行首标识 */
-        .team-tag {
-            border: 3px solid;
-            background: #000;
-            padding: 4px 12px;
-            line-height: 1.4;
-        }
-        .team-tag.tag-ally  { color: var(--pixel-primary); border-color: var(--pixel-primary); }
-        .team-tag.tag-enemy { color: var(--pixel-secondary); border-color: var(--pixel-secondary); }
-
         .pixel-btn {
             font-family: 'ZCOOL QingKe HuangYou', 'Press Start 2P', 'DotGothic16', monospace;
             padding: 10px 15px;
@@ -118,6 +108,8 @@ permalink: /sandbox_war_game.html
             cursor: pointer;
             text-transform: uppercase;
             font-size: 20px;
+            line-height: 1.2;
+            box-sizing: border-box;
             position: relative;
             transition: transform 0.1s;
             box-shadow: 4px 4px 0px rgba(0,0,0,0.5);
@@ -659,7 +651,6 @@ permalink: /sandbox_war_game.html
         <div class="game-ui">
             <div class="controls-panel">
                 <div class="control-row">
-                    <label class="team-tag tag-ally">友军</label>
                     <button onclick="addUnit('ally','tank')" class="pixel-btn btn-ally">坦克</button>
                     <button onclick="addUnit('ally','soldier')" class="pixel-btn btn-ally">步兵</button>
                     <button onclick="addUnit('ally','artillery')" class="pixel-btn btn-ally">火炮</button>
@@ -667,7 +658,6 @@ permalink: /sandbox_war_game.html
                 </div>
 
                 <div class="control-row">
-                    <label class="team-tag tag-enemy">敌军</label>
                     <button onclick="addUnit('enemy','tank')" class="pixel-btn btn-enemy">坦克</button>
                     <button onclick="addUnit('enemy','soldier')" class="pixel-btn btn-enemy">步兵</button>
                     <button onclick="addUnit('enemy','artillery')" class="pixel-btn btn-enemy">火炮</button>
