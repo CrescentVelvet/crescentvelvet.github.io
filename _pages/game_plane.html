@@ -423,11 +423,12 @@ title: "飞机大战小游戏"
          *     后续若要加深, 可在此基础上追加 C 进化路径(P6)。
          *
          *   互斥表(草案):
-         *     主炮     槽2  可:全部            拒:—
-         *     散射     槽2  可:追踪/折射/暴击  拒:分裂(指数爆炸)
-         *     重炮     槽1  可:穿透/分裂/追踪    拒:折射(巨大弹不弹墙)
-         *     回旋镖   槽1  可:穿透/暴击        拒:折射/回旋/追踪
-         *     环形轨道 槽1  可:穿透/暴击        拒:追踪/折射
+         *     主炮     槽2  可:全部(含折射)      拒:反射
+         *     散射     槽2  可:反射/暴击/折射    拒:分裂/追踪(指数爆炸)
+         *     侧炮     槽2  可:穿透/暴击/折射    拒:追踪/反射/分裂
+         *     重炮     槽2  可:穿透/分裂/追踪/折射 拒:反射(巨大弹不弹墙)
+         *     回旋镖   槽1  可:穿透/暴击        拒:反射/折射/回旋/追踪
+         *     环形轨道 槽1  可:穿透/暴击        拒:追踪/反射/折射
          *
          *   抽卡时: 已满槽的武器不再出修饰卡; 互斥的修饰不出现在选项里。
          *
@@ -436,7 +437,7 @@ title: "飞机大战小游戏"
          *     主炮(默认) / 散炮(3/5/7路) / 侧炮 / 后炮 / 环形轨道
          *     / 重炮(缓慢巨大弹) / 回旋镖(飞出返回, 往返两判)
          *   子弹修饰(给所有武器加属性, 可升级):
-         *     穿透+N / 追踪(转向强度↑) / 折射+N墙反弹 / 分裂(命中spawn片段)
+         *     穿透+N / 追踪(转向强度↑) / 反射+N墙反弹 / 折射+N敌间链射 / 分裂(命中spawn片段)
          *     / 暴击(概率双倍) / 爆炸(命中溅射, 重炮专属) / 漩涡(命中牵引, 重炮专属) / 中毒(DoT) / 冰霜(减速)
          *   被动: 射速+ / 伤害+ / 移速+ / 最大HP+ / 拾取范围+ / 子弹速度+ / 回血
          *
@@ -455,7 +456,7 @@ title: "飞机大战小游戏"
          *             全部可见(武器/修饰/被动三栏, 含互斥分支),
          *             数据自动来自 P1 注册表。 — 已实现
          *   P2 武器: 主炮/散射/侧炮/重炮 + 等级提升 + 多武器独立冷却发射 — 已实现
-         *   P3 修饰: pierce / 追踪 / 折射 / 分裂 + 槽位互斥 — 已实现
+         *   P3 修饰: pierce / 追踪 / 反射 / 分裂 + 槽位互斥 — 已实现
          *   P4 被动+平衡: 暴击修饰 + 伤害/拾取/回血被动 + 稀有度加权 + maxLives — 已实现
          *   P5 收尾: 半心制 HP(1心=2HP) + 旧道具折叠(移除金色射击强化) + 回血掉落 + UI 打磨 — 已实现
          *   P6(可选) 进化: 在 B 互斥表基础上追加 C 进化路径,
@@ -556,19 +557,19 @@ title: "飞机大战小游戏"
               apply(lv){ regenInterval = [0, 8, 6, 4][lv]; regenTimer = 0; } },
             // ── 武器 (P2) ──
             { id:'main', name:'主炮', desc:'前向单发, 伤害=等级', icon:'🔫', type:'weapon', maxLevel:5, level:1, slots:2, rarity:'common',
-              accepts:['穿透','追踪','分裂','暴击','中毒','冰霜'], rejects:['折射'],
+              accepts:['穿透','追踪','分裂','暴击','中毒','冰霜','折射'], rejects:['反射'],
               evolve: 'Lv5→激光炮(高频低伤·全屏穿透光束)',
               apply(lv){ ownedWeapons.main = lv; } },
             { id:'spread', name:'散炮', desc:'扇形 4/6/8/10/12 发', icon:'🌟', type:'weapon', maxLevel:5, level:0, slots:2, rarity:'uncommon',
-              accepts:['折射','暴击','中毒','冰霜'], rejects:['分裂','追踪'],
+              accepts:['反射','暴击','中毒','冰霜','折射'], rejects:['分裂','追踪'],
               evolve: 'Lv5→苍穹炮(180°全弧覆盖)',
               apply(lv){ ownedWeapons.spread = lv; } },
             { id:'side', name:'侧炮', desc:'左右各发射 lv 发', icon:'↔️', type:'weapon', maxLevel:5, level:0, slots:2, rarity:'uncommon',
-              accepts:['穿透','暴击','中毒','冰霜'], rejects:['追踪','折射','分裂'],
+              accepts:['穿透','暴击','中毒','冰霜','折射'], rejects:['追踪','反射','分裂'],
               evolve: 'Lv5→燕返(六片燕刃扇射折返, 往返双程打击)',
               apply(lv){ ownedWeapons.side = lv; } },
             { id:'heavy', name:'重炮', desc:'缓慢巨大弹, 高伤', icon:'💣', type:'weapon', maxLevel:5, level:0, slots:2, rarity:'rare',
-              accepts:['穿透','分裂','爆炸','漩涡','追踪'], rejects:['折射'],
+              accepts:['穿透','分裂','爆炸','漩涡','追踪','折射'], rejects:['反射'],
               evolve: 'Lv5→噬星(黑洞吞噬+坍缩爆裂)',
               apply(lv){ ownedWeapons.heavy = lv; } },
         ];
@@ -616,6 +617,7 @@ title: "飞机大战小游戏"
             b.pierce = mods.pierce || 0;
             b.homing = mods.homing || 0;
             b.bounce = mods.bounce || 0;
+            b.refract = mods.refract || 0;
             b.split = mods.split || 0;
             b.crit = mods.crit || 0;
             b.blast = mods.blast || 0;
@@ -774,17 +776,18 @@ title: "飞机大战小游戏"
 
         // ===== 肉鸽 P3: 修饰系统 (槽位 + 互斥) =====
         // MODIFIERS: 修饰目录; weaponMods[weaponId][modId] = 等级 (运行时)
-        // bullet 修饰字段: pierce(剩余穿透次数), homing(等级), bounce(剩余反弹次数), split(等级)
+        // bullet 修饰字段: pierce(剩余穿透), homing(等级), bounce(剩余墙反弹), refract(剩余敌间折射), split(等级)
         const MODIFIERS = {
-            pierce:  { name:'穿透', desc:'子弹多穿透 N 个敌机', icon:'➡️', maxLevel:3, rarity:'common' },
-            homing:  { name:'追踪', desc:'子弹转向追击附近敌机', icon:'🎯', maxLevel:3, rarity:'uncommon' },
-            bounce:  { name:'折射', desc:'子弹撞侧墙反弹 N 次', icon:'↩️', maxLevel:3, rarity:'common' },
-            split:   { name:'分裂', desc:'命中时分裂出片段', icon:'✴️', maxLevel:3, rarity:'uncommon' },
-            crit:    { name:'暴击', desc:'15%/级 概率双倍伤害', icon:'💥', maxLevel:3, rarity:'uncommon' },
-            blast:   { name:'爆炸', desc:'命中时对周围敌机溅射', icon:'🔥', maxLevel:3, rarity:'rare' },
-            vortex:  { name:'漩涡', desc:'命中生成漩涡牵引周围敌机', icon:'🌀', maxLevel:3, rarity:'rare' },
-            poison:  { name:'中毒', desc:'命中使敌机持续掉血', icon:'🧪', maxLevel:3, rarity:'uncommon' },
-            frost:   { name:'冰霜', desc:'命中减速敌机', icon:'❄️', maxLevel:3, rarity:'uncommon' },
+            pierce:   { name:'穿透', desc:'子弹多穿透 N 个敌机', icon:'➡️', maxLevel:3, rarity:'common' },
+            homing:   { name:'追踪', desc:'子弹转向追击附近敌机', icon:'🎯', maxLevel:3, rarity:'uncommon' },
+            bounce:   { name:'反射', desc:'子弹撞侧墙反弹 N 次', icon:'↩️', maxLevel:3, rarity:'common' },
+            refract:  { name:'折射', desc:'命中敌人后折射向另一敌人, 最多 N 次', icon:'🔀', maxLevel:3, rarity:'uncommon' },
+            split:    { name:'分裂', desc:'命中时分裂出片段', icon:'✴️', maxLevel:3, rarity:'uncommon' },
+            crit:     { name:'暴击', desc:'15%/级 概率双倍伤害', icon:'💥', maxLevel:3, rarity:'uncommon' },
+            blast:    { name:'爆炸', desc:'命中时对周围敌机溅射', icon:'🔥', maxLevel:3, rarity:'rare' },
+            vortex:   { name:'漩涡', desc:'命中生成漩涡牵引周围敌机', icon:'🌀', maxLevel:3, rarity:'rare' },
+            poison:   { name:'中毒', desc:'命中使敌机持续掉血', icon:'🧪', maxLevel:3, rarity:'uncommon' },
+            frost:    { name:'冰霜', desc:'命中减速敌机', icon:'❄️', maxLevel:3, rarity:'uncommon' },
         };
         let weaponMods = {}; // weaponId -> { modId: level }
 
@@ -810,11 +813,12 @@ title: "飞机大战小游戏"
             weaponMods[weaponId][modId] = (weaponMods[weaponId][modId] || 0) + 1;
         }
 
-        // 最近的敌机 (追踪用)
-        function findNearestEnemy(x, y) {
+        // 最近的敌机 (追踪/折射用); excludeSet 可排除已命中敌机 (折射链不重复)
+        function findNearestEnemy(x, y, excludeSet) {
             let best = null, bestD = Infinity;
             for (const e of enemies) {
                 if (e.dead) continue;
+                if (excludeSet && excludeSet.has(e)) continue;
                 const dx = e.x + e.width / 2 - x;
                 const dy = e.y + e.height / 2 - y;
                 const d = dx * dx + dy * dy;
@@ -834,7 +838,7 @@ title: "飞机大战小游戏"
                     x: cx - 2, y: cy - 2, width: 4, height: 4,
                     vx: Math.cos(ang) * 4, vy: Math.sin(ang) * 4,
                     color: bullet.color || '#fff', damage: 1, type: 'split',
-                    pierce: 0, homing: 0, bounce: 0, split: 0, life: 0.6
+                    pierce: 0, homing: 0, bounce: 0, refract: 0, split: 0, life: 0.6
                 });
             }
         }
@@ -1639,6 +1643,25 @@ title: "飞机大战小游戏"
                             continue; // 同帧可能再命中下一敌机
                         } else if (bullet.boom) {
                             break;   // 燕刃不消亡(由 age/maxLife 控制), hits Set 防止同程重复命中
+                        } else if (bullet.refract > 0) {
+                            // 折射: 命中后转向另一未命中敌人, 链式折射 N 次
+                            const target = findNearestEnemy(
+                                bullet.x + bullet.width / 2,
+                                bullet.y + bullet.height / 2,
+                                bullet.hits   // 排除已命中敌人, 链不重复
+                            );
+                            if (target) {
+                                const tx = target.x + target.width / 2 - (bullet.x + bullet.width / 2);
+                                const ty = target.y + target.height / 2 - (bullet.y + bullet.height / 2);
+                                const d = Math.hypot(tx, ty) || 1;
+                                const curSp = Math.hypot(bullet.vx || 0, bullet.vy !== undefined ? bullet.vy : -bulletSpeed) || bulletSpeed;
+                                bullet.vx = (tx / d) * curSp;
+                                bullet.vy = (ty / d) * curSp;
+                                bullet.refract--;
+                                break;   // 本帧命中一个, 转向后下帧再判
+                            }
+                            bullets.splice(i, 1);   // 无其他敌人可折射, 正常消亡
+                            break;
                         } else {
                             bullets.splice(i, 1);
                             break;
@@ -1957,7 +1980,7 @@ title: "飞机大战小游戏"
                 const vy = (bullet.vy !== undefined) ? bullet.vy : -bulletSpeed;
                 bullet.x += vx * deltaTime * 60;
                 bullet.y += vy * deltaTime * 60;
-                // 折射: 撞侧墙反弹 (仅左右, 避免子弹向下飞)
+                // 反射: 撞侧墙反弹 (仅左右, 避免子弹向下飞)
                 if (bullet.bounce > 0) {
                     if (bullet.x <= 0) { bullet.x = 0; bullet.vx = Math.abs(vx); bullet.bounce--; }
                     else if (bullet.x + bullet.width >= canvas.width) {
