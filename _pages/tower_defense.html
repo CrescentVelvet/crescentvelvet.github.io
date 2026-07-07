@@ -64,7 +64,7 @@ title: "塔防战争"
             align-items: center;
             gap: 8px;
             width: 100%;
-            max-width: 1100px;
+            max-width: 740px;
             height: 100vh;
             padding: 10px 0;
             justify-content: center;
@@ -78,7 +78,7 @@ title: "塔防战争"
             flex-wrap: wrap;
             justify-content: center;
             align-items: center;
-            gap: 12px;
+            gap: 10px;
             width: 100%;
             background:
                 linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.02)),
@@ -92,6 +92,15 @@ title: "塔防战争"
                 0 14px 34px rgba(0,0,0,0.35),
                 inset 0 1px 0 var(--panel-highlight);
             backdrop-filter: blur(10px);
+        }
+        /* Stats and controls each stay together as a unit; on narrow widths the
+           two groups stack into two clean rows instead of orphaning a button. */
+        .hud-stats, .hud-controls {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
         }
         #hud-bar .stat {
             display: flex;
@@ -441,28 +450,26 @@ title: "塔防战争"
             #overlay h2 { font-size: 22px; }
             #overlay .sub-text { font-size: 13px; }
         }
-        @media (min-width: 1400px) {
-            #game-wrapper { max-width: 1200px; }
-        }
-        @media (min-width: 1800px) {
-            #game-wrapper { max-width: 1400px; }
-        }
     </style>
 </head>
 <body>
 
 <div id="game-wrapper">
     <div id="hud-bar">
-        <div class="stat"><span class="icon">💰</span><span>金币:</span><span class="val gold-val" id="gold-display">200</span></div>
-        <div class="stat"><span class="icon">❤️</span><span>生命:</span><span class="val lives-val" id="lives-display">20</span></div>
-        <div class="stat"><span class="icon">🌊</span><span>波次:</span><span class="val" id="wave-display">0/20</span></div>
-        <div class="stat"><span class="icon">⭐</span><span>分数:</span><span class="val" id="score-display">0</span></div>
-        <span id="countdown-display"></span>
-        <button id="speed-btn" onclick="toggleSpeed()">1x</button>
-        <button id="start-wave-btn" onclick="startNextWave()">开始波次</button>
-        <button id="auto-wave-btn" onclick="toggleAutoWave()">⏩ 自动</button>
-        <button id="theme-btn" onclick="cycleTheme()">🌿 草原</button>
-        <button id="compendium-btn" onclick="toggleCompendium()">📖 图鉴</button>
+        <div class="hud-stats">
+            <div class="stat"><span class="icon">💰</span><span>金币:</span><span class="val gold-val" id="gold-display">200</span></div>
+            <div class="stat"><span class="icon">❤️</span><span>生命:</span><span class="val lives-val" id="lives-display">20</span></div>
+            <div class="stat"><span class="icon">🌊</span><span>波次:</span><span class="val" id="wave-display">0/20</span></div>
+            <div class="stat"><span class="icon">⭐</span><span>分数:</span><span class="val" id="score-display">0</span></div>
+            <span id="countdown-display"></span>
+        </div>
+        <div class="hud-controls">
+            <button id="speed-btn" onclick="toggleSpeed()">1x</button>
+            <button id="start-wave-btn" onclick="startNextWave()">开始波次</button>
+            <button id="auto-wave-btn" onclick="toggleAutoWave()">⏩ 自动</button>
+            <button id="theme-btn" onclick="cycleTheme()">🌿 草原</button>
+            <button id="compendium-btn" onclick="toggleCompendium()">📖 图鉴</button>
+        </div>
     </div>
     <div id="theme-effect"></div>
     <canvas id="game-canvas" width="740" height="480"></canvas>
