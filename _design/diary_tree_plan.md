@@ -1,8 +1,8 @@
-# 日记时间轴 — 设计方案
+# 日志时间轴 — 设计方案
 
 ## 1. 概述
 
-在 `_pages/diary_tree.html` 新建一个独立子网页，用蜿蜒的曲线时间轴展示加密日记。用户一次性输入主密码，全部解密后按年→月→日绘制成一条灵巧的曲线树状图，支持缩放、平移、点击查看详情。
+在 `_pages/diary_tree.html` 新建一个独立子网页，用蜿蜒的曲线时间轴展示加密日志。用户一次性输入主密码，全部解密后按年→月→日绘制成一条灵巧的曲线树状图，支持缩放、平移、点击查看详情。
 
 **访问路径:** `/diary_tree.html`
 
@@ -99,7 +99,7 @@ const decrypted = bytes.toString(CryptoJS.enc.Utf8);
 | **曲线连接** | 贝塞尔曲线，半透明渐变描边 | 线条宽度 2px |
 
 - **日期节点大小**：当日字数越多，圆点越大
-- **月份节点颜色深浅**：当月日记总数越多，颜色越饱和
+- **月份节点颜色深浅**：当月日志总数越多，颜色越饱和
 - **年份色带**：`hsla(year * 30, 40%, 80%, 0.15)` 逐年渐变
 
 ### 3.3 整体曲线
@@ -209,8 +209,8 @@ const decrypted = bytes.toString(CryptoJS.enc.Utf8);
 <!-- 密码遮罩 -->
 <div id="auth-overlay">
     <div class="auth-card">
-        <h1>日记时间轴</h1>
-        <p class="subtitle">输入密码查看日记时间线</p>
+        <h1>日志时间轴</h1>
+        <p class="subtitle">输入密码查看日志时间线</p>
         <input type="password" id="password" placeholder="请输入解密密码">
         <button id="unlockBtn">解锁时间轴</button>
         <div id="auth-status"></div>
@@ -372,7 +372,7 @@ class InteractionHandler {
 
 ## 10. 未定（后续可以增加）
 
-- 搜索功能（在当前页面搜索日记内容）
+- 搜索功能（在当前页面搜索日志内容）
 - 分类筛选（只显示"闲情逸致"或"梦幻空花"的日期节点）
 - 导出选定范围的时间轴截图
 - 动画入场效果

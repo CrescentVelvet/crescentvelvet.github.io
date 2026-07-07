@@ -1,7 +1,7 @@
 ---
 permalink: /diary_tree.html
 layout: null
-title: "日记时间轴"
+title: "日志时间轴"
 ---
 <!DOCTYPE html>
 <html lang="zh-CN">
@@ -9,7 +9,7 @@ title: "日记时间轴"
 
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>日记时间轴</title>
+    <title>日志时间轴</title>
 
     <style>
         :root {
@@ -303,8 +303,8 @@ title: "日记时间轴"
 
 <div id="auth-overlay">
     <div class="auth-card">
-        <h1>日记时间轴</h1>
-        <p class="subtitle">输入密码以解密并浏览日记树状时间轴</p>
+        <h1>日志时间轴</h1>
+        <p class="subtitle">输入密码以解密并浏览日志树状时间轴</p>
         <input type="password" id="password" placeholder="请输入解密密码" autofocus>
         <button id="unlockBtn">解密</button>
         <div id="auth-status"></div>
@@ -315,7 +315,7 @@ title: "日记时间轴"
 
 <div id="tree-hud">
     <div class="hud-kicker">Diary Tree</div>
-    <div class="hud-title">日记时间轴</div>
+    <div class="hud-title">日志时间轴</div>
     <div class="hud-summary" id="hud-summary">解密后可以缩小看月份概览，放大看每日记录。</div>
 </div>
 
@@ -853,7 +853,7 @@ function draw() {
         ctx.font = `16px "Segoe UI","Microsoft YaHei",sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('解密后，这里会长出一棵日记时间树', w / 2, h / 2);
+        ctx.fillText('解密后，这里会长出一棵日志时间树', w / 2, h / 2);
         zoomIndicator.textContent = '100% · 月概览';
         if (hudSummary) hudSummary.textContent = '解密后可以缩小看月份概览，放大看每日记录。';
         return;
@@ -1330,7 +1330,7 @@ function showPopup(node, screenX, screenY) {
                 label: `${node.year}-${String(node.month).padStart(2,'0')}-${String(e.day).padStart(2,'0')}  `,
                 text: e.text, truncate: 120
               })))
-            : '这个月还没有可显示的日记。';
+            : '这个月还没有可显示的日志。';
     } else if (node.type === 'year') {
         const yearData = treeData[node.year] || {};
         const yearStats = getYearStats(node.year);
@@ -1350,7 +1350,7 @@ function showPopup(node, screenX, screenY) {
                 label: `${node.year}-${String(e.month).padStart(2,'0')}-${String(e.day).padStart(2,'0')}  `,
                 text: e.text, truncate: 120
               })))
-            : '这一年还没有可显示的日记。';
+            : '这一年还没有可显示的日志。';
     }
 
     popup.classList.add('visible');
@@ -1601,8 +1601,8 @@ document.getElementById('unlockBtn').onclick = async function() {
     // must check the actual entry count, NOT just whether decryption "succeeded".
     if (loadedEntries.length === 0) {
         status.textContent = files.length === 0
-            ? '未找到任何日记数据文件（请确保在 Jekyll 构建后访问）'
-            : '密码错误或未找到可解析的日记条目';
+            ? '未找到任何日志数据文件（请确保在 Jekyll 构建后访问）'
+            : '密码错误或未找到可解析的日志条目';
         status.className = 'error';
         console.log('[diary_tree] No entries parsed. window.files count:', files.length);
         return;
@@ -1620,7 +1620,7 @@ document.getElementById('unlockBtn').onclick = async function() {
     fitAllYears();
     render();
 
-    status.textContent = `成功解密 ${filesFetched} 个文件，共 ${allEntries.length} 条日记`;
+    status.textContent = `成功解密 ${filesFetched} 个文件，共 ${allEntries.length} 条日志`;
 };
 
 // Allow Enter key to submit
