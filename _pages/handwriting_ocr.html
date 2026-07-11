@@ -18,6 +18,8 @@ title: "手写识别"
             --success-dark: #25a968;
             --danger: #ef4f6f;
             --danger-dark: #d63856;
+            --warn: #d97706;
+            --warn-dark: #b45309;
             --neutral: #6b7280;
             --neutral-dark: #4b5563;
             --bg: #f0f2f8;
@@ -196,6 +198,28 @@ title: "手写识别"
             padding: 1px 6px;
             border-radius: 4px;
         }
+        .thumb .thumb-status {
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            min-width: 18px;
+            height: 18px;
+            padding: 0 5px;
+            border-radius: 9px;
+            font-size: 11px;
+            line-height: 18px;
+            text-align: center;
+            color: #fff;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+        }
+        .thumb.thumb-run { border-color: var(--primary); }
+        .thumb.thumb-run .thumb-status { opacity: 1; background: var(--primary); }
+        .thumb.thumb-ok { border-color: var(--success); }
+        .thumb.thumb-ok .thumb-status { opacity: 1; background: var(--success); }
+        .thumb.thumb-fail { border-color: var(--danger); }
+        .thumb.thumb-fail .thumb-status { opacity: 1; background: var(--danger); }
 
         .buttons {
             display: flex;
@@ -255,6 +279,7 @@ title: "手写识别"
         .status.success { color: var(--success-dark); background: #ecfdf5; }
         .status.error { color: var(--danger-dark); background: #fef2f4; }
         .status.loading { color: var(--primary-dark); background: var(--primary-light); }
+        .status.warn { color: var(--warn-dark); background: #fffbeb; }
 
         .output-section { margin-bottom: 16px; }
         .output-section h2 {
@@ -421,6 +446,7 @@ title: "手写识别"
 
         <div class="buttons">
             <button id="recognize-btn" class="step-button">开始识别</button>
+            <button id="retry-btn" class="copy-button" disabled>重试失败</button>
             <button id="clear-btn" class="reset-button">清空</button>
         </div>
 
@@ -495,6 +521,7 @@ title: "手写识别"
             fileInput: document.getElementById('file-input'),
             thumbList: document.getElementById('thumb-list'),
             recognizeBtn: document.getElementById('recognize-btn'),
+            retryBtn: document.getElementById('retry-btn'),
             clearBtn: document.getElementById('clear-btn'),
             status: document.getElementById('status'),
             output: document.getElementById('output-text'),
@@ -515,6 +542,8 @@ title: "手写识别"
         // 每项: { blob, dataUrl, name }
         let images = [];
         let busy = false;
+        // 与 images 并行的最近一次识别结果: { ok:true, text } | { ok:false, error }
+        let lastResults = [];
 
         // 恢复上次模式
         const savedMode = localStorage.getItem(LS_MODE);
@@ -610,6 +639,7 @@ title: "手写识别"
                 }
             }
             renderThumbs();
+            resetResults();
             showStatus('已添加 ' + arr.length + ' 张照片，共 ' + images.length + ' 张', 'success');
         }
 
@@ -692,6 +722,8 @@ title: "手写识别"
                 const order = document.createElement('span');
                 order.className = 'order';
                 order.textContent = (idx + 1);
+                const status = document.createElement('span');
+                status.className = 'thumb-status';
                 const rotate = document.createElement('button');
                 rotate.className = 'rotate';
                 rotate.textContent = '↺';
@@ -704,6 +736,7 @@ title: "手写识别"
                         it.blob = r.blob;
                         it.dataUrl = r.dataUrl;
                         renderThumbs();
+                        resetResults();
                         showStatus('已逆时针旋转90°', 'success');
                     } catch (err) {
                         showStatus('旋转失败: ' + err.message, 'error');
@@ -711,6 +744,7 @@ title: "手写识别"
                 });
                 div.appendChild(img);
                 div.appendChild(order);
+                div.appendChild(status);
                 div.appendChild(rotate);
                 div.appendChild(remove);
                 els.thumbList.appendChild(div);
@@ -734,7 +768,9 @@ title: "手写识别"
             });
             if (!resp.ok) {
                 const txt = await safeText(resp);
-                throw new Error('HTTP ' + resp.status + (txt ? ' — ' + txt : ''));
+                let detail = txt;
+                try { const j = JSON.parse(txt); detail = j.message || j.error || txt; } catch (e) {}
+                throw new Error('HTTP ' + resp.status + (detail ? ' — ' + detail : ''));
             }
             const data = await resp.json();
             if (data.status && data.status !== 'succeeded') {
@@ -742,6 +778,30 @@ title: "手写识别"
             }
             const words = (data.words_result || []).map(w => w.words || '');
             return words.join('\n');
+        }
+
+        // 在第 idx 张缩略图上打状态标记：run / ok / fail / pending
+        function setThumbStatus(idx, status, errMsg) {
+            const child = els.thumbList.children[idx];
+            if (!child) return;
+            child.classList.remove('thumb-run', 'thumb-ok', 'thumb-fail');
+            const s = child.querySelector('.thumb-status');
+            if (status === 'run') {
+                child.classList.add('thumb-run');
+                child.title = '第 ' + (idx + 1) + ' 张识别中...';
+                if (s) s.textContent = '…';
+            } else if (status === 'ok') {
+                child.classList.add('thumb-ok');
+                child.title = '第 ' + (idx + 1) + ' 张识别成功';
+                if (s) s.textContent = '✓';
+            } else if (status === 'fail') {
+                child.classList.add('thumb-fail');
+                child.title = '第 ' + (idx + 1) + ' 张识别失败：' + (errMsg || '未知错误');
+                if (s) s.textContent = '✕';
+            } else {
+                child.title = '';
+                if (s) s.textContent = '';
+            }
         }
 
         async function safeText(resp) {
@@ -820,14 +880,38 @@ title: "手写识别"
 
             try {
                 if (mode === 'ocr-handwrite') {
-                    // 逐张同步识别，按顺序拼接
+                    // 逐张同步识别，单张失败不中断，按顺序拼接；
+                    // 失败的图在缩略图上打 ✕、在输出里插占位标记，便于定位与重试。
+                    lastResults = new Array(images.length).fill(null);
+                    for (let i = 0; i < images.length; i++) setThumbStatus(i, 'pending');
+                    let okCount = 0, failCount = 0;
+                    const failed = [];
                     for (let i = 0; i < images.length; i++) {
+                        setThumbStatus(i, 'run');
                         showLoading('正在识别第 ' + (i + 1) + '/' + images.length + ' 张...');
-                        const text = await ocrHandwrite(images[i].blob, key);
-                        if (els.output.value) els.output.value += '\n';
-                        els.output.value += text;
+                        try {
+                            const text = await ocrHandwrite(images[i].blob, key);
+                            lastResults[i] = { ok: true, text };
+                            okCount++;
+                            setThumbStatus(i, 'ok');
+                            if (els.output.value) els.output.value += '\n';
+                            els.output.value += text;
+                        } catch (e) {
+                            lastResults[i] = { ok: false, error: e.message };
+                            failCount++;
+                            failed.push(i + 1);
+                            setThumbStatus(i, 'fail', e.message);
+                            if (els.output.value) els.output.value += '\n';
+                            els.output.value += '【第' + (i + 1) + '张识别失败：' + e.message + '】';
+                        }
                     }
-                    showStatus('识别完成（共 ' + images.length + ' 张）', 'success');
+                    if (failCount === 0) {
+                        showStatus('识别完成（共 ' + images.length + ' 张全部成功）', 'success');
+                    } else if (okCount === 0) {
+                        showStatus('识别失败：全部 ' + failCount + ' 张均失败（第 ' + failed.join('、') + ' 张）', 'error');
+                    } else {
+                        showStatus('识别完成：' + okCount + ' 张成功，' + failCount + ' 张失败（第 ' + failed.join('、') + ' 张）— 可点"重试失败"', 'warn');
+                    }
                 } else {
                     // Flash 流式
                     showLoading('正在识别（流式输出中）...');
@@ -845,11 +929,13 @@ title: "手写识别"
             } finally {
                 busy = false;
                 setBusy(false);
+                updateRetryBtn();
             }
         }
 
         function setBusy(b) {
             els.recognizeBtn.disabled = b;
+            els.retryBtn.disabled = b;
             els.clearBtn.disabled = b;
             els.copyBtn.disabled = b;
             els.punctBtn.disabled = b;
@@ -860,11 +946,90 @@ title: "手写识别"
             els.modeSelect.disabled = b;
         }
 
+        // ============ 重试失败的图片 ============
+        function updateRetryBtn() {
+            const hasFail = lastResults.some(r => r && !r.ok);
+            els.retryBtn.disabled = busy || !hasFail;
+        }
+
+        function resetResults() {
+            lastResults = [];
+            updateRetryBtn();
+        }
+
+        // 用新结果替换输出中对应图片的失败标记；标记已被用户删掉则追加到末尾
+        function replaceFailMarker(idx, text, errMsg) {
+            const markerRe = new RegExp('^【第' + (idx + 1) + '张识别失败：[^】]*】\\s*$', 'm');
+            if (text != null) {
+                if (markerRe.test(els.output.value)) {
+                    els.output.value = els.output.value.replace(markerRe, () => text);
+                } else {
+                    els.output.value += '\n【第' + (idx + 1) + '张补识别】\n' + text;
+                }
+            } else if (markerRe.test(els.output.value)) {
+                els.output.value = els.output.value.replace(markerRe, () => '【第' + (idx + 1) + '张识别失败：' + errMsg + '】');
+            }
+        }
+
+        els.retryBtn.addEventListener('click', retryFailed);
+
+        async function retryFailed() {
+            if (busy) return;
+            const key = getKey();
+            if (!key) {
+                showStatus('请先点击 🔑 设置智谱 API Key', 'error');
+                openApikeyDialog();
+                return;
+            }
+            const failedIdx = lastResults
+                .map((r, i) => (r && !r.ok) ? i : -1)
+                .filter(i => i >= 0);
+            if (failedIdx.length === 0) {
+                showStatus('没有失败的图片可重试', 'success');
+                return;
+            }
+            busy = true;
+            setBusy(true);
+            let okNew = 0, stillFail = 0;
+            const stillFailed = [];
+            try {
+                for (const i of failedIdx) {
+                    setThumbStatus(i, 'run');
+                    showLoading('正在重试第 ' + (i + 1) + '/' + images.length + ' 张...');
+                    try {
+                        const text = await ocrHandwrite(images[i].blob, key);
+                        lastResults[i] = { ok: true, text };
+                        okNew++;
+                        setThumbStatus(i, 'ok');
+                        replaceFailMarker(i, text);
+                    } catch (e) {
+                        lastResults[i] = { ok: false, error: e.message };
+                        stillFail++;
+                        stillFailed.push(i + 1);
+                        setThumbStatus(i, 'fail', e.message);
+                        replaceFailMarker(i, null, e.message);
+                    }
+                }
+                if (stillFail === 0) {
+                    showStatus('重试完成：' + okNew + ' 张已成功识别', 'success');
+                } else if (okNew === 0) {
+                    showStatus('重试失败：' + stillFail + ' 张仍失败（第 ' + stillFailed.join('、') + ' 张）', 'error');
+                } else {
+                    showStatus('重试完成：' + okNew + ' 张成功，' + stillFail + ' 张仍失败（第 ' + stillFailed.join('、') + ' 张）', 'warn');
+                }
+            } finally {
+                busy = false;
+                setBusy(false);
+                updateRetryBtn();
+            }
+        }
+
         // ============ 清空 ============
         els.clearBtn.addEventListener('click', () => {
             if (busy) return;
             images = [];
             renderThumbs();
+            resetResults();
             els.output.value = '';
             showStatus('已清空', 'success');
         });
