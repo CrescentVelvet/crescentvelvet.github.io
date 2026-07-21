@@ -164,6 +164,24 @@ permalink: /sandbox_war_game.html
             background-size: 220px 180px, 260px 220px, 40px 40px, 40px 40px, auto;
         }
 
+        .terrain-canvas,
+        .decor-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            image-rendering: pixelated;
+        }
+        .terrain-canvas { z-index: 0; }
+        .decor-canvas   { z-index: 1; }
+
+        /* 掩体类型变体 (DOM 层, 可碰撞) */
+        .obstacle.obstacle-house  { background: #8a7a5a; border-color: #3a3322; }
+        .obstacle.obstacle-ruin   { background: #7a7570; border-color: #2a2520; }
+        .obstacle.obstacle-wall   { background: #5a5550; border-color: #1a1510; }
+
         .unit {
             position: absolute;
             width: var(--unit-size);
@@ -174,15 +192,19 @@ permalink: /sandbox_war_game.html
         }
 
         .unit-body {
-            width: 100%;
-            height: 100%;
-            position: relative;
-            transform: rotate(var(--angle, 0deg));
+            width: var(--body-size, var(--unit-size));
+            height: var(--body-size, var(--unit-size));
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(var(--angle, 0deg)) scale(var(--scale, 1));
             transform-origin: center;
         }
 
         .unit.tank {
-            --unit-size: 36px;
+            --unit-size: 22px;
+            --body-size: 36px;
+            --scale: 0.611;
         }
 
         .tank-track,
@@ -233,7 +255,9 @@ permalink: /sandbox_war_game.html
         }
 
         .unit.soldier {
-            --unit-size: 22px;
+            --unit-size: 14px;
+            --body-size: 22px;
+            --scale: 0.636;
         }
 
         .soldier-body {
@@ -259,7 +283,9 @@ permalink: /sandbox_war_game.html
 
         /* ---- 火炮 (32px) ---- */
         .unit.artillery {
-            --unit-size: 32px;
+            --unit-size: 20px;
+            --body-size: 32px;
+            --scale: 0.625;
         }
 
         .artillery-wheel {
@@ -352,7 +378,9 @@ permalink: /sandbox_war_game.html
 
         /* ---- 火箭炮 (32px) ---- */
         .unit.rocket {
-            --unit-size: 32px;
+            --unit-size: 20px;
+            --body-size: 32px;
+            --scale: 0.625;
         }
 
         .rocket-chassis {
@@ -673,7 +701,9 @@ permalink: /sandbox_war_game.html
         </div>
 
         <div class="battlefield" id="battlefield">
-            <div class="empty-state" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; opacity: 0.5; pointer-events: none;">
+            <canvas class="terrain-canvas" id="terrainCanvas"></canvas>
+            <canvas class="decor-canvas" id="decorCanvas"></canvas>
+            <div class="empty-state" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; opacity: 0.5; pointer-events: none; z-index: 2;">
                 <p>投放兵力开始战斗</p>
                 <p style="font-size: 0.8em; margin-top: 10px;">点击按钮添加兵力</p>
             </div>
@@ -1543,9 +1573,10 @@ permalink: /sandbox_war_game.html
             }
 
             getSize() {
-                if (this.type === 'tank') return 36;
-                if (this.type === 'artillery') return 32;
-                return 22;
+                if (this.type === 'tank') return 22;
+                if (this.type === 'artillery') return 20;
+                if (this.type === 'rocket') return 20;
+                return 14;
             }
 
             getDisplayMarkup() {
@@ -2397,7 +2428,7 @@ permalink: /sandbox_war_game.html
                 this.deployDuration = 2000;
             }
 
-            getSize() { return 32; }
+            getSize() { return 20; }
 
             getAttackDamage() {
                 return this.attackPower + Math.floor(Math.random() * 10);
@@ -2764,13 +2795,14 @@ permalink: /sandbox_war_game.html
         }
 
         class Obstacle {
-            constructor(x, y, width, height) {
+            constructor(x, y, width, height, type = 'house') {
                 this.x = x;
                 this.y = y;
                 this.width = width;
                 this.height = height;
+                this.type = type;
                 this.element = document.createElement('div');
-                this.element.className = 'obstacle';
+                this.element.className = 'obstacle obstacle-' + type;
                 this.updateVisual();
             }
 
@@ -2786,6 +2818,299 @@ permalink: /sandbox_war_game.html
             }
         }
 
+        // ── v3.0 想定数据 (首发 2 场二战战役) ──
+        const SCENARIOS = {
+            prokhorovka: {
+                id: 'prokhorovka',
+                name: '普罗霍罗夫卡',
+                year: 1943, era: 'ww2',
+                side: 'ussr_vs_germany',
+                playerRole: 'attacker',
+                historicalBrief: '1943.7.12 史上最大坦克对决, 苏军第 5 近卫坦克集团军与德军第 2SS 装甲军在普罗霍罗夫卡平原遭遇, 双方数百辆坦克绞杀',
+                terrain: {
+                    type: 'steppe',
+                    palette: { ground: '#7a8a3a', accent: '#c4b06a', shadow: '#4a4a2a' },
+                    pattern: '草原+麦田+泥土'
+                },
+                playerZone: { x: 0, y: 0, w: 450, h: 750 },
+                obstacles: [
+                    { x: 540, y: 0,   w: 20,  h: 750, type: 'embankment' },
+                    { x: 180, y: 90,  w: 86,  h: 46,  type: 'house' },
+                    { x: 240, y: 140, w: 64,  h: 64,  type: 'house' },
+                    { x: 820, y: 90,  w: 86,  h: 46,  type: 'house' },
+                    { x: 880, y: 140, w: 64,  h: 64,  type: 'house' },
+                    { x: 200, y: 580, w: 86,  h: 46,  type: 'house' },
+                    { x: 260, y: 620, w: 64,  h: 64,  type: 'house' },
+                    { x: 810, y: 580, w: 86,  h: 46,  type: 'house' },
+                    { x: 870, y: 620, w: 64,  h: 64,  type: 'house' },
+                    { x: 430, y: 330, w: 118, h: 34,  type: 'mound' },
+                    { x: 560, y: 400, w: 118, h: 34,  type: 'mound' }
+                ],
+                playerForce: {
+                    pointBudgetHint: 165,
+                    defaultLayout: [
+                        { type: 'mediumTank', count: 6 },
+                        { type: 'lightTank', count: 2 },
+                        { type: 'antitankInf', count: 2 },
+                        { type: 'katyusha', count: 2 }
+                    ]
+                },
+                enemyForce: [
+                    { type: 'heavyTank', x: 900, y: 150, angle: 270, count: 2 },
+                    { type: 'heavyTank', x: 900, y: 380, angle: 270, count: 2 },
+                    { type: 'mediumTank', x: 950, y: 260, angle: 270, count: 3 },
+                    { type: 'tankDestroyer', x: 980, y: 470, angle: 270, count: 2 },
+                    { type: 'armoredInf', x: 880, y: 200, angle: 270, count: 3 }
+                ],
+                objectives: {
+                    type: 'annihilation',
+                    target: 'all_enemy_armor',
+                    timeLimit: 600,
+                    failCondition: 'player_armor_all_destroyed OR timeout'
+                }
+            },
+            stalingrad: {
+                id: 'stalingrad',
+                name: '斯大林格勒废墟',
+                year: 1942, era: 'ww2',
+                side: 'ussr_vs_germany',
+                playerRole: 'defender',
+                historicalBrief: '1942.11 城市巷战"老鼠战争", 苏军第 62 集团军在瓦砾废墟中死守, 伏尔加河畔的绞肉机',
+                terrain: {
+                    type: 'urban_ruin',
+                    palette: { ground: '#6b6660', accent: '#9a9590', shadow: '#2a2520' },
+                    pattern: '灰白废墟+焦黑'
+                },
+                playerZone: { x: 550, y: 0, w: 500, h: 750 },
+                obstacles: [
+                    { x: 100, y: 100, w: 86,  h: 46,  type: 'ruin' },
+                    { x: 100, y: 250, w: 64,  h: 64,  type: 'ruin' },
+                    { x: 150, y: 400, w: 86,  h: 46,  type: 'ruin' },
+                    { x: 100, y: 550, w: 64,  h: 64,  type: 'ruin' },
+                    { x: 300, y: 80,  w: 118, h: 34,  type: 'wall' },
+                    { x: 350, y: 150, w: 86,  h: 46,  type: 'ruin' },
+                    { x: 300, y: 250, w: 64,  h: 64,  type: 'ruin' },
+                    { x: 380, y: 300, w: 86,  h: 46,  type: 'ruin' },
+                    { x: 320, y: 400, w: 118, h: 34,  type: 'wall' },
+                    { x: 350, y: 480, w: 64,  h: 64,  type: 'ruin' },
+                    { x: 300, y: 580, w: 86,  h: 46,  type: 'ruin' },
+                    { x: 550, y: 100, w: 86,  h: 46,  type: 'ruin' },
+                    { x: 600, y: 180, w: 118, h: 34,  type: 'wall' },
+                    { x: 550, y: 260, w: 64,  h: 64,  type: 'ruin' },
+                    { x: 620, y: 340, w: 86,  h: 46,  type: 'ruin' },
+                    { x: 580, y: 420, w: 64,  h: 64,  type: 'ruin' },
+                    { x: 600, y: 500, w: 118, h: 34,  type: 'wall' },
+                    { x: 550, y: 580, w: 86,  h: 46,  type: 'ruin' },
+                    { x: 1050, y: 0, w: 50, h: 750, type: 'river' }
+                ],
+                playerForce: {
+                    pointBudgetHint: 80,
+                    defaultLayout: [
+                        { type: 'rifleman', count: 4 },
+                        { type: 'antitankInf', count: 1 },
+                        { type: 'sniper', count: 1 },
+                        { type: 'mediumTank', count: 2 },
+                        { type: 'medic', count: 1 }
+                    ]
+                },
+                enemyForce: [
+                    { type: 'assaultInf', x: 50, y: 100, angle: 90, count: 3 },
+                    { type: 'assaultInf', x: 50, y: 300, angle: 90, count: 3 },
+                    { type: 'assaultInf', x: 50, y: 500, angle: 90, count: 3 },
+                    { type: 'assaultGun', x: 80, y: 200, angle: 90, count: 3 },
+                    { type: 'sniper', x: 120, y: 350, angle: 90, count: 1 },
+                    { type: 'heavyTank', x: 80, y: 600, angle: 90, count: 2 }
+                ],
+                objectives: {
+                    type: 'defense',
+                    target: 'hold_core_sector',
+                    timeLimit: 600,
+                    failCondition: 'enemy_reaches_river OR player_all_destroyed'
+                }
+            }
+        };
+
+        // DOM 层掩体类型 (可碰撞), 其余由 Canvas 绘制
+        const DOM_OBSTACLE_TYPES = new Set(['house', 'ruin', 'wall']);
+
+        // ── v3.0 战场地图绘制器 ──
+        class TerrainRenderer {
+            constructor(terrainCanvas, decorCanvas, scenario) {
+                this.terrainCanvas = terrainCanvas;
+                this.terrainCtx = terrainCanvas.getContext('2d');
+                this.decorCanvas = decorCanvas;
+                this.decorCtx = decorCanvas.getContext('2d');
+                this.scenario = scenario;
+                this._seed = 0;
+                this.w = 1;
+                this.h = 1;
+                this.resize();
+            }
+
+            resize() {
+                const rect = this.terrainCanvas.getBoundingClientRect();
+                this.w = Math.max(1, Math.floor(rect.width));
+                this.h = Math.max(1, Math.floor(rect.height));
+                const dpr = window.devicePixelRatio || 1;
+                [this.terrainCanvas, this.decorCanvas].forEach(c => {
+                    c.width = this.w * dpr;
+                    c.height = this.h * dpr;
+                    const ctx = c.getContext('2d');
+                    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+                    ctx.imageSmoothingEnabled = false;
+                });
+            }
+
+            render() {
+                this.resize();
+                this.drawGround();
+                this.drawFeatures();
+                this.drawDecorations();
+            }
+
+            drawGround() {
+                const ctx = this.terrainCtx;
+                const p = this.scenario.terrain.palette;
+                ctx.fillStyle = p.ground;
+                ctx.fillRect(0, 0, this.w, this.h);
+                this.seed(this.scenario.id + ':ground');
+                this.scatter(p.shadow, 0.12, 2400, 2, 5);
+                this.scatter(p.accent, 0.08, 1400, 2, 4);
+            }
+
+            scatter(color, alpha, count, minSize, maxSize) {
+                const ctx = this.terrainCtx;
+                ctx.save();
+                ctx.globalAlpha = alpha;
+                ctx.fillStyle = color;
+                for (let i = 0; i < count; i++) {
+                    const x = this.randInt(this.w);
+                    const y = this.randInt(this.h);
+                    const s = minSize + this.randInt(maxSize - minSize + 1);
+                    ctx.fillRect(x, y, s, s);
+                }
+                ctx.restore();
+            }
+
+            drawFeatures() {
+                const ctx = this.terrainCtx;
+                for (const o of this.scenario.obstacles) {
+                    if (o.type === 'embankment') {
+                        ctx.fillStyle = '#5a554a';
+                        ctx.fillRect(o.x, o.y, o.w, o.h);
+                        ctx.fillStyle = '#7a756a';
+                        ctx.fillRect(o.x, o.y, o.w, 4);
+                        ctx.fillStyle = '#3a3530';
+                        ctx.fillRect(o.x + 4, o.y, 2, o.h);
+                        ctx.fillRect(o.x + o.w - 6, o.y, 2, o.h);
+                    } else if (o.type === 'river') {
+                        ctx.fillStyle = '#3a4a5a';
+                        ctx.fillRect(o.x, o.y, o.w, o.h);
+                        ctx.strokeStyle = 'rgba(120,140,160,0.4)';
+                        ctx.lineWidth = 1;
+                        for (let y = 8; y < o.h; y += 12) {
+                            ctx.beginPath();
+                            ctx.moveTo(o.x + 4, o.y + y);
+                            for (let x = 4; x < o.w; x += 8) {
+                                ctx.lineTo(o.x + x, o.y + y + Math.sin(x * 0.3) * 2);
+                            }
+                            ctx.stroke();
+                        }
+                    }
+                }
+            }
+
+            drawDecorations() {
+                const ctx = this.decorCtx;
+                ctx.clearRect(0, 0, this.w, this.h);
+                const type = this.scenario.terrain.type;
+                this.seed(this.scenario.id + ':decor');
+
+                if (type === 'steppe') {
+                    ctx.save();
+                    ctx.globalAlpha = 0.5;
+                    ctx.fillStyle = this.scenario.terrain.palette.accent;
+                    for (let i = 0; i < 6; i++) {
+                        const x = this.randInt(this.w);
+                        const y = this.randInt(this.h);
+                        const w = 60 + this.randInt(80);
+                        const h = 40 + this.randInt(50);
+                        ctx.fillRect(x, y, w, h);
+                    }
+                    ctx.restore();
+                    ctx.fillStyle = '#5a6a2a';
+                    for (let i = 0; i < 300; i++) {
+                        ctx.fillRect(this.randInt(this.w), this.randInt(this.h), 2, 2);
+                    }
+                    for (const o of this.scenario.obstacles) {
+                        if (o.type === 'mound') {
+                            ctx.fillStyle = 'rgba(196,176,106,0.35)';
+                            ctx.beginPath();
+                            ctx.ellipse(o.x + o.w / 2, o.y + o.h / 2, o.w / 2, o.h / 2, 0, 0, Math.PI * 2);
+                            ctx.fill();
+                        }
+                    }
+                } else if (type === 'urban_ruin') {
+                    ctx.save();
+                    ctx.fillStyle = '#4a4540';
+                    for (let i = 0; i < 400; i++) {
+                        const x = this.randInt(this.w);
+                        const y = this.randInt(this.h);
+                        const s = 2 + this.randInt(5);
+                        ctx.globalAlpha = 0.3 + this.rand() * 0.5;
+                        ctx.fillRect(x, y, s, s);
+                    }
+                    ctx.restore();
+                    ctx.strokeStyle = 'rgba(20,15,10,0.6)';
+                    ctx.fillStyle = 'rgba(20,15,10,0.25)';
+                    for (let i = 0; i < 20; i++) {
+                        const x = this.randInt(this.w);
+                        const y = this.randInt(this.h);
+                        const r = 6 + this.randInt(10);
+                        ctx.beginPath();
+                        ctx.arc(x, y, r, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.stroke();
+                    }
+                    ctx.save();
+                    ctx.fillStyle = '#2a2520';
+                    for (let i = 0; i < 8; i++) {
+                        ctx.globalAlpha = 0.1 + this.rand() * 0.1;
+                        const x = this.randInt(this.w);
+                        const y = this.randInt(this.h);
+                        const r = 30 + this.randInt(40);
+                        ctx.beginPath();
+                        ctx.arc(x, y, r, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                    ctx.restore();
+                }
+            }
+
+            seed(s) {
+                this._seed = this.hashStr(s);
+            }
+
+            rand() {
+                this._seed = (this._seed + 0x6D2B79F5) | 0;
+                let t = this._seed;
+                t = Math.imul(t ^ (t >>> 15), t | 1);
+                t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+                return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+            }
+
+            randInt(max) { return Math.floor(this.rand() * Math.max(1, max)); }
+
+            hashStr(s) {
+                let h = 2166136261;
+                for (let i = 0; i < s.length; i++) {
+                    h ^= s.charCodeAt(i);
+                    h = Math.imul(h, 16777619);
+                }
+                return h >>> 0;
+            }
+        }
+
         // 战场管理器（组合模式的核心）
         class BattlefieldManager {
             constructor() {
@@ -2793,6 +3118,8 @@ permalink: /sandbox_war_game.html
                 this.projectiles = [];
                 this.obstacles = [];
                 this.battlefield = document.getElementById('battlefield');
+                this.terrainRenderer = null;
+                this.currentScenario = null;
                 this.isBattleActive = false;
                 this.isPaused = false;
                 this.lastUpdateTime = 0;
@@ -2834,6 +3161,37 @@ permalink: /sandbox_war_game.html
                 this.obstacles.push(obstacle);
                 this.battlefield.appendChild(obstacle.element);
                 logBattle('掩体已放置', 'info');
+            }
+
+            // ── v3.0 加载想定: 渲染地形 + 部署 DOM 掩体 ──
+            loadScenario(scenarioId) {
+                const scenario = SCENARIOS[scenarioId];
+                if (!scenario) {
+                    console.warn('想定未找到:', scenarioId);
+                    return;
+                }
+                this.currentScenario = scenario;
+                const terrainCanvas = document.getElementById('terrainCanvas');
+                const decorCanvas = document.getElementById('decorCanvas');
+                if (terrainCanvas && decorCanvas) {
+                    this.terrainRenderer = new TerrainRenderer(terrainCanvas, decorCanvas, scenario);
+                    this.terrainRenderer.render();
+                }
+                this.loadScenarioObstacles(scenario);
+                logBattle('加载想定: ' + scenario.name + ' (' + scenario.year + ')', 'info');
+                logBattle(scenario.historicalBrief, 'info');
+            }
+
+            loadScenarioObstacles(scenario) {
+                const emptyState = this.battlefield.querySelector('.empty-state');
+                if (emptyState) emptyState.remove();
+                for (const o of scenario.obstacles) {
+                    if (DOM_OBSTACLE_TYPES.has(o.type)) {
+                        const obs = new Obstacle(o.x, o.y, o.w, o.h, o.type);
+                        this.obstacles.push(obs);
+                        this.battlefield.appendChild(obs.element);
+                    }
+                }
             }
 
             collidesWithObstacle(x, y, width, height, padding = 2) {
@@ -3008,7 +3366,17 @@ permalink: /sandbox_war_game.html
                     cancelAnimationFrame(this.animationId);
                     this.animationId = null;
                 }
-                this.battlefield.innerHTML = '<div class="empty-state" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; opacity: 0.5; pointer-events: none;"><p>投放兵力开始战斗</p><p style="font-size: 0.8em; margin-top: 10px;">点击按钮添加兵力</p></div>';
+                // 保留 canvas, 重渲染当前想定地形 + obstacles
+                if (this.currentScenario && this.terrainRenderer) {
+                    this.terrainRenderer.render();
+                    this.loadScenarioObstacles(this.currentScenario);
+                }
+                // 显示 empty-state (若不存在)
+                const hasEmpty = this.battlefield.querySelector('.empty-state');
+                if (!hasEmpty) {
+                    this.battlefield.insertAdjacentHTML('beforeend',
+                        '<div class="empty-state" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; opacity: 0.5; pointer-events: none; z-index: 2;"><p>投放兵力开始战斗</p><p style="font-size: 0.8em; margin-top: 10px;">点击按钮添加兵力</p></div>');
+                }
                 resetBattleButton();
                 logBattle('战场已清空', 'info');
             }
@@ -3223,9 +3591,9 @@ permalink: /sandbox_war_game.html
             const health = UNIT_PRESETS[type].health;
             const battlefield = document.getElementById('battlefield');
             let unitSize;
-            if (type === 'tank') unitSize = 36;
-            else if (type === 'artillery' || type === 'rocket') unitSize = 32;
-            else unitSize = 22;
+            if (type === 'tank') unitSize = 22;
+            else if (type === 'artillery' || type === 'rocket') unitSize = 20;
+            else unitSize = 14;
             const deploymentDepth = Math.min(280, battlefield.offsetWidth * 0.28);
             let x = 0;
             let y = 0;
@@ -3372,6 +3740,8 @@ permalink: /sandbox_war_game.html
         document.addEventListener('DOMContentLoaded', function() {
             logBattle('系统就绪', 'info');
             addMobileOptimizations();
+            // v3.0 加载默认想定 (普罗霍罗夫卡)
+            battlefieldManager.loadScenario('prokhorovka');
             const lastModifiedSpan = document.getElementById('lastModified');
             if (lastModifiedSpan) {
                 lastModifiedSpan.textContent = document.lastModified;
