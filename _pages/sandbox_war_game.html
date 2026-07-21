@@ -2171,7 +2171,6 @@ permalink: /sandbox_war_game.html
             // v3.0 士气系统: 每帧更新士气 (血量上限/孤立/被集火/溃逃传染)
             updateMorale(deltaTime, allUnits) {
                 if (this.isDead()) return;
-                // 基础上限: 血量衰减 (士气上限随血量下降)
                 const healthFactor = Math.max(0, this.health / this.maxHealth);
 
                 let delta = 0;
@@ -2179,32 +2178,34 @@ permalink: /sandbox_war_game.html
                 let hasCommander = false;
                 let hasLogistics = false;
                 let panicNearby = false;
-
-                // 一次遍历友军: 孤立/指挥车光环/后勤/溃逃传染
-                for (const u of allUnits) {
-                    if (u === this || u.isDead() || u.team !== this.team) continue;
-                    const d = this.getDistance(u);
-                    if (d < 100) hasAllyNear = true;
-                    if (u.type === 'command' && d < 150) hasCommander = true;
-                    if ((u.type === 'supply' || u.type === 'engineer' || u.type === 'medic') && d < 100) hasLogistics = true;
-                    if (u.morale !== undefined && u.morale < 20 && d < 120) panicNearby = true;
-                }
-                if (!hasAllyNear) delta -= 5;
-                if (hasLogistics) delta += 3;
-                if (panicNearby) delta -= 8;
-
-                // 被集火: 被多敌瞄准 -3/s (超过1个)
+                let hasEnemyNear = false;
                 let attackerCount = 0;
+
+                // 一次遍历: 友军(孤立/指挥车/后勤/溃逃传染) + 敌人(附近/被集火)
                 for (const u of allUnits) {
-                    if (u === this || u.isDead() || u.team === this.team) continue;
-                    if (u.currentTarget === this) attackerCount++;
+                    if (u === this || u.isDead()) continue;
+                    const d = this.getDistance(u);
+                    if (u.team === this.team) {
+                        if (d < 100) hasAllyNear = true;
+                        if (u.type === 'command' && d < 150) hasCommander = true;
+                        if ((u.type === 'supply' || u.type === 'engineer' || u.type === 'medic') && d < 100) hasLogistics = true;
+                        if (u.morale !== undefined && u.morale < 20 && d < 120) panicNearby = true;
+                    } else {
+                        if (d < 300) hasEnemyNear = true;
+                        if (u.currentTarget === this) attackerCount++;
+                    }
                 }
-                if (attackerCount > 1) delta -= 3 * (attackerCount - 1);
+                // 负面因素 (降低强度避免双方快速崩溃)
+                if (!hasAllyNear) delta -= 3;        // 孤立 -3 (原 -5)
+                if (panicNearby) delta -= 5;          // 溃逃传染 -5 (原 -8)
+                if (attackerCount > 1) delta -= 2 * (attackerCount - 1);  // 被集火 -2 (原 -3)
+                // 恢复因素
+                if (hasLogistics) delta += 5;        // 后勤 +5 (原 +3)
+                if (!hasEnemyNear) delta += 5;        // 脱离战斗恢复 +5/s
 
-                // 指挥车光环: 士气上限 +15
-                const moraleCap = this.baseMorale * healthFactor + (hasCommander ? 15 : 0);
+                // 士气上限: 血量衰减放缓 (血量0时上限50%baseMorale, 避免血量低立即崩溃)
+                const moraleCap = this.baseMorale * (0.5 + 0.5 * healthFactor) + (hasCommander ? 15 : 0);
 
-                // 应用 delta
                 this.morale += delta * deltaTime;
                 if (this.morale > moraleCap) this.morale = moraleCap;
                 if (this.morale < 0) this.morale = 0;
