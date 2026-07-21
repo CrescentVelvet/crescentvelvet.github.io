@@ -1539,6 +1539,9 @@ permalink: /sandbox_war_game.html
                 this.health = health;
                 this.maxHealth = health;
                 this.pointCost = (typeof UNIT_PRESETS !== 'undefined' && UNIT_PRESETS[type] && UNIT_PRESETS[type].pointCost) || 0;
+                // v3.0 士气系统
+                this.baseMorale = (type === 'tank') ? 80 : (type === 'artillery' || type === 'rocket') ? 65 : 60;
+                this.morale = this.baseMorale;
                 this.element = null;
                 this.selected = false;
                 this.angle = 0;
@@ -1774,31 +1777,41 @@ permalink: /sandbox_war_game.html
             update(deltaTime, allUnits) {
                 if (this.isDead()) return;
 
+                // v3.0 士气更新
+                this.updateMorale(deltaTime, allUnits);
+
                 const nearestEnemy = this.acquireTarget(allUnits);
+
+                // v3.0 士气溃退: morale < 20 全速远离敌人, 无视玩家指令
+                if (this.morale < 20 && nearestEnemy) {
+                    this.state = 'flee';
+                    this.moveAwayFrom(nearestEnemy, 220);
+                    this.updatePosition(deltaTime, allUnits);
+                    return;
+                }
 
                 if (nearestEnemy) {
                     const distance = this.getDistance(nearestEnemy);
                     const range = this.attackRange;
 
                     // 滞回带（hysteresis）：根据当前状态使用不同阈值，杜绝边界反复跳变
-                    // chase → skirmish 的退出阈值要小于 skirmish → chase 的进入阈值
-                    // backoff → skirmish 的退出阈值要大于 skirmish → backoff 的进入阈值
                     let chaseLine, backoffLine;
                     if (this.state === 'chase') {
-                        chaseLine = range * 0.82;   // 追击中：进入更近才停下，防止 chase↔skirmish 抖动
+                        chaseLine = range * 0.82;
                         backoffLine = range * 0.40;
                     } else if (this.state === 'backoff') {
                         chaseLine = range * 0.96;
-                        backoffLine = range * 0.60; // 后撤中：拉远到更安全距离才停
+                        backoffLine = range * 0.60;
                     } else {
-                        chaseLine = range * 0.96;   // 默认/停留中：敌人远到这个线才追
-                        backoffLine = range * 0.40; // 敌人近到这个线才后撤
+                        chaseLine = range * 0.96;
+                        backoffLine = range * 0.40;
                     }
 
-                    const lowHealth = this.health < this.maxHealth * 0.28;
+                    // v3.0 士气动摇 (20-40): 倾向后撤 (替代 lowHealth 硬阈值)
+                    const shaken = this.morale < 40;
 
-                    if (lowHealth && distance < range * 1.25) {
-                        // 撤退：低血量优先远离
+                    if (shaken && distance < range * 1.25) {
+                        // 动摇: 远离敌人
                         this.state = 'retreat';
                         this.retreatFrom(nearestEnemy);
                     } else if (distance > chaseLine) {
@@ -1905,9 +1918,57 @@ permalink: /sandbox_war_game.html
                 return !battlefieldManager.pathBlockedByObstacle(myCX, myCY, tCX, tCY, 4);
             }
 
+            // v3.0 士气系统: 每帧更新士气 (血量上限/孤立/被集火/溃逃传染)
+            updateMorale(deltaTime, allUnits) {
+                if (this.isDead()) return;
+                // 基础上限: 血量衰减 (士气上限随血量下降)
+                const healthFactor = Math.max(0, this.health / this.maxHealth);
+                const moraleCap = this.baseMorale * healthFactor;
+
+                let delta = 0;
+                // 孤立无援: 100px 内无友军 -5/s
+                let hasAllyNear = false;
+                for (const u of allUnits) {
+                    if (u === this || u.isDead() || u.team !== this.team) continue;
+                    if (this.getDistance(u) < 100) { hasAllyNear = true; break; }
+                }
+                if (!hasAllyNear) delta -= 5;
+
+                // 被集火: 被多敌瞄准 -3/s (超过1个)
+                let attackerCount = 0;
+                for (const u of allUnits) {
+                    if (u === this || u.isDead() || u.team === this.team) continue;
+                    if (u.currentTarget === this) attackerCount++;
+                }
+                if (attackerCount > 1) delta -= 3 * (attackerCount - 1);
+
+                // 溃逃传染: 附近有溃退友军 -8/s (雪崩效应)
+                for (const u of allUnits) {
+                    if (u === this || u.isDead() || u.team !== this.team) continue;
+                    if (u.morale !== undefined && u.morale < 20 && this.getDistance(u) < 120) { delta -= 8; break; }
+                }
+
+                // 应用 delta
+                this.morale += delta * deltaTime;
+                // 收敛到血量上限
+                if (this.morale > moraleCap) this.morale = moraleCap;
+                if (this.morale < 0) this.morale = 0;
+            }
+
+            // 士气档位: 返回攻速 cooldown 倍率 (1.0 正常, 0.9 高昂, 1.3 动摇, 0 溃退不开火)
+            getMoraleAttackFactor() {
+                if (this.morale < 20) return 0;
+                if (this.morale < 40) return 1.3;
+                if (this.morale > 70) return 0.9;
+                return 1.0;
+            }
+
             tryAttack(target) {
+                // v3.0 士气: 溃退不开火, 动摇攻速降, 高昂攻速升
+                const moraleFactor = this.getMoraleAttackFactor();
+                if (moraleFactor === 0) return;
                 const now = Date.now();
-                if (now - this.lastAttackTime < this.attackCooldown) return;
+                if (now - this.lastAttackTime < this.attackCooldown * moraleFactor) return;
 
                 const distance = this.getDistance(target);
                 if (distance <= this.attackRange && target.team !== this.team && !target.isDead()) {
@@ -2213,8 +2274,8 @@ permalink: /sandbox_war_game.html
                     const moveTarget = this.getMoveTarget();
                     this.setDesiredAngle(this.angleToPoint(moveTarget.x, moveTarget.y));
                 } else if (this.isTracked && this.currentTarget && !this.currentTarget.isDead()) {
-                    // 履带车停下时朝敌人 (retreat 朝远离)
-                    if (this.state === 'retreat') {
+                    // 履带车停下时朝敌人 (retreat/flee 朝远离)
+                    if (this.state === 'retreat' || this.state === 'flee') {
                         const dx = this.x - this.currentTarget.x;
                         const dy = this.y - this.currentTarget.y;
                         this.setDesiredAngle(Math.atan2(-dy, -dx) * 180 / Math.PI + 90);
@@ -3780,6 +3841,13 @@ permalink: /sandbox_war_game.html
                         // v3.0 累加损失点值
                         if (unit.team === 'ally') this.allyLostPoints += (unit.pointCost || 0);
                         else this.enemyLostPoints += (unit.pointCost || 0);
+                        // v3.0 战友阵亡: 附近同阵营单位士气 -8 (传染)
+                        for (const u of this.units) {
+                            if (u === unit || u.isDead() || u.team !== unit.team) continue;
+                            if (u.morale !== undefined && unit.getDistance(u) < 150) {
+                                u.morale = Math.max(0, u.morale - 8);
+                            }
+                        }
                         this.updatePointsDisplay();
                         return false;
                     }
