@@ -721,6 +721,7 @@ permalink: /sandbox_war_game.html
         <div class="status-bar">
             <span>帧率: <span id="fpsValue">0</span></span>
             <span>场上总兵力: <span id="unitCount">0</span></span>
+            <span>友军点值: <span id="allyPoints">0</span> / 敌军点值: <span id="enemyPoints">0</span></span>
             <span>最后更新: <span id="lastModified"></span></span>
         </div>
 
@@ -1528,6 +1529,7 @@ permalink: /sandbox_war_game.html
                 this.team = team;
                 this.health = health;
                 this.maxHealth = health;
+                this.pointCost = (typeof UNIT_PRESETS !== 'undefined' && UNIT_PRESETS[type] && UNIT_PRESETS[type].pointCost) || 0;
                 this.element = null;
                 this.selected = false;
                 this.angle = 0;
@@ -3168,6 +3170,11 @@ permalink: /sandbox_war_game.html
                 this.battlefield = document.getElementById('battlefield');
                 this.terrainRenderer = null;
                 this.currentScenario = null;
+                // v3.0 兵力点值系统
+                this.allyDeployedPoints = 0;
+                this.enemyDeployedPoints = 0;
+                this.allyLostPoints = 0;
+                this.enemyLostPoints = 0;
                 this.isBattleActive = false;
                 this.isPaused = false;
                 this.lastUpdateTime = 0;
@@ -3199,6 +3206,10 @@ permalink: /sandbox_war_game.html
                 this.units.push(unit);
                 const element = unit.createElement();
                 this.battlefield.appendChild(element);
+                // v3.0 累加部署点值
+                if (unit.team === 'ally') this.allyDeployedPoints += (unit.pointCost || 0);
+                else this.enemyDeployedPoints += (unit.pointCost || 0);
+                this.updatePointsDisplay();
                 logBattle(`部署 ${unit.team === 'ally' ? '友军' : '敌军'} ${unitTypeName(unit.type)}`, unit.team);
             }
 
@@ -3317,6 +3328,13 @@ permalink: /sandbox_war_game.html
                 }
             }
 
+            updatePointsDisplay() {
+                const a = document.getElementById('allyPoints');
+                const e = document.getElementById('enemyPoints');
+                if (a) a.textContent = this.allyDeployedPoints;
+                if (e) e.textContent = this.enemyDeployedPoints;
+            }
+
             switchToScenario(scenarioId) {
                 // 清空所有元素 (保留 canvas)
                 this.units.forEach(u => { if (u.element) u.element.remove(); });
@@ -3324,8 +3342,14 @@ permalink: /sandbox_war_game.html
                 this.obstacles.forEach(o => o.element.remove());
                 this.units = []; this.projectiles = []; this.obstacles = [];
                 this.isBattleActive = false; this.isPaused = false;
+                // v3.0 重置点值
+                this.allyDeployedPoints = 0;
+                this.enemyDeployedPoints = 0;
+                this.allyLostPoints = 0;
+                this.enemyLostPoints = 0;
                 if (this.animationId) { cancelAnimationFrame(this.animationId); this.animationId = null; }
                 resetBattleButton();
+                this.updatePointsDisplay();
                 // 加载新想定
                 this.loadScenario(scenarioId);
             }
@@ -3498,10 +3522,16 @@ permalink: /sandbox_war_game.html
                 this.obstacles = [];
                 this.isBattleActive = false;
                 this.isPaused = false;
+                // v3.0 重置点值
+                this.allyDeployedPoints = 0;
+                this.enemyDeployedPoints = 0;
+                this.allyLostPoints = 0;
+                this.enemyLostPoints = 0;
                 if (this.animationId) {
                     cancelAnimationFrame(this.animationId);
                     this.animationId = null;
                 }
+                this.updatePointsDisplay();
                 // 保留 canvas, 重渲染当前想定地形 + obstacles
                 if (this.currentScenario && this.terrainRenderer) {
                     this.terrainRenderer.render();
@@ -3609,6 +3639,10 @@ permalink: /sandbox_war_game.html
                 this.units = this.units.filter(unit => {
                     if (unit.isDead() && unit.element) {
                         unit.element.remove();
+                        // v3.0 累加损失点值
+                        if (unit.team === 'ally') this.allyLostPoints += (unit.pointCost || 0);
+                        else this.enemyLostPoints += (unit.pointCost || 0);
+                        this.updatePointsDisplay();
                         return false;
                     }
                     return true;
@@ -3669,6 +3703,24 @@ permalink: /sandbox_war_game.html
                 } else {
                     logBattle('战斗中止', 'info');
                 }
+                // v3.0 效率评分
+                this.computeEfficiency();
+            }
+
+            computeEfficiency() {
+                const efficiency = this.allyDeployedPoints > 0
+                    ? this.enemyDeployedPoints / this.allyDeployedPoints : 0;
+                const lossRatio = this.enemyLostPoints > 0
+                    ? this.allyLostPoints / this.enemyLostPoints
+                    : (this.allyLostPoints === 0 ? 0 : 99);
+                const score = efficiency * 0.6 + lossRatio * 0.4;
+                let rating = 'D';
+                if (score > 1.5) rating = 'S';
+                else if (score > 1.2) rating = 'A';
+                else if (score > 0.9) rating = 'B';
+                else if (score > 0.6) rating = 'C';
+                logBattle(`效率评分: ${rating} | 效率比 ${efficiency.toFixed(2)} | 损失比 ${lossRatio.toFixed(2)} | 综合分 ${score.toFixed(2)}`, 'info');
+                logBattle(`点值消耗 友军 ${this.allyDeployedPoints} (损失 ${this.allyLostPoints}) / 敌军 ${this.enemyDeployedPoints} (损失 ${this.enemyLostPoints})`, 'info');
             }
         }
 
@@ -3677,10 +3729,10 @@ permalink: /sandbox_war_game.html
 
         // 兵种预置属性：血量由兵种决定，不再由玩家设定
         const UNIT_PRESETS = {
-            tank:      { health: 300 },
-            soldier:   { health: 80 },
-            artillery: { health: 90 },
-            rocket:    { health: 70 }
+            tank:      { health: 300, pointCost: 30 },
+            soldier:   { health: 80,  pointCost: 3 },
+            artillery: { health: 90,  pointCost: 24 },
+            rocket:    { health: 70,  pointCost: 20 }
         };
 
         // 工具函数
