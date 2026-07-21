@@ -1798,22 +1798,27 @@ permalink: /sandbox_war_game.html
                         }
                         this.moveTowards(nearestEnemy);
                     } else if (distance < backoffLine) {
-                        if (this.state !== 'backoff') {
-                            this.state = 'backoff';
+                        if (this.isTracked) {
+                            // 履带车不后退逃离, 正面迎敌开火 (坦克正面减伤)
+                            this.state = 'hold';
+                            this.holdAndAttack(nearestEnemy, distance, range);
+                        } else {
+                            if (this.state !== 'backoff') {
+                                this.state = 'backoff';
+                            }
+                            this.moveAwayFrom(nearestEnemy, 90);
                         }
-                        this.moveAwayFrom(nearestEnemy, 90);
                     } else if (!this.hasLineOfSight(nearestEnemy)) {
                         // 最佳射程带内但视线被障碍物遮挡
                         if (this.isTracked) {
-                            // 履带车不可侧向绕行, 继续接近敌人寻路绕过掩体
-                            this.state = 'chase';
-                            this.moveTowards(nearestEnemy);
+                            // 履带车: 停下朝敌人等视线 (不侧向绕行不背对)
+                            this.state = 'hold';
+                            this.holdAndAttack(nearestEnemy, distance, range);
                         } else {
                             // 步兵侧向绕行寻找清晰射线
                             this.state = 'flank';
                             this.flankForShot(nearestEnemy);
                         }
-                        // flank/chase 时也尝试开火 (偶尔有视线就开火)
                         this.tryAttack(nearestEnemy);
                     } else {
                         // 最佳射程带：视线清晰，停下攻击，间歇性机动走位
@@ -2200,6 +2205,15 @@ permalink: /sandbox_war_game.html
                 if (this.isTracked && this.isMoving) {
                     const moveTarget = this.getMoveTarget();
                     this.setDesiredAngle(this.angleToPoint(moveTarget.x, moveTarget.y));
+                } else if (this.isTracked && this.currentTarget && !this.currentTarget.isDead()) {
+                    // 履带车停下时朝敌人 (retreat 朝远离)
+                    if (this.state === 'retreat') {
+                        const dx = this.x - this.currentTarget.x;
+                        const dy = this.y - this.currentTarget.y;
+                        this.setDesiredAngle(Math.atan2(-dy, -dx) * 180 / Math.PI + 90);
+                    } else {
+                        this.setDesiredAngle(this.getAngleTo(this.currentTarget));
+                    }
                 } else if (this.currentTarget && !this.currentTarget.isDead() &&
                     (this.state === 'hold' || this.state === 'skirmish' ||
                      this.state === 'flank' ||
