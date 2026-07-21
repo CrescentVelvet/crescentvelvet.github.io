@@ -1203,6 +1203,152 @@ permalink: /sandbox_war_game.html
          *     - 显示双方点值对比, 玩家可预览效率挑战
          *     - 自由推演模式入口 (无想定, 玩家自由部署)
          *
+         *   ────────────────────────────────────────────────────────
+         *   首发战役详细配置 (可直接编码为 SCENARIOS 常量)
+         *   ────────────────────────────────────────────────────────
+         *
+         *   战场尺寸基准: 1100 × 750 (适配现有 .battlefield, 宽度响应式)
+         *   坐标原点: 左上 (0,0), 单位 px, X 向右增, Y 向下增
+         *   朝向 angle: 0=北(上) / 90=东(右) / 180=南(下) / 270=西(左)
+         *   playerZone: 玩家在部署阶段可拖拽到该区任意位置
+         *
+         *   ── 战役 1: prokhorovka (普罗霍罗夫卡) ──
+         *
+         *   {
+         *     id: 'prokhorovka',
+         *     name: '普罗霍罗夫卡',
+         *     year: 1943, era: 'ww2',
+         *     side: 'ussr_vs_germany',
+         *     playerRole: 'attacker',  // 玩家=苏军(进攻方)
+         *     historicalBrief: '1943.7.12 史上最大坦克对决, 苏军第 5 近卫
+         *        坦克集团军与德军第 2SS 装甲军在普罗霍罗夫卡平原遭遇,
+         *        双方数百辆坦克绞杀',
+         *     terrain: {
+         *       type: 'steppe',
+         *       palette: { ground:'#7a8a3a', accent:'#c4b06a', shadow:'#4a4a2a' },
+         *       pattern: '草原+麦田+泥土'
+         *     },
+         *     playerZone: { x:0, y:0, w:450, h:750 },  // 西半场
+         *     obstacles: [
+         *       // 中央铁路堤 (横向贯穿, 双方推进到此交战)
+         *       { x:540, y:0, w:20, h:750, type:'embankment' },
+         *       // 北侧村庄集群 (苏军侧, 真实位置: octyabrskoe)
+         *       { x:180, y:90,  w:86, h:46, type:'house' },
+         *       { x:240, y:140, w:64, h:64, type:'house' },
+         *       // 北侧村庄 (德军侧)
+         *       { x:820, y:90,  w:86, h:46, type:'house' },
+         *       { x:880, y:140, w:64, h:64, type:'house' },
+         *       // 南侧村庄 (苏军侧)
+         *       { x:200, y:580, w:86, h:46, type:'house' },
+         *       { x:260, y:620, w:64, h:64, type:'house' },
+         *       // 南侧村庄 (德军侧)
+         *       { x:810, y:580, w:86, h:46, type:'house' },
+         *       { x:870, y:620, w:64, h:64, type:'house' },
+         *       // 中央麦田矮丘 (软掩体, 减速不阻挡)
+         *       { x:430, y:330, w:118, h:34, type:'mound' },
+         *       { x:560, y:400, w:118, h:34, type:'mound' }
+         *     ],
+         *     playerForce: {
+         *       pointBudgetHint: 165,
+         *       defaultLayout: [
+         *         { type:'mediumTank',  count:6 },  // T-34
+         *         { type:'lightTank',   count:2 },  // T-70
+         *         { type:'antitankInf', count:2 },
+         *         { type:'katyusha',    count:2 }
+         *       ]
+         *     },
+         *     enemyForce: [
+         *       { type:'heavyTank',      x:900, y:150, angle:270, count:2 }, // 虎式
+         *       { type:'heavyTank',      x:900, y:380, angle:270, count:2 },
+         *       { type:'mediumTank',     x:950, y:260, angle:270, count:3 }, // 黑豹
+         *       { type:'tankDestroyer',  x:980, y:470, angle:270, count:2 }, // 斐迪南
+         *       { type:'armoredInf',     x:880, y:200, angle:270, count:3 }
+         *     ],
+         *     objectives: {
+         *       type: 'annihilation',
+         *       target: 'all_enemy_armor',
+         *       timeLimit: 600,  // 10 分钟
+         *       failCondition: 'player_armor_all_destroyed OR timeout'
+         *     }
+         *   }
+         *
+         *   ── 战役 2: stalingrad (斯大林格勒废墟) ──
+         *
+         *   {
+         *     id: 'stalingrad',
+         *     name: '斯大林格勒废墟',
+         *     year: 1942, era: 'ww2',
+         *     side: 'ussr_vs_germany',
+         *     playerRole: 'defender',  // 玩家=苏军(防守方)
+         *     historicalBrief: '1942.11 城市巷战"老鼠战争", 苏军第 62
+         *        集团军在瓦砾废墟中死守, 伏尔加河畔的绞肉机',
+         *     terrain: {
+         *       type: 'urban_ruin',
+         *       palette: { ground:'#6b6660', accent:'#9a9590', shadow:'#2a2520' },
+         *       pattern: '灰白废墟+焦黑'
+         *     },
+         *     playerZone: { x:550, y:0, w:500, h:750 },  // 东半场(伏尔加河畔)
+         *     obstacles: [
+         *       // 西部稀疏掩体 (进攻方推进区, 真实位置: 城西郊)
+         *       { x:100, y:100, w:86, h:46, type:'ruin' },
+         *       { x:100, y:250, w:64, h:64, type:'ruin' },
+         *       { x:150, y:400, w:86, h:46, type:'ruin' },
+         *       { x:100, y:550, w:64, h:64, type:'ruin' },
+         *       // 中部密集掩体 (绞杀区, 主战场, 真实位置: 马马耶夫岗)
+         *       { x:300, y:80,  w:118, h:34, type:'wall' },
+         *       { x:350, y:150, w:86,  h:46, type:'ruin' },
+         *       { x:300, y:250, w:64,  h:64, type:'ruin' },
+         *       { x:380, y:300, w:86,  h:46, type:'ruin' },
+         *       { x:320, y:400, w:118, h:34, type:'wall' },
+         *       { x:350, y:480, w:64,  h:64, type:'ruin' },
+         *       { x:300, y:580, w:86,  h:46, type:'ruin' },
+         *       // 东部核心 (防守方依托, 最密集, 真实位置: 伏尔加河畔)
+         *       { x:550, y:100, w:86,  h:46, type:'ruin' },
+         *       { x:600, y:180, w:118, h:34, type:'wall' },
+         *       { x:550, y:260, w:64,  h:64, type:'ruin' },
+         *       { x:620, y:340, w:86,  h:46, type:'ruin' },
+         *       { x:580, y:420, w:64,  h:64, type:'ruin' },
+         *       { x:600, y:500, w:118, h:34, type:'wall' },
+         *       { x:550, y:580, w:86,  h:46, type:'ruin' },
+         *       // 伏尔加河 (东侧边界, 防守底线, 不可逾越)
+         *       { x:1050, y:0, w:50, h:750, type:'river' }
+         *     ],
+         *     playerForce: {
+         *       pointBudgetHint: 80,  // 防守方兵力薄弱
+         *       defaultLayout: [
+         *         { type:'rifleman',    count:4 },
+         *         { type:'antitankInf', count:1 },
+         *         { type:'sniper',      count:1 },
+         *         { type:'mediumTank',  count:2 },  // 少量 T-34
+         *         { type:'medic',       count:1 }
+         *       ]
+         *     },
+         *     enemyForce: [
+         *       { type:'assaultInf',  x:50, y:100, angle:90, count:3 },
+         *       { type:'assaultInf',  x:50, y:300, angle:90, count:3 },
+         *       { type:'assaultInf',  x:50, y:500, angle:90, count:3 },
+         *       { type:'assaultGun',  x:80, y:200, angle:90, count:3 }, // 突击炮
+         *       { type:'sniper',      x:120, y:350, angle:90, count:1 },
+         *       { type:'heavyTank',   x:80, y:600, angle:90, count:2 }  // 虎式(少量)
+         *     ],
+         *     objectives: {
+         *       type: 'defense',
+         *       target: 'hold_core_sector',  // 防止敌军占领东部核心街区
+         *       timeLimit: 600,  // 坚守 10 分钟
+         *       failCondition: 'enemy_reaches_river OR player_all_destroyed'
+         *     }
+         *   }
+         *
+         *   兵种 type 在二战年代下的映射:
+         *     mediumTank → T-34(苏) / 黑豹(德, 敌军)
+         *     heavyTank → KV-1(苏, 玩家可选) / 虎式(德, 敌军)
+         *     lightTank → T-70(苏)
+         *     tankDestroyer → 苏-100(苏) / 斐迪南(德)
+         *     katyusha → 喀秋莎火箭炮(苏)
+         *     assaultGun → 突击炮(德, 敌军专属)
+         *     rifleman/antitankInf/sniper/medic → 步兵系(双方通用)
+         *     armoredInf → 装甲步兵(德, 敌军)
+         *
          * ─── 八、玩家操作层 ───
          *
          *   战前阶段 (完全控制):
@@ -1248,6 +1394,82 @@ permalink: /sandbox_war_game.html
          *   P6: 历史真实战役系统 (ScenarioLoader + 2 场首发现代战役 + 研发中占位)
          *   P7: 复盘回放 + 效率评分
          *   P8: 补齐剩余 10 兵种实现 (v2.0 文档已设计)
+         *   P9: 战场地图绘制系统 (TerrainRenderer + 单位尺寸缩小)
+         *      [前置依赖: 建议在 P2 部署 UI 前完成, 地图先画好才能部署]
+         *
+         * ============================================================
+         * 十一、战场地图绘制系统
+         * ============================================================
+         *
+         *   设计目标:
+         *     - 真实战场比例: 单位缩小, 战场容纳更多单位, 呈现大规模战役
+         *     - 地形程序化绘制: 按想定 terrain 字段切换草原/废墟/沙漠风格
+         *     - 性能: 静态地形一次绘制缓存, 动态单位用 DOM 叠加
+         *
+         *   单位尺寸缩小表 (适应 1100×750 战场, 仅视觉缩小):
+         *     兵种类    v2.0  v3.0   说明
+         *     坦克系    36    22     保留炮塔/履带/炮管像素细节
+         *     火炮系    32    20     保留驻锄/炮盾/车轮
+         *     火箭炮    32    20     保留多管发射架
+         *     步兵系    22    14     保留头身比例, 简化细节
+         *     车辆系    28    18     侦察车/装甲运兵车/补给车/指挥车
+         *   注: 碰撞/射程/视野数值不变 (战术平衡保持)
+         *       单位 DOM 仍用 div, 内部像素 div 按比例缩放
+         *
+         *   战场地图分层结构:
+         *     ┌──────────────────────────────────┐
+         *     │ Layer 3: DOM 单位层 (div)        │ 可交互, z=10
+         *     │ Layer 2: DOM 掩体层 (div)        │ 可碰撞, z=4
+         *     │ Layer 1: Canvas 装饰层           │ 瓦砾/草丛/弹坑, 静态
+         *     │ Layer 0: Canvas 地形底层         │ 底色+纹理+河流道路
+         *     └──────────────────────────────────┘
+         *   .battlefield 容器内:
+         *     <canvas id="terrainCanvas">   绝对定位 z=0  (底色+河流)
+         *     <canvas id="decorCanvas">     绝对定位 z=1  (瓦砾/草丛)
+         *     <div class="obstacle">...     绝对定位 z=4  (可碰撞掩体)
+         *     <div class="unit">...         绝对定位 z=10 (可交互单位)
+         *
+         *   地形类型绘制规范 (按想定 terrain.type):
+         *     steppe (草原, 普罗霍罗夫卡):
+         *       底色: 草绿 #7a8a3a + 噪点纹理
+         *       装饰: 麦田色块(麦黄 #c4b06a) + 泥土路径(棕 #4a4a2a)
+         *       要素: 铁路堤(直线灰条) + 河流(蓝灰曲线)
+         *     urban_ruin (城市废墟, 斯大林格勒):
+         *       底色: 灰白 #6b6660 + 焦黑斑驳
+         *       装饰: 瓦砾散布(灰白碎块) + 弹坑(黑环) + 烟尘
+         *       要素: 破墙断壁(灰色长条) + 伏尔加河(蓝灰)
+         *     desert (沙漠, 预留):
+         *       底色: 沙黄 #c4a46a + 沙丘纹路
+         *       装饰: 沙丘起伏 + 稀疏石块
+         *       要素: 油井设施 + 雷区标识
+         *
+         *   TerrainRenderer 类设计:
+         *     class TerrainRenderer {
+         *       constructor(terrainCanvas, decorCanvas, scenario)
+         *       render() {
+         *         this.drawGround()      // 底色 + 噪点
+         *         this.drawFeatures()    // 河流/道路/铁路
+         *         this.drawDecorations() // 瓦砾/草丛/弹坑
+         *       }
+         *       // 按 palette.ground 填充 + 程序化噪点
+         *       drawGround()
+         *       // 按 obstacles[type=river/embankment] 绘制地形要素
+         *       drawFeatures()
+         *       // 按 terrain.type 程序化散布装饰 (种子化, 可复现)
+         *       drawDecorations()
+         *     }
+         *   静态绘制一次完成, 切换想定时重绘
+         *
+         *   与想定数据衔接:
+         *     scenario.terrain.palette  → drawGround 配色
+         *     scenario.terrain.pattern  → drawDecorations 装饰风格
+         *     scenario.obstacles[type=river/embankment] → drawFeatures
+         *     scenario.obstacles[type=house/ruin/wall] → DOM 掩体层 (可碰撞)
+         *
+         *   迁移说明:
+         *     现有 .battlefield CSS 背景渐变 → 替换为 Canvas 绘制
+         *     保留 .battlefield 容器作为定位上下文
+         *     现有单位 CSS (.unit.tank --unit-size:36px) → 改为 22px
          */
 
         class GameObject {
