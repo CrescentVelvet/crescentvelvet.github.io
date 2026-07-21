@@ -510,6 +510,61 @@ permalink: /sandbox_war_game.html
             background: #e74c3c;
         }
 
+        /* 反坦克步兵 (14px, 复用 soldier-head/body 染红 + 火箭筒) */
+        .unit.antitank {
+            --unit-size: 14px;
+            --body-size: 22px;
+            --scale: 0.636;
+        }
+        .unit.antitank .soldier-body { background: #c0392b; box-shadow: inset 0 0 0 2px #922b21, 0 2px 0 rgba(0,0,0,0.45); }
+        .unit.antitank .soldier-head { background: #e74c3c; box-shadow: inset 0 0 0 2px #922b21; }
+        .antitank-tube {
+            position: absolute;
+            width: 3px; height: 8px;
+            left: 14px; top: 8px;
+            background: #2c3e50;
+        }
+
+        /* 轻型坦克 (22px, 复用 tank 结构染浅蓝) */
+        .unit.lightTank {
+            --unit-size: 22px;
+            --body-size: 36px;
+            --scale: 0.611;
+        }
+        .unit.lightTank .tank-body { background: #5dade2; box-shadow: inset 0 0 0 3px #3498db, 0 3px 0 rgba(0,0,0,0.45); }
+        .unit.lightTank .tank-turret { background: #85c1e9; box-shadow: inset 0 0 0 3px #5dade2; }
+        .unit.lightTank .tank-barrel { width: 4px; height: 22px; left: 16px; }
+
+        /* 坦克歼击车 (22px, 低矮车身 + 长管 + 无炮塔) */
+        .unit.tankDestroyer {
+            --unit-size: 22px;
+            --body-size: 36px;
+            --scale: 0.611;
+        }
+        .td-hull {
+            position: absolute;
+            width: 26px; height: 16px;
+            left: 5px; top: 10px;
+            background: #5d6d7e;
+            box-shadow: inset 0 0 0 3px #34495e, 0 3px 0 rgba(0,0,0,0.45);
+        }
+        .td-barrel {
+            position: absolute;
+            width: 4px; height: 24px;
+            left: 16px; top: -4px;
+            background: #7f8c8d;
+            box-shadow: inset 0 0 0 2px #5d6d7e;
+        }
+        .td-track {
+            position: absolute;
+            width: 8px; height: 20px;
+            top: 8px;
+            background: #15191b;
+            box-shadow: inset 0 0 0 2px #30383b;
+        }
+        .td-track.left { left: 3px; }
+        .td-track.right { right: 3px; }
+
         .unit.selected {
             filter: drop-shadow(0 0 4px #f1c40f);
             z-index: 100;
@@ -781,6 +836,9 @@ permalink: /sandbox_war_game.html
                     <button onclick="addUnit('ally','supply')" class="pixel-btn btn-ally">补给</button>
                     <button onclick="addUnit('ally','engineer')" class="pixel-btn btn-ally">工兵</button>
                     <button onclick="addUnit('ally','medic')" class="pixel-btn btn-ally">医疗</button>
+                    <button onclick="addUnit('ally','antitank')" class="pixel-btn btn-ally">反坦</button>
+                    <button onclick="addUnit('ally','lightTank')" class="pixel-btn btn-ally">轻坦</button>
+                    <button onclick="addUnit('ally','tankDestroyer')" class="pixel-btn btn-ally">歼击</button>
                 </div>
 
                 <div class="control-row" id="enemyControlRow">
@@ -792,6 +850,9 @@ permalink: /sandbox_war_game.html
                     <button onclick="addUnit('enemy','supply')" class="pixel-btn btn-enemy">补给</button>
                     <button onclick="addUnit('enemy','engineer')" class="pixel-btn btn-enemy">工兵</button>
                     <button onclick="addUnit('enemy','medic')" class="pixel-btn btn-enemy">医疗</button>
+                    <button onclick="addUnit('enemy','antitank')" class="pixel-btn btn-enemy">反坦</button>
+                    <button onclick="addUnit('enemy','lightTank')" class="pixel-btn btn-enemy">轻坦</button>
+                    <button onclick="addUnit('enemy','tankDestroyer')" class="pixel-btn btn-enemy">歼击</button>
                 </div>
             </div>
         </div>
@@ -1622,6 +1683,9 @@ permalink: /sandbox_war_game.html
                 // v3.0 士气系统
                 this.baseMorale = (type === 'tank') ? 80 : (type === 'artillery' || type === 'rocket') ? 65 : 60;
                 this.morale = this.baseMorale;
+                // v3.0 伤害类型系统
+                this.armorType = 'infantry';
+                this.damageTable = { infantry: 1, vehicle: 1, tank: 1 };
                 this.element = null;
                 this.selected = false;
                 this.angle = 0;
@@ -1694,14 +1758,18 @@ permalink: /sandbox_war_game.html
 
             getDisplayMarkup() {
                 let body;
-                if (this.type === 'tank') {
+                if (this.type === 'tank' || this.type === 'lightTank') {
                     body = '<div class="tank-track left"></div><div class="tank-track right"></div><div class="tank-body"></div><div class="tank-turret"></div><div class="tank-barrel"></div>';
+                } else if (this.type === 'tankDestroyer') {
+                    body = '<div class="td-track left"></div><div class="td-track right"></div><div class="td-hull"></div><div class="td-barrel"></div>';
                 } else if (this.type === 'command') {
                     body = '<div class="command-body"></div><div class="command-antenna"></div><div class="command-star"></div>';
                 } else if (this.type === 'supply') {
                     body = '<div class="supply-body"></div><div class="supply-cross"></div>';
                 } else if (this.type === 'medic') {
                     body = '<div class="soldier-head"></div><div class="soldier-body"></div><div class="medic-cross"></div>';
+                } else if (this.type === 'antitank') {
+                    body = '<div class="soldier-head"></div><div class="soldier-body"></div><div class="antitank-tube"></div>';
                 } else {
                     body = '<div class="soldier-head"></div><div class="soldier-body"></div>';
                 }
@@ -1811,8 +1879,13 @@ permalink: /sandbox_war_game.html
                 document.getElementById('unitInfo').style.display = 'none';
             }
 
-            getAttackDamage() {
-                throw new Error('子类必须实现getAttackDamage方法');
+            // v3.0 伤害类型: baseDamage × damageTable[target.armorType]
+            getAttackDamage(target) {
+                let dmg = this.attackPower + Math.floor(Math.random() * 10);
+                if (target && this.damageTable && target.armorType) {
+                    dmg = Math.round(dmg * (this.damageTable[target.armorType] || 1));
+                }
+                return Math.max(1, dmg);
             }
 
             move(dx, dy) {
@@ -2071,13 +2144,14 @@ permalink: /sandbox_war_game.html
                 const distance = this.getDistance(target);
                 if (distance <= this.attackRange && target.team !== this.team && !target.isDead()) {
                     this.turnToward(target);
-                    if (!this.isFacing(target)) return;
+                    // 轻坦行进间开火: canMoveFire 跳过 isFacing 检查
+                    if (!this.canMoveFire && !this.isFacing(target)) return;
 
                     if (!this.hasLineOfSight(target)) return;
 
                     this.lastAttackTime = now;
-                    // 指挥车光环: 攻击 +10%
-                    let damage = this.getAttackDamage();
+                    // 指挥车光环: 攻击 +10% (伤害类型: baseDamage × damageTable[target.armorType])
+                    let damage = this.getAttackDamage(target);
                     if (buffed) damage = Math.round(damage * 1.1);
                     battlefieldManager.spawnProjectile(this, target, damage);
                 }
@@ -2253,10 +2327,10 @@ permalink: /sandbox_war_game.html
             holdAndAttack(target, distance, range) {
                 const now = Date.now();
 
-                // 履带车辆（坦克/火炮）：不可侧向走位，
-                // 进入最佳射程带后立即停车转向敌人开火
+                // 履带车辆: 进入最佳射程带后停车转向敌人开火
+                // 轻坦(canMoveFire)行进间开火, 不停车
                 if (this.isTracked) {
-                    if (this.isMoving) {
+                    if (!this.canMoveFire && this.isMoving) {
                         this.isMoving = false;
                         this.path = [];
                         if (this.element) this.element.classList.remove('moving');
@@ -2628,10 +2702,9 @@ permalink: /sandbox_war_game.html
                 this.attackCooldown = 2000;
                 this.moveCooldown = 500;
                 this.isTracked = true;
-            }
-
-            getAttackDamage() {
-                return this.attackPower + Math.floor(Math.random() * 10);
+                // v3.0 穿甲: 对步兵60%/车辆120%/坦克110%
+                this.armorType = 'tank';
+                this.damageTable = { infantry: 0.6, vehicle: 1.2, tank: 1.1 };
             }
 
             turnToward(target) {
@@ -2652,10 +2725,9 @@ permalink: /sandbox_war_game.html
                 this.maxTurnSpeed = 210;
                 this.attackCooldown = 1500; // 1.5秒攻击冷却
                 this.moveCooldown = 300; // 0.3秒移动冷却
-            }
-
-            getAttackDamage() {
-                return this.attackPower + Math.floor(Math.random() * 8);
+                // v3.0 轻武器: 对步兵100%/车辆50%/坦克20%
+                this.armorType = 'infantry';
+                this.damageTable = { infantry: 1.0, vehicle: 0.5, tank: 0.2 };
             }
 
         }
@@ -2676,13 +2748,12 @@ permalink: /sandbox_war_game.html
                 this.deploying = false;
                 this.deployStartTime = 0;
                 this.deployDuration = 2000;
+                // v3.0 高爆: 对步兵140%/车辆100%/坦克75%
+                this.armorType = 'vehicle';
+                this.damageTable = { infantry: 1.4, vehicle: 1.0, tank: 0.75 };
             }
 
             getSize() { return 20; }
-
-            getAttackDamage() {
-                return this.attackPower + Math.floor(Math.random() * 10);
-            }
 
             getDisplayMarkup() {
                 const body = '<div class="artillery-wheel left"></div><div class="artillery-wheel right"></div><div class="artillery-chassis"></div><div class="artillery-trail"></div><div class="artillery-barrel"></div><div class="artillery-shield"></div><div class="artillery-stabilizer left"></div><div class="artillery-stabilizer right"></div><div class="deploy-dot"></div>';
@@ -2901,7 +2972,7 @@ permalink: /sandbox_war_game.html
                     this.volleyCount = 0;
                     return;
                 }
-                let damage = this.getAttackDamage();
+                let damage = this.getAttackDamage(target);
                 // 指挥车光环: 攻击 +10%
                 if (this.commandBuffUntil && this.commandBuffUntil > Date.now()) damage = Math.round(damage * 1.1);
                 const scatterX = (Math.random() - 0.5) * 40;
@@ -2980,6 +3051,7 @@ permalink: /sandbox_war_game.html
                 this.maxSpeed = 25;
                 this.maxTurnSpeed = 100;
                 this.supportRange = 150;
+                this.armorType = 'vehicle';
             }
 
             applySupport(deltaTime, allUnits) {
@@ -3001,6 +3073,7 @@ permalink: /sandbox_war_game.html
                 this.maxTurnSpeed = 110;
                 this.supportRange = 120;
                 this.supportRate = 10;
+                this.armorType = 'vehicle';
             }
 
             applySupport(deltaTime, allUnits) {
@@ -3058,6 +3131,80 @@ permalink: /sandbox_war_game.html
                         }
                     }
                 }
+            }
+        }
+
+        // ── v3.0 P8 阶段二 反装甲单位 ──
+        // 反坦克步兵: 反装甲, 克制坦克/车辆, 对步兵弱
+        class RocketSoldier extends Soldier {
+            constructor(x, y, team, health) {
+                super(x, y, team, health);
+                this.type = 'antitank';
+                this.attackRange = 180;
+                this.attackPower = 35;
+                this.maxSpeed = 32;
+                this.attackCooldown = 2500;
+                // 反装甲: 对步兵60%/车辆130%/坦克150%
+                this.armorType = 'infantry';
+                this.damageTable = { infantry: 0.6, vehicle: 1.3, tank: 1.5 };
+            }
+        }
+
+        // 轻型坦克: 穿甲, 快速突击, 行进间开火 (移动中不需停下对准)
+        class LightTank extends Tank {
+            constructor(x, y, team, health) {
+                super(x, y, team, health);
+                this.type = 'lightTank';
+                this.attackRange = 190;
+                this.attackPower = 28;
+                this.maxSpeed = 42;
+                this.attackCooldown = 1500;
+                // 穿甲: 对步兵60%/车辆120%/坦克100%
+                this.armorType = 'tank';
+                this.damageTable = { infantry: 0.6, vehicle: 1.2, tank: 1.0 };
+                this.canMoveFire = true;
+            }
+        }
+
+        // 坦克歼击车: 重型穿甲, 远程反坦克, 静止1.5s后射程+30伤害+20%
+        class TankDestroyer extends Tank {
+            constructor(x, y, team, health) {
+                super(x, y, team, health);
+                this.type = 'tankDestroyer';
+                this.attackRange = 280;
+                this.attackPower = 65;
+                this.maxSpeed = 22;
+                this.attackCooldown = 3000;
+                // 重型穿甲: 对步兵30%/车辆150%/坦克180%
+                this.armorType = 'tank';
+                this.damageTable = { infantry: 0.3, vehicle: 1.5, tank: 1.8 };
+                this.stillTime = 0;
+                this.bonusApplied = false;
+            }
+
+            update(deltaTime, allUnits) {
+                super.update(deltaTime, allUnits);
+                // 静止加成: 不移动 1.5s 后激活
+                if (this.isMoving) {
+                    this.stillTime = 0;
+                    this.bonusApplied = false;
+                } else {
+                    this.stillTime += deltaTime;
+                    if (this.stillTime > 1.5) this.bonusApplied = true;
+                }
+            }
+
+            tryAttack(target) {
+                // 静止加成: 临时提升射程+30 攻击+20%
+                const origRange = this.attackRange;
+                const origPower = this.attackPower;
+                if (this.bonusApplied) {
+                    this.attackRange = origRange + 30;
+                    this.attackPower = Math.round(origPower * 1.2);
+                }
+                super.tryAttack(target);
+                this.attackRange = origRange;
+                this.attackPower = origPower;
             }
         }
 
@@ -3358,9 +3505,9 @@ permalink: /sandbox_war_game.html
 
         // v3.0 兵种 type → 现有实现 type 映射 (P8 实现 14 兵种后移除)
         const SCENARIO_TYPE_MAP = {
-            mediumTank: 'tank',    heavyTank: 'tank',     lightTank: 'tank',
-            tankDestroyer: 'artillery', assaultGun: 'artillery',
-            rifleman: 'soldier',   antitankInf: 'soldier', assaultInf: 'soldier',
+            mediumTank: 'tank',    heavyTank: 'tank',     lightTank: 'lightTank',
+            tankDestroyer: 'tankDestroyer', assaultGun: 'artillery',
+            rifleman: 'soldier',   antitankInf: 'antitank', assaultInf: 'soldier',
             sniper: 'soldier',    armoredInf: 'soldier',
             katyusha: 'rocket',
             medic: 'medic',        engineer: 'engineer',
@@ -3704,6 +3851,9 @@ permalink: /sandbox_war_game.html
                 else if (type === 'supply') unit = new SupplyTruck(x, y, team, health);
                 else if (type === 'engineer') unit = new Engineer(x, y, team, health);
                 else if (type === 'medic') unit = new Medic(x, y, team, health);
+                else if (type === 'antitank') unit = new RocketSoldier(x, y, team, health);
+                else if (type === 'lightTank') unit = new LightTank(x, y, team, health);
+                else if (type === 'tankDestroyer') unit = new TankDestroyer(x, y, team, health);
                 else unit = new Soldier(x, y, team, health);
                 unit.angle = angle;
                 unit.desiredAngle = angle;
@@ -4201,7 +4351,10 @@ permalink: /sandbox_war_game.html
             command:   { health: 100, pointCost: 25 },
             supply:    { health: 130, pointCost: 10 },
             engineer:  { health: 40,  pointCost: 4 },
-            medic:     { health: 45,  pointCost: 4 }
+            medic:     { health: 45,  pointCost: 4 },
+            antitank:      { health: 50,  pointCost: 6 },
+            lightTank:     { health: 200, pointCost: 18 },
+            tankDestroyer: { health: 180, pointCost: 22 }
         };
 
         // 工具函数
@@ -4213,6 +4366,9 @@ permalink: /sandbox_war_game.html
             if (type === 'supply') return '补给车';
             if (type === 'engineer') return '工程兵';
             if (type === 'medic') return '医疗兵';
+            if (type === 'antitank') return '反坦克兵';
+            if (type === 'lightTank') return '轻型坦克';
+            if (type === 'tankDestroyer') return '坦克歼击车';
             return '步兵';
         }
 
@@ -4255,7 +4411,7 @@ permalink: /sandbox_war_game.html
             const health = UNIT_PRESETS[type].health;
             const battlefield = document.getElementById('battlefield');
             let unitSize;
-            if (type === 'tank') unitSize = 22;
+            if (type === 'tank' || type === 'lightTank' || type === 'tankDestroyer') unitSize = 22;
             else if (type === 'artillery' || type === 'rocket') unitSize = 20;
             else if (type === 'command' || type === 'supply') unitSize = 18;
             else unitSize = 14;
@@ -4299,6 +4455,12 @@ permalink: /sandbox_war_game.html
                 unit = new Engineer(x, y, team, health);
             } else if (type === 'medic') {
                 unit = new Medic(x, y, team, health);
+            } else if (type === 'antitank') {
+                unit = new RocketSoldier(x, y, team, health);
+            } else if (type === 'lightTank') {
+                unit = new LightTank(x, y, team, health);
+            } else if (type === 'tankDestroyer') {
+                unit = new TankDestroyer(x, y, team, health);
             } else {
                 unit = new Soldier(x, y, team, health);
             }
