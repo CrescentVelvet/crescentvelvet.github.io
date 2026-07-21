@@ -2196,7 +2196,8 @@ permalink: /sandbox_war_game.html
                 // 1. 视觉朝向
                 // 履带车辆移动时必须朝移动方向（否则无法行驶），
                 // 停下时才转向敌人开火
-                if (this.isTracked && this.isMoving) {
+                if (this.isTracked && this.isMoving && this.stuckTime < 0.2) {
+                    // 正常移动: 朝移动方向 (卡住时切朝敌人, 避免背对)
                     const moveTarget = this.getMoveTarget();
                     this.setDesiredAngle(this.angleToPoint(moveTarget.x, moveTarget.y));
                 } else if (this.isTracked && this.currentTarget && !this.currentTarget.isDead()) {
@@ -2289,20 +2290,23 @@ permalink: /sandbox_war_game.html
                         if (this.stuckTime > 0.3) {
                             const inObstacle = battlefieldManager &&
                                 battlefieldManager.collidesWithObstacle(this.x, this.y, this.getSize(), this.getSize(), 0);
-                            let escaped = false;
-                            // 在掩体内: 8 方向搜索朝外逃脱; 否则随机逃脱
-                            for (let a = 0; a < Math.PI * 2 && !escaped; a += Math.PI / 4) {
-                                const esc = inObstacle ? 20 : (14 + Math.random() * 16);
-                                const nx = this.x + Math.cos(a) * esc * deltaTime * 20;
-                                const ny = this.y + Math.sin(a) * esc * deltaTime * 20;
-                                if (!this.checkCollision(nx, ny, allUnits)) {
-                                    this.x = nx;
-                                    this.y = ny;
-                                    escaped = true;
+                            // 仅在掩体内才 8 方向脱困 (友军挡时不朝任意方向跳/后退)
+                            if (inObstacle) {
+                                let escaped = false;
+                                for (let a = 0; a < Math.PI * 2 && !escaped; a += Math.PI / 4) {
+                                    const esc = 20;
+                                    const nx = this.x + Math.cos(a) * esc * deltaTime * 20;
+                                    const ny = this.y + Math.sin(a) * esc * deltaTime * 20;
+                                    if (!this.checkCollision(nx, ny, allUnits)) {
+                                        this.x = nx;
+                                        this.y = ny;
+                                        escaped = true;
+                                    }
                                 }
                             }
+                            // 友军挡: 不逃脱, 等友军移开
                             if (this.stuckTime > 0.6) {
-                                // 卡死: 停下让 update 重新决策 (避免墙角原地转/背对敌人)
+                                // 卡死: 停下让 update 重新决策
                                 this.updatePathToTarget(true);
                                 this.isMoving = false;
                                 this.stuckTime = 0;
@@ -2367,7 +2371,7 @@ permalink: /sandbox_war_game.html
 
                     if (dist < minDist && dist > 0) {
                         // 累加排斥力 (避免堵塞堆叠)
-                        const pushForce = (minDist - dist) * 0.25;
+                        const pushForce = (minDist - dist) * 0.4;
                         pushX += (dx / dist) * pushForce;
                         pushY += (dy / dist) * pushForce;
                     }
@@ -2376,7 +2380,7 @@ permalink: /sandbox_war_game.html
                 // 限制总推斥位移 (轨迹连续, 不闪现)
                 const dt = (typeof battlefieldManager !== 'undefined' && battlefieldManager.deltaTime) || 0.016;
                 const pushMag = Math.sqrt(pushX * pushX + pushY * pushY);
-                const maxPush = Math.max(0.3, this.maxSpeed * dt * 0.6);
+                const maxPush = Math.max(0.4, this.maxSpeed * dt);
                 if (pushMag > maxPush) {
                     pushX = pushX / pushMag * maxPush;
                     pushY = pushY / pushMag * maxPush;
