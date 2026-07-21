@@ -177,6 +177,17 @@ permalink: /sandbox_war_game.html
         .terrain-canvas { z-index: 0; }
         .decor-canvas   { z-index: 1; }
 
+        #debugPathLayer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 5;
+            display: none;
+        }
+
         /* 掩体类型变体 (DOM 层, 可碰撞) */
         .obstacle.obstacle-house  { background: #8a7a5a; border-color: #3a3322; }
         .obstacle.obstacle-ruin   { background: #7a7570; border-color: #2a2520; }
@@ -709,6 +720,7 @@ permalink: /sandbox_war_game.html
         <div class="battlefield" id="battlefield">
             <canvas class="terrain-canvas" id="terrainCanvas"></canvas>
             <canvas class="decor-canvas" id="decorCanvas"></canvas>
+            <svg id="debugPathLayer" xmlns="http://www.w3.org/2000/svg"></svg>
             <div class="empty-state" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; opacity: 0.5; pointer-events: none; z-index: 2;">
                 <p>投放兵力开始战斗</p>
                 <p style="font-size: 0.8em; margin-top: 10px;">点击按钮添加兵力</p>
@@ -3226,6 +3238,7 @@ permalink: /sandbox_war_game.html
                 this.battlefield = document.getElementById('battlefield');
                 this.terrainRenderer = null;
                 this.currentScenario = null;
+                this.debugPaths = false;
                 // v3.0 兵力点值系统
                 this.allyDeployedPoints = 0;
                 this.enemyDeployedPoints = 0;
@@ -3391,6 +3404,56 @@ permalink: /sandbox_war_game.html
                 if (e) e.textContent = this.enemyDeployedPoints;
             }
 
+            // debug 路线显示开关 + 渲染
+            toggleDebugPaths() {
+                this.debugPaths = !this.debugPaths;
+                const svg = document.getElementById('debugPathLayer');
+                if (svg) {
+                    svg.style.display = this.debugPaths ? 'block' : 'none';
+                    if (!this.debugPaths) svg.innerHTML = '';
+                }
+                logBattle('调试路线: ' + (this.debugPaths ? '开启' : '关闭'), 'info');
+            }
+
+            renderDebugPaths() {
+                const svg = document.getElementById('debugPathLayer');
+                if (!svg) return;
+                svg.innerHTML = '';
+                const ns = 'http://www.w3.org/2000/svg';
+                for (const unit of this.units) {
+                    if (unit.isDead() || !unit.isMoving) continue;
+                    const color = unit.team === 'ally' ? '#3498db' : '#e74c3c';
+                    const half = unit.getSize() / 2;
+                    const pts = [[unit.x + half, unit.y + half]];
+                    for (const wp of unit.path) {
+                        pts.push([wp.x + half, wp.y + half]);
+                    }
+                    pts.push([unit.targetX + half, unit.targetY + half]);
+                    if (pts.length < 2) continue;
+                    const poly = document.createElementNS(ns, 'polyline');
+                    poly.setAttribute('points', pts.map(p => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' '));
+                    poly.setAttribute('stroke', color);
+                    poly.setAttribute('stroke-width', '2');
+                    poly.setAttribute('fill', 'none');
+                    poly.setAttribute('stroke-dasharray', '5,3');
+                    poly.setAttribute('opacity', '0.75');
+                    svg.appendChild(poly);
+                    // 末端箭头 (target 处)
+                    const last = pts[pts.length - 1];
+                    const prev = pts[pts.length - 2];
+                    const ang = Math.atan2(last[1] - prev[1], last[0] - prev[0]);
+                    const s = 8;
+                    const ax1 = last[0] - s * Math.cos(ang - Math.PI / 6);
+                    const ay1 = last[1] - s * Math.sin(ang - Math.PI / 6);
+                    const ax2 = last[0] - s * Math.cos(ang + Math.PI / 6);
+                    const ay2 = last[1] - s * Math.sin(ang + Math.PI / 6);
+                    const arrow = document.createElementNS(ns, 'polygon');
+                    arrow.setAttribute('points', last[0].toFixed(1) + ',' + last[1].toFixed(1) + ' ' + ax1.toFixed(1) + ',' + ay1.toFixed(1) + ' ' + ax2.toFixed(1) + ',' + ay2.toFixed(1));
+                    arrow.setAttribute('fill', color);
+                    svg.appendChild(arrow);
+                }
+            }
+
             switchToScenario(scenarioId) {
                 // 清空所有元素 (保留 canvas)
                 this.units.forEach(u => { if (u.element) u.element.remove(); });
@@ -3473,7 +3536,8 @@ permalink: /sandbox_war_game.html
                     if (cell.x < 0 || cell.y < 0 || cell.x >= cols || cell.y >= rows) return false;
 
                     const point = toPoint(cell);
-                    return !this.collidesWithObstacle(point.x, point.y, size, size, 6);
+                    // 掩体边缘扩展半个车身 + 余量, waypoint 离掩体足够远 (不卡 waypoint)
+                    return !this.collidesWithObstacle(point.x, point.y, size, size, Math.floor(size / 2) + 2);
                 };
                 const nearestWalkable = (cell) => {
                     if (walkable(cell)) return cell;
@@ -3521,10 +3585,10 @@ permalink: /sandbox_war_game.html
                             traceKey = key(previous);
                         }
 
-                        return cells
+                        return this.smoothPath(cells
                             .slice(1)
                             .filter((cell, index) => index % 2 === 0 || cell.x === goal.x && cell.y === goal.y)
-                            .map(toPoint);
+                            .map(toPoint));
                     }
 
                     closed.add(currentKey);
@@ -3553,6 +3617,23 @@ permalink: /sandbox_war_game.html
                 }
 
                 return [];
+            }
+
+            // path 平滑: 合并共线 waypoint (去锯齿, 减少转折点, 履带车更易跟踪)
+            smoothPath(points) {
+                if (points.length < 3) return points;
+                const result = [points[0]];
+                for (let i = 1; i < points.length - 1; i++) {
+                    const a = result[result.length - 1];
+                    const b = points[i];
+                    const c = points[i + 1];
+                    // 共线检查 (向量叉积 ≈ 0)
+                    const cross = (b.x - a.x) * (c.y - b.y) - (b.y - a.y) * (c.x - b.x);
+                    if (Math.abs(cross) < 0.5) continue;
+                    result.push(b);
+                }
+                result.push(points[points.length - 1]);
+                return result;
             }
 
             removeUnit(unit) {
@@ -3679,6 +3760,7 @@ permalink: /sandbox_war_game.html
                     this.updateProjectiles();
                     this.checkBattleEnd();
                 }
+                if (this.debugPaths) this.renderDebugPaths();
 
                 this.animationId = requestAnimationFrame((ts) => this.gameLoop(ts));
             }
@@ -3991,6 +4073,10 @@ permalink: /sandbox_war_game.html
             addMobileOptimizations();
             // v3.0 加载默认想定 (斯大林格勒保卫战 PVE)
             battlefieldManager.loadScenario('stalingrad');
+            // debug 路线开关 (按 D 键)
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'd' || e.key === 'D') battlefieldManager.toggleDebugPaths();
+            });
             const lastModifiedSpan = document.getElementById('lastModified');
             if (lastModifiedSpan) {
                 lastModifiedSpan.textContent = document.lastModified;
