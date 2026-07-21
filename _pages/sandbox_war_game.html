@@ -1806,9 +1806,13 @@ permalink: /sandbox_war_game.html
                             this.moveAwayFrom(nearestEnemy, 90);
                         }
                     } else if (!this.hasLineOfSight(nearestEnemy)) {
-                        // 视线被掩体挡: 继续接近敌人绕过掩体边缘 (更近 stopFactor)
+                        // 视线被掩体挡: 接近敌人位置寻路绕过掩体, 每 1.5s 强制重规划路线
                         this.state = 'chase';
-                        this.moveTowards(nearestEnemy, 0.3);
+                        this.moveTowards(nearestEnemy, 0.0);
+                        if (!this.lastRepathTime || Date.now() - this.lastRepathTime > 1500) {
+                            this.lastRepathTime = Date.now();
+                            this.updatePathToTarget(true);
+                        }
                         this.tryAttack(nearestEnemy);
                     } else {
                         // 最佳射程带：视线清晰，停下攻击，间歇性机动走位
@@ -2348,6 +2352,7 @@ permalink: /sandbox_war_game.html
                 const myCenterX = this.x + mySize / 2;
                 const myCenterY = this.y + mySize / 2;
 
+                let pushX = 0, pushY = 0;
                 for (const other of allUnits) {
                     if (other === this || other.isDead()) continue;
 
@@ -2361,21 +2366,33 @@ permalink: /sandbox_war_game.html
                     const minDist = (mySize + otherSize) / 2;
 
                     if (dist < minDist && dist > 0) {
-                        // 产生排斥力 (避免堵塞堆叠, 让后排有空间开火)
+                        // 累加排斥力 (避免堵塞堆叠)
                         const pushForce = (minDist - dist) * 0.25;
-                        const nx = this.x + (dx / dist) * pushForce;
-                        const ny = this.y + (dy / dist) * pushForce;
-                        // 不推入掩体 (避免被队友挤进障碍物卡死)
-                        if (!battlefieldManager || !battlefieldManager.collidesWithObstacle(nx, ny, mySize, mySize, 2)) {
-                            this.x = nx;
-                            this.y = ny;
-                        }
-
-                        // 边界检查
-                        const battlefield = document.getElementById('battlefield');
-                        this.x = Math.max(0, Math.min(battlefield.offsetWidth - mySize, this.x));
-                        this.y = Math.max(0, Math.min(battlefield.offsetHeight - mySize, this.y));
+                        pushX += (dx / dist) * pushForce;
+                        pushY += (dy / dist) * pushForce;
                     }
+                }
+
+                // 限制总推斥位移 (轨迹连续, 不闪现)
+                const dt = (typeof battlefieldManager !== 'undefined' && battlefieldManager.deltaTime) || 0.016;
+                const pushMag = Math.sqrt(pushX * pushX + pushY * pushY);
+                const maxPush = Math.max(0.3, this.maxSpeed * dt * 0.6);
+                if (pushMag > maxPush) {
+                    pushX = pushX / pushMag * maxPush;
+                    pushY = pushY / pushMag * maxPush;
+                }
+                if (pushMag > 0.01) {
+                    const nx = this.x + pushX;
+                    const ny = this.y + pushY;
+                    // 不推入掩体 (避免被队友挤进障碍物卡死)
+                    if (!battlefieldManager || !battlefieldManager.collidesWithObstacle(nx, ny, mySize, mySize, 2)) {
+                        this.x = nx;
+                        this.y = ny;
+                    }
+                    // 边界检查
+                    const battlefield = document.getElementById('battlefield');
+                    this.x = Math.max(0, Math.min(battlefield.offsetWidth - mySize, this.x));
+                    this.y = Math.max(0, Math.min(battlefield.offsetHeight - mySize, this.y));
                 }
             }
 
