@@ -1803,10 +1803,18 @@ permalink: /sandbox_war_game.html
                         }
                         this.moveAwayFrom(nearestEnemy, 90);
                     } else if (!this.hasLineOfSight(nearestEnemy)) {
-                        // 最佳射程带内但视线被障碍物遮挡：
-                        // 侧向绕行寻找清晰射线，而非原地对着障碍物发呆
-                        this.state = 'flank';
-                        this.flankForShot(nearestEnemy);
+                        // 最佳射程带内但视线被障碍物遮挡
+                        if (this.isTracked) {
+                            // 履带车不可侧向绕行, 继续接近敌人寻路绕过掩体
+                            this.state = 'chase';
+                            this.moveTowards(nearestEnemy);
+                        } else {
+                            // 步兵侧向绕行寻找清晰射线
+                            this.state = 'flank';
+                            this.flankForShot(nearestEnemy);
+                        }
+                        // flank/chase 时也尝试开火 (偶尔有视线就开火)
+                        this.tryAttack(nearestEnemy);
                     } else {
                         // 最佳射程带：视线清晰，停下攻击，间歇性机动走位
                         this.state = 'hold';
@@ -2194,6 +2202,7 @@ permalink: /sandbox_war_game.html
                     this.setDesiredAngle(this.angleToPoint(moveTarget.x, moveTarget.y));
                 } else if (this.currentTarget && !this.currentTarget.isDead() &&
                     (this.state === 'hold' || this.state === 'skirmish' ||
+                     this.state === 'flank' ||
                      this.state === 'firing' || this.state === 'deploying' ||
                      this.state === 'standby')) {
                     this.setDesiredAngle(this.getAngleTo(this.currentTarget));
@@ -2267,9 +2276,9 @@ permalink: /sandbox_war_game.html
                         this.y = nextY;
                         this.stuckTime = 0;
                     } else {
-                        // 前方受阻：履带车不可侧滑，原地等待重寻路
+                        // 前方受阻：履带车不可侧滑, 尝试逃脱 + 卡住则停下重新决策
                         this.stuckTime += deltaTime;
-                        if (this.stuckTime > 0.5) {
+                        if (this.stuckTime > 0.3) {
                             const escAngle = Math.random() * Math.PI * 2;
                             const esc = 14 + Math.random() * 16;
                             const nx = this.x + Math.cos(escAngle) * esc * deltaTime * 10;
@@ -2278,9 +2287,12 @@ permalink: /sandbox_war_game.html
                                 this.x = nx;
                                 this.y = ny;
                             }
-                            if (this.stuckTime > 1.0) {
+                            if (this.stuckTime > 0.6) {
+                                // 卡死: 停下让 update 重新决策 (避免墙角原地转/背对敌人)
                                 this.updatePathToTarget(true);
+                                this.isMoving = false;
                                 this.stuckTime = 0;
+                                if (this.element) this.element.classList.remove('moving');
                             }
                         }
                     }
@@ -2339,8 +2351,8 @@ permalink: /sandbox_war_game.html
                     const minDist = (mySize + otherSize) / 2;
 
                     if (dist < minDist && dist > 0) {
-                        // 产生一个轻微的排斥力
-                        const pushForce = (minDist - dist) * 0.1;
+                        // 产生排斥力 (避免堵塞堆叠, 让后排有空间开火)
+                        const pushForce = (minDist - dist) * 0.25;
                         this.x += (dx / dist) * pushForce;
                         this.y += (dy / dist) * pushForce;
                         
