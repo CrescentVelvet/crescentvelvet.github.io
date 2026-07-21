@@ -439,6 +439,77 @@ permalink: /sandbox_war_game.html
         .rocket-tube.t3 { left: 17px; }
         .rocket-tube.t4 { left: 21px; }
 
+        /* 指挥车 (18px, 基于 28px 设计) */
+        .unit.command {
+            --unit-size: 18px;
+            --body-size: 28px;
+            --scale: 0.643;
+        }
+        .command-body {
+            position: absolute;
+            width: 20px; height: 14px;
+            left: 4px; top: 7px;
+            background: #2c3e50;
+            box-shadow: inset 0 0 0 2px #34495e, 0 2px 0 rgba(0,0,0,0.45);
+        }
+        .command-antenna {
+            position: absolute;
+            width: 2px; height: 10px;
+            left: 18px; top: 0;
+            background: #95a5a6;
+        }
+        .command-star {
+            position: absolute;
+            width: 5px; height: 5px;
+            left: 11px; top: 11px;
+            background: #f1c40f;
+            clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+        }
+
+        /* 补给车 (18px) */
+        .unit.supply {
+            --unit-size: 18px;
+            --body-size: 28px;
+            --scale: 0.643;
+        }
+        .supply-body {
+            position: absolute;
+            width: 20px; height: 14px;
+            left: 4px; top: 7px;
+            background: #27ae60;
+            box-shadow: inset 0 0 0 2px #2ecc71, 0 2px 0 rgba(0,0,0,0.45);
+        }
+        .supply-cross {
+            position: absolute;
+            width: 4px; height: 4px;
+            left: 12px; top: 12px;
+            background: #ecf0f1;
+        }
+
+        /* 工程兵 (14px, 复用 soldier-head/body 染黄) */
+        .unit.engineer {
+            --unit-size: 14px;
+            --body-size: 22px;
+            --scale: 0.636;
+        }
+        .unit.engineer .soldier-body { background: #f39c12; box-shadow: inset 0 0 0 2px #d68910, 0 2px 0 rgba(0,0,0,0.45); }
+        .unit.engineer .soldier-head { background: #f5cba7; box-shadow: inset 0 0 0 2px #d68910; }
+
+        /* 医疗兵 (14px, 复用 soldier-head/body 染白 + 红十字) */
+        .unit.medic {
+            --unit-size: 14px;
+            --body-size: 22px;
+            --scale: 0.636;
+        }
+        .unit.medic .soldier-body { background: #ecf0f1; box-shadow: inset 0 0 0 2px #bdc3c7, 0 2px 0 rgba(0,0,0,0.45); }
+        .unit.medic .soldier-head { background: #fadbd8; box-shadow: inset 0 0 0 2px #bdc3c7; }
+        .medic-cross {
+            position: absolute;
+            width: 3px; height: 3px;
+            left: 5px; top: 6px;
+            background: #e74c3c;
+        }
+
         .unit.selected {
             filter: drop-shadow(0 0 4px #f1c40f);
             z-index: 100;
@@ -706,6 +777,10 @@ permalink: /sandbox_war_game.html
                     <button onclick="addUnit('ally','soldier')" class="pixel-btn btn-ally">步兵</button>
                     <button onclick="addUnit('ally','artillery')" class="pixel-btn btn-ally">火炮</button>
                     <button onclick="addUnit('ally','rocket')" class="pixel-btn btn-ally">火箭炮</button>
+                    <button onclick="addUnit('ally','command')" class="pixel-btn btn-ally">指挥</button>
+                    <button onclick="addUnit('ally','supply')" class="pixel-btn btn-ally">补给</button>
+                    <button onclick="addUnit('ally','engineer')" class="pixel-btn btn-ally">工兵</button>
+                    <button onclick="addUnit('ally','medic')" class="pixel-btn btn-ally">医疗</button>
                 </div>
 
                 <div class="control-row" id="enemyControlRow">
@@ -713,6 +788,10 @@ permalink: /sandbox_war_game.html
                     <button onclick="addUnit('enemy','soldier')" class="pixel-btn btn-enemy">步兵</button>
                     <button onclick="addUnit('enemy','artillery')" class="pixel-btn btn-enemy">火炮</button>
                     <button onclick="addUnit('enemy','rocket')" class="pixel-btn btn-enemy">火箭炮</button>
+                    <button onclick="addUnit('enemy','command')" class="pixel-btn btn-enemy">指挥</button>
+                    <button onclick="addUnit('enemy','supply')" class="pixel-btn btn-enemy">补给</button>
+                    <button onclick="addUnit('enemy','engineer')" class="pixel-btn btn-enemy">工兵</button>
+                    <button onclick="addUnit('enemy','medic')" class="pixel-btn btn-enemy">医疗</button>
                 </div>
             </div>
         </div>
@@ -1444,16 +1523,17 @@ permalink: /sandbox_war_game.html
          *
          * ─── 十、v3.0 实施路线图 ───
          *
-         *   P1 [当前]: 战术推演层架构文档 ← 你在这里
-         *   P2: 兵力点值系统 + 部署 UI 重构 (拖拽/朝向/阵型模板)
-         *   P3: 士气系统 (MoraleSystem, 替代硬撤退)
-         *   P4: 战术指令系统 (轴线绘制 + 集火优先级 + 支援绑定 + 目标)
+         *   P1 [已完成]: 战术推演层架构文档
+         *   P2 [暂缓]: 兵力点值系统 + 部署 UI 重构 (拖拽/朝向/阵型模板)
+         *      [点值系统已完成, 部署 UI 暂缓避免操作复杂, 后续再考虑]
+         *   P3 [已完成]: 士气系统 (MoraleSystem, 替代硬撤退)
+         *   P4 [暂缓]: 战术指令系统 (轴线绘制 + 集火优先级 + 支援绑定 + 目标)
+         *      [暂缓避免操作复杂, 后续再考虑]
          *   P5: 兵种协同链可视化 (SynergyChainRenderer)
-         *   P6: 历史真实战役系统 (ScenarioLoader + 2 场首发现代战役 + 研发中占位)
-         *   P7: 复盘回放 + 效率评分
-         *   P8: 补齐剩余 10 兵种实现 (v2.0 文档已设计)
-         *   P9: 战场地图绘制系统 (TerrainRenderer + 单位尺寸缩小)
-         *      [前置依赖: 建议在 P2 部署 UI 前完成, 地图先画好才能部署]
+         *   P6 [当前]: 历史真实战役系统 (新增更多战役)
+         *   P7: 复盘回放 + 效率评分 [评分已完成, 回放待做]
+         *   P8 [当前]: 补齐剩余 10 兵种实现 (v2.0 文档已设计)
+         *   P9 [已完成]: 战场地图绘制系统 (TerrainRenderer + 单位尺寸缩小)
          *
          * ============================================================
          * 十一、战场地图绘制系统
@@ -1608,13 +1688,23 @@ permalink: /sandbox_war_game.html
                 if (this.type === 'tank') return 22;
                 if (this.type === 'artillery') return 20;
                 if (this.type === 'rocket') return 20;
+                if (this.type === 'command' || this.type === 'supply') return 18;
                 return 14;
             }
 
             getDisplayMarkup() {
-                const body = this.type === 'tank'
-                    ? '<div class="tank-track left"></div><div class="tank-track right"></div><div class="tank-body"></div><div class="tank-turret"></div><div class="tank-barrel"></div>'
-                    : '<div class="soldier-head"></div><div class="soldier-body"></div>';
+                let body;
+                if (this.type === 'tank') {
+                    body = '<div class="tank-track left"></div><div class="tank-track right"></div><div class="tank-body"></div><div class="tank-turret"></div><div class="tank-barrel"></div>';
+                } else if (this.type === 'command') {
+                    body = '<div class="command-body"></div><div class="command-antenna"></div><div class="command-star"></div>';
+                } else if (this.type === 'supply') {
+                    body = '<div class="supply-body"></div><div class="supply-cross"></div>';
+                } else if (this.type === 'medic') {
+                    body = '<div class="soldier-head"></div><div class="soldier-body"></div><div class="medic-cross"></div>';
+                } else {
+                    body = '<div class="soldier-head"></div><div class="soldier-body"></div>';
+                }
 
                 return `<div class="unit-body">${body}</div><div class="hp-bar"><div class="hp-fill" style="width: ${this.getHealthPercent()}%"></div></div>`;
             }
@@ -1923,16 +2013,25 @@ permalink: /sandbox_war_game.html
                 if (this.isDead()) return;
                 // 基础上限: 血量衰减 (士气上限随血量下降)
                 const healthFactor = Math.max(0, this.health / this.maxHealth);
-                const moraleCap = this.baseMorale * healthFactor;
 
                 let delta = 0;
-                // 孤立无援: 100px 内无友军 -5/s
                 let hasAllyNear = false;
+                let hasCommander = false;
+                let hasLogistics = false;
+                let panicNearby = false;
+
+                // 一次遍历友军: 孤立/指挥车光环/后勤/溃逃传染
                 for (const u of allUnits) {
                     if (u === this || u.isDead() || u.team !== this.team) continue;
-                    if (this.getDistance(u) < 100) { hasAllyNear = true; break; }
+                    const d = this.getDistance(u);
+                    if (d < 100) hasAllyNear = true;
+                    if (u.type === 'command' && d < 150) hasCommander = true;
+                    if ((u.type === 'supply' || u.type === 'engineer' || u.type === 'medic') && d < 100) hasLogistics = true;
+                    if (u.morale !== undefined && u.morale < 20 && d < 120) panicNearby = true;
                 }
                 if (!hasAllyNear) delta -= 5;
+                if (hasLogistics) delta += 3;
+                if (panicNearby) delta -= 8;
 
                 // 被集火: 被多敌瞄准 -3/s (超过1个)
                 let attackerCount = 0;
@@ -1942,15 +2041,11 @@ permalink: /sandbox_war_game.html
                 }
                 if (attackerCount > 1) delta -= 3 * (attackerCount - 1);
 
-                // 溃逃传染: 附近有溃退友军 -8/s (雪崩效应)
-                for (const u of allUnits) {
-                    if (u === this || u.isDead() || u.team !== this.team) continue;
-                    if (u.morale !== undefined && u.morale < 20 && this.getDistance(u) < 120) { delta -= 8; break; }
-                }
+                // 指挥车光环: 士气上限 +15
+                const moraleCap = this.baseMorale * healthFactor + (hasCommander ? 15 : 0);
 
                 // 应用 delta
                 this.morale += delta * deltaTime;
-                // 收敛到血量上限
                 if (this.morale > moraleCap) this.morale = moraleCap;
                 if (this.morale < 0) this.morale = 0;
             }
@@ -1968,7 +2063,10 @@ permalink: /sandbox_war_game.html
                 const moraleFactor = this.getMoraleAttackFactor();
                 if (moraleFactor === 0) return;
                 const now = Date.now();
-                if (now - this.lastAttackTime < this.attackCooldown * moraleFactor) return;
+                // 指挥车光环: 攻速 +15%
+                const buffed = this.commandBuffUntil && this.commandBuffUntil > now;
+                const cooldown = this.attackCooldown * moraleFactor * (buffed ? 0.85 : 1);
+                if (now - this.lastAttackTime < cooldown) return;
 
                 const distance = this.getDistance(target);
                 if (distance <= this.attackRange && target.team !== this.team && !target.isDead()) {
@@ -1978,7 +2076,10 @@ permalink: /sandbox_war_game.html
                     if (!this.hasLineOfSight(target)) return;
 
                     this.lastAttackTime = now;
-                    battlefieldManager.spawnProjectile(this, target, this.getAttackDamage());
+                    // 指挥车光环: 攻击 +10%
+                    let damage = this.getAttackDamage();
+                    if (buffed) damage = Math.round(damage * 1.1);
+                    battlefieldManager.spawnProjectile(this, target, damage);
                 }
             }
 
@@ -2784,7 +2885,12 @@ permalink: /sandbox_war_game.html
             startVolley(target) {
                 if (this.volleyCount > 0) return;
                 const now = Date.now();
-                if (now - this.lastAttackTime < this.attackCooldown) return;
+                // 士气 + 指挥车光环影响攻速
+                const moraleFactor = this.getMoraleAttackFactor();
+                if (moraleFactor === 0) return;
+                const buffed = this.commandBuffUntil && this.commandBuffUntil > now;
+                const cooldown = this.attackCooldown * moraleFactor * (buffed ? 0.85 : 1);
+                if (now - this.lastAttackTime < cooldown) return;
                 this.volleyCount = this.volleySize;
                 this.volleyTimer = this.volleyInterval;
                 this.currentTarget = target;
@@ -2795,7 +2901,9 @@ permalink: /sandbox_war_game.html
                     this.volleyCount = 0;
                     return;
                 }
-                const damage = this.getAttackDamage();
+                let damage = this.getAttackDamage();
+                // 指挥车光环: 攻击 +10%
+                if (this.commandBuffUntil && this.commandBuffUntil > Date.now()) damage = Math.round(damage * 1.1);
                 const scatterX = (Math.random() - 0.5) * 40;
                 const scatterY = (Math.random() - 0.5) * 40;
                 const targetX = target.x + target.getSize() / 2 + scatterX;
@@ -2805,6 +2913,150 @@ permalink: /sandbox_war_game.html
 
             tryAttack(target) {
                 this.startVolley(target);
+            }
+        }
+
+        // ── v3.0 P8 支援单位 (无攻击, 跟随友军 + 光环/维修/治疗) ──
+        class SupportUnit extends GameObject {
+            constructor(x, y, type, team, health) {
+                super(x, y, type, team, health);
+                this.isSupport = true;
+                this.supportRange = 100;
+                this.supportRate = 0;
+            }
+
+            update(deltaTime, allUnits) {
+                if (this.isDead()) return;
+                this.updateMorale(deltaTime, allUnits);
+                this.applySupport(deltaTime, allUnits);
+
+                // 跟随最近高价值友军 (坦克/车辆)
+                const target = this.findSupportTarget(allUnits);
+                if (target) {
+                    const dist = this.getDistance(target);
+                    if (dist > 130) {
+                        this.state = 'follow';
+                        this.moveTowards(target, 0.65);
+                    } else if (dist < 60) {
+                        this.moveAwayFrom(target, 50);
+                    } else {
+                        if (this.isMoving) {
+                            this.isMoving = false;
+                            this.path = [];
+                            if (this.element) this.element.classList.remove('moving');
+                        }
+                        this.state = 'hold';
+                    }
+                } else {
+                    this.state = 'patrol';
+                    this.randomMove(deltaTime);
+                }
+                this.updatePosition(deltaTime, allUnits);
+            }
+
+            findSupportTarget(allUnits) {
+                let best = null, bestDist = Infinity;
+                for (const u of allUnits) {
+                    if (u === this || u.isDead() || u.team !== this.team) continue;
+                    if (u.type === 'tank' || u.type === 'artillery' || u.type === 'rocket' ||
+                        u.type === 'command' || u.type === 'supply') {
+                        const d = this.getDistance(u);
+                        if (d < bestDist) { bestDist = d; best = u; }
+                    }
+                }
+                return best;
+            }
+
+            applySupport(deltaTime, allUnits) { /* 子类实现 */ }
+
+            tryAttack(target) { /* 支援单位无攻击 */ }
+        }
+
+        // 指挥车: 150px 光环 (友军攻速+15% 攻击+10% + 士气上限+15)
+        class CommandVehicle extends SupportUnit {
+            constructor(x, y, team, health) {
+                super(x, y, 'command', team, health);
+                this.maxSpeed = 25;
+                this.maxTurnSpeed = 100;
+                this.supportRange = 150;
+            }
+
+            applySupport(deltaTime, allUnits) {
+                const now = Date.now();
+                for (const u of allUnits) {
+                    if (u === this || u.isDead() || u.team !== this.team) continue;
+                    if (this.getDistance(u) < this.supportRange) {
+                        u.commandBuffUntil = now + 200;
+                    }
+                }
+            }
+        }
+
+        // 补给车: 120px 内友军车辆 +10 HP/s 维修
+        class SupplyTruck extends SupportUnit {
+            constructor(x, y, team, health) {
+                super(x, y, 'supply', team, health);
+                this.maxSpeed = 35;
+                this.maxTurnSpeed = 110;
+                this.supportRange = 120;
+                this.supportRate = 10;
+            }
+
+            applySupport(deltaTime, allUnits) {
+                for (const u of allUnits) {
+                    if (u === this || u.isDead() || u.team !== this.team) continue;
+                    if (u.type === 'tank' || u.type === 'artillery' || u.type === 'rocket' ||
+                        u.type === 'command' || u.type === 'supply') {
+                        if (this.getDistance(u) < this.supportRange && u.health < u.maxHealth) {
+                            u.health = Math.min(u.maxHealth, u.health + this.supportRate * deltaTime);
+                        }
+                    }
+                }
+            }
+        }
+
+        // 工程兵: 80px 内友军车辆 +8 HP/s 维修
+        class Engineer extends SupportUnit {
+            constructor(x, y, team, health) {
+                super(x, y, 'engineer', team, health);
+                this.maxSpeed = 30;
+                this.maxTurnSpeed = 210;
+                this.supportRange = 80;
+                this.supportRate = 8;
+            }
+
+            applySupport(deltaTime, allUnits) {
+                for (const u of allUnits) {
+                    if (u === this || u.isDead() || u.team !== this.team) continue;
+                    if (u.type === 'tank' || u.type === 'artillery' || u.type === 'rocket' ||
+                        u.type === 'command' || u.type === 'supply') {
+                        if (this.getDistance(u) < this.supportRange && u.health < u.maxHealth) {
+                            u.health = Math.min(u.maxHealth, u.health + this.supportRate * deltaTime);
+                        }
+                    }
+                }
+            }
+        }
+
+        // 医疗兵: 80px 内友军步兵 +6 HP/s 治疗
+        class Medic extends SupportUnit {
+            constructor(x, y, team, health) {
+                super(x, y, 'medic', team, health);
+                this.maxSpeed = 30;
+                this.maxTurnSpeed = 210;
+                this.supportRange = 80;
+                this.supportRate = 6;
+            }
+
+            applySupport(deltaTime, allUnits) {
+                for (const u of allUnits) {
+                    if (u === this || u.isDead() || u.team !== this.team) continue;
+                    if (u.type === 'soldier' || u.type === 'engineer' || u.type === 'medic') {
+                        if (this.getDistance(u) < this.supportRange && u.health < u.maxHealth) {
+                            u.health = Math.min(u.maxHealth, u.health + this.supportRate * deltaTime);
+                        }
+                    }
+                }
             }
         }
 
@@ -3108,8 +3360,10 @@ permalink: /sandbox_war_game.html
             mediumTank: 'tank',    heavyTank: 'tank',     lightTank: 'tank',
             tankDestroyer: 'artillery', assaultGun: 'artillery',
             rifleman: 'soldier',   antitankInf: 'soldier', assaultInf: 'soldier',
-            sniper: 'soldier',    medic: 'soldier',      armoredInf: 'soldier',
-            katyusha: 'rocket'
+            sniper: 'soldier',    armoredInf: 'soldier',
+            katyusha: 'rocket',
+            medic: 'medic',        engineer: 'engineer',
+            supplyTruck: 'supply', commandVehicle: 'command'
         };
 
         // ── v3.0 战场地图绘制器 ──
@@ -3445,6 +3699,10 @@ permalink: /sandbox_war_game.html
                 if (type === 'tank') unit = new Tank(x, y, team, health);
                 else if (type === 'artillery') unit = new Artillery(x, y, team, health);
                 else if (type === 'rocket') unit = new RocketLauncher(x, y, team, health);
+                else if (type === 'command') unit = new CommandVehicle(x, y, team, health);
+                else if (type === 'supply') unit = new SupplyTruck(x, y, team, health);
+                else if (type === 'engineer') unit = new Engineer(x, y, team, health);
+                else if (type === 'medic') unit = new Medic(x, y, team, health);
                 else unit = new Soldier(x, y, team, health);
                 unit.angle = angle;
                 unit.desiredAngle = angle;
@@ -3938,12 +4196,23 @@ permalink: /sandbox_war_game.html
             tank:      { health: 300, pointCost: 30 },
             soldier:   { health: 80,  pointCost: 3 },
             artillery: { health: 90,  pointCost: 24 },
-            rocket:    { health: 70,  pointCost: 20 }
+            rocket:    { health: 70,  pointCost: 20 },
+            command:   { health: 100, pointCost: 25 },
+            supply:    { health: 130, pointCost: 10 },
+            engineer:  { health: 40,  pointCost: 4 },
+            medic:     { health: 45,  pointCost: 4 }
         };
 
         // 工具函数
         function unitTypeName(type) {
-            return type === 'tank' ? '坦克' : (type === 'artillery' ? '火炮' : (type === 'rocket' ? '火箭炮' : '步兵'));
+            if (type === 'tank') return '坦克';
+            if (type === 'artillery') return '火炮';
+            if (type === 'rocket') return '火箭炮';
+            if (type === 'command') return '指挥车';
+            if (type === 'supply') return '补给车';
+            if (type === 'engineer') return '工程兵';
+            if (type === 'medic') return '医疗兵';
+            return '步兵';
         }
 
         function logBattle(message, type = 'info') {
@@ -3987,6 +4256,7 @@ permalink: /sandbox_war_game.html
             let unitSize;
             if (type === 'tank') unitSize = 22;
             else if (type === 'artillery' || type === 'rocket') unitSize = 20;
+            else if (type === 'command' || type === 'supply') unitSize = 18;
             else unitSize = 14;
             const deploymentDepth = Math.min(280, battlefield.offsetWidth * 0.28);
             let x = 0;
@@ -4020,6 +4290,14 @@ permalink: /sandbox_war_game.html
                 unit = new Artillery(x, y, team, health);
             } else if (type === 'rocket') {
                 unit = new RocketLauncher(x, y, team, health);
+            } else if (type === 'command') {
+                unit = new CommandVehicle(x, y, team, health);
+            } else if (type === 'supply') {
+                unit = new SupplyTruck(x, y, team, health);
+            } else if (type === 'engineer') {
+                unit = new Engineer(x, y, team, health);
+            } else if (type === 'medic') {
+                unit = new Medic(x, y, team, health);
             } else {
                 unit = new Soldier(x, y, team, health);
             }
