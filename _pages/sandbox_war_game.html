@@ -685,6 +685,9 @@ permalink: /sandbox_war_game.html
                         <option value="prokhorovka">普罗霍罗夫卡 (PVE)</option>
                         <option value="custom_pvp">自定义战役 (PVP)</option>
                     </select>
+                    <button onclick="addObstacle()" class="pixel-btn btn-obstacle">+掩体</button>
+                    <button onclick="toggleBattle()" id="battleBtn" class="pixel-btn btn-action">开战</button>
+                    <button onclick="clearBattlefield()" class="pixel-btn btn-danger">清空</button>
                 </div>
 
                 <div class="control-row">
@@ -699,12 +702,6 @@ permalink: /sandbox_war_game.html
                     <button onclick="addUnit('enemy','soldier')" class="pixel-btn btn-enemy">步兵</button>
                     <button onclick="addUnit('enemy','artillery')" class="pixel-btn btn-enemy">火炮</button>
                     <button onclick="addUnit('enemy','rocket')" class="pixel-btn btn-enemy">火箭炮</button>
-                </div>
-
-                <div class="control-row">
-                    <button onclick="addObstacle()" class="pixel-btn btn-obstacle">+掩体</button>
-                    <button onclick="toggleBattle()" id="battleBtn" class="pixel-btn btn-action">开战</button>
-                    <button onclick="clearBattlefield()" class="pixel-btn btn-danger">清空</button>
                 </div>
             </div>
         </div>
