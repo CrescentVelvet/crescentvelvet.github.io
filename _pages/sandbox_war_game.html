@@ -2923,6 +2923,7 @@ permalink: /sandbox_war_game.html
                 this.isSupport = true;
                 this.supportRange = 100;
                 this.supportRate = 0;
+                this.attackRange = 150;  // moveTowards 跟随参考距离 (支援单位无攻击, 仅供 stopFactor 计算)
             }
 
             update(deltaTime, allUnits) {
