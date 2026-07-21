@@ -1806,10 +1806,10 @@ permalink: /sandbox_war_game.html
                             this.moveAwayFrom(nearestEnemy, 90);
                         }
                     } else if (!this.hasLineOfSight(nearestEnemy)) {
-                        // 视线被掩体挡: 接近敌人位置寻路绕过掩体, 每 1.5s 强制重规划路线
+                        // 视线被掩体挡: 接近敌人位置寻路绕过掩体, path 用完且 1.5s 后重规划 (避免中途反复变 path 扭头)
                         this.state = 'chase';
                         this.moveTowards(nearestEnemy, 0.0);
-                        if (!this.lastRepathTime || Date.now() - this.lastRepathTime > 1500) {
+                        if (this.path.length === 0 && (!this.lastRepathTime || Date.now() - this.lastRepathTime > 1500)) {
                             this.lastRepathTime = Date.now();
                             this.updatePathToTarget(true);
                         }
@@ -2385,7 +2385,15 @@ permalink: /sandbox_war_game.html
                     pushX = pushX / pushMag * maxPush;
                     pushY = pushY / pushMag * maxPush;
                 }
-                if (pushMag > 0.01) {
+                // 履带车: 推斥只沿车体朝向 (前后), 不侧移 (符合履带行驶逻辑)
+                if (this.isTracked) {
+                    const forward = this.forwardVector();
+                    const proj = pushX * forward.x + pushY * forward.y;
+                    pushX = forward.x * proj;
+                    pushY = forward.y * proj;
+                }
+                const finalMag = Math.sqrt(pushX * pushX + pushY * pushY);
+                if (finalMag > 0.01) {
                     const nx = this.x + pushX;
                     const ny = this.y + pushY;
                     // 不推入掩体 (避免被队友挤进障碍物卡死)
