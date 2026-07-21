@@ -565,6 +565,82 @@ permalink: /sandbox_war_game.html
         .td-track.left { left: 3px; }
         .td-track.right { right: 3px; }
 
+        /* 侦察车 (18px, 灰色吉普 + 天线) */
+        .unit.scout {
+            --unit-size: 18px;
+            --body-size: 28px;
+            --scale: 0.643;
+        }
+        .scout-body {
+            position: absolute;
+            width: 20px; height: 12px;
+            left: 4px; top: 8px;
+            background: #7f8c8d;
+            box-shadow: inset 0 0 0 2px #95a5a6, 0 2px 0 rgba(0,0,0,0.45);
+        }
+        .scout-wheel {
+            position: absolute;
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            background: #1a1a1a;
+            top: 18px;
+        }
+        .scout-wheel.left { left: 4px; }
+        .scout-wheel.right { right: 4px; }
+        .scout-antenna {
+            position: absolute;
+            width: 2px; height: 8px;
+            left: 14px; top: 0;
+            background: #bdc3c7;
+        }
+
+        /* 装甲运兵车 (18px, 深绿六轮) */
+        .unit.apc {
+            --unit-size: 18px;
+            --body-size: 28px;
+            --scale: 0.643;
+        }
+        .apc-body {
+            position: absolute;
+            width: 22px; height: 14px;
+            left: 3px; top: 7px;
+            background: #1e7a3d;
+            box-shadow: inset 0 0 0 2px #27ae60, 0 2px 0 rgba(0,0,0,0.45);
+        }
+        .apc-wheel {
+            position: absolute;
+            width: 5px; height: 5px;
+            border-radius: 50%;
+            background: #1a1a1a;
+            top: 19px;
+        }
+        .apc-wheel.f1 { left: 3px; }
+        .apc-wheel.f2 { left: 11px; }
+        .apc-wheel.f3 { right: 3px; }
+
+        /* 迫击炮 (20px, 深绿短管小炮) */
+        .unit.mortar {
+            --unit-size: 20px;
+            --body-size: 32px;
+            --scale: 0.625;
+        }
+        .mortar-base {
+            position: absolute;
+            width: 14px; height: 6px;
+            left: 9px; top: 22px;
+            background: #2c3e50;
+            box-shadow: inset 0 0 0 1px #34495e;
+        }
+        .mortar-tube {
+            position: absolute;
+            width: 4px; height: 18px;
+            left: 14px; top: 4px;
+            background: #27ae60;
+            box-shadow: inset 0 0 0 2px #1e7a3d;
+            transform: rotate(30deg);
+            transform-origin: bottom;
+        }
+
         .unit.selected {
             filter: drop-shadow(0 0 4px #f1c40f);
             z-index: 100;
@@ -839,6 +915,9 @@ permalink: /sandbox_war_game.html
                     <button onclick="addUnit('ally','antitank')" class="pixel-btn btn-ally">反坦</button>
                     <button onclick="addUnit('ally','lightTank')" class="pixel-btn btn-ally">轻坦</button>
                     <button onclick="addUnit('ally','tankDestroyer')" class="pixel-btn btn-ally">歼击</button>
+                    <button onclick="addUnit('ally','scout')" class="pixel-btn btn-ally">侦察</button>
+                    <button onclick="addUnit('ally','apc')" class="pixel-btn btn-ally">运兵</button>
+                    <button onclick="addUnit('ally','mortar')" class="pixel-btn btn-ally">迫击</button>
                 </div>
 
                 <div class="control-row" id="enemyControlRow">
@@ -853,6 +932,9 @@ permalink: /sandbox_war_game.html
                     <button onclick="addUnit('enemy','antitank')" class="pixel-btn btn-enemy">反坦</button>
                     <button onclick="addUnit('enemy','lightTank')" class="pixel-btn btn-enemy">轻坦</button>
                     <button onclick="addUnit('enemy','tankDestroyer')" class="pixel-btn btn-enemy">歼击</button>
+                    <button onclick="addUnit('enemy','scout')" class="pixel-btn btn-enemy">侦察</button>
+                    <button onclick="addUnit('enemy','apc')" class="pixel-btn btn-enemy">运兵</button>
+                    <button onclick="addUnit('enemy','mortar')" class="pixel-btn btn-enemy">迫击</button>
                 </div>
             </div>
         </div>
@@ -1750,9 +1832,8 @@ permalink: /sandbox_war_game.html
 
             getSize() {
                 if (this.type === 'tank') return 22;
-                if (this.type === 'artillery') return 20;
-                if (this.type === 'rocket') return 20;
-                if (this.type === 'command' || this.type === 'supply') return 18;
+                if (this.type === 'artillery' || this.type === 'rocket' || this.type === 'mortar') return 20;
+                if (this.type === 'command' || this.type === 'supply' || this.type === 'scout' || this.type === 'apc') return 18;
                 return 14;
             }
 
@@ -1770,6 +1851,12 @@ permalink: /sandbox_war_game.html
                     body = '<div class="soldier-head"></div><div class="soldier-body"></div><div class="medic-cross"></div>';
                 } else if (this.type === 'antitank') {
                     body = '<div class="soldier-head"></div><div class="soldier-body"></div><div class="antitank-tube"></div>';
+                } else if (this.type === 'scout') {
+                    body = '<div class="scout-body"></div><div class="scout-wheel left"></div><div class="scout-wheel right"></div><div class="scout-antenna"></div>';
+                } else if (this.type === 'apc') {
+                    body = '<div class="apc-body"></div><div class="apc-wheel f1"></div><div class="apc-wheel f2"></div><div class="apc-wheel f3"></div>';
+                } else if (this.type === 'mortar') {
+                    body = '<div class="mortar-base"></div><div class="mortar-tube"></div>';
                 } else {
                     body = '<div class="soldier-head"></div><div class="soldier-body"></div>';
                 }
@@ -2681,6 +2768,16 @@ permalink: /sandbox_war_game.html
             }
 
             takeDamage(damage) {
+                // v3.0 APC 掩护: 步兵在 APC 40px 内受击减伤 30%
+                if (this.armorType === 'infantry' && battlefieldManager) {
+                    for (const u of battlefieldManager.units) {
+                        if (u === this || u.isDead() || u.team !== this.team) continue;
+                        if (u.type === 'apc' && this.getDistance(u) < (u.coverRadius || 40)) {
+                            damage = Math.round(damage * (1 - (u.coverReduction || 0.3)));
+                            break;
+                        }
+                    }
+                }
                 this.health = Math.max(0, this.health - damage);
                 this.updateVisual();
                 return this.health <= 0;
@@ -3208,6 +3305,89 @@ permalink: /sandbox_war_game.html
             }
         }
 
+        // ── v3.0 P8 阶段三 侦察/掩护/迫击炮 ──
+        // 侦察车: 快速轻武器, 骚扰敌方后排
+        class ScoutCar extends GameObject {
+            constructor(x, y, team, health) {
+                super(x, y, 'scout', team, health);
+                this.attackRange = 90;
+                this.attackPower = 15;
+                this.maxSpeed = 65;  // 最快
+                this.maxTurnSpeed = 220;
+                this.attackCooldown = 1200;
+                this.moveCooldown = 200;
+                this.isTracked = false;
+                // 轻武器: 对步兵120%/车辆60%/坦克20%
+                this.armorType = 'vehicle';
+                this.damageTable = { infantry: 1.2, vehicle: 0.6, tank: 0.2 };
+            }
+        }
+
+        // 装甲运兵车: 轻武器, 周围40px友军步兵30%减伤掩护
+        class APC extends GameObject {
+            constructor(x, y, team, health) {
+                super(x, y, 'apc', team, health);
+                this.attackRange = 110;
+                this.attackPower = 18;
+                this.maxSpeed = 50;
+                this.maxTurnSpeed = 120;
+                this.attackCooldown = 1500;
+                this.moveCooldown = 400;
+                this.isTracked = false;
+                // 轻武器: 对步兵100%/车辆50%/坦克25%
+                this.armorType = 'vehicle';
+                this.damageTable = { infantry: 1.0, vehicle: 0.5, tank: 0.25 };
+                this.coverRadius = 40;
+                this.coverReduction = 0.3;  // 30% 减伤
+            }
+        }
+
+        // 迫击炮: 高爆溅射, 无需架设, 最小射程60
+        class Mortar extends Tank {
+            constructor(x, y, team, health) {
+                super(x, y, team, health);
+                this.type = 'mortar';
+                this.attackRange = 300;
+                this.minRange = 60;
+                this.attackPower = 38;
+                this.maxSpeed = 28;
+                this.attackCooldown = 2500;
+                // 高爆: 对步兵150%/车辆100%/坦克70%
+                this.armorType = 'vehicle';
+                this.damageTable = { infantry: 1.5, vehicle: 1.0, tank: 0.7 };
+            }
+
+            tryAttack(target) {
+                const moraleFactor = this.getMoraleAttackFactor();
+                if (moraleFactor === 0) return;
+                const now = Date.now();
+                const buffed = this.commandBuffUntil && this.commandBuffUntil > now;
+                const cooldown = this.attackCooldown * moraleFactor * (buffed ? 0.85 : 1);
+                if (now - this.lastAttackTime < cooldown) return;
+
+                const distance = this.getDistance(target);
+                // 迫击炮: 最小射程 60, 最大射程 300
+                if (distance <= this.attackRange && distance >= this.minRange &&
+                    target.team !== this.team && !target.isDead()) {
+                    this.turnToward(target);
+                    if (!this.canMoveFire && !this.isFacing(target)) return;
+                    if (!this.hasLineOfSight(target)) return;
+
+                    this.lastAttackTime = now;
+                    let damage = this.getAttackDamage(target);
+                    if (buffed) damage = Math.round(damage * 1.1);
+                    // 迫击炮: 散布 + 60px 溅射
+                    const scatterX = (Math.random() - 0.5) * 30;
+                    const scatterY = (Math.random() - 0.5) * 30;
+                    const targetX = target.x + target.getSize() / 2 + scatterX;
+                    const targetY = target.y + target.getSize() / 2 + scatterY;
+                    battlefieldManager.spawnScatterProjectile(this, target, targetX, targetY, damage);
+                    const proj = battlefieldManager.projectiles[battlefieldManager.projectiles.length - 1];
+                    if (proj) proj.splashRadius = 60;
+                }
+            }
+        }
+
         class Projectile {
             constructor(source, target, damage) {
                 this.source = source;
@@ -3511,7 +3691,8 @@ permalink: /sandbox_war_game.html
             sniper: 'soldier',    armoredInf: 'soldier',
             katyusha: 'rocket',
             medic: 'medic',        engineer: 'engineer',
-            supplyTruck: 'supply', commandVehicle: 'command'
+            supplyTruck: 'supply', commandVehicle: 'command',
+            scoutCar: 'scout', apc: 'apc', mortar: 'mortar'
         };
 
         // ── v3.0 战场地图绘制器 ──
@@ -3854,6 +4035,9 @@ permalink: /sandbox_war_game.html
                 else if (type === 'antitank') unit = new RocketSoldier(x, y, team, health);
                 else if (type === 'lightTank') unit = new LightTank(x, y, team, health);
                 else if (type === 'tankDestroyer') unit = new TankDestroyer(x, y, team, health);
+                else if (type === 'scout') unit = new ScoutCar(x, y, team, health);
+                else if (type === 'apc') unit = new APC(x, y, team, health);
+                else if (type === 'mortar') unit = new Mortar(x, y, team, health);
                 else unit = new Soldier(x, y, team, health);
                 unit.angle = angle;
                 unit.desiredAngle = angle;
@@ -4354,7 +4538,10 @@ permalink: /sandbox_war_game.html
             medic:     { health: 45,  pointCost: 4 },
             antitank:      { health: 50,  pointCost: 6 },
             lightTank:     { health: 200, pointCost: 18 },
-            tankDestroyer: { health: 180, pointCost: 22 }
+            tankDestroyer: { health: 180, pointCost: 22 },
+            scout:         { health: 80,  pointCost: 8 },
+            apc:           { health: 150, pointCost: 12 },
+            mortar:        { health: 70,  pointCost: 14 }
         };
 
         // 工具函数
@@ -4369,6 +4556,9 @@ permalink: /sandbox_war_game.html
             if (type === 'antitank') return '反坦克兵';
             if (type === 'lightTank') return '轻型坦克';
             if (type === 'tankDestroyer') return '坦克歼击车';
+            if (type === 'scout') return '侦察车';
+            if (type === 'apc') return '装甲运兵车';
+            if (type === 'mortar') return '迫击炮';
             return '步兵';
         }
 
@@ -4412,8 +4602,8 @@ permalink: /sandbox_war_game.html
             const battlefield = document.getElementById('battlefield');
             let unitSize;
             if (type === 'tank' || type === 'lightTank' || type === 'tankDestroyer') unitSize = 22;
-            else if (type === 'artillery' || type === 'rocket') unitSize = 20;
-            else if (type === 'command' || type === 'supply') unitSize = 18;
+            else if (type === 'artillery' || type === 'rocket' || type === 'mortar') unitSize = 20;
+            else if (type === 'command' || type === 'supply' || type === 'scout' || type === 'apc') unitSize = 18;
             else unitSize = 14;
             const deploymentDepth = Math.min(280, battlefield.offsetWidth * 0.28);
             let x = 0;
@@ -4461,6 +4651,12 @@ permalink: /sandbox_war_game.html
                 unit = new LightTank(x, y, team, health);
             } else if (type === 'tankDestroyer') {
                 unit = new TankDestroyer(x, y, team, health);
+            } else if (type === 'scout') {
+                unit = new ScoutCar(x, y, team, health);
+            } else if (type === 'apc') {
+                unit = new APC(x, y, team, health);
+            } else if (type === 'mortar') {
+                unit = new Mortar(x, y, team, health);
             } else {
                 unit = new Soldier(x, y, team, health);
             }
