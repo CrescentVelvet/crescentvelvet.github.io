@@ -2959,8 +2959,8 @@ permalink: /sandbox_war_game.html
                 let best = null, bestDist = Infinity;
                 for (const u of allUnits) {
                     if (u === this || u.isDead() || u.team !== this.team) continue;
-                    if (u.type === 'tank' || u.type === 'artillery' || u.type === 'rocket' ||
-                        u.type === 'command' || u.type === 'supply') {
+                    // 只跟战斗单位 (坦克/火炮/火箭炮), 排除其他支援单位避免互相跟随静止
+                    if (u.type === 'tank' || u.type === 'artillery' || u.type === 'rocket') {
                         const d = this.getDistance(u);
                         if (d < bestDist) { bestDist = d; best = u; }
                     }
