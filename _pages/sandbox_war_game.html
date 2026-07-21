@@ -679,13 +679,22 @@ permalink: /sandbox_war_game.html
         <div class="game-ui">
             <div class="controls-panel">
                 <div class="control-row">
+                    <label>战役:</label>
+                    <select id="scenarioSelect" class="pixel-select" onchange="switchScenario()">
+                        <option value="stalingrad">斯大林格勒保卫战 (PVE)</option>
+                        <option value="prokhorovka">普罗霍罗夫卡 (PVE)</option>
+                        <option value="custom_pvp">自定义战役 (PVP)</option>
+                    </select>
+                </div>
+
+                <div class="control-row">
                     <button onclick="addUnit('ally','tank')" class="pixel-btn btn-ally">坦克</button>
                     <button onclick="addUnit('ally','soldier')" class="pixel-btn btn-ally">步兵</button>
                     <button onclick="addUnit('ally','artillery')" class="pixel-btn btn-ally">火炮</button>
                     <button onclick="addUnit('ally','rocket')" class="pixel-btn btn-ally">火箭炮</button>
                 </div>
 
-                <div class="control-row">
+                <div class="control-row" id="enemyControlRow">
                     <button onclick="addUnit('enemy','tank')" class="pixel-btn btn-enemy">坦克</button>
                     <button onclick="addUnit('enemy','soldier')" class="pixel-btn btn-enemy">步兵</button>
                     <button onclick="addUnit('enemy','artillery')" class="pixel-btn btn-enemy">火炮</button>
@@ -1166,14 +1175,23 @@ permalink: /sandbox_war_game.html
          *   战役数据结构:
          *     {
          *       id, name(中文战役名), year, era(年代标签),
+         *       mode: 'pvp_custom' | 'pve_historical',  // 战役模式
          *       historicalBrief(历史背景, 2-3 句),
          *       terrain: { type, palette, obstacleSet },
          *       availableUnits: [该年代可用兵种 id 列表],
-         *       playerForce: { pointBudget, defaultLayout[] },
-         *       enemyForce: [敌方单位配置(位置/类型/朝向/数量)],
+         *       playerForce: { pointBudget, defaultLayout[] },  // PVE: 玩家方
+         *       enemyForce: [敌方单位配置(位置/类型/朝向/数量)],  // PVE: 自动部署
          *       objectives: { type, target, timeLimit },
          *       status: 'released' | 'dev_only'(研发中)
          *     }
+         *
+         *   战役模式:
+         *     pvp_custom (自定义战役 PVP): 玩家投放红蓝双方兵力,
+         *       无预设地形/兵力, 自由推演 (原游戏方式, 列为战役之一)
+         *     pve_historical (历史战役 PVE): 按想定加载地形 + 双方兵力,
+         *       enemyForce 自动部署不受玩家控制,
+         *       playerForce 玩家可投放/调整 (战前推演)
+         *       开战后双方 AI 自动执行, 玩家观战 + 暂停改指令
          *
          *   年代兵种表机制:
          *     每个年代定义一套可用兵种 + 视觉皮肤变体
@@ -2824,6 +2842,7 @@ permalink: /sandbox_war_game.html
                 id: 'prokhorovka',
                 name: '普罗霍罗夫卡',
                 year: 1943, era: 'ww2',
+                mode: 'pve_historical',
                 side: 'ussr_vs_germany',
                 playerRole: 'attacker',
                 historicalBrief: '1943.7.12 史上最大坦克对决, 苏军第 5 近卫坦克集团军与德军第 2SS 装甲军在普罗霍罗夫卡平原遭遇, 双方数百辆坦克绞杀',
@@ -2873,6 +2892,7 @@ permalink: /sandbox_war_game.html
                 id: 'stalingrad',
                 name: '斯大林格勒废墟',
                 year: 1942, era: 'ww2',
+                mode: 'pve_historical',
                 side: 'ussr_vs_germany',
                 playerRole: 'defender',
                 historicalBrief: '1942.11 城市巷战"老鼠战争", 苏军第 62 集团军在瓦砾废墟中死守, 伏尔加河畔的绞肉机',
@@ -2927,11 +2947,39 @@ permalink: /sandbox_war_game.html
                     timeLimit: 600,
                     failCondition: 'enemy_reaches_river OR player_all_destroyed'
                 }
+            },
+            custom_pvp: {
+                id: 'custom_pvp',
+                name: '自定义战役 (PVP)',
+                year: null, era: 'custom',
+                mode: 'pvp_custom',
+                side: 'blue_vs_red',
+                playerRole: 'both',
+                historicalBrief: '自由推演模式, 玩家投放红蓝双方兵力, 无预设地形/兵力',
+                terrain: {
+                    type: 'steppe',
+                    palette: { ground: '#7a8a3a', accent: '#c4b06a', shadow: '#4a4a2a' },
+                    pattern: '草原(默认)'
+                },
+                playerZone: { x: 0, y: 0, w: 550, h: 750 },
+                obstacles: [],
+                playerForce: { pointBudgetHint: 0, defaultLayout: [] },
+                enemyForce: [],
+                objectives: { type: 'annihilation', target: 'all_enemy', timeLimit: 0, failCondition: 'player_all_destroyed' }
             }
         };
 
         // DOM 层掩体类型 (可碰撞), 其余由 Canvas 绘制
         const DOM_OBSTACLE_TYPES = new Set(['house', 'ruin', 'wall']);
+
+        // v3.0 兵种 type → 现有实现 type 映射 (P8 实现 14 兵种后移除)
+        const SCENARIO_TYPE_MAP = {
+            mediumTank: 'tank',    heavyTank: 'tank',     lightTank: 'tank',
+            tankDestroyer: 'artillery', assaultGun: 'artillery',
+            rifleman: 'soldier',   antitankInf: 'soldier', assaultInf: 'soldier',
+            sniper: 'soldier',    medic: 'soldier',      armoredInf: 'soldier',
+            katyusha: 'rocket'
+        };
 
         // ── v3.0 战场地图绘制器 ──
         class TerrainRenderer {
@@ -3178,7 +3226,16 @@ permalink: /sandbox_war_game.html
                     this.terrainRenderer.render();
                 }
                 this.loadScenarioObstacles(scenario);
-                logBattle('加载想定: ' + scenario.name + ' (' + scenario.year + ')', 'info');
+                // PVE 模式: 自动部署双方兵力
+                if (scenario.mode === 'pve_historical') {
+                    this.deployScenarioForces(scenario);
+                }
+                // 应用模式 UI (PVE 隐藏 enemy 投放)
+                this.applyMode(scenario.mode);
+                // 同步选择框
+                const select = document.getElementById('scenarioSelect');
+                if (select) select.value = scenarioId;
+                logBattle('加载想定: ' + scenario.name + (scenario.year ? ' (' + scenario.year + ')' : ''), 'info');
                 logBattle(scenario.historicalBrief, 'info');
             }
 
@@ -3192,6 +3249,85 @@ permalink: /sandbox_war_game.html
                         this.battlefield.appendChild(obs.element);
                     }
                 }
+            }
+
+            // PVE 模式: 按想定自动部署双方兵力
+            deployScenarioForces(scenario) {
+                // 部署敌方兵力 (按位置/朝向/数量, 散布)
+                for (const group of scenario.enemyForce) {
+                    const mappedType = SCENARIO_TYPE_MAP[group.type] || 'soldier';
+                    for (let i = 0; i < (group.count || 1); i++) {
+                        const ox = (Math.random() - 0.5) * 36;
+                        const oy = (Math.random() - 0.5) * 36;
+                        this.spawnScenarioUnit('enemy', mappedType, group.x + ox, group.y + oy, group.angle || 0);
+                    }
+                }
+                // 部署玩家方兵力 (按 playerZone 网格散布)
+                const layout = (scenario.playerForce && scenario.playerForce.defaultLayout) || [];
+                const zone = scenario.playerZone || { x: 0, y: 0, w: 500, h: 750 };
+                let idx = 0;
+                for (const group of layout) {
+                    const mappedType = SCENARIO_TYPE_MAP[group.type] || 'soldier';
+                    for (let i = 0; i < (group.count || 1); i++) {
+                        const col = idx % 5;
+                        const row = Math.floor(idx / 5);
+                        const px = zone.x + 40 + col * 60 + (Math.random() - 0.5) * 16;
+                        const py = zone.y + 60 + row * 50 + (Math.random() - 0.5) * 16;
+                        this.spawnScenarioUnit('ally', mappedType, px, py, 90);
+                        idx++;
+                    }
+                }
+            }
+
+            spawnScenarioUnit(team, type, x, y, angle) {
+                const health = UNIT_PRESETS[type].health;
+                const unitSize = (type === 'tank') ? 22 : (type === 'artillery' || type === 'rocket') ? 20 : 14;
+                const bf = this.battlefield;
+                x = Math.max(10, Math.min(bf.offsetWidth - unitSize - 10, x));
+                y = Math.max(10, Math.min(bf.offsetHeight - unitSize - 10, y));
+                // 碰撞避让: 找附近可用位置
+                if (this.collidesWithObstacle(x, y, unitSize, unitSize, 6) ||
+                    this.collidesWithUnit(x, y, unitSize, unitSize)) {
+                    let placed = false;
+                    for (let r = 12; r < 100 && !placed; r += 12) {
+                        for (let a = 0; a < Math.PI * 2 && !placed; a += Math.PI / 6) {
+                            const nx = x + Math.cos(a) * r;
+                            const ny = y + Math.sin(a) * r;
+                            if (!this.collidesWithObstacle(nx, ny, unitSize, unitSize, 6) &&
+                                !this.collidesWithUnit(nx, ny, unitSize, unitSize)) {
+                                x = nx; y = ny; placed = true;
+                            }
+                        }
+                    }
+                }
+                let unit;
+                if (type === 'tank') unit = new Tank(x, y, team, health);
+                else if (type === 'artillery') unit = new Artillery(x, y, team, health);
+                else if (type === 'rocket') unit = new RocketLauncher(x, y, team, health);
+                else unit = new Soldier(x, y, team, health);
+                unit.angle = angle;
+                unit.desiredAngle = angle;
+                this.addUnit(unit);
+            }
+
+            applyMode(mode) {
+                const enemyRow = document.getElementById('enemyControlRow');
+                if (enemyRow) {
+                    enemyRow.style.display = (mode === 'pve_historical') ? 'none' : '';
+                }
+            }
+
+            switchToScenario(scenarioId) {
+                // 清空所有元素 (保留 canvas)
+                this.units.forEach(u => { if (u.element) u.element.remove(); });
+                this.projectiles.forEach(p => p.remove());
+                this.obstacles.forEach(o => o.element.remove());
+                this.units = []; this.projectiles = []; this.obstacles = [];
+                this.isBattleActive = false; this.isPaused = false;
+                if (this.animationId) { cancelAnimationFrame(this.animationId); this.animationId = null; }
+                resetBattleButton();
+                // 加载新想定
+                this.loadScenario(scenarioId);
             }
 
             collidesWithObstacle(x, y, width, height, padding = 2) {
@@ -3665,6 +3801,11 @@ permalink: /sandbox_war_game.html
             battlefieldManager.clearAll();
         }
 
+        function switchScenario() {
+            const select = document.getElementById('scenarioSelect');
+            if (select) battlefieldManager.switchToScenario(select.value);
+        }
+
         function resetBattleButton() {
             const battleBtn = document.getElementById('battleBtn');
             if (!battleBtn) return;
@@ -3740,8 +3881,8 @@ permalink: /sandbox_war_game.html
         document.addEventListener('DOMContentLoaded', function() {
             logBattle('系统就绪', 'info');
             addMobileOptimizations();
-            // v3.0 加载默认想定 (普罗霍罗夫卡)
-            battlefieldManager.loadScenario('prokhorovka');
+            // v3.0 加载默认想定 (斯大林格勒保卫战 PVE)
+            battlefieldManager.loadScenario('stalingrad');
             const lastModifiedSpan = document.getElementById('lastModified');
             if (lastModifiedSpan) {
                 lastModifiedSpan.textContent = document.lastModified;
