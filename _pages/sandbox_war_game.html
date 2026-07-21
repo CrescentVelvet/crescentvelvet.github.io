@@ -188,6 +188,17 @@ permalink: /sandbox_war_game.html
             display: none;
         }
 
+        #synergyLayer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 6;
+            display: none;
+        }
+
         /* 掩体类型变体 (DOM 层, 可碰撞) */
         .obstacle.obstacle-house  { background: #8a7a5a; border-color: #3a3322; }
         .obstacle.obstacle-ruin   { background: #7a7570; border-color: #2a2520; }
@@ -943,6 +954,7 @@ permalink: /sandbox_war_game.html
             <canvas class="terrain-canvas" id="terrainCanvas"></canvas>
             <canvas class="decor-canvas" id="decorCanvas"></canvas>
             <svg id="debugPathLayer" xmlns="http://www.w3.org/2000/svg"></svg>
+            <svg id="synergyLayer" xmlns="http://www.w3.org/2000/svg"></svg>
             <div class="empty-state" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; opacity: 0.5; pointer-events: none; z-index: 2;">
                 <p>投放兵力开始战斗</p>
                 <p style="font-size: 0.8em; margin-top: 10px;">点击按钮添加兵力</p>
@@ -3884,6 +3896,7 @@ permalink: /sandbox_war_game.html
                 this.terrainRenderer = null;
                 this.currentScenario = null;
                 this.debugPaths = false;
+                this.synergyShown = false;
                 // v3.0 兵力点值系统
                 this.allyDeployedPoints = 0;
                 this.enemyDeployedPoints = 0;
@@ -4107,6 +4120,109 @@ permalink: /sandbox_war_game.html
                     arrow.setAttribute('fill', color);
                     svg.appendChild(arrow);
                 }
+            }
+
+            // ── v3.0 P5 兵种协同链可视化 ──
+            toggleSynergy() {
+                this.synergyShown = !this.synergyShown;
+                const svg = document.getElementById('synergyLayer');
+                if (svg) {
+                    svg.style.display = this.synergyShown ? 'block' : 'none';
+                    if (!this.synergyShown) svg.innerHTML = '';
+                }
+                logBattle('协同链: ' + (this.synergyShown ? '开启' : '关闭'), 'info');
+            }
+
+            renderSynergy() {
+                const svg = document.getElementById('synergyLayer');
+                if (!svg) return;
+                svg.innerHTML = '';
+                const ns = 'http://www.w3.org/2000/svg';
+                for (const unit of this.units) {
+                    if (unit.isDead()) continue;
+                    const ux = unit.x + unit.getSize() / 2;
+                    const uy = unit.y + unit.getSize() / 2;
+
+                    // 侦察-打击链: 侦察车 → 火炮/火箭炮/迫击炮
+                    if (unit.type === 'scout') {
+                        const spotter = this.findNearestAllyType(unit, ['artillery', 'rocket', 'mortar']);
+                        if (spotter) {
+                            const d = unit.getDistance(spotter);
+                            this.drawSynergyLine(svg, ns, ux, uy, spotter,
+                                d < 250 ? '#2ecc71' : '#f1c40f', d < 250 ? '' : '5,3');
+                        }
+                    }
+
+                    // 前线-后勤链: 坦克 ← 工程兵/补给车
+                    if (unit.type === 'tank' || unit.type === 'lightTank' || unit.type === 'tankDestroyer') {
+                        const repair = this.findNearestAllyType(unit, ['engineer', 'supply']);
+                        if (repair) {
+                            const d = unit.getDistance(repair);
+                            this.drawSynergyLine(svg, ns, ux, uy, repair,
+                                d < 120 ? '#2ecc71' : '#f1c40f', d < 120 ? '' : '5,3');
+                        }
+                    }
+
+                    // 反装甲协同: 坦克 ← 反坦克兵 (侧翼保护)
+                    if (unit.type === 'tank' || unit.type === 'lightTank') {
+                        const at = this.findNearestAllyType(unit, ['antitank']);
+                        if (at && unit.getDistance(at) < 100) {
+                            this.drawSynergyLine(svg, ns, ux, uy, at, '#2ecc71', '');
+                        }
+                    }
+
+                    // 指挥链: 指挥车 → 光环内友军 (紫色光环), 孤立则红色警告
+                    if (unit.type === 'command') {
+                        let hasEscort = false;
+                        for (const u of this.units) {
+                            if (u === unit || u.isDead() || u.team !== unit.team) continue;
+                            if (unit.getDistance(u) < 150) {
+                                hasEscort = true;
+                                this.drawSynergyLine(svg, ns, ux, uy, u, '#9b59b6', '3,2');
+                            }
+                        }
+                        if (!hasEscort) {
+                            // 指挥车孤立无护卫, 红色警告圈
+                            const warn = document.createElementNS(ns, 'circle');
+                            warn.setAttribute('cx', ux);
+                            warn.setAttribute('cy', uy);
+                            warn.setAttribute('r', '14');
+                            warn.setAttribute('stroke', '#e74c3c');
+                            warn.setAttribute('stroke-width', '2');
+                            warn.setAttribute('fill', 'none');
+                            warn.setAttribute('opacity', '0.8');
+                            svg.appendChild(warn);
+                        }
+                    }
+                }
+            }
+
+            findNearestAllyType(unit, types) {
+                let best = null, bestDist = Infinity;
+                for (const u of this.units) {
+                    if (u === unit || u.isDead() || u.team !== unit.team) continue;
+                    if (types.includes(u.type)) {
+                        const d = unit.getDistance(u);
+                        if (d < bestDist) { bestDist = d; best = u; }
+                    }
+                }
+                return best;
+            }
+
+            drawSynergyLine(svg, ns, x1, y1, target, color, dash) {
+                const x2 = target.x + target.getSize() / 2;
+                const y2 = target.y + target.getSize() / 2;
+                const line = document.createElementNS(ns, 'line');
+                line.setAttribute('x1', x1.toFixed(1));
+                line.setAttribute('y1', y1.toFixed(1));
+                line.setAttribute('x2', x2.toFixed(1));
+                line.setAttribute('y2', y2.toFixed(1));
+                line.setAttribute('stroke', color);
+                line.setAttribute('stroke-width', '2');
+                line.setAttribute('fill', 'none');
+                line.setAttribute('opacity', '0.6');
+                if (dash) line.setAttribute('stroke-dasharray', dash);
+                svg.appendChild(line);
             }
 
             switchToScenario(scenarioId) {
@@ -4416,6 +4532,7 @@ permalink: /sandbox_war_game.html
                     this.checkBattleEnd();
                 }
                 if (this.debugPaths) this.renderDebugPaths();
+                if (this.synergyShown) this.renderSynergy();
 
                 this.animationId = requestAnimationFrame((ts) => this.gameLoop(ts));
             }
@@ -4779,9 +4896,10 @@ permalink: /sandbox_war_game.html
             addMobileOptimizations();
             // v3.0 加载默认想定 (斯大林格勒保卫战 PVE)
             battlefieldManager.loadScenario('stalingrad');
-            // debug 路线开关 (按 D 键)
+            // debug 路线开关 (按 D 键) + 协同链开关 (按 S 键)
             document.addEventListener('keydown', function(e) {
                 if (e.key === 'd' || e.key === 'D') battlefieldManager.toggleDebugPaths();
+                if (e.key === 's' || e.key === 'S') battlefieldManager.toggleSynergy();
             });
             const lastModifiedSpan = document.getElementById('lastModified');
             if (lastModifiedSpan) {
