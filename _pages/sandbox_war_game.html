@@ -2184,7 +2184,9 @@ permalink: /sandbox_war_game.html
                 const myCY = this.y + this.getSize() / 2;
                 const tCX = target.x + target.getSize() / 2;
                 const tCY = target.y + target.getSize() / 2;
-                return !battlefieldManager.pathBlockedByObstacle(myCX, myCY, tCX, tCY, 4);
+                // 检查尺寸与子弹/单位匹配 (避免视线通过但子弹被挡循环射击)
+                const checkSize = Math.max(8, Math.floor(this.getSize() / 2));
+                return !battlefieldManager.pathBlockedByObstacle(myCX, myCY, tCX, tCY, checkSize);
             }
 
             // v3.0 士气系统: 每帧更新士气 (血量上限/孤立/被集火/溃逃传染)
