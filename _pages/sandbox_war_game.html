@@ -203,7 +203,6 @@ permalink: /sandbox_war_game.html
         .obstacle.obstacle-house  { background: #8a7a5a; border-color: #3a3322; }
         .obstacle.obstacle-ruin   { background: #7a7570; border-color: #2a2520; }
         .obstacle.obstacle-wall       { background: #5a5550; border-color: #1a1510; }
-        .obstacle.obstacle-embankment { background: #6a5a4a; border-color: #3a2a1a; }
 
         .unit {
             position: absolute;
@@ -3940,7 +3939,7 @@ permalink: /sandbox_war_game.html
         };
 
         // DOM 层掩体类型 (可碰撞), 其余由 Canvas 绘制
-        const DOM_OBSTACLE_TYPES = new Set(['house', 'ruin', 'wall', 'embankment']);
+        const DOM_OBSTACLE_TYPES = new Set(['house', 'ruin', 'wall']);
 
         // v3.0 兵种 type → 现有实现 type 映射 (P8 实现 14 兵种后移除)
         const SCENARIO_TYPE_MAP = {
@@ -4065,7 +4064,16 @@ permalink: /sandbox_war_game.html
             drawFeatures() {
                 const ctx = this.terrainCtx;
                 for (const o of this.scenario.obstacles) {
-                    if (o.type === 'river') {
+                    if (o.type === 'embankment') {
+                        // 铁路堤/海堤: 低矮长条 (非掩体, 子弹可穿, 单位可过)
+                        ctx.fillStyle = '#5a554a';
+                        ctx.fillRect(o.x, o.y, o.w, o.h);
+                        ctx.fillStyle = '#7a756a';
+                        ctx.fillRect(o.x, o.y, o.w, 3);
+                        ctx.fillStyle = '#3a3530';
+                        ctx.fillRect(o.x + 3, o.y, 2, o.h);
+                        ctx.fillRect(o.x + o.w - 5, o.y, 2, o.h);
+                    } else if (o.type === 'river') {
                         ctx.fillStyle = '#3a4a5a';
                         ctx.fillRect(o.x, o.y, o.w, o.h);
                         ctx.strokeStyle = 'rgba(120,140,160,0.4)';
