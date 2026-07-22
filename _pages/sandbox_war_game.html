@@ -3370,6 +3370,69 @@ permalink: /sandbox_war_game.html
                 this.coverRadius = 40;
                 this.coverReduction = 0.3;  // 30% 减伤
             }
+
+            // 重写: 优先跟随步兵集群, 射程内才停下攻击 (不自己冲)
+            update(deltaTime, allUnits) {
+                if (this.isDead()) return;
+                this.updateMorale(deltaTime, allUnits);
+
+                const nearestEnemy = this.acquireTarget(allUnits);
+                let attacked = false;
+                if (nearestEnemy) {
+                    const distance = this.getDistance(nearestEnemy);
+                    if (distance <= this.attackRange && this.hasLineOfSight(nearestEnemy)) {
+                        // 射程内 + 视线清晰: 停下攻击步兵
+                        this.state = 'hold';
+                        if (this.isMoving) {
+                            this.isMoving = false;
+                            this.path = [];
+                            if (this.element) this.element.classList.remove('moving');
+                        }
+                        this.turnToward(nearestEnemy);
+                        this.tryAttack(nearestEnemy);
+                        attacked = true;
+                    }
+                }
+
+                if (!attacked) {
+                    // 跟随步兵集群 (不追敌人, 留在步兵旁掩护)
+                    const target = this.findInfantryCluster(allUnits);
+                    if (target) {
+                        const dist = this.getDistance(target);
+                        if (dist > 130) {
+                            this.state = 'follow';
+                            this.moveTowards(target, 0.65);
+                        } else if (dist < 60) {
+                            this.moveAwayFrom(target, 50);
+                        } else {
+                            if (this.isMoving) {
+                                this.isMoving = false;
+                                this.path = [];
+                                if (this.element) this.element.classList.remove('moving');
+                            }
+                            this.state = 'hold';
+                        }
+                    } else {
+                        this.state = 'patrol';
+                        this.randomMove(deltaTime);
+                    }
+                }
+                this.updatePosition(deltaTime, allUnits);
+            }
+
+            // 找最近友军步兵集群 (步兵/反坦/工程/医疗)
+            findInfantryCluster(allUnits) {
+                let best = null, bestDist = Infinity;
+                for (const u of allUnits) {
+                    if (u === this || u.isDead() || u.team !== this.team) continue;
+                    if (u.type === 'soldier' || u.type === 'antitank' ||
+                        u.type === 'engineer' || u.type === 'medic') {
+                        const d = this.getDistance(u);
+                        if (d < bestDist) { bestDist = d; best = u; }
+                    }
+                }
+                return best;
+            }
         }
 
         // 迫击炮: 高爆溅射, 无需架设, 最小射程60
