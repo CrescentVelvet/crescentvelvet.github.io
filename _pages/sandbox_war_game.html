@@ -2782,8 +2782,10 @@ permalink: /sandbox_war_game.html
                     return true;
                 }
 
+                // 方案A: 友军不硬挡(可穿过移动, 靠handleSeparation推斥散开), 只检查敌军碰撞
                 for (const other of allUnits) {
                     if (other === this || other.isDead()) continue;
+                    if (other.team === this.team) continue;  // 友军不挡
 
                     const otherSize = other.getSize();
                     const otherCenterX = other.x + otherSize / 2;
