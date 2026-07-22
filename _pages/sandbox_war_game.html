@@ -2046,8 +2046,8 @@ permalink: /sandbox_war_game.html
 
                 const nearestEnemy = this.acquireTarget(allUnits);
 
-                // v3.0 士气溃退: morale < 20 全速远离敌人, 无视玩家指令
-                if (this.morale < 20 && nearestEnemy) {
+                // v3.0 士气溃退: morale < 15 全速远离敌人, 无视玩家指令
+                if (this.morale < 15 && nearestEnemy) {
                     this.state = 'flee';
                     this.moveAwayFrom(nearestEnemy, 220);
                     this.updatePosition(deltaTime, allUnits);
@@ -2071,14 +2071,8 @@ permalink: /sandbox_war_game.html
                         backoffLine = range * 0.40;
                     }
 
-                    // v3.0 士气动摇 (20-40): 倾向后撤 (替代 lowHealth 硬阈值)
-                    const shaken = this.morale < 40;
-
-                    if (shaken && distance < range * 1.25) {
-                        // 动摇: 远离敌人
-                        this.state = 'retreat';
-                        this.retreatFrom(nearestEnemy);
-                    } else if (distance > chaseLine) {
+                    // 动摇(morale<30)只降攻速不后撤 (避免后撤→孤立→崩溃正反馈), 仅溃退(<15)才 FLEE
+                    if (distance > chaseLine) {
                         if (this.state !== 'chase') {
                             this.state = 'chase';
                         }
@@ -2211,7 +2205,7 @@ permalink: /sandbox_war_game.html
                 }
                 // 负面因素 (降低强度避免双方快速崩溃)
                 if (!hasAllyNear) delta -= 3;        // 孤立 -3 (原 -5)
-                if (panicNearby) delta -= 5;          // 溃逃传染 -5 (原 -8)
+                if (panicNearby) delta -= 3;          // 溃逃传染 -3 (降低避免连锁崩溃)
                 if (attackerCount > 1) delta -= 2 * (attackerCount - 1);  // 被集火 -2 (原 -3)
                 // 恢复因素
                 if (hasLogistics) delta += 5;        // 后勤 +5 (原 +3)
@@ -2227,10 +2221,10 @@ permalink: /sandbox_war_game.html
 
             // 士气档位: 返回攻速 cooldown 倍率 (1.0 正常, 0.9 高昂, 1.3 动摇, 0 溃退不开火)
             getMoraleAttackFactor() {
-                if (this.morale < 20) return 0;
-                if (this.morale < 40) return 1.3;
-                if (this.morale > 70) return 0.9;
-                return 1.0;
+                if (this.morale < 15) return 0;       // 溃退: 不开火
+                if (this.morale < 30) return 1.3;      // 动摇: 攻速 -30% (不后撤, 只降攻速)
+                if (this.morale > 70) return 0.9;      // 高昂: 攻速 +10%
+                return 1.0;                            // 稳定
             }
 
             tryAttack(target) {
