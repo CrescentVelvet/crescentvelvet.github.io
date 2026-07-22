@@ -1975,17 +1975,38 @@ permalink: /sandbox_war_game.html
                 const typeName = unitTypeName(this.type);
                 let extra = '';
                 if (this.type === 'artillery' && this.deployed !== undefined) {
-                    extra = `<br>状态: ${this.deployed ? '已部署' : (this.deploying ? '部署中...' : '移动中')}`;
+                    extra = ` (${this.deployed ? '已部署' : (this.deploying ? '部署中' : '未部署')})`;
                 }
                 info.innerHTML = `
                     <strong>${typeName}</strong><br>
                     阵营: ${this.team === 'ally' ? '友军' : '敌军'}<br>
                     生命值: ${this.health}/${this.maxHealth}${extra}<br>
-                    士气: ${Math.round(this.morale)}
+                    士气: ${Math.round(this.morale)}<br>
+                    状态: ${this.getStateText()}
                 `;
                 info.style.display = 'block';
                 info.style.left = event.pageX + 10 + 'px';
                 info.style.top = event.pageY - 10 + 'px';
+            }
+
+            // 单位状态文本 (溃退/撤退/追击/跟随/后撤/侧绕/巡逻/射击/待命)
+            getStateText() {
+                if (this.morale < 15 || this.state === 'flee') return '溃退';
+                if (this.state === 'retreat') return '撤退';
+                if (this.isMoving) {
+                    if (this.state === 'chase') return '追击';
+                    if (this.state === 'follow') return '跟随';
+                    if (this.state === 'backoff') return '后撤';
+                    if (this.state === 'flank') return '侧绕';
+                    if (this.state === 'patrol') return '巡逻';
+                    return '移动';
+                }
+                if (this.state === 'hold') {
+                    const now = Date.now();
+                    if (now - this.lastAttackTime < 2000) return '射击';
+                    return '待命';
+                }
+                return '待命';
             }
 
             hideInfo() {
