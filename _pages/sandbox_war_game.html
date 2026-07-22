@@ -3414,18 +3414,23 @@ permalink: /sandbox_war_game.html
                 this.target = target;
                 this.team = source.team;
                 this.damage = damage;
-                this.speed = source.type === 'tank' ? 520 : (source.type === 'artillery' ? 280 : (source.type === 'rocket' ? 240 : 340));
-                this.radius = source.type === 'tank' ? 12 : (source.type === 'artillery' ? 10 : (source.type === 'rocket' ? 8 : 9));
-
-                // 视觉尺寸区分：步兵最小、坦克小、火炮大、火箭弹中
+                // 各兵种子弹: 尺寸/速度/碰撞半径/光晕 (步兵小, 坦克中, 火炮缩小, 反装甲/迫击炮橙色)
                 const specs = {
-                    soldier:   { size: 5,  border: 1, glow: 4,  glowColor: '#f7e07b' },
-                    tank:      { size: 9,  border: 2, glow: 8,  glowColor: '#f7e07b' },
-                    artillery: { size: 14, border: 3, glow: 12, glowColor: '#f7e07b' },
-                    rocket:    { size: 11, border: 2, glow: 10, glowColor: '#e67e22' }
+                    soldier:       { size: 4, border: 1, glow: 3, glowColor: '#f7e07b', speed: 340, radius: 8 },
+                    antitank:      { size: 6, border: 1, glow: 5, glowColor: '#e67e22', speed: 320, radius: 8 },
+                    tank:          { size: 7, border: 2, glow: 6, glowColor: '#f7e07b', speed: 520, radius: 11 },
+                    lightTank:     { size: 6, border: 2, glow: 5, glowColor: '#f7e07b', speed: 540, radius: 10 },
+                    tankDestroyer: { size: 8, border: 2, glow: 7, glowColor: '#f7e07b', speed: 560, radius: 12 },
+                    artillery:     { size: 8, border: 2, glow: 8, glowColor: '#f7e07b', speed: 280, radius: 10 },
+                    rocket:        { size: 8, border: 2, glow: 9, glowColor: '#e67e22', speed: 240, radius: 8 },
+                    mortar:        { size: 7, border: 2, glow: 7, glowColor: '#e67e22', speed: 300, radius: 9 },
+                    scout:         { size: 4, border: 1, glow: 3, glowColor: '#f7e07b', speed: 380, radius: 7 },
+                    apc:           { size: 4, border: 1, glow: 3, glowColor: '#f7e07b', speed: 360, radius: 8 }
                 };
                 const spec = specs[source.type] || specs.soldier;
                 this.size = spec.size;
+                this.speed = spec.speed;
+                this.radius = spec.radius;
 
                 // 散布弹道：若设置则飞向固定点而非追踪目标，到达后溅射
                 this.scatterX = undefined;
