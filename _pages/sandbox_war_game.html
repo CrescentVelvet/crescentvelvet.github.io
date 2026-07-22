@@ -562,15 +562,15 @@ permalink: /sandbox_war_game.html
             position: absolute;
             width: 26px; height: 16px;
             left: 5px; top: 10px;
-            background: #5d6d7e;
-            box-shadow: inset 0 0 0 3px #34495e, 0 3px 0 rgba(0,0,0,0.45);
+            background: var(--color);
+            box-shadow: inset 0 0 0 3px var(--color-dark), 0 3px 0 rgba(0,0,0,0.45);
         }
         .td-barrel {
             position: absolute;
             width: 4px; height: 24px;
             left: 16px; top: -4px;
-            background: #7f8c8d;
-            box-shadow: inset 0 0 0 2px #5d6d7e;
+            background: var(--color-light);
+            box-shadow: inset 0 0 0 2px var(--color);
         }
         .td-track {
             position: absolute;
@@ -582,7 +582,7 @@ permalink: /sandbox_war_game.html
         .td-track.left { left: 3px; }
         .td-track.right { right: 3px; }
 
-        /* 侦察车 (18px, 灰色吉普 + 天线) */
+        /* 侦察车 (18px, 阵营色吉普 + 银天线) */
         .unit.scout {
             --unit-size: 18px;
             --body-size: 28px;
@@ -592,8 +592,8 @@ permalink: /sandbox_war_game.html
             position: absolute;
             width: 20px; height: 12px;
             left: 4px; top: 8px;
-            background: #7f8c8d;
-            box-shadow: inset 0 0 0 2px #95a5a6, 0 2px 0 rgba(0,0,0,0.45);
+            background: var(--color);
+            box-shadow: inset 0 0 0 2px var(--color-dark), 0 2px 0 rgba(0,0,0,0.45);
         }
         .scout-wheel {
             position: absolute;
@@ -611,7 +611,7 @@ permalink: /sandbox_war_game.html
             background: #bdc3c7;
         }
 
-        /* 装甲运兵车 (18px, 深绿六轮) */
+        /* 装甲运兵车 (18px, 阵营色六轮) */
         .unit.apc {
             --unit-size: 18px;
             --body-size: 28px;
@@ -621,8 +621,8 @@ permalink: /sandbox_war_game.html
             position: absolute;
             width: 22px; height: 14px;
             left: 3px; top: 7px;
-            background: #1e7a3d;
-            box-shadow: inset 0 0 0 2px #27ae60, 0 2px 0 rgba(0,0,0,0.45);
+            background: var(--color);
+            box-shadow: inset 0 0 0 2px var(--color-dark), 0 2px 0 rgba(0,0,0,0.45);
         }
         .apc-wheel {
             position: absolute;
@@ -635,7 +635,7 @@ permalink: /sandbox_war_game.html
         .apc-wheel.f2 { left: 11px; }
         .apc-wheel.f3 { right: 3px; }
 
-        /* 迫击炮 (20px, 深绿短管小炮) */
+        /* 迫击炮 (20px, 阵营色底盘 + 阵营色短管) */
         .unit.mortar {
             --unit-size: 20px;
             --body-size: 32px;
@@ -645,15 +645,15 @@ permalink: /sandbox_war_game.html
             position: absolute;
             width: 14px; height: 6px;
             left: 9px; top: 22px;
-            background: #2c3e50;
-            box-shadow: inset 0 0 0 1px #34495e;
+            background: var(--color-dark);
+            box-shadow: inset 0 0 0 1px var(--color);
         }
         .mortar-tube {
             position: absolute;
             width: 4px; height: 18px;
             left: 14px; top: 4px;
-            background: #27ae60;
-            box-shadow: inset 0 0 0 2px #1e7a3d;
+            background: var(--color);
+            box-shadow: inset 0 0 0 2px var(--color-dark);
             transform: rotate(30deg);
             transform-origin: bottom;
         }
