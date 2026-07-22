@@ -907,6 +907,9 @@ permalink: /sandbox_war_game.html
                     <select id="scenarioSelect" class="pixel-select" onchange="switchScenario()">
                         <option value="stalingrad">斯大林格勒保卫战 (PVE)</option>
                         <option value="prokhorovka">普罗霍罗夫卡 (PVE)</option>
+                        <option value="normandy">诺曼底滩头 (PVE)</option>
+                        <option value="alamain">阿拉曼沙漠 (PVE)</option>
+                        <option value="bulge">阿登突出部 (PVE)</option>
                         <option value="custom_pvp">自定义战役 (PVP)</option>
                     </select>
                     <button onclick="addObstacle()" class="pixel-btn btn-obstacle">+掩体</button>
@@ -3668,6 +3671,143 @@ permalink: /sandbox_war_game.html
                     failCondition: 'enemy_reaches_river OR player_all_destroyed'
                 }
             },
+            normandy: {
+                id: 'normandy',
+                name: '诺曼底滩头',
+                year: 1944, era: 'ww2',
+                mode: 'pve_historical',
+                side: 'allied_vs_germany',
+                playerRole: 'attacker',
+                historicalBrief: '1944.6.6 盟军诺曼底登陆, 奥马哈海滩抢滩攻坚, 德军大西洋壁垒工事阻击',
+                terrain: {
+                    type: 'beach',
+                    palette: { ground: '#c4a46a', accent: '#e8d8a0', shadow: '#8a7440' },
+                    pattern: '沙滩+潮汐线+反坦克锥'
+                },
+                playerZone: { x: 0, y: 0, w: 450, h: 750 },
+                obstacles: [
+                    { x: 900, y: 0, w: 20, h: 750, type: 'embankment' },
+                    { x: 200, y: 100, w: 64, h: 64, type: 'house' },
+                    { x: 300, y: 250, w: 64, h: 64, type: 'house' },
+                    { x: 250, y: 400, w: 64, h: 64, type: 'house' },
+                    { x: 350, y: 550, w: 64, h: 64, type: 'house' },
+                    { x: 150, y: 600, w: 64, h: 64, type: 'house' }
+                ],
+                playerForce: {
+                    pointBudgetHint: 90,
+                    defaultLayout: [
+                        { type: 'rifleman', count: 6 },
+                        { type: 'antitankInf', count: 2 },
+                        { type: 'lightTank', count: 2 }
+                    ]
+                },
+                enemyForce: [
+                    { type: 'assaultInf', x: 950, y: 100, angle: 270, count: 3 },
+                    { type: 'assaultInf', x: 950, y: 300, angle: 270, count: 3 },
+                    { type: 'heavyTank', x: 920, y: 500, angle: 270, count: 2 },
+                    { type: 'assaultGun', x: 980, y: 200, angle: 270, count: 2 }
+                ],
+                objectives: {
+                    type: 'annihilation',
+                    target: 'all_enemy',
+                    timeLimit: 600,
+                    failCondition: 'player_all_destroyed OR timeout'
+                }
+            },
+            alamain: {
+                id: 'alamain',
+                name: '阿拉曼沙漠',
+                year: 1942, era: 'ww2',
+                mode: 'pve_historical',
+                side: 'allied_vs_axis',
+                playerRole: 'attacker',
+                historicalBrief: '1942.10 北非阿拉曼, 英军第八集团军突破德意联军防线, 沙漠坦克对决',
+                terrain: {
+                    type: 'desert',
+                    palette: { ground: '#c4a46a', accent: '#d4b47a', shadow: '#8a6a30' },
+                    pattern: '沙漠+沙丘+稀疏石块'
+                },
+                playerZone: { x: 0, y: 0, w: 450, h: 750 },
+                obstacles: [
+                    { x: 300, y: 200, w: 118, h: 34, type: 'mound' },
+                    { x: 500, y: 400, w: 118, h: 34, type: 'mound' },
+                    { x: 700, y: 300, w: 118, h: 34, type: 'mound' },
+                    { x: 400, y: 550, w: 118, h: 34, type: 'mound' },
+                    { x: 600, y: 150, w: 118, h: 34, type: 'mound' },
+                    { x: 200, y: 350, w: 64, h: 64, type: 'house' },
+                    { x: 800, y: 500, w: 64, h: 64, type: 'house' }
+                ],
+                playerForce: {
+                    pointBudgetHint: 130,
+                    defaultLayout: [
+                        { type: 'mediumTank', count: 5 },
+                        { type: 'lightTank', count: 3 },
+                        { type: 'scoutCar', count: 2 }
+                    ]
+                },
+                enemyForce: [
+                    { type: 'heavyTank', x: 900, y: 150, angle: 270, count: 3 },
+                    { type: 'mediumTank', x: 950, y: 350, angle: 270, count: 4 },
+                    { type: 'tankDestroyer', x: 980, y: 550, angle: 270, count: 2 }
+                ],
+                objectives: {
+                    type: 'annihilation',
+                    target: 'all_enemy_armor',
+                    timeLimit: 600,
+                    failCondition: 'player_all_destroyed OR timeout'
+                }
+            },
+            bulge: {
+                id: 'bulge',
+                name: '阿登突出部',
+                year: 1944, era: 'ww2',
+                mode: 'pve_historical',
+                side: 'us_vs_germany',
+                playerRole: 'defender',
+                historicalBrief: '1944.12 阿登反击战, 德军最后反扑, 美军在雪地树林中死守突出部',
+                terrain: {
+                    type: 'snow',
+                    palette: { ground: '#e8e8e8', accent: '#c0c0c0', shadow: '#a0a0a0' },
+                    pattern: '雪地+树丛'
+                },
+                playerZone: { x: 550, y: 0, w: 500, h: 750 },
+                obstacles: [
+                    { x: 100, y: 100, w: 64, h: 64, type: 'house' },
+                    { x: 150, y: 300, w: 64, h: 64, type: 'house' },
+                    { x: 100, y: 500, w: 64, h: 64, type: 'house' },
+                    { x: 300, y: 200, w: 64, h: 64, type: 'house' },
+                    { x: 350, y: 400, w: 64, h: 64, type: 'house' },
+                    { x: 300, y: 550, w: 64, h: 64, type: 'house' },
+                    { x: 550, y: 100, w: 64, h: 64, type: 'house' },
+                    { x: 600, y: 250, w: 64, h: 64, type: 'house' },
+                    { x: 550, y: 400, w: 64, h: 64, type: 'house' },
+                    { x: 600, y: 550, w: 64, h: 64, type: 'house' },
+                    { x: 700, y: 150, w: 64, h: 64, type: 'house' },
+                    { x: 750, y: 350, w: 64, h: 64, type: 'house' },
+                    { x: 700, y: 580, w: 64, h: 64, type: 'house' }
+                ],
+                playerForce: {
+                    pointBudgetHint: 70,
+                    defaultLayout: [
+                        { type: 'rifleman', count: 5 },
+                        { type: 'antitankInf', count: 2 },
+                        { type: 'lightTank', count: 2 },
+                        { type: 'medic', count: 1 }
+                    ]
+                },
+                enemyForce: [
+                    { type: 'heavyTank', x: 50, y: 150, angle: 90, count: 3 },
+                    { type: 'mediumTank', x: 50, y: 350, angle: 90, count: 4 },
+                    { type: 'assaultInf', x: 80, y: 550, angle: 90, count: 4 },
+                    { type: 'tankDestroyer', x: 30, y: 200, angle: 90, count: 2 }
+                ],
+                objectives: {
+                    type: 'defense',
+                    target: 'hold_core_sector',
+                    timeLimit: 600,
+                    failCondition: 'player_all_destroyed OR timeout'
+                }
+            },
             custom_pvp: {
                 id: 'custom_pvp',
                 name: '自定义战役 (PVP)',
@@ -3855,6 +3995,58 @@ permalink: /sandbox_war_game.html
                         ctx.fill();
                     }
                     ctx.restore();
+                } else if (type === 'desert') {
+                    // 沙漠: 沙丘纹路 + 稀疏石块
+                    ctx.strokeStyle = 'rgba(138,106,48,0.2)';
+                    ctx.lineWidth = 1;
+                    for (let i = 0; i < 15; i++) {
+                        const y = this.randInt(this.h);
+                        ctx.beginPath();
+                        ctx.moveTo(0, y);
+                        for (let x = 0; x < this.w; x += 30) {
+                            ctx.lineTo(x, y + Math.sin(x * 0.05) * 8);
+                        }
+                        ctx.stroke();
+                    }
+                    ctx.fillStyle = '#8a6a30';
+                    for (let i = 0; i < 40; i++) {
+                        ctx.globalAlpha = 0.3;
+                        ctx.fillRect(this.randInt(this.w), this.randInt(this.h), 4 + this.randInt(4), 4 + this.randInt(4));
+                    }
+                } else if (type === 'snow') {
+                    // 雪地: 雪花纹理 + 深绿树丛
+                    ctx.save();
+                    ctx.fillStyle = '#ffffff';
+                    for (let i = 0; i < 500; i++) {
+                        ctx.globalAlpha = 0.3;
+                        ctx.fillRect(this.randInt(this.w), this.randInt(this.h), 2, 2);
+                    }
+                    ctx.restore();
+                    ctx.fillStyle = '#2d4a2d';
+                    for (let i = 0; i < 30; i++) {
+                        ctx.globalAlpha = 0.6;
+                        ctx.beginPath();
+                        ctx.arc(this.randInt(this.w), this.randInt(this.h), 8 + this.randInt(6), 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                } else if (type === 'beach') {
+                    // 滩头: 潮汐线 + 沙纹
+                    ctx.strokeStyle = 'rgba(138,116,64,0.3)';
+                    ctx.lineWidth = 2;
+                    for (let i = 0; i < 5; i++) {
+                        const y = 80 + i * 90;
+                        ctx.beginPath();
+                        ctx.moveTo(0, y);
+                        for (let x = 0; x < this.w; x += 20) {
+                            ctx.lineTo(x, y + Math.sin(x * 0.1) * 4);
+                        }
+                        ctx.stroke();
+                    }
+                    ctx.fillStyle = this.scenario.terrain.palette.accent;
+                    for (let i = 0; i < 300; i++) {
+                        ctx.globalAlpha = 0.2;
+                        ctx.fillRect(this.randInt(this.w), this.randInt(this.h), 2, 2);
+                    }
                 }
             }
 
