@@ -460,8 +460,8 @@ permalink: /sandbox_war_game.html
             position: absolute;
             width: 20px; height: 14px;
             left: 4px; top: 7px;
-            background: #2c3e50;
-            box-shadow: inset 0 0 0 2px #34495e, 0 2px 0 rgba(0,0,0,0.45);
+            background: var(--color);
+            box-shadow: inset 0 0 0 2px var(--color-dark), 0 2px 0 rgba(0,0,0,0.45);
         }
         .command-antenna {
             position: absolute;
@@ -477,7 +477,7 @@ permalink: /sandbox_war_game.html
             clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
         }
 
-        /* 补给车 (18px) */
+        /* 补给车 (18px, body 阵营色 + 白十字) */
         .unit.supply {
             --unit-size: 18px;
             --body-size: 28px;
@@ -487,8 +487,8 @@ permalink: /sandbox_war_game.html
             position: absolute;
             width: 20px; height: 14px;
             left: 4px; top: 7px;
-            background: #27ae60;
-            box-shadow: inset 0 0 0 2px #2ecc71, 0 2px 0 rgba(0,0,0,0.45);
+            background: var(--color);
+            box-shadow: inset 0 0 0 2px var(--color-dark), 0 2px 0 rgba(0,0,0,0.45);
         }
         .supply-cross {
             position: absolute;
@@ -497,22 +497,28 @@ permalink: /sandbox_war_game.html
             background: #ecf0f1;
         }
 
-        /* 工程兵 (14px, 复用 soldier-head/body 染黄) */
+        /* 工程兵 (14px, body 阵营色 + 黄头 + 金工具箱) */
         .unit.engineer {
             --unit-size: 14px;
             --body-size: 22px;
             --scale: 0.636;
         }
-        .unit.engineer .soldier-body { background: #f39c12; box-shadow: inset 0 0 0 2px #d68910, 0 2px 0 rgba(0,0,0,0.45); }
+        .unit.engineer .soldier-body { background: var(--color); box-shadow: inset 0 0 0 2px var(--color-dark), 0 2px 0 rgba(0,0,0,0.45); }
         .unit.engineer .soldier-head { background: #f5cba7; box-shadow: inset 0 0 0 2px #d68910; }
+        .engineer-tool {
+            position: absolute;
+            width: 3px; height: 4px;
+            left: 14px; top: 8px;
+            background: #f1c40f;
+        }
 
-        /* 医疗兵 (14px, 复用 soldier-head/body 染白 + 红十字) */
+        /* 医疗兵 (14px, body 阵营色 + 白头 + 红十字) */
         .unit.medic {
             --unit-size: 14px;
             --body-size: 22px;
             --scale: 0.636;
         }
-        .unit.medic .soldier-body { background: #ecf0f1; box-shadow: inset 0 0 0 2px #bdc3c7, 0 2px 0 rgba(0,0,0,0.45); }
+        .unit.medic .soldier-body { background: var(--color); box-shadow: inset 0 0 0 2px var(--color-dark), 0 2px 0 rgba(0,0,0,0.45); }
         .unit.medic .soldier-head { background: #fadbd8; box-shadow: inset 0 0 0 2px #bdc3c7; }
         .medic-cross {
             position: absolute;
@@ -521,14 +527,14 @@ permalink: /sandbox_war_game.html
             background: #e74c3c;
         }
 
-        /* 反坦克步兵 (14px, 复用 soldier-head/body 染红 + 火箭筒) */
+        /* 反坦克步兵 (14px, body 阵营色 + 火箭筒) */
         .unit.antitank {
             --unit-size: 14px;
             --body-size: 22px;
             --scale: 0.636;
         }
-        .unit.antitank .soldier-body { background: #c0392b; box-shadow: inset 0 0 0 2px #922b21, 0 2px 0 rgba(0,0,0,0.45); }
-        .unit.antitank .soldier-head { background: #e74c3c; box-shadow: inset 0 0 0 2px #922b21; }
+        .unit.antitank .soldier-body { background: var(--color); box-shadow: inset 0 0 0 2px var(--color-dark), 0 2px 0 rgba(0,0,0,0.45); }
+        .unit.antitank .soldier-head { background: var(--color-light); box-shadow: inset 0 0 0 2px var(--color); }
         .antitank-tube {
             position: absolute;
             width: 3px; height: 8px;
@@ -536,15 +542,15 @@ permalink: /sandbox_war_game.html
             background: #2c3e50;
         }
 
-        /* 轻型坦克 (22px, 复用 tank 结构染浅蓝) */
+        /* 轻型坦克 (22px, body 阵营中色 + 细长炮管, 区分主战坦克深色粗管) */
         .unit.lightTank {
             --unit-size: 22px;
             --body-size: 36px;
             --scale: 0.611;
         }
-        .unit.lightTank .tank-body { background: #5dade2; box-shadow: inset 0 0 0 3px #3498db, 0 3px 0 rgba(0,0,0,0.45); }
-        .unit.lightTank .tank-turret { background: #85c1e9; box-shadow: inset 0 0 0 3px #5dade2; }
-        .unit.lightTank .tank-barrel { width: 4px; height: 22px; left: 16px; }
+        .unit.lightTank .tank-body { background: var(--color); box-shadow: inset 0 0 0 3px var(--color-dark), 0 3px 0 rgba(0,0,0,0.45); }
+        .unit.lightTank .tank-turret { background: var(--color-light); box-shadow: inset 0 0 0 3px var(--color); }
+        .unit.lightTank .tank-barrel { width: 3px; height: 24px; left: 16px; }
 
         /* 坦克歼击车 (22px, 低矮车身 + 长管 + 无炮塔) */
         .unit.tankDestroyer {
@@ -1864,6 +1870,8 @@ permalink: /sandbox_war_game.html
                     body = '<div class="command-body"></div><div class="command-antenna"></div><div class="command-star"></div>';
                 } else if (this.type === 'supply') {
                     body = '<div class="supply-body"></div><div class="supply-cross"></div>';
+                } else if (this.type === 'engineer') {
+                    body = '<div class="soldier-head"></div><div class="soldier-body"></div><div class="engineer-tool"></div>';
                 } else if (this.type === 'medic') {
                     body = '<div class="soldier-head"></div><div class="soldier-body"></div><div class="medic-cross"></div>';
                 } else if (this.type === 'antitank') {
