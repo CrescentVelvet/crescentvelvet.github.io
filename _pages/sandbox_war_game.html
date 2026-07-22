@@ -2694,13 +2694,19 @@ permalink: /sandbox_war_game.html
                 } else {
                     this.stuckTime += deltaTime;
                     if (this.stuckTime > 0.5) {
-                        const angle = Math.random() * Math.PI * 2;
-                        const escape = 14 + Math.random() * 16;
-                        const nx = this.x + Math.cos(angle) * escape * deltaTime * 10;
-                        const ny = this.y + Math.sin(angle) * escape * deltaTime * 10;
-                        if (!this.checkCollision(nx, ny, allUnits)) {
-                            this.x = nx;
-                            this.y = ny;
+                        // 在掩体内: 8 方向朝外脱困; 否则随机逃脱
+                        const inObstacle = battlefieldManager &&
+                            battlefieldManager.collidesWithObstacle(this.x, this.y, this.getSize(), this.getSize(), 0);
+                        let escaped = false;
+                        for (let a = 0; a < Math.PI * 2 && !escaped; a += Math.PI / 4) {
+                            const esc = inObstacle ? 20 : (14 + Math.random() * 16);
+                            const nx = this.x + Math.cos(a) * esc * deltaTime * 20;
+                            const ny = this.y + Math.sin(a) * esc * deltaTime * 20;
+                            if (!this.checkCollision(nx, ny, allUnits)) {
+                                this.x = nx;
+                                this.y = ny;
+                                escaped = true;
+                            }
                         }
                         if (this.stuckTime > 1.0) {
                             this.updatePathToTarget(true);
@@ -4341,7 +4347,10 @@ permalink: /sandbox_war_game.html
                     for (const wp of unit.path) {
                         pts.push([wp.x + half, wp.y + half]);
                     }
-                    pts.push([unit.targetX + half, unit.targetY + half]);
+                    // path 用完才画到 target (避免 target 在掩体内画穿掩体)
+                    if (unit.path.length === 0) {
+                        pts.push([unit.targetX + half, unit.targetY + half]);
+                    }
                     if (pts.length < 2) continue;
                     const poly = document.createElementNS(ns, 'polyline');
                     poly.setAttribute('points', pts.map(p => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' '));
