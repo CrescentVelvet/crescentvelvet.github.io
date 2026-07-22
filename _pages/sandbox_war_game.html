@@ -3684,7 +3684,7 @@ permalink: /sandbox_war_game.html
                     palette: { ground: '#c4a46a', accent: '#e8d8a0', shadow: '#8a7440' },
                     pattern: '沙滩+潮汐线+反坦克锥'
                 },
-                playerZone: { x: 0, y: 0, w: 450, h: 750 },
+                playerZone: { x: 175, y: 0, w: 300, h: 750 },
                 obstacles: [
                     { x: 900, y: 0, w: 20, h: 750, type: 'embankment' },
                     { x: 200, y: 100, w: 64, h: 64, type: 'house' },
@@ -3882,11 +3882,60 @@ permalink: /sandbox_war_game.html
             drawGround() {
                 const ctx = this.terrainCtx;
                 const p = this.scenario.terrain.palette;
-                ctx.fillStyle = p.ground;
-                ctx.fillRect(0, 0, this.w, this.h);
+                const type = this.scenario.terrain.type;
                 this.seed(this.scenario.id + ':ground');
-                this.scatter(p.shadow, 0.12, 2400, 2, 5);
-                this.scatter(p.accent, 0.08, 1400, 2, 4);
+
+                if (type === 'beach') {
+                    // 海水区 (西侧 0-150px, 像素蓝)
+                    ctx.fillStyle = '#2c5f7c';
+                    ctx.fillRect(0, 0, 150, this.h);
+                    ctx.save();
+                    ctx.fillStyle = '#3a7a9c';
+                    for (let i = 0; i < 500; i++) ctx.fillRect(this.randInt(150), this.randInt(this.h), 4, 4);
+                    ctx.fillStyle = '#1f4a5c';
+                    for (let i = 0; i < 250; i++) ctx.fillRect(this.randInt(150), this.randInt(this.h), 4, 4);
+                    ctx.restore();
+                    // 湿沙交界 (150-175px)
+                    ctx.fillStyle = '#b89860';
+                    ctx.fillRect(150, 0, 25, this.h);
+                    // 沙滩区 (175px+)
+                    ctx.fillStyle = p.ground;
+                    ctx.fillRect(175, 0, this.w - 175, this.h);
+                    // 沙滩像素噪点
+                    ctx.save();
+                    ctx.globalAlpha = 0.15;
+                    ctx.fillStyle = p.shadow;
+                    for (let i = 0; i < 1500; i++) ctx.fillRect(175 + this.randInt(this.w - 175), this.randInt(this.h), 2, 2);
+                    ctx.restore();
+                    // 水陆交界波浪
+                    ctx.strokeStyle = '#6fb0d8';
+                    ctx.lineWidth = 2;
+                    for (let y = 0; y < this.h; y += 8) {
+                        ctx.beginPath();
+                        ctx.moveTo(147, y);
+                        ctx.lineTo(147 + Math.sin(y * 0.3) * 3, y + 4);
+                        ctx.stroke();
+                    }
+                } else if (type === 'desert') {
+                    // 深沙底色
+                    ctx.fillStyle = p.ground;
+                    ctx.fillRect(0, 0, this.w, this.h);
+                    // 沙丘条纹 (像素瓦片感, 深浅交替)
+                    ctx.save();
+                    ctx.fillStyle = p.shadow;
+                    ctx.globalAlpha = 0.22;
+                    for (let i = 0; i < 400; i++) ctx.fillRect(this.randInt(this.w), this.randInt(this.h), 6 + this.randInt(8), 4);
+                    ctx.fillStyle = p.accent;
+                    ctx.globalAlpha = 0.25;
+                    for (let i = 0; i < 300; i++) ctx.fillRect(this.randInt(this.w), this.randInt(this.h), 4, 4);
+                    ctx.restore();
+                } else {
+                    // 默认: palette + 噪点
+                    ctx.fillStyle = p.ground;
+                    ctx.fillRect(0, 0, this.w, this.h);
+                    this.scatter(p.shadow, 0.12, 2400, 2, 5);
+                    this.scatter(p.accent, 0.08, 1400, 2, 4);
+                }
             }
 
             scatter(color, alpha, count, minSize, maxSize) {
@@ -4030,23 +4079,14 @@ permalink: /sandbox_war_game.html
                         ctx.fill();
                     }
                 } else if (type === 'beach') {
-                    // 滩头: 潮汐线 + 沙纹
-                    ctx.strokeStyle = 'rgba(138,116,64,0.3)';
-                    ctx.lineWidth = 2;
-                    for (let i = 0; i < 5; i++) {
-                        const y = 80 + i * 90;
-                        ctx.beginPath();
-                        ctx.moveTo(0, y);
-                        for (let x = 0; x < this.w; x += 20) {
-                            ctx.lineTo(x, y + Math.sin(x * 0.1) * 4);
-                        }
-                        ctx.stroke();
+                    // 沙滩: 贝壳/碎石散布 (仅沙滩区, 避开海水)
+                    ctx.save();
+                    ctx.fillStyle = this.scenario.terrain.palette.shadow;
+                    for (let i = 0; i < 200; i++) {
+                        ctx.globalAlpha = 0.25;
+                        ctx.fillRect(175 + this.randInt(this.w - 175), this.randInt(this.h), 2, 2);
                     }
-                    ctx.fillStyle = this.scenario.terrain.palette.accent;
-                    for (let i = 0; i < 300; i++) {
-                        ctx.globalAlpha = 0.2;
-                        ctx.fillRect(this.randInt(this.w), this.randInt(this.h), 2, 2);
-                    }
+                    ctx.restore();
                 }
             }
 
