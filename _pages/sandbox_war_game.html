@@ -912,6 +912,8 @@ permalink: /sandbox_war_game.html
                     <button onclick="addObstacle()" class="pixel-btn btn-obstacle">+掩体</button>
                     <button onclick="toggleBattle()" id="battleBtn" class="pixel-btn btn-action">开战</button>
                     <button onclick="clearBattlefield()" class="pixel-btn btn-danger">清空</button>
+                    <button onclick="battlefieldManager.toggleDebugPaths()" class="pixel-btn btn-unit">调试路线</button>
+                    <button onclick="battlefieldManager.toggleSynergy()" class="pixel-btn btn-unit">协同链</button>
                 </div>
 
                 <div class="control-row">
@@ -1958,7 +1960,7 @@ permalink: /sandbox_war_game.html
 
             showInfo(event) {
                 const info = document.getElementById('unitInfo');
-                const typeName = this.type === 'tank' ? '坦克' : (this.type === 'artillery' ? '火炮' : (this.type === 'rocket' ? '火箭炮' : '步兵'));
+                const typeName = unitTypeName(this.type);
                 let extra = '';
                 if (this.type === 'artillery' && this.deployed !== undefined) {
                     extra = `<br>状态: ${this.deployed ? '已部署' : (this.deploying ? '部署中...' : '移动中')}`;
@@ -1967,7 +1969,7 @@ permalink: /sandbox_war_game.html
                     <strong>${typeName}</strong><br>
                     阵营: ${this.team === 'ally' ? '友军' : '敌军'}<br>
                     生命值: ${this.health}/${this.maxHealth}${extra}<br>
-                    位置: (${Math.round(this.x)}, ${Math.round(this.y)})
+                    士气: ${Math.round(this.morale)}
                 `;
                 info.style.display = 'block';
                 info.style.left = event.pageX + 10 + 'px';
