@@ -1988,7 +1988,7 @@ permalink: /sandbox_war_game.html
                 info.style.top = event.pageY - 10 + 'px';
             }
 
-            // 单位状态文本 (溃退/撤退/追击/跟随/后撤/侧绕/巡逻/射击/待命)
+            // 单位状态文本 (溃退/撤退/追击/跟随/后撤/侧绕/巡逻/射击/作战/停止/待命)
             getStateText() {
                 if (this.morale < 15 || this.state === 'flee') return '溃退';
                 if (this.state === 'retreat') return '撤退';
@@ -2003,8 +2003,9 @@ permalink: /sandbox_war_game.html
                 if (this.state === 'hold') {
                     const now = Date.now();
                     if (now - this.lastAttackTime < 2000) return '射击';
-                    return '待命';
+                    return '作战';  // hold 状态攻击冷却中也是作战 (非待命)
                 }
+                if (this.state === 'chase') return '停止';  // 追击中停下 (卡住/到达 target)
                 return '待命';
             }
 
