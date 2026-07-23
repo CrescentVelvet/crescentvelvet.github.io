@@ -764,6 +764,28 @@ permalink: /sandbox_war_game.html
         .catapult-wheel.left { left: 7px; }
         .catapult-wheel.right { right: 7px; }
 
+        /* 连弩手 (14px, 阵营色 + 弩) */
+        .unit.crossbow {
+            --unit-size: 14px;
+            --body-size: 22px;
+            --scale: 0.636;
+        }
+        .unit.crossbow .soldier-body { background: var(--color); box-shadow: inset 0 0 0 2px var(--color-dark), 0 2px 0 rgba(0,0,0,0.45); }
+        .unit.crossbow .soldier-head { background: #d4a373; box-shadow: inset 0 0 0 2px #8a5a3c; }
+        .crossbow-div {
+            position: absolute;
+            width: 6px; height: 5px;
+            left: 12px; top: 7px;
+            background: #5d4a3a;
+            box-shadow: inset 0 0 0 1px #3a2a1a;
+        }
+        .crossbow-string {
+            position: absolute;
+            width: 1px; height: 9px;
+            left: 17px; top: 5px;
+            background: #3a2a1a;
+        }
+
         .unit.selected {
             filter: drop-shadow(0 0 4px #f1c40f);
             z-index: 100;
@@ -1023,6 +1045,7 @@ permalink: /sandbox_war_game.html
                         <option value="alamain">阿拉曼沙漠 (PVE)</option>
                         <option value="bulge">阿登突出部 (PVE)</option>
                         <option value="cannae">坎尼会战 (古代 PVE)</option>
+                        <option value="changping">长平之战 (古代 PVE)</option>
                         <option value="custom_pvp">自定义战役 (PVP)</option>
                     </select>
                     <button onclick="addObstacle()" class="pixel-btn btn-obstacle">+掩体</button>
@@ -1051,6 +1074,7 @@ permalink: /sandbox_war_game.html
                     <button onclick="addUnit('ally','archer')" class="pixel-btn btn-ally btn-era-ancient">弓箭</button>
                     <button onclick="addUnit('ally','cavalry')" class="pixel-btn btn-ally btn-era-ancient">骑兵</button>
                     <button onclick="addUnit('ally','catapult')" class="pixel-btn btn-ally btn-era-ancient">投石</button>
+                    <button onclick="addUnit('ally','crossbow')" class="pixel-btn btn-ally btn-era-ancient">连弩</button>
                 </div>
 
                 <div class="control-row" id="enemyControlRow">
@@ -1072,6 +1096,7 @@ permalink: /sandbox_war_game.html
                     <button onclick="addUnit('enemy','archer')" class="pixel-btn btn-enemy btn-era-ancient">弓箭</button>
                     <button onclick="addUnit('enemy','cavalry')" class="pixel-btn btn-enemy btn-era-ancient">骑兵</button>
                     <button onclick="addUnit('enemy','catapult')" class="pixel-btn btn-enemy btn-era-ancient">投石</button>
+                    <button onclick="addUnit('enemy','crossbow')" class="pixel-btn btn-enemy btn-era-ancient">连弩</button>
                 </div>
             </div>
         </div>
@@ -2005,6 +2030,8 @@ permalink: /sandbox_war_game.html
                     body = '<div class="cavalry-horse"></div><div class="cavalry-rider"></div><div class="cavalry-head"></div><div class="cavalry-spear"></div>';
                 } else if (this.type === 'catapult') {
                     body = '<div class="catapult-base"></div><div class="catapult-arm"></div><div class="catapult-sling"></div><div class="catapult-wheel left"></div><div class="catapult-wheel right"></div>';
+                } else if (this.type === 'crossbow') {
+                    body = '<div class="soldier-head"></div><div class="soldier-body"></div><div class="crossbow-div"></div><div class="crossbow-string"></div>';
                 } else {
                     body = '<div class="soldier-head"></div><div class="soldier-body"></div>';
                 }
@@ -3691,6 +3718,20 @@ permalink: /sandbox_war_game.html
             }
         }
 
+        // 连弩手: 连射(攻速高), 短射程低伤高频, 克步兵 (中国特色兵种)
+        class Crossbowman extends Archer {
+            constructor(x, y, team, health) {
+                super(x, y, team, health);
+                this.type = 'crossbow';
+                this.attackRange = 150;   // 短射程
+                this.attackPower = 8;     // 低伤
+                this.attackCooldown = 600; // 连射(0.6s, 弓箭手1.5s的0.4)
+                this.maxSpeed = 30;
+                this.armorType = 'infantry';
+                this.damageTable = { infantry: 1.3, cavalry: 1.0, vehicle: 0.8, tank: 0.6 };  // 克步兵
+            }
+        }
+
         class Projectile {
             constructor(source, target, damage) {
                 this.source = source;
@@ -3713,7 +3754,8 @@ permalink: /sandbox_war_game.html
                     melee:    { size: 3, border: 1, glow: 2, glowColor: '#f7e07b', speed: 600, radius: 6 },
                     archer:   { size: 4, border: 1, glow: 3, glowColor: '#f7e07b', speed: 400, radius: 7 },
                     cavalry:  { size: 3, border: 1, glow: 2, glowColor: '#f7e07b', speed: 650, radius: 6 },
-                    catapult: { size: 9, border: 2, glow: 8, glowColor: '#e67e22', speed: 260, radius: 10 }
+                    catapult: { size: 9, border: 2, glow: 8, glowColor: '#e67e22', speed: 260, radius: 10 },
+                    crossbow: { size: 3, border: 1, glow: 2, glowColor: '#f7e07b', speed: 450, radius: 6 }
                 };
                 const spec = specs[source.type] || specs.soldier;
                 this.size = spec.size;
@@ -4149,6 +4191,48 @@ permalink: /sandbox_war_game.html
                     failCondition: 'player_all_destroyed OR timeout'
                 }
             },
+            changping: {
+                id: 'changping',
+                name: '长平之战',
+                year: -260, era: 'ancient',
+                mode: 'pve_historical',
+                side: 'qin_vs_zhao',
+                playerRole: 'defender',
+                historicalBrief: '公元前260年, 秦赵长平对决, 赵军被围, 白起坑杀40万赵卒, 战国最大歼灭战',
+                terrain: {
+                    type: 'steppe',
+                    palette: { ground: '#7a6a3a', accent: '#a8966a', shadow: '#4a3a1a' },
+                    pattern: '黄土高原'
+                },
+                playerZone: { x: 550, y: 0, w: 500, h: 750 },
+                obstacles: [
+                    { x: 300, y: 150, w: 118, h: 34, type: 'mound' },
+                    { x: 400, y: 400, w: 118, h: 34, type: 'mound' },
+                    { x: 350, y: 580, w: 118, h: 34, type: 'mound' },
+                    { x: 600, y: 200, w: 86, h: 46, type: 'house' },
+                    { x: 650, y: 450, w: 86, h: 46, type: 'house' }
+                ],
+                playerForce: {
+                    pointBudgetHint: 70,
+                    defaultLayout: [
+                        { type: 'melee', count: 4 },
+                        { type: 'crossbow', count: 3 },
+                        { type: 'cavalry', count: 2 }
+                    ]
+                },
+                enemyForce: [
+                    { type: 'melee', x: 50, y: 100, angle: 90, count: 3 },
+                    { type: 'melee', x: 50, y: 300, angle: 90, count: 3 },
+                    { type: 'archer', x: 80, y: 200, angle: 90, count: 2 },
+                    { type: 'cavalry', x: 30, y: 500, angle: 90, count: 2 }
+                ],
+                objectives: {
+                    type: 'defense',
+                    target: 'hold_core_sector',
+                    timeLimit: 600,
+                    failCondition: 'player_all_destroyed OR timeout'
+                }
+            },
             custom_pvp: {
                 id: 'custom_pvp',
                 name: '自定义战役 (PVP)',
@@ -4184,7 +4268,8 @@ permalink: /sandbox_war_game.html
             supplyTruck: 'supply', commandVehicle: 'command',
             scoutCar: 'scout', apc: 'apc', mortar: 'mortar',
             // 古代兵种 (映射到自己)
-            melee: 'melee', archer: 'archer', cavalry: 'cavalry', catapult: 'catapult'
+            melee: 'melee', archer: 'archer', cavalry: 'cavalry', catapult: 'catapult',
+            crossbow: 'crossbow'
         };
 
         // ── v3.0 战场地图绘制器 ──
@@ -4630,6 +4715,7 @@ permalink: /sandbox_war_game.html
                 else if (type === 'archer') unit = new Archer(x, y, team, health);
                 else if (type === 'cavalry') unit = new Cavalry(x, y, team, health);
                 else if (type === 'catapult') unit = new Catapult(x, y, team, health);
+                else if (type === 'crossbow') unit = new Crossbowman(x, y, team, health);
                 else unit = new Soldier(x, y, team, health);
                 unit.angle = angle;
                 unit.desiredAngle = angle;
@@ -5253,7 +5339,8 @@ permalink: /sandbox_war_game.html
             melee:    { health: 90,  pointCost: 5 },
             archer:   { health: 50,  pointCost: 4 },
             cavalry:  { health: 120, pointCost: 12 },
-            catapult: { health: 60,  pointCost: 18 }
+            catapult: { health: 60,  pointCost: 18 },
+            crossbow: { health: 50, pointCost: 5 }
         };
 
         // 工具函数
@@ -5275,6 +5362,7 @@ permalink: /sandbox_war_game.html
             if (type === 'archer') return '弓箭手';
             if (type === 'cavalry') return '骑兵';
             if (type === 'catapult') return '投石车';
+            if (type === 'crossbow') return '连弩手';
             return '步兵';
         }
 
@@ -5381,6 +5469,8 @@ permalink: /sandbox_war_game.html
                 unit = new Cavalry(x, y, team, health);
             } else if (type === 'catapult') {
                 unit = new Catapult(x, y, team, health);
+            } else if (type === 'crossbow') {
+                unit = new Crossbowman(x, y, team, health);
             } else {
                 unit = new Soldier(x, y, team, health);
             }
