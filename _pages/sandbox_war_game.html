@@ -3644,7 +3644,7 @@ permalink: /sandbox_war_game.html
                 this.maxSpeed = 35;
                 this.attackCooldown = 1200;
                 this.armorType = 'infantry';
-                this.damageTable = { infantry: 1.0, vehicle: 1.2, tank: 1.0 };
+                this.damageTable = { infantry: 1.0, cavalry: 1.5, vehicle: 1.2, tank: 1.0 };  // 长矛克骑兵
             }
         }
 
@@ -3658,7 +3658,7 @@ permalink: /sandbox_war_game.html
                 this.maxSpeed = 30;
                 this.attackCooldown = 1500;
                 this.armorType = 'infantry';
-                this.damageTable = { infantry: 1.2, vehicle: 0.8, tank: 0.6 };
+                this.damageTable = { infantry: 1.2, cavalry: 1.0, vehicle: 0.8, tank: 0.6 };  // 弓箭克步兵
             }
         }
 
@@ -3671,8 +3671,8 @@ permalink: /sandbox_war_game.html
                 this.attackPower = 22;
                 this.maxSpeed = 70;  // 最快
                 this.attackCooldown = 1000;
-                this.armorType = 'infantry';
-                this.damageTable = { infantry: 1.3, vehicle: 1.0, tank: 0.8 };
+                this.armorType = 'cavalry';  // 骑兵护甲 (被长矛克)
+                this.damageTable = { infantry: 1.3, cavalry: 1.0, vehicle: 1.0, tank: 0.8 };  // 骑兵克步兵/弓箭
             }
         }
 
@@ -3687,7 +3687,7 @@ permalink: /sandbox_war_game.html
                 this.maxSpeed = 15;
                 this.attackCooldown = 3500;
                 this.armorType = 'vehicle';
-                this.damageTable = { infantry: 1.4, vehicle: 1.0, tank: 0.7 };
+                this.damageTable = { infantry: 1.4, cavalry: 0.8, vehicle: 1.0, tank: 0.7 };  // 投石克密集步兵
             }
         }
 
