@@ -658,6 +658,112 @@ permalink: /sandbox_war_game.html
             transform-origin: bottom;
         }
 
+        /* ===== 古代兵种 ===== */
+        /* 近战步兵 (14px, 阵营色 + 银盔 + 长矛) */
+        .unit.melee {
+            --unit-size: 14px;
+            --body-size: 22px;
+            --scale: 0.636;
+        }
+        .unit.melee .soldier-body { background: var(--color); box-shadow: inset 0 0 0 2px var(--color-dark), 0 2px 0 rgba(0,0,0,0.45); }
+        .unit.melee .soldier-head { background: #bdc3c7; box-shadow: inset 0 0 0 2px #7f8c8d; }
+        .melee-spear {
+            position: absolute;
+            width: 2px; height: 12px;
+            left: 14px; top: 2px;
+            background: #95a5a6;
+        }
+
+        /* 弓箭手 (14px, 阵营色 + 绿衣 + 弓) */
+        .unit.archer {
+            --unit-size: 14px;
+            --body-size: 22px;
+            --scale: 0.636;
+        }
+        .unit.archer .soldier-body { background: var(--color); box-shadow: inset 0 0 0 2px var(--color-dark), 0 2px 0 rgba(0,0,0,0.45); }
+        .unit.archer .soldier-head { background: #d4a373; box-shadow: inset 0 0 0 2px #8a5a3c; }
+        .archer-bow {
+            position: absolute;
+            width: 4px; height: 8px;
+            left: 14px; top: 6px;
+            border: 1px solid #6b4423;
+            border-radius: 50% 0 0 50%;
+            background: transparent;
+        }
+
+        /* 骑兵 (18px, 马身 + 骑士) */
+        .unit.cavalry {
+            --unit-size: 18px;
+            --body-size: 28px;
+            --scale: 0.643;
+        }
+        .cavalry-horse {
+            position: absolute;
+            width: 22px; height: 10px;
+            left: 3px; top: 12px;
+            background: #5d4a3a;
+            box-shadow: inset 0 0 0 2px #3a2a1a, 0 2px 0 rgba(0,0,0,0.45);
+            border-radius: 3px 6px 3px 3px;
+        }
+        .cavalry-rider {
+            position: absolute;
+            width: 8px; height: 8px;
+            left: 10px; top: 4px;
+            background: var(--color);
+            box-shadow: inset 0 0 0 1px var(--color-dark);
+        }
+        .cavalry-head {
+            position: absolute;
+            width: 5px; height: 4px;
+            left: 11px; top: 1px;
+            background: #d4a373;
+            box-shadow: inset 0 0 0 1px #8a5a3c;
+        }
+        .cavalry-spear {
+            position: absolute;
+            width: 2px; height: 14px;
+            left: 18px; top: 0;
+            background: #95a5a6;
+        }
+
+        /* 投石车 (20px, 机械投臂 + 底座) */
+        .unit.catapult {
+            --unit-size: 20px;
+            --body-size: 32px;
+            --scale: 0.625;
+        }
+        .catapult-base {
+            position: absolute;
+            width: 18px; height: 6px;
+            left: 7px; top: 22px;
+            background: #5d4a3a;
+            box-shadow: inset 0 0 0 1px #3a2a1a;
+        }
+        .catapult-arm {
+            position: absolute;
+            width: 3px; height: 18px;
+            left: 14px; top: 4px;
+            background: #7f8c8d;
+            transform: rotate(-25deg);
+            transform-origin: bottom;
+        }
+        .catapult-sling {
+            position: absolute;
+            width: 5px; height: 5px;
+            left: 15px; top: 2px;
+            background: #3a2a1a;
+            border-radius: 50%;
+        }
+        .catapult-wheel {
+            position: absolute;
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            background: #3a2a1a;
+            top: 24px;
+        }
+        .catapult-wheel.left { left: 7px; }
+        .catapult-wheel.right { right: 7px; }
+
         .unit.selected {
             filter: drop-shadow(0 0 4px #f1c40f);
             z-index: 100;
@@ -916,6 +1022,7 @@ permalink: /sandbox_war_game.html
                         <option value="normandy">诺曼底滩头 (PVE)</option>
                         <option value="alamain">阿拉曼沙漠 (PVE)</option>
                         <option value="bulge">阿登突出部 (PVE)</option>
+                        <option value="cannae">坎尼会战 (古代 PVE)</option>
                         <option value="custom_pvp">自定义战役 (PVP)</option>
                     </select>
                     <button onclick="addObstacle()" class="pixel-btn btn-obstacle">+掩体</button>
@@ -940,6 +1047,10 @@ permalink: /sandbox_war_game.html
                     <button onclick="addUnit('ally','scout')" class="pixel-btn btn-ally">侦察</button>
                     <button onclick="addUnit('ally','apc')" class="pixel-btn btn-ally">运兵</button>
                     <button onclick="addUnit('ally','mortar')" class="pixel-btn btn-ally">迫击</button>
+                    <button onclick="addUnit('ally','melee')" class="pixel-btn btn-ally">近战</button>
+                    <button onclick="addUnit('ally','archer')" class="pixel-btn btn-ally">弓箭</button>
+                    <button onclick="addUnit('ally','cavalry')" class="pixel-btn btn-ally">骑兵</button>
+                    <button onclick="addUnit('ally','catapult')" class="pixel-btn btn-ally">投石</button>
                 </div>
 
                 <div class="control-row" id="enemyControlRow">
@@ -957,6 +1068,10 @@ permalink: /sandbox_war_game.html
                     <button onclick="addUnit('enemy','scout')" class="pixel-btn btn-enemy">侦察</button>
                     <button onclick="addUnit('enemy','apc')" class="pixel-btn btn-enemy">运兵</button>
                     <button onclick="addUnit('enemy','mortar')" class="pixel-btn btn-enemy">迫击</button>
+                    <button onclick="addUnit('enemy','melee')" class="pixel-btn btn-enemy">近战</button>
+                    <button onclick="addUnit('enemy','archer')" class="pixel-btn btn-enemy">弓箭</button>
+                    <button onclick="addUnit('enemy','cavalry')" class="pixel-btn btn-enemy">骑兵</button>
+                    <button onclick="addUnit('enemy','catapult')" class="pixel-btn btn-enemy">投石</button>
                 </div>
             </div>
         </div>
@@ -1855,8 +1970,8 @@ permalink: /sandbox_war_game.html
 
             getSize() {
                 if (this.type === 'tank') return 22;
-                if (this.type === 'artillery' || this.type === 'rocket' || this.type === 'mortar') return 20;
-                if (this.type === 'command' || this.type === 'supply' || this.type === 'scout' || this.type === 'apc') return 18;
+                if (this.type === 'artillery' || this.type === 'rocket' || this.type === 'mortar' || this.type === 'catapult') return 20;
+                if (this.type === 'command' || this.type === 'supply' || this.type === 'scout' || this.type === 'apc' || this.type === 'cavalry') return 18;
                 return 14;
             }
 
@@ -1882,6 +1997,14 @@ permalink: /sandbox_war_game.html
                     body = '<div class="apc-body"></div><div class="apc-wheel f1"></div><div class="apc-wheel f2"></div><div class="apc-wheel f3"></div>';
                 } else if (this.type === 'mortar') {
                     body = '<div class="mortar-base"></div><div class="mortar-tube"></div>';
+                } else if (this.type === 'melee') {
+                    body = '<div class="soldier-head"></div><div class="soldier-body"></div><div class="melee-spear"></div>';
+                } else if (this.type === 'archer') {
+                    body = '<div class="soldier-head"></div><div class="soldier-body"></div><div class="archer-bow"></div>';
+                } else if (this.type === 'cavalry') {
+                    body = '<div class="cavalry-horse"></div><div class="cavalry-rider"></div><div class="cavalry-head"></div><div class="cavalry-spear"></div>';
+                } else if (this.type === 'catapult') {
+                    body = '<div class="catapult-base"></div><div class="catapult-arm"></div><div class="catapult-sling"></div><div class="catapult-wheel left"></div><div class="catapult-wheel right"></div>';
                 } else {
                     body = '<div class="soldier-head"></div><div class="soldier-body"></div>';
                 }
@@ -3510,6 +3633,64 @@ permalink: /sandbox_war_game.html
             }
         }
 
+        // ── 古代兵种 (陆战) ──
+        // 近战步兵: 短程高伤, 阵营色 + 银盔 + 长矛
+        class MeleeInfantry extends Soldier {
+            constructor(x, y, team, health) {
+                super(x, y, team, health);
+                this.type = 'melee';
+                this.attackRange = 35;
+                this.attackPower = 25;
+                this.maxSpeed = 35;
+                this.attackCooldown = 1200;
+                this.armorType = 'infantry';
+                this.damageTable = { infantry: 1.0, vehicle: 1.2, tank: 1.0 };
+            }
+        }
+
+        // 弓箭手: 远程低伤, 阵营色 + 弓
+        class Archer extends Soldier {
+            constructor(x, y, team, health) {
+                super(x, y, team, health);
+                this.type = 'archer';
+                this.attackRange = 200;
+                this.attackPower = 12;
+                this.maxSpeed = 30;
+                this.attackCooldown = 1500;
+                this.armorType = 'infantry';
+                this.damageTable = { infantry: 1.2, vehicle: 0.8, tank: 0.6 };
+            }
+        }
+
+        // 骑兵: 快速冲击近战, 马身 + 骑士
+        class Cavalry extends Soldier {
+            constructor(x, y, team, health) {
+                super(x, y, team, health);
+                this.type = 'cavalry';
+                this.attackRange = 40;
+                this.attackPower = 22;
+                this.maxSpeed = 70;  // 最快
+                this.attackCooldown = 1000;
+                this.armorType = 'infantry';
+                this.damageTable = { infantry: 1.3, vehicle: 1.0, tank: 0.8 };
+            }
+        }
+
+        // 投石车: 重型远程溅射, 机械投臂
+        class Catapult extends Mortar {
+            constructor(x, y, team, health) {
+                super(x, y, team, health);
+                this.type = 'catapult';
+                this.attackRange = 280;
+                this.minRange = 50;
+                this.attackPower = 30;
+                this.maxSpeed = 15;
+                this.attackCooldown = 3500;
+                this.armorType = 'vehicle';
+                this.damageTable = { infantry: 1.4, vehicle: 1.0, tank: 0.7 };
+            }
+        }
+
         class Projectile {
             constructor(source, target, damage) {
                 this.source = source;
@@ -3527,7 +3708,12 @@ permalink: /sandbox_war_game.html
                     rocket:        { size: 8, border: 2, glow: 9, glowColor: '#e67e22', speed: 240, radius: 8 },
                     mortar:        { size: 7, border: 2, glow: 7, glowColor: '#e67e22', speed: 300, radius: 9 },
                     scout:         { size: 4, border: 1, glow: 3, glowColor: '#f7e07b', speed: 380, radius: 7 },
-                    apc:           { size: 4, border: 1, glow: 3, glowColor: '#f7e07b', speed: 360, radius: 8 }
+                    apc:           { size: 4, border: 1, glow: 3, glowColor: '#f7e07b', speed: 360, radius: 8 },
+                    // 古代兵种
+                    melee:    { size: 3, border: 1, glow: 2, glowColor: '#f7e07b', speed: 600, radius: 6 },
+                    archer:   { size: 4, border: 1, glow: 3, glowColor: '#f7e07b', speed: 400, radius: 7 },
+                    cavalry:  { size: 3, border: 1, glow: 2, glowColor: '#f7e07b', speed: 650, radius: 6 },
+                    catapult: { size: 9, border: 2, glow: 8, glowColor: '#e67e22', speed: 260, radius: 10 }
                 };
                 const spec = specs[source.type] || specs.soldier;
                 this.size = spec.size;
@@ -3923,6 +4109,46 @@ permalink: /sandbox_war_game.html
                     failCondition: 'player_all_destroyed OR timeout'
                 }
             },
+            cannae: {
+                id: 'cannae',
+                name: '坎尼会战',
+                year: -216, era: 'ancient',
+                mode: 'pve_historical',
+                side: 'carthage_vs_rome',
+                playerRole: 'attacker',
+                historicalBrief: '公元前216年, 汉尼拔在坎尼以少胜多, 骑兵包抄罗马军团方阵, 歼灭战典范',
+                terrain: {
+                    type: 'steppe',
+                    palette: { ground: '#7a8a3a', accent: '#c4b06a', shadow: '#4a4a2a' },
+                    pattern: '平原(古代)'
+                },
+                playerZone: { x: 0, y: 0, w: 450, h: 750 },
+                obstacles: [
+                    { x: 500, y: 100, w: 118, h: 34, type: 'mound' },
+                    { x: 600, y: 500, w: 118, h: 34, type: 'mound' }
+                ],
+                playerForce: {
+                    pointBudgetHint: 70,
+                    defaultLayout: [
+                        { type: 'melee', count: 3 },
+                        { type: 'cavalry', count: 4 },
+                        { type: 'archer', count: 2 }
+                    ]
+                },
+                enemyForce: [
+                    { type: 'melee', x: 900, y: 100, angle: 270, count: 3 },
+                    { type: 'melee', x: 900, y: 300, angle: 270, count: 3 },
+                    { type: 'melee', x: 900, y: 500, angle: 270, count: 2 },
+                    { type: 'archer', x: 950, y: 200, angle: 270, count: 1 },
+                    { type: 'archer', x: 950, y: 450, angle: 270, count: 1 }
+                ],
+                objectives: {
+                    type: 'annihilation',
+                    target: 'all_enemy',
+                    timeLimit: 600,
+                    failCondition: 'player_all_destroyed OR timeout'
+                }
+            },
             custom_pvp: {
                 id: 'custom_pvp',
                 name: '自定义战役 (PVP)',
@@ -3956,7 +4182,9 @@ permalink: /sandbox_war_game.html
             katyusha: 'rocket',
             medic: 'medic',        engineer: 'engineer',
             supplyTruck: 'supply', commandVehicle: 'command',
-            scoutCar: 'scout', apc: 'apc', mortar: 'mortar'
+            scoutCar: 'scout', apc: 'apc', mortar: 'mortar',
+            // 古代兵种 (映射到自己)
+            melee: 'melee', archer: 'archer', cavalry: 'cavalry', catapult: 'catapult'
         };
 
         // ── v3.0 战场地图绘制器 ──
@@ -4396,6 +4624,10 @@ permalink: /sandbox_war_game.html
                 else if (type === 'scout') unit = new ScoutCar(x, y, team, health);
                 else if (type === 'apc') unit = new APC(x, y, team, health);
                 else if (type === 'mortar') unit = new Mortar(x, y, team, health);
+                else if (type === 'melee') unit = new MeleeInfantry(x, y, team, health);
+                else if (type === 'archer') unit = new Archer(x, y, team, health);
+                else if (type === 'cavalry') unit = new Cavalry(x, y, team, health);
+                else if (type === 'catapult') unit = new Catapult(x, y, team, health);
                 else unit = new Soldier(x, y, team, health);
                 unit.angle = angle;
                 unit.desiredAngle = angle;
@@ -5006,7 +5238,12 @@ permalink: /sandbox_war_game.html
             tankDestroyer: { health: 180, pointCost: 22 },
             scout:         { health: 80,  pointCost: 8 },
             apc:           { health: 150, pointCost: 12 },
-            mortar:        { health: 70,  pointCost: 14 }
+            mortar:        { health: 70,  pointCost: 14 },
+            // 古代兵种
+            melee:    { health: 90,  pointCost: 5 },
+            archer:   { health: 50,  pointCost: 4 },
+            cavalry:  { health: 120, pointCost: 12 },
+            catapult: { health: 60,  pointCost: 18 }
         };
 
         // 工具函数
@@ -5024,6 +5261,10 @@ permalink: /sandbox_war_game.html
             if (type === 'scout') return '侦察车';
             if (type === 'apc') return '装甲运兵车';
             if (type === 'mortar') return '迫击炮';
+            if (type === 'melee') return '近战步兵';
+            if (type === 'archer') return '弓箭手';
+            if (type === 'cavalry') return '骑兵';
+            if (type === 'catapult') return '投石车';
             return '步兵';
         }
 
@@ -5067,8 +5308,8 @@ permalink: /sandbox_war_game.html
             const battlefield = document.getElementById('battlefield');
             let unitSize;
             if (type === 'tank' || type === 'lightTank' || type === 'tankDestroyer') unitSize = 22;
-            else if (type === 'artillery' || type === 'rocket' || type === 'mortar') unitSize = 20;
-            else if (type === 'command' || type === 'supply' || type === 'scout' || type === 'apc') unitSize = 18;
+            else if (type === 'artillery' || type === 'rocket' || type === 'mortar' || type === 'catapult') unitSize = 20;
+            else if (type === 'command' || type === 'supply' || type === 'scout' || type === 'apc' || type === 'cavalry') unitSize = 18;
             else unitSize = 14;
             const deploymentDepth = Math.min(280, battlefield.offsetWidth * 0.28);
             let x = 0;
@@ -5122,6 +5363,14 @@ permalink: /sandbox_war_game.html
                 unit = new APC(x, y, team, health);
             } else if (type === 'mortar') {
                 unit = new Mortar(x, y, team, health);
+            } else if (type === 'melee') {
+                unit = new MeleeInfantry(x, y, team, health);
+            } else if (type === 'archer') {
+                unit = new Archer(x, y, team, health);
+            } else if (type === 'cavalry') {
+                unit = new Cavalry(x, y, team, health);
+            } else if (type === 'catapult') {
+                unit = new Catapult(x, y, team, health);
             } else {
                 unit = new Soldier(x, y, team, health);
             }
