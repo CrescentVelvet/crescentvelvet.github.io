@@ -1697,7 +1697,7 @@ permalink: /sandbox_war_game.html
          *      [暂缓避免操作复杂, 后续再考虑]
          *   P5: 兵种协同链可视化 (SynergyChainRenderer)
          *   P6 [当前]: 历史真实战役系统 (新增更多战役)
-         *   P7: 复盘回放 + 效率评分 [评分已完成, 回放待做]
+         *   P7 [暂缓]: 复盘回放 + 效率评分 [评分已完成, 回放待做]
          *   P8 [当前]: 补齐剩余 10 兵种实现 (v2.0 文档已设计)
          *   P9 [已完成]: 战场地图绘制系统 (TerrainRenderer + 单位尺寸缩小)
          *
@@ -1988,10 +1988,15 @@ permalink: /sandbox_war_game.html
                 info.style.top = event.pageY - 10 + 'px';
             }
 
-            // 单位状态文本 (溃退/撤退/追击/跟随/后撤/侧绕/巡逻/射击/作战/停止/待命)
+            // 单位状态文本 (溃退/撤退/瞄准/部署中/机动/收起/追击/跟随/后撤/侧绕/巡逻/射击/作战/停止/待命)
             getStateText() {
                 if (this.morale < 15 || this.state === 'flee') return '溃退';
                 if (this.state === 'retreat') return '撤退';
+                // 火炮特殊状态
+                if (this.state === 'standby') return '瞄准';      // 滞回盲区原地待命朝敌旋转
+                if (this.state === 'deploying') return '部署中';
+                if (this.state === 'maneuver') return '机动';
+                if (this.state === 'fallback') return '收起';
                 if (this.isMoving) {
                     if (this.state === 'chase') return '追击';
                     if (this.state === 'follow') return '跟随';
