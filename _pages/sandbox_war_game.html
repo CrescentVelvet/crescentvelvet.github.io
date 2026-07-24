@@ -1040,12 +1040,54 @@ permalink: /sandbox_war_game.html
         .projectile {
             position: absolute;
             box-sizing: border-box;
-            background: #f7e07b;
-            border: 2px solid #fff6bd;
-            box-shadow: 0 0 8px #f7e07b;
+            --shot-core: #fff1a8;
+            --shot-edge: #d8792b;
+            background: var(--shot-core);
+            border: 1px solid var(--shot-edge);
+            box-shadow: 0 0 0 1px rgba(23, 18, 12, .72), 0 0 7px var(--shot-edge);
             pointer-events: none;
-            z-index: 6;
+            z-index: 18;
+            transform-origin: 50% 50%;
         }
+
+        .projectile.ally { --shot-core: #d7f4ff; --shot-edge: #4fb8ef; }
+        .projectile.enemy { --shot-core: #ffe0ba; --shot-edge: #ef6b4f; }
+        .projectile-bullet { border-radius: 1px; }
+        .projectile-bullet::after { content: ''; position: absolute; width: 2px; height: 7px; left: 50%; top: 100%; margin-left: -1px; background: color-mix(in srgb, var(--shot-edge) 72%, transparent); }
+        .projectile-shell { border-radius: 50%; box-shadow: 0 0 0 1px #342719, 0 0 8px var(--shot-edge); }
+        .projectile-shell::before { content: ''; position: absolute; width: 2px; height: 2px; left: 1px; top: 1px; background: #fff3c4; }
+        .projectile-rocket { border-radius: 2px 2px 0 0; box-shadow: 0 0 0 1px #352018, 0 0 9px var(--shot-edge); }
+        .projectile-rocket::before { content: ''; position: absolute; width: 6px; height: 6px; left: 50%; top: 100%; transform: translateX(-50%); background: #ffb33a; clip-path: polygon(50% 100%, 0 0, 33% 17%, 50% 0, 67% 17%, 100% 0); }
+        .projectile-arrow { width: 2px !important; border: 0; border-radius: 0; box-shadow: 0 0 2px #2f1d10; }
+        .projectile-arrow::before { content: ''; position: absolute; width: 6px; height: 6px; left: -2px; top: -4px; background: #e9ece5; clip-path: polygon(50% 0, 100% 100%, 50% 76%, 0 100%); }
+        .projectile-arrow::after { content: ''; position: absolute; width: 5px; height: 4px; left: -2px; bottom: -3px; background: #9d6a3a; clip-path: polygon(0 0, 100% 50%, 0 100%); }
+        .projectile-stone { border-radius: 50%; background: #8a8173; border-color: #403b34; box-shadow: 0 0 0 1px #201e1a; }
+        .projectile-melee { border-radius: 0; background: #dfe8e5; border-color: #637070; box-shadow: 0 0 2px #eef9f7; }
+
+        .impact {
+            position: absolute;
+            width: 18px;
+            height: 18px;
+            margin-left: -9px;
+            margin-top: -9px;
+            border: 3px solid #ffd166;
+            background: #e85b36;
+            box-shadow: 0 0 0 3px rgba(91, 48, 24, .48), 0 0 12px #ff9f43;
+            animation: impactFlash 0.28s steps(3, end) forwards;
+            pointer-events: none;
+            z-index: 20;
+        }
+
+        .impact::before, .impact::after { content: ''; position: absolute; background: #fff3b0; }
+        .impact::before { width: 6px; height: 18px; left: 3px; top: -3px; }
+        .impact::after { width: 18px; height: 6px; left: -3px; top: 3px; }
+        .impact .impact-spark { position: absolute; width: 4px; height: 4px; background: #ffd166; }
+        .impact .s1 { left: -8px; top: -4px; } .impact .s2 { right: -8px; top: 1px; }
+        .impact .s3 { left: 1px; bottom: -8px; } .impact .s4 { right: -4px; top: -8px; }
+        .impact.impact-arrow { width: 10px; height: 10px; margin-left: -5px; margin-top: -5px; border-width: 2px; background: #d8d0b7; box-shadow: 0 0 0 2px rgba(74, 47, 27, .45); }
+        .impact.impact-arrow::before, .impact.impact-arrow::after { display: none; }
+        .impact.impact-melee { width: 9px; height: 9px; margin-left: -5px; margin-top: -5px; background: #dceff0; border-color: #8bb4b7; box-shadow: 0 0 5px #e6ffff; }
+        .impact.impact-stone { background: #786f61; border-color: #c3b394; box-shadow: 0 0 0 3px rgba(65, 54, 42, .4); }
 
         .obstacle {
             position: absolute;
@@ -1078,21 +1120,8 @@ permalink: /sandbox_war_game.html
             bottom: 24%;
         }
 
-        .impact {
-            position: absolute;
-            width: 22px;
-            height: 22px;
-            margin-left: -11px;
-            margin-top: -11px;
-            border: 3px solid #ffd166;
-            background: rgba(231, 76, 60, 0.35);
-            animation: impactFlash 0.25s ease-out forwards;
-            pointer-events: none;
-            z-index: 7;
-        }
-
         @keyframes impactFlash {
-            from { transform: scale(0.4); opacity: 1; }
+            from { transform: scale(0.55); opacity: 1; }
             to { transform: scale(1.8); opacity: 0; }
         }
 
@@ -4200,35 +4229,37 @@ permalink: /sandbox_war_game.html
                 this.damage = damage;
                 // 各兵种子弹: 尺寸/速度/碰撞半径/光晕 (步兵小, 坦克中, 火炮缩小, 反装甲/迫击炮橙色)
                 const specs = {
-                    soldier:       { size: 4, border: 1, glow: 3, glowColor: '#f7e07b', speed: 340, radius: 8 },
-                    antitank:      { size: 6, border: 1, glow: 5, glowColor: '#e67e22', speed: 320, radius: 8 },
-                    tank:          { size: 7, border: 2, glow: 6, glowColor: '#f7e07b', speed: 520, radius: 11 },
-                    lightTank:     { size: 6, border: 2, glow: 5, glowColor: '#f7e07b', speed: 540, radius: 10 },
-                    tankDestroyer: { size: 8, border: 2, glow: 7, glowColor: '#f7e07b', speed: 560, radius: 12 },
-                    artillery:     { size: 8, border: 2, glow: 8, glowColor: '#f7e07b', speed: 280, radius: 10 },
-                    rocket:        { size: 8, border: 2, glow: 9, glowColor: '#e67e22', speed: 240, radius: 8 },
-                    mortar:        { size: 7, border: 2, glow: 7, glowColor: '#e67e22', speed: 300, radius: 9 },
-                    scout:         { size: 4, border: 1, glow: 3, glowColor: '#f7e07b', speed: 380, radius: 7 },
-                    apc:           { size: 4, border: 1, glow: 3, glowColor: '#f7e07b', speed: 360, radius: 8 },
+                    soldier:       { size: 4, visual: 'bullet', speed: 340, radius: 8 },
+                    antitank:      { size: 6, visual: 'rocket', speed: 320, radius: 8 },
+                    tank:          { size: 7, visual: 'shell',  speed: 520, radius: 11 },
+                    lightTank:     { size: 6, visual: 'shell',  speed: 540, radius: 10 },
+                    tankDestroyer: { size: 8, visual: 'shell',  speed: 560, radius: 12 },
+                    artillery:     { size: 8, visual: 'shell',  speed: 280, radius: 10 },
+                    rocket:        { size: 8, visual: 'rocket', speed: 240, radius: 8 },
+                    mortar:        { size: 7, visual: 'shell',  speed: 300, radius: 9 },
+                    scout:         { size: 4, visual: 'bullet', speed: 380, radius: 7 },
+                    apc:           { size: 4, visual: 'bullet', speed: 360, radius: 8 },
                     // 古代兵种
-                    melee:    { size: 3, border: 1, glow: 2, glowColor: '#f7e07b', speed: 600, radius: 6 },
-                    archer:   { size: 4, border: 1, glow: 3, glowColor: '#f7e07b', speed: 400, radius: 7 },
-                    cavalry:  { size: 3, border: 1, glow: 2, glowColor: '#f7e07b', speed: 650, radius: 6 },
-                    catapult: { size: 9, border: 2, glow: 8, glowColor: '#e67e22', speed: 260, radius: 10 },
-                    crossbow: { size: 3, border: 1, glow: 2, glowColor: '#f7e07b', speed: 450, radius: 6 },
+                    melee:    { size: 3, visual: 'melee',  speed: 600, radius: 6 },
+                    archer:   { size: 4, visual: 'arrow',  speed: 400, radius: 7 },
+                    cavalry:  { size: 3, visual: 'melee',  speed: 650, radius: 6 },
+                    catapult: { size: 9, visual: 'stone',  speed: 260, radius: 10 },
+                    crossbow: { size: 3, visual: 'arrow',  speed: 450, radius: 6 },
                     // 火药时代
-                    firearm:    { size: 4, border: 1, glow: 5, glowColor: '#e67e22', speed: 500, radius: 7 },
-                    grenadier:  { size: 6, border: 2, glow: 6, glowColor: '#e67e22', speed: 320, radius: 8 },
-                    nestOfBees: { size: 7, border: 2, glow: 8, glowColor: '#e67e22', speed: 240, radius: 8 },
-                    hongyipao: { size: 10, border: 2, glow: 10, glowColor: '#e67e22', speed: 280, radius: 12 },
+                    firearm:    { size: 4, visual: 'bullet', speed: 500, radius: 7 },
+                    grenadier:  { size: 6, visual: 'shell',  speed: 320, radius: 8 },
+                    nestOfBees: { size: 7, visual: 'rocket', speed: 240, radius: 8 },
+                    hongyipao: { size: 10, visual: 'shell',  speed: 280, radius: 12 },
                     // 水战
-                    warship:  { size: 4, border: 1, glow: 3, glowColor: '#f7e07b', speed: 380, radius: 7 },
-                    fireship: { size: 8, border: 2, glow: 8, glowColor: '#e67e22', speed: 300, radius: 9 }
+                    warship:  { size: 4, visual: 'bullet', speed: 380, radius: 7 },
+                    fireship: { size: 8, visual: 'rocket', speed: 300, radius: 9 }
                 };
                 const spec = specs[source.type] || specs.soldier;
                 this.size = spec.size;
                 this.speed = spec.speed;
                 this.radius = spec.radius;
+                this.visual = spec.visual;
+                this.angle = 0;
 
                 // 散布弹道：若设置则飞向固定点而非追踪目标，到达后溅射
                 this.scatterX = undefined;
@@ -4238,13 +4269,9 @@ permalink: /sandbox_war_game.html
                 this.x = source.x + source.getSize() / 2;
                 this.y = source.y + source.getSize() / 2;
                 this.element = document.createElement('div');
-                this.element.className = `projectile ${this.team}`;
-                this.element.style.width = this.size + 'px';
-                this.element.style.height = this.size + 'px';
-                this.element.style.borderWidth = spec.border + 'px';
-                this.element.style.boxShadow = `0 0 ${spec.glow}px ${spec.glowColor}`;
-                this.element.style.background = this.team === 'ally' ? '#8fd3ff' : '#ff9a8f';
-                this.element.style.borderColor = this.team === 'ally' ? '#d6f1ff' : '#ffd3cd';
+                this.element.className = `projectile projectile-${this.visual} ${this.team}`;
+                this.element.style.width = (this.visual === 'bullet' ? 3 : this.size) + 'px';
+                this.element.style.height = (this.visual === 'bullet' ? this.size + 4 : this.size) + 'px';
                 this.updateVisual();
             }
 
@@ -4268,6 +4295,7 @@ permalink: /sandbox_war_game.html
                     }
 
                     const step = Math.min(dist, this.speed * deltaTime);
+                    this.angle = Math.atan2(dy, dx) * 180 / Math.PI + 90;
                     this.x += (dx / dist) * step;
                     this.y += (dy / dist) * step;
                     if (battlefieldManager.collidesWithObstacle(this.x, this.y, 8, 8)) {
@@ -4301,6 +4329,7 @@ permalink: /sandbox_war_game.html
                 }
 
                 const step = Math.min(dist, this.speed * deltaTime);
+                this.angle = Math.atan2(dy, dx) * 180 / Math.PI + 90;
                 this.x += (dx / dist) * step;
                 this.y += (dy / dist) * step;
                 if (battlefieldManager.collidesWithObstacle(this.x, this.y, 8, 8)) {
@@ -4330,11 +4359,13 @@ permalink: /sandbox_war_game.html
             updateVisual() {
                 this.element.style.left = (this.x - this.size / 2) + 'px';
                 this.element.style.top = (this.y - this.size / 2) + 'px';
+                this.element.style.transform = `rotate(${this.angle}deg)`;
             }
 
             createImpact(x, y) {
                 const impact = document.createElement('div');
-                impact.className = 'impact';
+                impact.className = `impact impact-${this.visual} ${this.team}`;
+                impact.innerHTML = '<i class="impact-spark s1"></i><i class="impact-spark s2"></i><i class="impact-spark s3"></i><i class="impact-spark s4"></i>';
                 impact.style.left = x + 'px';
                 impact.style.top = y + 'px';
                 document.getElementById('battlefield').appendChild(impact);
@@ -5075,6 +5106,26 @@ permalink: /sandbox_war_game.html
                     this.scatter(p.shadow, 0.12, 2400, 2, 5);
                     this.scatter(p.accent, 0.08, 1400, 2, 4);
                 }
+                this.drawSectorTiles(p, type);
+            }
+
+            drawSectorTiles(palette, type) {
+                const ctx = this.terrainCtx;
+                ctx.save();
+                ctx.globalAlpha = type === 'river' ? 0.08 : 0.13;
+                for (let y = 8; y < this.h; y += 16) {
+                    for (let x = 8; x < this.w; x += 16) {
+                        if (this.randInt(7) === 0) {
+                            ctx.fillStyle = this.randInt(2) ? palette.accent : palette.shadow;
+                            ctx.fillRect(x, y, 7 + this.randInt(7), 3 + this.randInt(4));
+                        }
+                    }
+                }
+                ctx.globalAlpha = 0.12;
+                ctx.strokeStyle = palette.shadow;
+                ctx.lineWidth = 1;
+                for (let x = 0; x < this.w; x += 80) ctx.strokeRect(x + 0.5, 0.5, 79, this.h - 1);
+                ctx.restore();
             }
 
             scatter(color, alpha, count, minSize, maxSize) {
@@ -5228,6 +5279,93 @@ permalink: /sandbox_war_game.html
                     }
                     ctx.restore();
                 }
+                this.drawBattlefieldDetails(type);
+            }
+
+            drawBattlefieldDetails(type) {
+                const ctx = this.decorCtx;
+                const p = this.scenario.terrain.palette;
+                this.seed(this.scenario.id + ':battle-details');
+                ctx.save();
+
+                if (type !== 'river') {
+                    const roadY = Math.floor(this.h * (0.56 + this.rand() * 0.12));
+                    const roadColor = type === 'snow' ? '#aeb8b6' : type === 'desert' ? '#a78045' : '#6c6148';
+                    ctx.globalAlpha = 0.30;
+                    ctx.fillStyle = roadColor;
+                    ctx.fillRect(0, roadY, this.w, 16);
+                    ctx.globalAlpha = 0.55;
+                    ctx.fillStyle = p.shadow;
+                    ctx.fillRect(0, roadY, this.w, 2);
+                    ctx.fillRect(0, roadY + 14, this.w, 2);
+                    ctx.globalAlpha = 0.32;
+                    for (let x = 8; x < this.w; x += 12) {
+                        ctx.fillRect(x, roadY + 4, 6, 2);
+                        ctx.fillRect(x + 3, roadY + 10, 6, 2);
+                    }
+                }
+
+                const wrecks = type === 'urban_ruin' ? 13 : type === 'beach' ? 8 : 6;
+                for (let i = 0; i < wrecks; i++) {
+                    const x = 18 + this.randInt(Math.max(1, this.w - 36));
+                    const y = 18 + this.randInt(Math.max(1, this.h - 36));
+                    const size = 4 + this.randInt(6);
+                    ctx.globalAlpha = 0.52;
+                    ctx.fillStyle = '#25292a';
+                    ctx.fillRect(x, y, size + 5, size);
+                    ctx.fillStyle = '#73513a';
+                    ctx.fillRect(x + 2, y - 2, size, 3);
+                    ctx.fillStyle = '#d47736';
+                    ctx.fillRect(x + 4, y - 4, 2, 3);
+                }
+
+                if (type === 'steppe' || type === 'snow') {
+                    const foliage = type === 'snow' ? '#294a48' : '#3f612d';
+                    const highlight = type === 'snow' ? '#dbe9e4' : '#759342';
+                    for (let i = 0; i < 24; i++) {
+                        const x = this.randInt(this.w);
+                        const y = this.randInt(this.h);
+                        ctx.globalAlpha = 0.72;
+                        ctx.fillStyle = '#493720';
+                        ctx.fillRect(x + 4, y + 8, 3, 7);
+                        ctx.fillStyle = foliage;
+                        ctx.fillRect(x, y + 5, 11, 6);
+                        ctx.fillRect(x + 2, y + 1, 7, 8);
+                        ctx.fillStyle = highlight;
+                        ctx.fillRect(x + 2, y + 5, 3, 2);
+                    }
+                } else if (type === 'desert') {
+                    for (let i = 0; i < 18; i++) {
+                        const x = this.randInt(this.w);
+                        const y = this.randInt(this.h);
+                        ctx.globalAlpha = 0.62;
+                        ctx.fillStyle = '#5e6e62';
+                        ctx.fillRect(x, y, 4, 6);
+                        ctx.fillStyle = '#c8a348';
+                        ctx.fillRect(x, y + 2, 4, 1);
+                    }
+                } else if (type === 'urban_ruin') {
+                    for (let i = 0; i < 16; i++) {
+                        const x = this.randInt(this.w);
+                        const y = this.randInt(this.h);
+                        ctx.globalAlpha = 0.5;
+                        ctx.fillStyle = '#5a5148';
+                        ctx.fillRect(x, y, 12 + this.randInt(16), 5);
+                        ctx.fillStyle = '#312d2a';
+                        ctx.fillRect(x + 3, y + 2, 5, 2);
+                    }
+                } else if (type === 'beach') {
+                    for (let i = 0; i < 12; i++) {
+                        const x = 185 + this.randInt(Math.max(1, this.w - 210));
+                        const y = this.randInt(this.h);
+                        ctx.globalAlpha = 0.65;
+                        ctx.fillStyle = '#52585a';
+                        ctx.fillRect(x, y, 13, 3);
+                        ctx.fillRect(x + 5, y - 5, 3, 13);
+                        ctx.fillRect(x + 2, y + 2, 9, 2);
+                    }
+                }
+                ctx.restore();
             }
 
             seed(s) {
