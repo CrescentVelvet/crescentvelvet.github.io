@@ -864,6 +864,36 @@ permalink: /sandbox_war_game.html
         .nest-wheel.left { left: 7px; }
         .nest-wheel.right { right: 7px; }
 
+        /* 红衣大炮 (20px, 阵营色重型火炮 + 长炮管) */
+        .unit.hongyipao {
+            --unit-size: 20px;
+            --body-size: 32px;
+            --scale: 0.625;
+        }
+        .hongyi-base {
+            position: absolute;
+            width: 22px; height: 10px;
+            left: 5px; top: 18px;
+            background: var(--color-dark);
+            box-shadow: inset 0 0 0 2px var(--color), 0 2px 0 rgba(0,0,0,0.45);
+        }
+        .hongyi-barrel {
+            position: absolute;
+            width: 5px; height: 26px;
+            left: 13px; top: -4px;
+            background: var(--color-light);
+            box-shadow: inset 0 0 0 2px var(--color);
+        }
+        .hongyi-wheel {
+            position: absolute;
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            background: #1a1a1a;
+            top: 24px;
+        }
+        .hongyi-wheel.left { left: 7px; }
+        .hongyi-wheel.right { right: 7px; }
+
         .unit.selected {
             filter: drop-shadow(0 0 4px #f1c40f);
             z-index: 100;
@@ -1126,6 +1156,7 @@ permalink: /sandbox_war_game.html
                         <option value="changping">长平之战 (古代 PVE)</option>
                         <option value="mobeibei">漠北之战 (古代 PVE)</option>
                         <option value="saelhu">萨尔浒之战 (火药 PVE)</option>
+                        <option value="ningyuan">宁远之战 (火药 PVE)</option>
                         <option value="custom_pvp">自定义战役 (PVP)</option>
                     </select>
                     <button onclick="addObstacle()" class="pixel-btn btn-obstacle">+掩体</button>
@@ -1158,6 +1189,7 @@ permalink: /sandbox_war_game.html
                     <button onclick="addUnit('ally','firearm')" class="pixel-btn btn-ally btn-era-gunpowder">火铳</button>
                     <button onclick="addUnit('ally','grenadier')" class="pixel-btn btn-ally btn-era-gunpowder">掷弹</button>
                     <button onclick="addUnit('ally','nestOfBees')" class="pixel-btn btn-ally btn-era-gunpowder">蜂巢</button>
+                    <button onclick="addUnit('ally','hongyipao')" class="pixel-btn btn-ally btn-era-gunpowder">红炮</button>
                 </div>
 
                 <div class="control-row" id="enemyControlRow">
@@ -1183,6 +1215,7 @@ permalink: /sandbox_war_game.html
                     <button onclick="addUnit('enemy','firearm')" class="pixel-btn btn-enemy btn-era-gunpowder">火铳</button>
                     <button onclick="addUnit('enemy','grenadier')" class="pixel-btn btn-enemy btn-era-gunpowder">掷弹</button>
                     <button onclick="addUnit('enemy','nestOfBees')" class="pixel-btn btn-enemy btn-era-gunpowder">蜂巢</button>
+                    <button onclick="addUnit('enemy','hongyipao')" class="pixel-btn btn-enemy btn-era-gunpowder">红炮</button>
                 </div>
             </div>
         </div>
@@ -2081,7 +2114,7 @@ permalink: /sandbox_war_game.html
 
             getSize() {
                 if (this.type === 'tank') return 22;
-                if (this.type === 'artillery' || this.type === 'rocket' || this.type === 'mortar' || this.type === 'catapult' || this.type === 'nestOfBees') return 20;
+                if (this.type === 'artillery' || this.type === 'rocket' || this.type === 'mortar' || this.type === 'catapult' || this.type === 'nestOfBees' || this.type === 'hongyipao') return 20;
                 if (this.type === 'command' || this.type === 'supply' || this.type === 'scout' || this.type === 'apc' || this.type === 'cavalry') return 18;
                 return 14;
             }
@@ -2124,6 +2157,8 @@ permalink: /sandbox_war_game.html
                     body = '<div class="soldier-head"></div><div class="soldier-body"></div><div class="grenadier-bomb"></div><div class="grenadier-fuse"></div>';
                 } else if (this.type === 'nestOfBees') {
                     body = '<div class="nest-base"></div><div class="nest-rack"></div><div class="nest-tube t1"></div><div class="nest-tube t2"></div><div class="nest-tube t3"></div><div class="nest-tube t4"></div><div class="nest-wheel left"></div><div class="nest-wheel right"></div>';
+                } else if (this.type === 'hongyipao') {
+                    body = '<div class="hongyi-base"></div><div class="hongyi-barrel"></div><div class="hongyi-wheel left"></div><div class="hongyi-wheel right"></div>';
                 } else {
                     body = '<div class="soldier-head"></div><div class="soldier-body"></div>';
                 }
@@ -3952,6 +3987,20 @@ permalink: /sandbox_war_game.html
             }
         }
 
+        // 红衣大炮: 超远射程高伤重型火炮 (明城防主力)
+        class Hongyipao extends Tank {
+            constructor(x, y, team, health) {
+                super(x, y, team, health);
+                this.type = 'hongyipao';
+                this.attackRange = 400;   // 超远射程
+                this.attackPower = 60;   // 高伤
+                this.maxSpeed = 12;      // 重型慢
+                this.attackCooldown = 3000;
+                this.armorType = 'vehicle';
+                this.damageTable = { infantry: 1.0, cavalry: 1.0, vehicle: 1.0, tank: 0.8 };
+            }
+        }
+
         class Projectile {
             constructor(source, target, damage) {
                 this.source = source;
@@ -3979,7 +4028,8 @@ permalink: /sandbox_war_game.html
                     // 火药时代
                     firearm:    { size: 4, border: 1, glow: 5, glowColor: '#e67e22', speed: 500, radius: 7 },
                     grenadier:  { size: 6, border: 2, glow: 6, glowColor: '#e67e22', speed: 320, radius: 8 },
-                    nestOfBees: { size: 7, border: 2, glow: 8, glowColor: '#e67e22', speed: 240, radius: 8 }
+                    nestOfBees: { size: 7, border: 2, glow: 8, glowColor: '#e67e22', speed: 240, radius: 8 },
+                    hongyipao: { size: 10, border: 2, glow: 10, glowColor: '#e67e22', speed: 280, radius: 12 }
                 };
                 const spec = specs[source.type] || specs.soldier;
                 this.size = spec.size;
@@ -4550,6 +4600,49 @@ permalink: /sandbox_war_game.html
                     failCondition: 'player_all_destroyed OR timeout'
                 }
             },
+            ningyuan: {
+                id: 'ningyuan',
+                name: '宁远之战',
+                year: 1626, era: 'gunpowder',
+                mode: 'pve_historical',
+                side: 'ming_vs_later_jin',
+                playerRole: 'defender',
+                historicalBrief: '1626年, 袁崇焕守宁远, 红衣大炮击退努尔哈赤13万大军, 明清首次大胜',
+                terrain: {
+                    type: 'steppe',
+                    palette: { ground: '#7a6a4a', accent: '#a89878', shadow: '#4a3a1a' },
+                    pattern: '宁远城池'
+                },
+                playerZone: { x: 550, y: 0, w: 480, h: 750 },
+                obstacles: [
+                    { x: 500, y: 0,   w: 20, h: 340, type: 'wall' },
+                    { x: 500, y: 400, w: 20, h: 350, type: 'wall' },
+                    { x: 650, y: 120, w: 86, h: 46,  type: 'house' },
+                    { x: 750, y: 400, w: 86, h: 46,  type: 'house' },
+                    { x: 850, y: 250, w: 86, h: 46,  type: 'house' }
+                ],
+                playerForce: {
+                    pointBudgetHint: 120,
+                    defaultLayout: [
+                        { type: 'hongyipao', count: 3 },
+                        { type: 'firearm', count: 10 },
+                        { type: 'melee', count: 10 }
+                    ]
+                },
+                enemyForce: [
+                    { type: 'cavalry', x: 50, y: 150, angle: 90, count: 8 },
+                    { type: 'cavalry', x: 50, y: 350, angle: 90, count: 8 },
+                    { type: 'cavalry', x: 50, y: 550, angle: 90, count: 7 },
+                    { type: 'melee', x: 80, y: 250, angle: 90, count: 8 },
+                    { type: 'melee', x: 80, y: 450, angle: 90, count: 7 }
+                ],
+                objectives: {
+                    type: 'defense',
+                    target: 'hold_core_sector',
+                    timeLimit: 600,
+                    failCondition: 'player_all_destroyed OR timeout'
+                }
+            },
             custom_pvp: {
                 id: 'custom_pvp',
                 name: '自定义战役 (PVP)',
@@ -4588,7 +4681,7 @@ permalink: /sandbox_war_game.html
             melee: 'melee', archer: 'archer', cavalry: 'cavalry', catapult: 'catapult',
             crossbow: 'crossbow',
             // 火药时代
-            firearm: 'firearm', grenadier: 'grenadier', nestOfBees: 'nestOfBees'
+            firearm: 'firearm', grenadier: 'grenadier', nestOfBees: 'nestOfBees', hongyipao: 'hongyipao'
         };
 
         // ── v3.0 战场地图绘制器 ──
@@ -5038,6 +5131,7 @@ permalink: /sandbox_war_game.html
                 else if (type === 'firearm') unit = new Firearm(x, y, team, health);
                 else if (type === 'grenadier') unit = new Grenadier(x, y, team, health);
                 else if (type === 'nestOfBees') unit = new NestOfBees(x, y, team, health);
+                else if (type === 'hongyipao') unit = new Hongyipao(x, y, team, health);
                 else unit = new Soldier(x, y, team, health);
                 unit.angle = angle;
                 unit.desiredAngle = angle;
@@ -5668,7 +5762,8 @@ permalink: /sandbox_war_game.html
             // 火药时代
             firearm:    { health: 60,  pointCost: 8 },
             grenadier:  { health: 70,  pointCost: 6 },
-            nestOfBees: { health: 80,  pointCost: 20 }
+            nestOfBees: { health: 80,  pointCost: 20 },
+            hongyipao: { health: 100, pointCost: 25 }
         };
 
         // 工具函数
@@ -5694,6 +5789,7 @@ permalink: /sandbox_war_game.html
             if (type === 'firearm') return '火铳手';
             if (type === 'grenadier') return '掷弹兵';
             if (type === 'nestOfBees') return '蜂巢炮';
+            if (type === 'hongyipao') return '红衣大炮';
             return '步兵';
         }
 
@@ -5808,6 +5904,8 @@ permalink: /sandbox_war_game.html
                 unit = new Grenadier(x, y, team, health);
             } else if (type === 'nestOfBees') {
                 unit = new NestOfBees(x, y, team, health);
+            } else if (type === 'hongyipao') {
+                unit = new Hongyipao(x, y, team, health);
             } else {
                 unit = new Soldier(x, y, team, health);
             }
