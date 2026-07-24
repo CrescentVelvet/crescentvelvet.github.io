@@ -952,6 +952,66 @@ permalink: /sandbox_war_game.html
             border-radius: 50% 50% 0 0;
         }
 
+        /* ===== Unit artwork: command-and-conquer silhouettes + age-of-empires equipment ===== */
+        .unit-body { filter: drop-shadow(2px 3px 0 rgba(8, 15, 13, 0.52)); }
+        .unit-body > div { box-sizing: border-box; }
+
+        /* Modern armour: chunky tracks, faceted glacis and a readable turret silhouette. */
+        .tank-shadow { position: absolute; width: 28px; height: 25px; left: 4px; top: 8px; background: rgba(0,0,0,.32); transform: skewX(-12deg); }
+        .tank-track { width: 9px; height: 28px; top: 5px; background: repeating-linear-gradient(to bottom, #111719 0 3px, #394146 3px 5px); box-shadow: inset 2px 0 #050707, inset -2px 0 #050707, 0 1px 0 #677176; }
+        .tank-track::after { content: ''; position: absolute; width: 3px; height: 3px; left: 3px; top: 4px; background: #899294; box-shadow: 0 6px #899294, 0 12px #899294, 0 18px #899294; }
+        .tank-body { width: 24px; height: 23px; left: 6px; top: 8px; clip-path: polygon(19% 0, 81% 0, 100% 28%, 92% 91%, 72% 100%, 28% 100%, 8% 91%, 0 28%); background: var(--color-dark); box-shadow: inset 3px 3px var(--color), inset -3px -3px rgba(8, 20, 25, .55), 0 2px 0 #101516; }
+        .tank-body::before { content: ''; position: absolute; width: 8px; height: 5px; left: 8px; top: 14px; background: rgba(232, 244, 246, .26); box-shadow: -7px -7px 0 rgba(255,255,255,.11), 7px 2px 0 rgba(0,0,0,.21); }
+        .tank-turret { width: 16px; height: 15px; left: 10px; top: 10px; clip-path: polygon(25% 0, 75% 0, 100% 32%, 83% 100%, 17% 100%, 0 32%); background: var(--color-light); box-shadow: inset 3px 3px rgba(255,255,255,.19), inset -3px -3px var(--color-dark); }
+        .tank-turret::after { content: ''; position: absolute; width: 5px; height: 4px; left: 5px; top: 5px; background: #202a2e; box-shadow: inset 1px 1px #91b8c4; }
+        .tank-barrel { width: 5px; height: 20px; left: 15px; top: -7px; background: linear-gradient(90deg, var(--color-dark) 0 22%, var(--color-light) 22% 72%, var(--color-dark) 72%); box-shadow: inset 0 -2px rgba(0,0,0,.38); }
+        .tank-barrel::before { content: ''; position: absolute; width: 7px; height: 4px; left: -1px; top: -2px; background: #1b2225; box-shadow: inset 1px 1px #6d7a7e; }
+        .tank-mark { position: absolute; width: 5px; height: 5px; left: 16px; top: 23px; background: #f4cf55; clip-path: polygon(50% 0, 62% 35%, 100% 38%, 70% 60%, 80% 100%, 50% 76%, 20% 100%, 30% 60%, 0 38%, 38% 35%); }
+        .unit.lightTank .tank-body { width: 22px; height: 22px; left: 7px; top: 9px; background: var(--color); }
+        .unit.lightTank .tank-turret { width: 13px; height: 13px; left: 11.5px; top: 12px; }
+        .unit.lightTank .tank-barrel { width: 3px; height: 24px; left: 16.5px; top: -9px; }
+        .unit.lightTank .tank-mark { background: #e8edf0; }
+        .td-track { width: 9px; height: 25px; top: 7px; background: repeating-linear-gradient(to bottom, #101618 0 3px, #3b4649 3px 5px); box-shadow: inset 2px 0 #060809, inset -2px 0 #060809; }
+        .td-hull { width: 25px; height: 19px; left: 5.5px; top: 10px; clip-path: polygon(18% 0, 82% 0, 100% 32%, 91% 100%, 9% 100%, 0 32%); background: var(--color-dark); box-shadow: inset 3px 3px var(--color), inset -3px -3px rgba(0,0,0,.38); }
+        .td-hull::before { content: ''; position: absolute; width: 12px; height: 7px; left: 6px; top: 4px; background: var(--color); box-shadow: inset 2px 2px rgba(255,255,255,.15); }
+        .td-barrel { width: 4px; height: 27px; left: 16px; top: -7px; background: linear-gradient(90deg, #233238, var(--color-light), #233238); }
+        .td-barrel::before { content: ''; position: absolute; width: 6px; height: 4px; left: -1px; top: -2px; background: #151d20; }
+        .td-mark { position: absolute; width: 4px; height: 4px; left: 16px; top: 23px; background: #f4cf55; }
+
+        /* Ancient units: body language and weapons stay legible even at strategy-map scale. */
+        .soldier-shadow { position: absolute; width: 14px; height: 6px; left: 4px; top: 17px; background: rgba(0,0,0,.38); }
+        .soldier-body { clip-path: polygon(25% 0, 75% 0, 100% 24%, 88% 100%, 12% 100%, 0 24%); box-shadow: inset 2px 2px rgba(255,255,255,.18), inset -2px -2px var(--color-dark), 0 2px 0 rgba(0,0,0,.4); }
+        .soldier-head { border-radius: 2px 2px 1px 1px; box-shadow: inset 1px 1px rgba(255,255,255,.22), inset -2px -2px var(--color); }
+        .unit.melee .soldier-head { background: #b9c5c8; box-shadow: inset 0 2px #e7f0ef, inset -2px -2px #607177; }
+        .unit.melee .soldier-head::before { content: ''; position: absolute; width: 11px; height: 3px; left: -1px; top: 1px; background: #66777b; }
+        .melee-spear { width: 2px; height: 16px; left: 15px; top: -2px; background: #8e6940; box-shadow: 1px 0 #d3d6d0; }
+        .melee-spear::before { content: ''; position: absolute; left: -2px; top: -3px; width: 6px; height: 6px; background: #e9f0ed; clip-path: polygon(50% 0, 100% 100%, 50% 78%, 0 100%); }
+        .melee-shield { position: absolute; width: 6px; height: 9px; left: 2px; top: 8px; background: var(--color-dark); border: 1px solid #e3c75c; clip-path: polygon(0 0, 100% 0, 100% 72%, 50% 100%, 0 72%); }
+        .unit.archer .soldier-body, .unit.crossbow .soldier-body { background: #567a57; box-shadow: inset 2px 2px #89a66c, inset -2px -2px #2e5137; }
+        .unit.archer .soldier-head, .unit.crossbow .soldier-head { background: #d99a64; box-shadow: inset 1px 1px #f4c38a, inset -2px -2px #8d5034; }
+        .archer-bow { width: 6px; height: 12px; left: 14px; top: 4px; border: 2px solid #7b4e28; border-left: 0; border-radius: 0 8px 8px 0; }
+        .archer-bow::after { content: ''; position: absolute; width: 1px; height: 13px; left: 1px; top: -2px; background: #ead6a0; }
+        .archer-arrow { position: absolute; width: 2px; height: 13px; left: 13px; top: 2px; background: #c49a62; }
+        .archer-arrow::before { content: ''; position: absolute; width: 5px; height: 4px; left: -1px; top: -3px; background: #dfe8e6; clip-path: polygon(50% 0, 100% 100%, 50% 72%, 0 100%); }
+        .crossbow-div { width: 9px; height: 6px; left: 11px; top: 8px; background: #704827; box-shadow: inset 2px 2px #a87542, inset -1px -1px #342011; }
+        .crossbow-div::before { content: ''; position: absolute; width: 13px; height: 2px; left: -2px; top: 2px; background: #8d5a30; }
+        .crossbow-string { width: 1px; height: 12px; left: 20px; top: 4px; background: #ead6a0; }
+        .cavalry-horse { width: 22px; height: 11px; left: 3px; top: 13px; background: #704a2d; box-shadow: inset 2px 2px #a36c42, inset -3px -2px #352116; clip-path: polygon(0 26%, 18% 0, 78% 0, 100% 28%, 92% 78%, 74% 100%, 15% 93%, 0 70%); }
+        .cavalry-horse::before { content: ''; position: absolute; width: 7px; height: 8px; left: 17px; top: -4px; background: #7d5130; clip-path: polygon(0 35%, 42% 0, 100% 22%, 88% 100%, 20% 100%); }
+        .cavalry-horse::after { content: ''; position: absolute; width: 8px; height: 4px; left: -5px; top: 1px; background: #3d2618; }
+        .cavalry-leg { position: absolute; width: 3px; height: 7px; top: 21px; background: #422917; box-shadow: 1px 0 #bd8151; }
+        .cavalry-leg.l1 { left: 7px; } .cavalry-leg.l2 { left: 19px; }
+        .cavalry-rider { width: 9px; height: 9px; left: 9.5px; top: 5px; background: var(--color); box-shadow: inset 2px 2px var(--color-light), inset -2px -2px var(--color-dark); }
+        .cavalry-head { width: 6px; height: 5px; left: 11px; top: 0; background: #d99a64; box-shadow: inset 0 2px #f3c188, inset -1px -1px #8d5034; }
+        .cavalry-head::before { content: ''; position: absolute; width: 8px; height: 3px; left: -1px; top: 0; background: #6d7471; }
+        .cavalry-spear { width: 2px; height: 18px; left: 20px; top: -4px; background: #9b7145; box-shadow: 1px 0 #e7dfbf; }
+        .cavalry-spear::before { content: ''; position: absolute; width: 5px; height: 5px; left: -1px; top: -3px; background: #e6eeea; clip-path: polygon(50% 0, 100% 100%, 50% 74%, 0 100%); }
+        .catapult-base { width: 21px; height: 7px; left: 5px; top: 22px; background: #674125; box-shadow: inset 2px 2px #ac7744, inset -2px -2px #311d10; }
+        .catapult-frame { position: absolute; width: 14px; height: 12px; left: 9px; top: 11px; border: 3px solid #8d5d31; border-top: 0; }
+        .catapult-arm { width: 4px; height: 20px; left: 14px; top: 2px; background: #9b6534; box-shadow: inset 1px 0 #d9ac6d; }
+        .catapult-sling { width: 7px; height: 7px; left: 15px; top: 0; background: #39322b; box-shadow: inset 2px 2px #777064; }
+        .catapult-wheel { width: 7px; height: 7px; top: 24px; background: #2d2118; box-shadow: inset 2px 2px #8f6843, 0 0 0 1px #1a100a; }
+
         .unit.selected {
             filter: drop-shadow(0 0 4px #f1c40f);
             z-index: 100;
@@ -2178,7 +2238,7 @@ permalink: /sandbox_war_game.html
             }
 
             getSize() {
-                if (this.type === 'tank') return 22;
+                if (this.type === 'tank' || this.type === 'lightTank' || this.type === 'tankDestroyer') return 22;
                 if (this.type === 'artillery' || this.type === 'rocket' || this.type === 'mortar' || this.type === 'catapult' || this.type === 'nestOfBees' || this.type === 'hongyipao') return 20;
                 if (this.type === 'command' || this.type === 'supply' || this.type === 'scout' || this.type === 'apc' || this.type === 'cavalry' || this.type === 'warship' || this.type === 'fireship') return 18;
                 return 14;
@@ -2187,9 +2247,9 @@ permalink: /sandbox_war_game.html
             getDisplayMarkup() {
                 let body;
                 if (this.type === 'tank' || this.type === 'lightTank') {
-                    body = '<div class="tank-track left"></div><div class="tank-track right"></div><div class="tank-body"></div><div class="tank-turret"></div><div class="tank-barrel"></div>';
+                    body = '<div class="tank-shadow"></div><div class="tank-track left"></div><div class="tank-track right"></div><div class="tank-body"></div><div class="tank-turret"></div><div class="tank-barrel"></div><div class="tank-mark"></div>';
                 } else if (this.type === 'tankDestroyer') {
-                    body = '<div class="td-track left"></div><div class="td-track right"></div><div class="td-hull"></div><div class="td-barrel"></div>';
+                    body = '<div class="tank-shadow"></div><div class="td-track left"></div><div class="td-track right"></div><div class="td-hull"></div><div class="td-barrel"></div><div class="td-mark"></div>';
                 } else if (this.type === 'command') {
                     body = '<div class="command-body"></div><div class="command-antenna"></div><div class="command-star"></div>';
                 } else if (this.type === 'supply') {
@@ -2207,15 +2267,15 @@ permalink: /sandbox_war_game.html
                 } else if (this.type === 'mortar') {
                     body = '<div class="mortar-base"></div><div class="mortar-tube"></div>';
                 } else if (this.type === 'melee') {
-                    body = '<div class="soldier-head"></div><div class="soldier-body"></div><div class="melee-spear"></div>';
+                    body = '<div class="soldier-shadow"></div><div class="soldier-head"></div><div class="soldier-body"></div><div class="melee-shield"></div><div class="melee-spear"></div>';
                 } else if (this.type === 'archer') {
-                    body = '<div class="soldier-head"></div><div class="soldier-body"></div><div class="archer-bow"></div>';
+                    body = '<div class="soldier-shadow"></div><div class="soldier-head"></div><div class="soldier-body"></div><div class="archer-arrow"></div><div class="archer-bow"></div>';
                 } else if (this.type === 'cavalry') {
-                    body = '<div class="cavalry-horse"></div><div class="cavalry-rider"></div><div class="cavalry-head"></div><div class="cavalry-spear"></div>';
+                    body = '<div class="soldier-shadow"></div><div class="cavalry-horse"></div><div class="cavalry-leg l1"></div><div class="cavalry-leg l2"></div><div class="cavalry-rider"></div><div class="cavalry-head"></div><div class="cavalry-spear"></div>';
                 } else if (this.type === 'catapult') {
-                    body = '<div class="catapult-base"></div><div class="catapult-arm"></div><div class="catapult-sling"></div><div class="catapult-wheel left"></div><div class="catapult-wheel right"></div>';
+                    body = '<div class="catapult-base"></div><div class="catapult-frame"></div><div class="catapult-arm"></div><div class="catapult-sling"></div><div class="catapult-wheel left"></div><div class="catapult-wheel right"></div>';
                 } else if (this.type === 'crossbow') {
-                    body = '<div class="soldier-head"></div><div class="soldier-body"></div><div class="crossbow-div"></div><div class="crossbow-string"></div>';
+                    body = '<div class="soldier-shadow"></div><div class="soldier-head"></div><div class="soldier-body"></div><div class="crossbow-div"></div><div class="crossbow-string"></div>';
                 } else if (this.type === 'firearm') {
                     body = '<div class="soldier-head"></div><div class="soldier-body"></div><div class="firearm-gun"></div>';
                 } else if (this.type === 'grenadier') {
