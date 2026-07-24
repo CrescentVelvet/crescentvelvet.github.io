@@ -786,6 +786,84 @@ permalink: /sandbox_war_game.html
             background: #3a2a1a;
         }
 
+        /* ===== 火药时代兵种 ===== */
+        /* 火铳手 (14px, 阵营色 + 火枪) */
+        .unit.firearm {
+            --unit-size: 14px;
+            --body-size: 22px;
+            --scale: 0.636;
+        }
+        .unit.firearm .soldier-body { background: var(--color); box-shadow: inset 0 0 0 2px var(--color-dark), 0 2px 0 rgba(0,0,0,0.45); }
+        .unit.firearm .soldier-head { background: #d4a373; box-shadow: inset 0 0 0 2px #8a5a3c; }
+        .firearm-gun {
+            position: absolute;
+            width: 3px; height: 10px;
+            left: 14px; top: 4px;
+            background: #2c3e50;
+        }
+
+        /* 掷弹兵 (14px, 阵营色 + 炸弹) */
+        .unit.grenadier {
+            --unit-size: 14px;
+            --body-size: 22px;
+            --scale: 0.636;
+        }
+        .unit.grenadier .soldier-body { background: var(--color); box-shadow: inset 0 0 0 2px var(--color-dark), 0 2px 0 rgba(0,0,0,0.45); }
+        .unit.grenadier .soldier-head { background: #d4a373; box-shadow: inset 0 0 0 2px #8a5a3c; }
+        .grenadier-bomb {
+            position: absolute;
+            width: 4px; height: 4px;
+            left: 13px; top: 7px;
+            background: #2c3e50;
+            border-radius: 50%;
+        }
+        .grenadier-fuse {
+            position: absolute;
+            width: 1px; height: 3px;
+            left: 14px; top: 5px;
+            background: #e67e22;
+        }
+
+        /* 蜂巢炮 (20px, 阵营色多管 + 轮) */
+        .unit.nestOfBees {
+            --unit-size: 20px;
+            --body-size: 32px;
+            --scale: 0.625;
+        }
+        .nest-base {
+            position: absolute;
+            width: 20px; height: 8px;
+            left: 6px; top: 18px;
+            background: var(--color-dark);
+            box-shadow: inset 0 0 0 2px var(--color);
+        }
+        .nest-rack {
+            position: absolute;
+            width: 16px; height: 10px;
+            left: 8px; top: 6px;
+            background: var(--color);
+            box-shadow: inset 0 0 0 2px var(--color-dark);
+        }
+        .nest-tube {
+            position: absolute;
+            width: 2px; height: 8px;
+            background: #222;
+            top: 7px;
+        }
+        .nest-tube.t1 { left: 10px; }
+        .nest-tube.t2 { left: 13px; }
+        .nest-tube.t3 { left: 16px; }
+        .nest-tube.t4 { left: 19px; }
+        .nest-wheel {
+            position: absolute;
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            background: #1a1a1a;
+            top: 24px;
+        }
+        .nest-wheel.left { left: 7px; }
+        .nest-wheel.right { right: 7px; }
+
         .unit.selected {
             filter: drop-shadow(0 0 4px #f1c40f);
             z-index: 100;
@@ -1047,6 +1125,7 @@ permalink: /sandbox_war_game.html
                         <option value="cannae">坎尼会战 (古代 PVE)</option>
                         <option value="changping">长平之战 (古代 PVE)</option>
                         <option value="mobeibei">漠北之战 (古代 PVE)</option>
+                        <option value="saelhu">萨尔浒之战 (火药 PVE)</option>
                         <option value="custom_pvp">自定义战役 (PVP)</option>
                     </select>
                     <button onclick="addObstacle()" class="pixel-btn btn-obstacle">+掩体</button>
@@ -1076,6 +1155,9 @@ permalink: /sandbox_war_game.html
                     <button onclick="addUnit('ally','cavalry')" class="pixel-btn btn-ally btn-era-ancient">骑兵</button>
                     <button onclick="addUnit('ally','catapult')" class="pixel-btn btn-ally btn-era-ancient">投石</button>
                     <button onclick="addUnit('ally','crossbow')" class="pixel-btn btn-ally btn-era-ancient">连弩</button>
+                    <button onclick="addUnit('ally','firearm')" class="pixel-btn btn-ally btn-era-gunpowder">火铳</button>
+                    <button onclick="addUnit('ally','grenadier')" class="pixel-btn btn-ally btn-era-gunpowder">掷弹</button>
+                    <button onclick="addUnit('ally','nestOfBees')" class="pixel-btn btn-ally btn-era-gunpowder">蜂巢</button>
                 </div>
 
                 <div class="control-row" id="enemyControlRow">
@@ -1098,6 +1180,9 @@ permalink: /sandbox_war_game.html
                     <button onclick="addUnit('enemy','cavalry')" class="pixel-btn btn-enemy btn-era-ancient">骑兵</button>
                     <button onclick="addUnit('enemy','catapult')" class="pixel-btn btn-enemy btn-era-ancient">投石</button>
                     <button onclick="addUnit('enemy','crossbow')" class="pixel-btn btn-enemy btn-era-ancient">连弩</button>
+                    <button onclick="addUnit('enemy','firearm')" class="pixel-btn btn-enemy btn-era-gunpowder">火铳</button>
+                    <button onclick="addUnit('enemy','grenadier')" class="pixel-btn btn-enemy btn-era-gunpowder">掷弹</button>
+                    <button onclick="addUnit('enemy','nestOfBees')" class="pixel-btn btn-enemy btn-era-gunpowder">蜂巢</button>
                 </div>
             </div>
         </div>
@@ -1996,7 +2081,7 @@ permalink: /sandbox_war_game.html
 
             getSize() {
                 if (this.type === 'tank') return 22;
-                if (this.type === 'artillery' || this.type === 'rocket' || this.type === 'mortar' || this.type === 'catapult') return 20;
+                if (this.type === 'artillery' || this.type === 'rocket' || this.type === 'mortar' || this.type === 'catapult' || this.type === 'nestOfBees') return 20;
                 if (this.type === 'command' || this.type === 'supply' || this.type === 'scout' || this.type === 'apc' || this.type === 'cavalry') return 18;
                 return 14;
             }
@@ -2033,6 +2118,12 @@ permalink: /sandbox_war_game.html
                     body = '<div class="catapult-base"></div><div class="catapult-arm"></div><div class="catapult-sling"></div><div class="catapult-wheel left"></div><div class="catapult-wheel right"></div>';
                 } else if (this.type === 'crossbow') {
                     body = '<div class="soldier-head"></div><div class="soldier-body"></div><div class="crossbow-div"></div><div class="crossbow-string"></div>';
+                } else if (this.type === 'firearm') {
+                    body = '<div class="soldier-head"></div><div class="soldier-body"></div><div class="firearm-gun"></div>';
+                } else if (this.type === 'grenadier') {
+                    body = '<div class="soldier-head"></div><div class="soldier-body"></div><div class="grenadier-bomb"></div><div class="grenadier-fuse"></div>';
+                } else if (this.type === 'nestOfBees') {
+                    body = '<div class="nest-base"></div><div class="nest-rack"></div><div class="nest-tube t1"></div><div class="nest-tube t2"></div><div class="nest-tube t3"></div><div class="nest-tube t4"></div><div class="nest-wheel left"></div><div class="nest-wheel right"></div>';
                 } else {
                     body = '<div class="soldier-head"></div><div class="soldier-body"></div>';
                 }
@@ -3788,6 +3879,79 @@ permalink: /sandbox_war_game.html
             }
         }
 
+        // ── 火药时代兵种 ──
+        // 火铳手: 远程高伤慢射, 火枪穿透
+        class Firearm extends Archer {
+            constructor(x, y, team, health) {
+                super(x, y, team, health);
+                this.type = 'firearm';
+                this.attackRange = 180;
+                this.attackPower = 35;   // 高伤
+                this.attackCooldown = 2500;  // 慢射
+                this.maxSpeed = 28;
+                this.armorType = 'infantry';
+                this.damageTable = { infantry: 1.1, cavalry: 1.0, vehicle: 0.8, tank: 0.5 };
+            }
+        }
+
+        // 掷弹兵: 投掷爆炸, 40px 溅射
+        class Grenadier extends Soldier {
+            constructor(x, y, team, health) {
+                super(x, y, team, health);
+                this.type = 'grenadier';
+                this.attackRange = 120;
+                this.attackPower = 25;
+                this.attackCooldown = 2000;
+                this.maxSpeed = 30;
+                this.armorType = 'infantry';
+                this.damageTable = { infantry: 1.3, cavalry: 1.0, vehicle: 0.9, tank: 0.6 };
+            }
+
+            // 掷弹兵: 散布溅射 (40px)
+            tryAttack(target) {
+                const moraleFactor = this.getMoraleAttackFactor();
+                if (moraleFactor === 0) return;
+                const now = Date.now();
+                const buffed = this.commandBuffUntil && this.commandBuffUntil > now;
+                const cooldown = this.attackCooldown * moraleFactor * (buffed ? 0.85 : 1);
+                if (now - this.lastAttackTime < cooldown) return;
+
+                const distance = this.getDistance(target);
+                if (distance <= this.attackRange && target.team !== this.team && !target.isDead()) {
+                    this.turnToward(target);
+                    if (!this.canMoveFire && !this.isFacing(target)) return;
+                    if (!this.hasLineOfSight(target)) return;
+
+                    this.lastAttackTime = now;
+                    let damage = this.getAttackDamage(target);
+                    if (buffed) damage = Math.round(damage * 1.1);
+                    const scatterX = (Math.random() - 0.5) * 20;
+                    const scatterY = (Math.random() - 0.5) * 20;
+                    const targetX = target.x + target.getSize() / 2 + scatterX;
+                    const targetY = target.y + target.getSize() / 2 + scatterY;
+                    battlefieldManager.spawnScatterProjectile(this, target, targetX, targetY, damage);
+                    const proj = battlefieldManager.projectiles[battlefieldManager.projectiles.length - 1];
+                    if (proj) proj.splashRadius = 40;
+                }
+            }
+        }
+
+        // 蜂巢炮: 6连发面杀伤, 多管火箭
+        class NestOfBees extends RocketLauncher {
+            constructor(x, y, team, health) {
+                super(x, y, team, health);
+                this.type = 'nestOfBees';
+                this.attackRange = 300;
+                this.minRange = 60;
+                this.attackPower = 18;
+                this.maxSpeed = 18;
+                this.attackCooldown = 4500;
+                this.volleySize = 6;
+                this.armorType = 'vehicle';
+                this.damageTable = { infantry: 1.3, cavalry: 0.9, vehicle: 1.0, tank: 0.6 };
+            }
+        }
+
         class Projectile {
             constructor(source, target, damage) {
                 this.source = source;
@@ -3811,7 +3975,11 @@ permalink: /sandbox_war_game.html
                     archer:   { size: 4, border: 1, glow: 3, glowColor: '#f7e07b', speed: 400, radius: 7 },
                     cavalry:  { size: 3, border: 1, glow: 2, glowColor: '#f7e07b', speed: 650, radius: 6 },
                     catapult: { size: 9, border: 2, glow: 8, glowColor: '#e67e22', speed: 260, radius: 10 },
-                    crossbow: { size: 3, border: 1, glow: 2, glowColor: '#f7e07b', speed: 450, radius: 6 }
+                    crossbow: { size: 3, border: 1, glow: 2, glowColor: '#f7e07b', speed: 450, radius: 6 },
+                    // 火药时代
+                    firearm:    { size: 4, border: 1, glow: 5, glowColor: '#e67e22', speed: 500, radius: 7 },
+                    grenadier:  { size: 6, border: 2, glow: 6, glowColor: '#e67e22', speed: 320, radius: 8 },
+                    nestOfBees: { size: 7, border: 2, glow: 8, glowColor: '#e67e22', speed: 240, radius: 8 }
                 };
                 const spec = specs[source.type] || specs.soldier;
                 this.size = spec.size;
@@ -4338,6 +4506,49 @@ permalink: /sandbox_war_game.html
                     failCondition: 'player_all_destroyed OR timeout'
                 }
             },
+            saelhu: {
+                id: 'saelhu',
+                name: '萨尔浒之战',
+                year: 1619, era: 'gunpowder',
+                mode: 'pve_historical',
+                side: 'ming_vs_later_jin',
+                playerRole: 'attacker',
+                historicalBrief: '1619年, 明军四路围剿后金, 萨尔浒大败, 火器vs八旗骑兵, 明清兴亡转折',
+                terrain: {
+                    type: 'steppe',
+                    palette: { ground: '#6a7a5a', accent: '#9aa080', shadow: '#3a4a2a' },
+                    pattern: '辽东山地'
+                },
+                playerZone: { x: 0, y: 0, w: 450, h: 750 },
+                obstacles: [
+                    { x: 300, y: 120, w: 118, h: 34, type: 'mound' },
+                    { x: 500, y: 380, w: 118, h: 34, type: 'mound' },
+                    { x: 400, y: 580, w: 118, h: 34, type: 'mound' },
+                    { x: 600, y: 200, w: 64, h: 64, type: 'house' },
+                    { x: 700, y: 500, w: 64, h: 64, type: 'house' }
+                ],
+                playerForce: {
+                    pointBudgetHint: 100,
+                    defaultLayout: [
+                        { type: 'firearm', count: 4 },
+                        { type: 'grenadier', count: 2 },
+                        { type: 'nestOfBees', count: 1 },
+                        { type: 'melee', count: 3 }
+                    ]
+                },
+                enemyForce: [
+                    { type: 'cavalry', x: 900, y: 120, angle: 270, count: 3 },
+                    { type: 'cavalry', x: 950, y: 320, angle: 270, count: 3 },
+                    { type: 'cavalry', x: 900, y: 520, angle: 270, count: 2 },
+                    { type: 'melee', x: 980, y: 380, angle: 270, count: 2 }
+                ],
+                objectives: {
+                    type: 'annihilation',
+                    target: 'all_enemy',
+                    timeLimit: 600,
+                    failCondition: 'player_all_destroyed OR timeout'
+                }
+            },
             custom_pvp: {
                 id: 'custom_pvp',
                 name: '自定义战役 (PVP)',
@@ -4374,7 +4585,9 @@ permalink: /sandbox_war_game.html
             scoutCar: 'scout', apc: 'apc', mortar: 'mortar',
             // 古代兵种 (映射到自己)
             melee: 'melee', archer: 'archer', cavalry: 'cavalry', catapult: 'catapult',
-            crossbow: 'crossbow'
+            crossbow: 'crossbow',
+            // 火药时代
+            firearm: 'firearm', grenadier: 'grenadier', nestOfBees: 'nestOfBees'
         };
 
         // ── v3.0 战场地图绘制器 ──
@@ -4821,6 +5034,9 @@ permalink: /sandbox_war_game.html
                 else if (type === 'cavalry') unit = new Cavalry(x, y, team, health);
                 else if (type === 'catapult') unit = new Catapult(x, y, team, health);
                 else if (type === 'crossbow') unit = new Crossbowman(x, y, team, health);
+                else if (type === 'firearm') unit = new Firearm(x, y, team, health);
+                else if (type === 'grenadier') unit = new Grenadier(x, y, team, health);
+                else if (type === 'nestOfBees') unit = new NestOfBees(x, y, team, health);
                 else unit = new Soldier(x, y, team, health);
                 unit.angle = angle;
                 unit.desiredAngle = angle;
@@ -4838,8 +5054,10 @@ permalink: /sandbox_war_game.html
             applyEra(era) {
                 const showWw2 = (era === 'ww2' || era === 'custom');
                 const showAncient = (era === 'ancient' || era === 'custom');
+                const showGunpowder = (era === 'gunpowder' || era === 'custom');
                 document.querySelectorAll('.btn-era-ww2').forEach(b => b.style.display = showWw2 ? '' : 'none');
                 document.querySelectorAll('.btn-era-ancient').forEach(b => b.style.display = showAncient ? '' : 'none');
+                document.querySelectorAll('.btn-era-gunpowder').forEach(b => b.style.display = showGunpowder ? '' : 'none');
             }
 
             updatePointsDisplay() {
@@ -5445,7 +5663,11 @@ permalink: /sandbox_war_game.html
             archer:   { health: 50,  pointCost: 4 },
             cavalry:  { health: 120, pointCost: 12 },
             catapult: { health: 60,  pointCost: 18 },
-            crossbow: { health: 50, pointCost: 5 }
+            crossbow: { health: 50, pointCost: 5 },
+            // 火药时代
+            firearm:    { health: 60,  pointCost: 8 },
+            grenadier:  { health: 70,  pointCost: 6 },
+            nestOfBees: { health: 80,  pointCost: 20 }
         };
 
         // 工具函数
@@ -5468,6 +5690,9 @@ permalink: /sandbox_war_game.html
             if (type === 'cavalry') return '骑兵';
             if (type === 'catapult') return '投石车';
             if (type === 'crossbow') return '连弩手';
+            if (type === 'firearm') return '火铳手';
+            if (type === 'grenadier') return '掷弹兵';
+            if (type === 'nestOfBees') return '蜂巢炮';
             return '步兵';
         }
 
@@ -5576,6 +5801,12 @@ permalink: /sandbox_war_game.html
                 unit = new Catapult(x, y, team, health);
             } else if (type === 'crossbow') {
                 unit = new Crossbowman(x, y, team, health);
+            } else if (type === 'firearm') {
+                unit = new Firearm(x, y, team, health);
+            } else if (type === 'grenadier') {
+                unit = new Grenadier(x, y, team, health);
+            } else if (type === 'nestOfBees') {
+                unit = new NestOfBees(x, y, team, health);
             } else {
                 unit = new Soldier(x, y, team, health);
             }
