@@ -4120,7 +4120,7 @@ permalink: /sandbox_war_game.html
                     const targetY = target.y + target.getSize() / 2 + scatterY;
                     battlefieldManager.spawnScatterProjectile(this, target, targetX, targetY, damage);
                     const proj = battlefieldManager.projectiles[battlefieldManager.projectiles.length - 1];
-                    if (proj) proj.splashRadius = 50;
+                    if (proj) proj.splashRadius = 60;  // 铁索连环: 火攻范围加大易蔓延
                 }
             }
         }
@@ -4786,18 +4786,19 @@ permalink: /sandbox_war_game.html
                 playerZone: { x: 0, y: 0, w: 450, h: 750 },
                 obstacles: [],
                 playerForce: {
-                    pointBudgetHint: 130,
+                    pointBudgetHint: 260,
                     defaultLayout: [
-                        { type: 'warship', count: 6 },
-                        { type: 'fireship', count: 4 }
+                        { type: 'warship', count: 12 },
+                        { type: 'fireship', count: 8 }
                     ]
                 },
                 enemyForce: [
-                    { type: 'warship', x: 900, y: 120, angle: 270, count: 4 },
-                    { type: 'warship', x: 920, y: 300, angle: 270, count: 4 },
-                    { type: 'warship', x: 900, y: 480, angle: 270, count: 4 },
-                    { type: 'warship', x: 960, y: 200, angle: 270, count: 2 },
-                    { type: 'warship', x: 960, y: 400, angle: 270, count: 2 }
+                    // 铁索连环: 曹军战船密集方阵 (船挨船, 火攻易蔓延)
+                    { type: 'warship', x: 900, y: 100, angle: 270, count: 6 },
+                    { type: 'warship', x: 900, y: 280, angle: 270, count: 6 },
+                    { type: 'warship', x: 900, y: 460, angle: 270, count: 6 },
+                    { type: 'warship', x: 920, y: 190, angle: 270, count: 6 },
+                    { type: 'warship', x: 920, y: 370, angle: 270, count: 6 }
                 ],
                 objectives: {
                     type: 'annihilation',
