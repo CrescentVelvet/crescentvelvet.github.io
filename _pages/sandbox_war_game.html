@@ -4911,13 +4911,13 @@ permalink: /sandbox_war_game.html
                 const sideMap = {
                     'ussr_vs_germany': ['苏军', '德军'],
                     'allied_vs_germany': ['盟军', '德军'],
-                    'allied_vs_axis': ['英军', '轴心'],
+                    'allied_vs_axis': ['英军', '德军'],
                     'us_vs_germany': ['美军', '德军'],
                     'carthage_vs_rome': ['迦太基', '罗马'],
                     'qin_vs_zhao': ['赵军', '秦军'],
                     'han_vs_xiongnu': ['汉军', '匈奴'],
-                    'sunlian_vs_cao': ['孙刘', '曹军'],
-                    'ming_vs_later_jin': ['明军', '后金'],
+                    'sunlian_vs_cao': ['孙刘联军', '曹军'],
+                    'ming_vs_later_jin': ['明军', '后金军'],
                     'blue_vs_red': ['蓝方', '红方']
                 };
                 const labels = sideMap[this.scenario.side] || ['友军', '敌军'];
@@ -4926,7 +4926,7 @@ permalink: /sandbox_war_game.html
                 const playerX = zone.x + zone.w / 2;
                 const enemyX = playerIsWest ? this.w - 150 : 150;
                 ctx.save();
-                ctx.globalAlpha = 0.4;
+                ctx.globalAlpha = 0.5;
                 ctx.font = 'bold 90px "ZCOOL QingKe HuangYou", sans-serif';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
