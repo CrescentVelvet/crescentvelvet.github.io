@@ -4090,13 +4090,18 @@ permalink: /sandbox_war_game.html
                 this.type = 'fireship';
                 this.attackRange = 40;   // 撞击近战
                 this.attackPower = 50;   // 高伤撞击
-                this.maxSpeed = 50;      // 快速冲撞
+                this.maxSpeed = 70;      // 快速冲撞 (抗箭减少被射时间)
                 this.attackCooldown = 2000;
                 this.armorType = 'vehicle';
                 this.damageTable = { infantry: 1.0, cavalry: 1.0, vehicle: 1.5, tank: 1.0 };  // 火攻克船
             }
 
-            // 火船: 撞击溅射 (50px 火攻)
+            // 火船敢死队: 士气锁定不溃退
+            updateMorale(deltaTime, allUnits) {
+                this.morale = 100;
+            }
+
+            // 火船: 撞击溅射 (60px 火攻)
             tryAttack(target) {
                 const moraleFactor = this.getMoraleAttackFactor();
                 if (moraleFactor === 0) return;
@@ -5955,7 +5960,7 @@ permalink: /sandbox_war_game.html
             hongyipao: { health: 100, pointCost: 25 },
             // 水战
             warship:  { health: 150, pointCost: 15 },
-            fireship: { health: 80,  pointCost: 10 }
+            fireship: { health: 150, pointCost: 10 }
         };
 
         // 工具函数
