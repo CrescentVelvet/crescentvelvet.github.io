@@ -894,6 +894,64 @@ permalink: /sandbox_war_game.html
         .hongyi-wheel.left { left: 7px; }
         .hongyi-wheel.right { right: 7px; }
 
+        /* ===== 水战兵种 ===== */
+        /* 战船 (18px, 阵营色船身 + 桅杆 + 帆) */
+        .unit.warship {
+            --unit-size: 18px;
+            --body-size: 28px;
+            --scale: 0.643;
+        }
+        .warship-hull {
+            position: absolute;
+            width: 24px; height: 8px;
+            left: 2px; top: 14px;
+            background: var(--color-dark);
+            box-shadow: inset 0 0 0 2px var(--color), 0 2px 0 rgba(0,0,0,0.45);
+            border-radius: 0 50% 50% 0;
+        }
+        .warship-mast {
+            position: absolute;
+            width: 2px; height: 14px;
+            left: 13px; top: 0;
+            background: #5d4a3a;
+        }
+        .warship-sail {
+            position: absolute;
+            width: 8px; height: 10px;
+            left: 10px; top: 2px;
+            background: var(--color);
+            box-shadow: inset 0 0 0 1px var(--color-dark);
+        }
+
+        /* 火船 (18px, 阵营色船 + 火焰) */
+        .unit.fireship {
+            --unit-size: 18px;
+            --body-size: 28px;
+            --scale: 0.643;
+        }
+        .fireship-hull {
+            position: absolute;
+            width: 24px; height: 8px;
+            left: 2px; top: 14px;
+            background: var(--color-dark);
+            box-shadow: inset 0 0 0 2px var(--color), 0 2px 0 rgba(0,0,0,0.45);
+            border-radius: 0 50% 50% 0;
+        }
+        .fireship-mast {
+            position: absolute;
+            width: 2px; height: 14px;
+            left: 13px; top: 0;
+            background: #5d4a3a;
+        }
+        .fireship-flame {
+            position: absolute;
+            width: 10px; height: 12px;
+            left: 9px; top: 1px;
+            background: #e67e22;
+            box-shadow: 0 0 6px #e74c3c;
+            border-radius: 50% 50% 0 0;
+        }
+
         .unit.selected {
             filter: drop-shadow(0 0 4px #f1c40f);
             z-index: 100;
@@ -1157,6 +1215,7 @@ permalink: /sandbox_war_game.html
                         <option value="mobeibei">漠北之战 (古代 PVE)</option>
                         <option value="saelhu">萨尔浒之战 (火药 PVE)</option>
                         <option value="ningyuan">宁远之战 (火药 PVE)</option>
+                        <option value="chibi">赤壁之战 (古代 PVE)</option>
                         <option value="custom_pvp">自定义战役 (PVP)</option>
                     </select>
                     <button onclick="addObstacle()" class="pixel-btn btn-obstacle">+掩体</button>
@@ -1190,6 +1249,8 @@ permalink: /sandbox_war_game.html
                     <button onclick="addUnit('ally','grenadier')" class="pixel-btn btn-ally btn-era-gunpowder">掷弹</button>
                     <button onclick="addUnit('ally','nestOfBees')" class="pixel-btn btn-ally btn-era-gunpowder">蜂巢</button>
                     <button onclick="addUnit('ally','hongyipao')" class="pixel-btn btn-ally btn-era-gunpowder">红炮</button>
+                    <button onclick="addUnit('ally','warship')" class="pixel-btn btn-ally btn-era-ancient">战船</button>
+                    <button onclick="addUnit('ally','fireship')" class="pixel-btn btn-ally btn-era-ancient">火船</button>
                 </div>
 
                 <div class="control-row" id="enemyControlRow">
@@ -1216,6 +1277,8 @@ permalink: /sandbox_war_game.html
                     <button onclick="addUnit('enemy','grenadier')" class="pixel-btn btn-enemy btn-era-gunpowder">掷弹</button>
                     <button onclick="addUnit('enemy','nestOfBees')" class="pixel-btn btn-enemy btn-era-gunpowder">蜂巢</button>
                     <button onclick="addUnit('enemy','hongyipao')" class="pixel-btn btn-enemy btn-era-gunpowder">红炮</button>
+                    <button onclick="addUnit('enemy','warship')" class="pixel-btn btn-enemy btn-era-ancient">战船</button>
+                    <button onclick="addUnit('enemy','fireship')" class="pixel-btn btn-enemy btn-era-ancient">火船</button>
                 </div>
             </div>
         </div>
@@ -2115,7 +2178,7 @@ permalink: /sandbox_war_game.html
             getSize() {
                 if (this.type === 'tank') return 22;
                 if (this.type === 'artillery' || this.type === 'rocket' || this.type === 'mortar' || this.type === 'catapult' || this.type === 'nestOfBees' || this.type === 'hongyipao') return 20;
-                if (this.type === 'command' || this.type === 'supply' || this.type === 'scout' || this.type === 'apc' || this.type === 'cavalry') return 18;
+                if (this.type === 'command' || this.type === 'supply' || this.type === 'scout' || this.type === 'apc' || this.type === 'cavalry' || this.type === 'warship' || this.type === 'fireship') return 18;
                 return 14;
             }
 
@@ -2159,6 +2222,10 @@ permalink: /sandbox_war_game.html
                     body = '<div class="nest-base"></div><div class="nest-rack"></div><div class="nest-tube t1"></div><div class="nest-tube t2"></div><div class="nest-tube t3"></div><div class="nest-tube t4"></div><div class="nest-wheel left"></div><div class="nest-wheel right"></div>';
                 } else if (this.type === 'hongyipao') {
                     body = '<div class="hongyi-base"></div><div class="hongyi-barrel"></div><div class="hongyi-wheel left"></div><div class="hongyi-wheel right"></div>';
+                } else if (this.type === 'warship') {
+                    body = '<div class="warship-hull"></div><div class="warship-mast"></div><div class="warship-sail"></div>';
+                } else if (this.type === 'fireship') {
+                    body = '<div class="fireship-hull"></div><div class="fireship-mast"></div><div class="fireship-flame"></div>';
                 } else {
                     body = '<div class="soldier-head"></div><div class="soldier-body"></div>';
                 }
@@ -4001,6 +4068,63 @@ permalink: /sandbox_war_game.html
             }
         }
 
+        // ── 水战兵种 ──
+        // 战船: 水上单位, 远程弓弩 + 接舷近战
+        class Warship extends Soldier {
+            constructor(x, y, team, health) {
+                super(x, y, team, health);
+                this.type = 'warship';
+                this.attackRange = 150;  // 弓弩射程
+                this.attackPower = 18;
+                this.maxSpeed = 35;      // 船速
+                this.attackCooldown = 1500;
+                this.armorType = 'vehicle';  // 船
+                this.damageTable = { infantry: 1.0, cavalry: 1.0, vehicle: 1.0, tank: 1.0 };
+            }
+        }
+
+        // 火船: 撞击高伤 + 火攻溅射
+        class Fireship extends Soldier {
+            constructor(x, y, team, health) {
+                super(x, y, team, health);
+                this.type = 'fireship';
+                this.attackRange = 40;   // 撞击近战
+                this.attackPower = 50;   // 高伤撞击
+                this.maxSpeed = 50;      // 快速冲撞
+                this.attackCooldown = 2000;
+                this.armorType = 'vehicle';
+                this.damageTable = { infantry: 1.0, cavalry: 1.0, vehicle: 1.5, tank: 1.0 };  // 火攻克船
+            }
+
+            // 火船: 撞击溅射 (50px 火攻)
+            tryAttack(target) {
+                const moraleFactor = this.getMoraleAttackFactor();
+                if (moraleFactor === 0) return;
+                const now = Date.now();
+                const buffed = this.commandBuffUntil && this.commandBuffUntil > now;
+                const cooldown = this.attackCooldown * moraleFactor * (buffed ? 0.85 : 1);
+                if (now - this.lastAttackTime < cooldown) return;
+
+                const distance = this.getDistance(target);
+                if (distance <= this.attackRange && target.team !== this.team && !target.isDead()) {
+                    this.turnToward(target);
+                    if (!this.canMoveFire && !this.isFacing(target)) return;
+                    if (!this.hasLineOfSight(target)) return;
+
+                    this.lastAttackTime = now;
+                    let damage = this.getAttackDamage(target);
+                    if (buffed) damage = Math.round(damage * 1.1);
+                    const scatterX = (Math.random() - 0.5) * 15;
+                    const scatterY = (Math.random() - 0.5) * 15;
+                    const targetX = target.x + target.getSize() / 2 + scatterX;
+                    const targetY = target.y + target.getSize() / 2 + scatterY;
+                    battlefieldManager.spawnScatterProjectile(this, target, targetX, targetY, damage);
+                    const proj = battlefieldManager.projectiles[battlefieldManager.projectiles.length - 1];
+                    if (proj) proj.splashRadius = 50;
+                }
+            }
+        }
+
         class Projectile {
             constructor(source, target, damage) {
                 this.source = source;
@@ -4029,7 +4153,10 @@ permalink: /sandbox_war_game.html
                     firearm:    { size: 4, border: 1, glow: 5, glowColor: '#e67e22', speed: 500, radius: 7 },
                     grenadier:  { size: 6, border: 2, glow: 6, glowColor: '#e67e22', speed: 320, radius: 8 },
                     nestOfBees: { size: 7, border: 2, glow: 8, glowColor: '#e67e22', speed: 240, radius: 8 },
-                    hongyipao: { size: 10, border: 2, glow: 10, glowColor: '#e67e22', speed: 280, radius: 12 }
+                    hongyipao: { size: 10, border: 2, glow: 10, glowColor: '#e67e22', speed: 280, radius: 12 },
+                    // 水战
+                    warship:  { size: 4, border: 1, glow: 3, glowColor: '#f7e07b', speed: 380, radius: 7 },
+                    fireship: { size: 8, border: 2, glow: 8, glowColor: '#e67e22', speed: 300, radius: 9 }
                 };
                 const spec = specs[source.type] || specs.soldier;
                 this.size = spec.size;
@@ -4643,6 +4770,42 @@ permalink: /sandbox_war_game.html
                     failCondition: 'player_all_destroyed OR timeout'
                 }
             },
+            chibi: {
+                id: 'chibi',
+                name: '赤壁之战',
+                year: 208, era: 'ancient',
+                mode: 'pve_historical',
+                side: 'sunlian_vs_cao',
+                playerRole: 'attacker',
+                historicalBrief: '208年, 孙刘联军赤壁火攻, 烧毁曹军连环战船, 三国鼎立奠基',
+                terrain: {
+                    type: 'river',
+                    palette: { ground: '#2c5f7c', accent: '#3a7a9c', shadow: '#1a4a5c' },
+                    pattern: '长江水域'
+                },
+                playerZone: { x: 0, y: 0, w: 450, h: 750 },
+                obstacles: [],
+                playerForce: {
+                    pointBudgetHint: 130,
+                    defaultLayout: [
+                        { type: 'warship', count: 6 },
+                        { type: 'fireship', count: 4 }
+                    ]
+                },
+                enemyForce: [
+                    { type: 'warship', x: 900, y: 120, angle: 270, count: 4 },
+                    { type: 'warship', x: 920, y: 300, angle: 270, count: 4 },
+                    { type: 'warship', x: 900, y: 480, angle: 270, count: 4 },
+                    { type: 'warship', x: 960, y: 200, angle: 270, count: 2 },
+                    { type: 'warship', x: 960, y: 400, angle: 270, count: 2 }
+                ],
+                objectives: {
+                    type: 'annihilation',
+                    target: 'all_enemy',
+                    timeLimit: 600,
+                    failCondition: 'player_all_destroyed OR timeout'
+                }
+            },
             custom_pvp: {
                 id: 'custom_pvp',
                 name: '自定义战役 (PVP)',
@@ -4681,7 +4844,9 @@ permalink: /sandbox_war_game.html
             melee: 'melee', archer: 'archer', cavalry: 'cavalry', catapult: 'catapult',
             crossbow: 'crossbow',
             // 火药时代
-            firearm: 'firearm', grenadier: 'grenadier', nestOfBees: 'nestOfBees', hongyipao: 'hongyipao'
+            firearm: 'firearm', grenadier: 'grenadier', nestOfBees: 'nestOfBees', hongyipao: 'hongyipao',
+            // 水战
+            warship: 'warship', fireship: 'fireship'
         };
 
         // ── v3.0 战场地图绘制器 ──
@@ -4769,6 +4934,27 @@ permalink: /sandbox_war_game.html
                     ctx.globalAlpha = 0.25;
                     for (let i = 0; i < 300; i++) ctx.fillRect(this.randInt(this.w), this.randInt(this.h), 4, 4);
                     ctx.restore();
+                } else if (type === 'river') {
+                    // 全图水域 (长江)
+                    ctx.fillStyle = p.ground;
+                    ctx.fillRect(0, 0, this.w, this.h);
+                    ctx.save();
+                    ctx.fillStyle = p.accent;
+                    for (let i = 0; i < 600; i++) ctx.fillRect(this.randInt(this.w), this.randInt(this.h), 4, 4);
+                    ctx.fillStyle = p.shadow;
+                    for (let i = 0; i < 300; i++) ctx.fillRect(this.randInt(this.w), this.randInt(this.h), 4, 4);
+                    ctx.restore();
+                    // 波纹
+                    ctx.strokeStyle = 'rgba(120,160,200,0.3)';
+                    ctx.lineWidth = 1;
+                    for (let y = 0; y < this.h; y += 25) {
+                        ctx.beginPath();
+                        ctx.moveTo(0, y);
+                        for (let x = 0; x < this.w; x += 30) {
+                            ctx.lineTo(x, y + Math.sin(x * 0.05) * 4);
+                        }
+                        ctx.stroke();
+                    }
                 } else {
                     // 默认: palette + 噪点
                     ctx.fillStyle = p.ground;
@@ -5132,6 +5318,8 @@ permalink: /sandbox_war_game.html
                 else if (type === 'grenadier') unit = new Grenadier(x, y, team, health);
                 else if (type === 'nestOfBees') unit = new NestOfBees(x, y, team, health);
                 else if (type === 'hongyipao') unit = new Hongyipao(x, y, team, health);
+                else if (type === 'warship') unit = new Warship(x, y, team, health);
+                else if (type === 'fireship') unit = new Fireship(x, y, team, health);
                 else unit = new Soldier(x, y, team, health);
                 unit.angle = angle;
                 unit.desiredAngle = angle;
@@ -5763,7 +5951,10 @@ permalink: /sandbox_war_game.html
             firearm:    { health: 60,  pointCost: 8 },
             grenadier:  { health: 70,  pointCost: 6 },
             nestOfBees: { health: 80,  pointCost: 20 },
-            hongyipao: { health: 100, pointCost: 25 }
+            hongyipao: { health: 100, pointCost: 25 },
+            // 水战
+            warship:  { health: 150, pointCost: 15 },
+            fireship: { health: 80,  pointCost: 10 }
         };
 
         // 工具函数
@@ -5790,6 +5981,8 @@ permalink: /sandbox_war_game.html
             if (type === 'grenadier') return '掷弹兵';
             if (type === 'nestOfBees') return '蜂巢炮';
             if (type === 'hongyipao') return '红衣大炮';
+            if (type === 'warship') return '战船';
+            if (type === 'fireship') return '火船';
             return '步兵';
         }
 
@@ -5906,6 +6099,10 @@ permalink: /sandbox_war_game.html
                 unit = new NestOfBees(x, y, team, health);
             } else if (type === 'hongyipao') {
                 unit = new Hongyipao(x, y, team, health);
+            } else if (type === 'warship') {
+                unit = new Warship(x, y, team, health);
+            } else if (type === 'fireship') {
+                unit = new Fireship(x, y, team, health);
             } else {
                 unit = new Soldier(x, y, team, health);
             }
