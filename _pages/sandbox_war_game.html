@@ -3698,9 +3698,88 @@ permalink: /sandbox_war_game.html
                 this.attackRange = 40;
                 this.attackPower = 22;
                 this.maxSpeed = 70;  // 最快
+                this.origMaxSpeed = 70;  // 保存原始速度 (冲锋加速用)
                 this.attackCooldown = 1000;
                 this.armorType = 'cavalry';  // 骑兵护甲 (被长矛克)
                 this.damageTable = { infantry: 1.3, cavalry: 1.0, vehicle: 1.0, tank: 0.8 };  // 骑兵克步兵/弓箭
+                this._flankDir = Math.random() > 0.5 ? 1 : -1;  // 侧翼方向 (固定一侧)
+            }
+
+            // 骑兵重写: 侧翼包抄(chase 朝敌人侧方) + 冲锋加速(接近<150px)
+            update(deltaTime, allUnits) {
+                if (this.isDead()) return;
+                this.updateMorale(deltaTime, allUnits);
+                const nearestEnemy = this.acquireTarget(allUnits);
+
+                if (this.morale < 15 && nearestEnemy) {
+                    this.maxSpeed = this.origMaxSpeed;
+                    this.state = 'flee';
+                    this.moveAwayFrom(nearestEnemy, 220);
+                    this.updatePosition(deltaTime, allUnits);
+                    return;
+                }
+
+                if (nearestEnemy) {
+                    const distance = this.getDistance(nearestEnemy);
+                    const range = this.attackRange;
+
+                    // 方案3: 冲锋加速 (接近 <150px 时 ×1.5)
+                    this.maxSpeed = (distance < 150) ? this.origMaxSpeed * 1.5 : this.origMaxSpeed;
+
+                    if (distance > range * 0.96) {
+                        // 方案1: 侧翼包抄 (朝敌人侧方移动, 不直线冲, 绕到侧翼)
+                        this.state = 'chase';
+                        this.flankApproach(nearestEnemy);
+                        this.tryAttack(nearestEnemy);
+                    } else if (distance < range * 0.4) {
+                        // 太近: 略退 (hit and run 雏形)
+                        this.state = 'backoff';
+                        this.moveAwayFrom(nearestEnemy, 60);
+                    } else if (!this.hasLineOfSight(nearestEnemy)) {
+                        this.state = 'chase';
+                        this.moveTowards(nearestEnemy, 0.0);
+                        this.tryAttack(nearestEnemy);
+                    } else {
+                        this.state = 'hold';
+                        this.holdAndAttack(nearestEnemy, distance, range);
+                    }
+                } else {
+                    this.maxSpeed = this.origMaxSpeed;
+                    this.state = 'patrol';
+                    this.randomMove(deltaTime);
+                }
+                this.updatePosition(deltaTime, allUnits);
+            }
+
+            // 侧翼包抄: target 朝敌人方向 + 垂直侧翼偏移 (绕到侧方再攻击)
+            flankApproach(target) {
+                const myCX = this.x + this.getSize() / 2;
+                const myCY = this.y + this.getSize() / 2;
+                const tCX = target.x + target.getSize() / 2;
+                const tCY = target.y + target.getSize() / 2;
+                const dx = tCX - myCX;
+                const dy = tCY - myCY;
+                const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+                // 垂直方向 (侧翼)
+                const perpX = -dy / dist;
+                const perpY = dx / dist;
+                // 侧翼偏移 (固定一侧, 接近敌人 50% + 侧方 80px)
+                const lateralOffset = 80;
+                const approachRatio = 0.5;
+                let tx = myCX + (dx / dist) * dist * approachRatio + perpX * this._flankDir * lateralOffset;
+                let ty = myCY + (dy / dist) * dist * approachRatio + perpY * this._flankDir * lateralOffset;
+                // 边界限制
+                const bf = document.getElementById('battlefield');
+                const sz = this.getSize();
+                tx = Math.max(0, Math.min(bf.offsetWidth - sz, tx));
+                ty = Math.max(0, Math.min(bf.offsetHeight - sz, ty));
+                this.targetX = tx;
+                this.targetY = ty;
+                this.setDesiredAngle(Math.atan2(dy, dx) * 180 / Math.PI + 90);
+                if (Math.abs(this.targetX - this.pathTargetX) > 6 ||
+                    Math.abs(this.targetY - this.pathTargetY) > 6 || !this.isMoving) {
+                    this.clampTarget();
+                }
             }
         }
 
