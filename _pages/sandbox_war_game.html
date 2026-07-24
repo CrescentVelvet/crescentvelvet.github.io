@@ -4902,6 +4902,39 @@ permalink: /sandbox_war_game.html
                 this.drawGround();
                 this.drawFeatures();
                 this.drawDecorations();
+                this.drawSideLabels();
+            }
+
+            // 画参战双方淡大字标注 (玩家方蓝/敌方红)
+            drawSideLabels() {
+                const ctx = this.terrainCtx;
+                const sideMap = {
+                    'ussr_vs_germany': ['苏军', '德军'],
+                    'allied_vs_germany': ['盟军', '德军'],
+                    'allied_vs_axis': ['英军', '轴心'],
+                    'us_vs_germany': ['美军', '德军'],
+                    'carthage_vs_rome': ['迦太基', '罗马'],
+                    'qin_vs_zhao': ['赵军', '秦军'],
+                    'han_vs_xiongnu': ['汉军', '匈奴'],
+                    'sunlian_vs_cao': ['孙刘', '曹军'],
+                    'ming_vs_later_jin': ['明军', '后金'],
+                    'blue_vs_red': ['蓝方', '红方']
+                };
+                const labels = sideMap[this.scenario.side] || ['友军', '敌军'];
+                const zone = this.scenario.playerZone || { x: 0, w: 550 };
+                const playerIsWest = (zone.x + zone.w / 2) < this.w / 2;
+                const playerX = zone.x + zone.w / 2;
+                const enemyX = playerIsWest ? this.w - 150 : 150;
+                ctx.save();
+                ctx.globalAlpha = 0.1;
+                ctx.font = 'bold 90px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle = '#3498db';
+                ctx.fillText(labels[0], playerX, this.h / 2);
+                ctx.fillStyle = '#e74c3c';
+                ctx.fillText(labels[1], enemyX, this.h / 2);
+                ctx.restore();
             }
 
             drawGround() {
