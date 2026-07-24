@@ -4215,16 +4215,22 @@ permalink: /sandbox_war_game.html
                 playerForce: {
                     pointBudgetHint: 70,
                     defaultLayout: [
-                        { type: 'melee', count: 4 },
-                        { type: 'crossbow', count: 3 },
-                        { type: 'cavalry', count: 2 }
+                        { type: 'melee', count: 8 },
+                        { type: 'crossbow', count: 4 },
+                        { type: 'cavalry', count: 3 }
                     ]
                 },
                 enemyForce: [
-                    { type: 'melee', x: 50, y: 100, angle: 90, count: 3 },
-                    { type: 'melee', x: 50, y: 300, angle: 90, count: 3 },
-                    { type: 'archer', x: 80, y: 200, angle: 90, count: 2 },
-                    { type: 'cavalry', x: 30, y: 500, angle: 90, count: 2 }
+                    // 秦军步兵方阵前排 (密集多列)
+                    { type: 'melee', x: 60, y: 120, angle: 90, count: 4 },
+                    { type: 'melee', x: 60, y: 320, angle: 90, count: 4 },
+                    { type: 'melee', x: 60, y: 520, angle: 90, count: 3 },
+                    // 弓箭手后排
+                    { type: 'archer', x: 100, y: 220, angle: 90, count: 3 },
+                    { type: 'archer', x: 100, y: 420, angle: 90, count: 2 },
+                    // 骑兵侧翼包抄
+                    { type: 'cavalry', x: 30, y: 80, angle: 90, count: 2 },
+                    { type: 'cavalry', x: 30, y: 620, angle: 90, count: 2 }
                 ],
                 objectives: {
                     type: 'defense',
