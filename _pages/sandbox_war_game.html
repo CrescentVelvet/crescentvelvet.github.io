@@ -1046,6 +1046,7 @@ permalink: /sandbox_war_game.html
                         <option value="bulge">阿登突出部 (PVE)</option>
                         <option value="cannae">坎尼会战 (古代 PVE)</option>
                         <option value="changping">长平之战 (古代 PVE)</option>
+                        <option value="mobeibei">漠北之战 (古代 PVE)</option>
                         <option value="custom_pvp">自定义战役 (PVP)</option>
                     </select>
                     <button onclick="addObstacle()" class="pixel-btn btn-obstacle">+掩体</button>
@@ -4235,6 +4236,49 @@ permalink: /sandbox_war_game.html
                 objectives: {
                     type: 'defense',
                     target: 'hold_core_sector',
+                    timeLimit: 600,
+                    failCondition: 'player_all_destroyed OR timeout'
+                }
+            },
+            mobeibei: {
+                id: 'mobeibei',
+                name: '漠北之战',
+                year: -119, era: 'ancient',
+                mode: 'pve_historical',
+                side: 'han_vs_xiongnu',
+                playerRole: 'attacker',
+                historicalBrief: '公元前119年, 汉武帝派卫青霍去病北击匈奴, 漠北决战, 汉骑兵大破匈奴主力',
+                terrain: {
+                    type: 'desert',
+                    palette: { ground: '#b0a070', accent: '#d4c490', shadow: '#7a6a40' },
+                    pattern: '戈壁漠北'
+                },
+                playerZone: { x: 0, y: 0, w: 450, h: 750 },
+                obstacles: [
+                    { x: 300, y: 150, w: 118, h: 34, type: 'mound' },
+                    { x: 500, y: 400, w: 118, h: 34, type: 'mound' },
+                    { x: 700, y: 250, w: 118, h: 34, type: 'mound' },
+                    { x: 400, y: 550, w: 118, h: 34, type: 'mound' },
+                    { x: 600, y: 100, w: 64, h: 64, type: 'house' },
+                    { x: 750, y: 500, w: 64, h: 64, type: 'house' }
+                ],
+                playerForce: {
+                    pointBudgetHint: 120,
+                    defaultLayout: [
+                        { type: 'cavalry', count: 8 },
+                        { type: 'melee', count: 3 },
+                        { type: 'archer', count: 2 }
+                    ]
+                },
+                enemyForce: [
+                    { type: 'cavalry', x: 900, y: 120, angle: 270, count: 3 },
+                    { type: 'cavalry', x: 950, y: 300, angle: 270, count: 4 },
+                    { type: 'cavalry', x: 900, y: 500, angle: 270, count: 3 },
+                    { type: 'melee', x: 980, y: 380, angle: 270, count: 2 }
+                ],
+                objectives: {
+                    type: 'annihilation',
+                    target: 'all_enemy',
                     timeLimit: 600,
                     failCondition: 'player_all_destroyed OR timeout'
                 }
