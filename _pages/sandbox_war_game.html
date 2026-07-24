@@ -1240,17 +1240,17 @@ permalink: /sandbox_war_game.html
                     <button onclick="addUnit('ally','scout')" class="pixel-btn btn-ally btn-era-ww2">侦察</button>
                     <button onclick="addUnit('ally','apc')" class="pixel-btn btn-ally btn-era-ww2">运兵</button>
                     <button onclick="addUnit('ally','mortar')" class="pixel-btn btn-ally btn-era-ww2">迫击</button>
-                    <button onclick="addUnit('ally','melee')" class="pixel-btn btn-ally btn-era-ancient">近战</button>
-                    <button onclick="addUnit('ally','archer')" class="pixel-btn btn-ally btn-era-ancient">弓箭</button>
-                    <button onclick="addUnit('ally','cavalry')" class="pixel-btn btn-ally btn-era-ancient">骑兵</button>
-                    <button onclick="addUnit('ally','catapult')" class="pixel-btn btn-ally btn-era-ancient">投石</button>
-                    <button onclick="addUnit('ally','crossbow')" class="pixel-btn btn-ally btn-era-ancient">连弩</button>
+                    <button onclick="addUnit('ally','melee')" class="pixel-btn btn-ally btn-era-ancient-land">近战</button>
+                    <button onclick="addUnit('ally','archer')" class="pixel-btn btn-ally btn-era-ancient-land">弓箭</button>
+                    <button onclick="addUnit('ally','cavalry')" class="pixel-btn btn-ally btn-era-ancient-land">骑兵</button>
+                    <button onclick="addUnit('ally','catapult')" class="pixel-btn btn-ally btn-era-ancient-land">投石</button>
+                    <button onclick="addUnit('ally','crossbow')" class="pixel-btn btn-ally btn-era-ancient-land">连弩</button>
                     <button onclick="addUnit('ally','firearm')" class="pixel-btn btn-ally btn-era-gunpowder">火铳</button>
                     <button onclick="addUnit('ally','grenadier')" class="pixel-btn btn-ally btn-era-gunpowder">掷弹</button>
                     <button onclick="addUnit('ally','nestOfBees')" class="pixel-btn btn-ally btn-era-gunpowder">蜂巢</button>
                     <button onclick="addUnit('ally','hongyipao')" class="pixel-btn btn-ally btn-era-gunpowder">红炮</button>
-                    <button onclick="addUnit('ally','warship')" class="pixel-btn btn-ally btn-era-ancient">战船</button>
-                    <button onclick="addUnit('ally','fireship')" class="pixel-btn btn-ally btn-era-ancient">火船</button>
+                    <button onclick="addUnit('ally','warship')" class="pixel-btn btn-ally btn-era-ancient-land-naval">战船</button>
+                    <button onclick="addUnit('ally','fireship')" class="pixel-btn btn-ally btn-era-ancient-land-naval">火船</button>
                 </div>
 
                 <div class="control-row" id="enemyControlRow">
@@ -1268,17 +1268,17 @@ permalink: /sandbox_war_game.html
                     <button onclick="addUnit('enemy','scout')" class="pixel-btn btn-enemy btn-era-ww2">侦察</button>
                     <button onclick="addUnit('enemy','apc')" class="pixel-btn btn-enemy btn-era-ww2">运兵</button>
                     <button onclick="addUnit('enemy','mortar')" class="pixel-btn btn-enemy btn-era-ww2">迫击</button>
-                    <button onclick="addUnit('enemy','melee')" class="pixel-btn btn-enemy btn-era-ancient">近战</button>
-                    <button onclick="addUnit('enemy','archer')" class="pixel-btn btn-enemy btn-era-ancient">弓箭</button>
-                    <button onclick="addUnit('enemy','cavalry')" class="pixel-btn btn-enemy btn-era-ancient">骑兵</button>
-                    <button onclick="addUnit('enemy','catapult')" class="pixel-btn btn-enemy btn-era-ancient">投石</button>
-                    <button onclick="addUnit('enemy','crossbow')" class="pixel-btn btn-enemy btn-era-ancient">连弩</button>
+                    <button onclick="addUnit('enemy','melee')" class="pixel-btn btn-enemy btn-era-ancient-land">近战</button>
+                    <button onclick="addUnit('enemy','archer')" class="pixel-btn btn-enemy btn-era-ancient-land">弓箭</button>
+                    <button onclick="addUnit('enemy','cavalry')" class="pixel-btn btn-enemy btn-era-ancient-land">骑兵</button>
+                    <button onclick="addUnit('enemy','catapult')" class="pixel-btn btn-enemy btn-era-ancient-land">投石</button>
+                    <button onclick="addUnit('enemy','crossbow')" class="pixel-btn btn-enemy btn-era-ancient-land">连弩</button>
                     <button onclick="addUnit('enemy','firearm')" class="pixel-btn btn-enemy btn-era-gunpowder">火铳</button>
                     <button onclick="addUnit('enemy','grenadier')" class="pixel-btn btn-enemy btn-era-gunpowder">掷弹</button>
                     <button onclick="addUnit('enemy','nestOfBees')" class="pixel-btn btn-enemy btn-era-gunpowder">蜂巢</button>
                     <button onclick="addUnit('enemy','hongyipao')" class="pixel-btn btn-enemy btn-era-gunpowder">红炮</button>
-                    <button onclick="addUnit('enemy','warship')" class="pixel-btn btn-enemy btn-era-ancient">战船</button>
-                    <button onclick="addUnit('enemy','fireship')" class="pixel-btn btn-enemy btn-era-ancient">火船</button>
+                    <button onclick="addUnit('enemy','warship')" class="pixel-btn btn-enemy btn-era-ancient-land-naval">战船</button>
+                    <button onclick="addUnit('enemy','fireship')" class="pixel-btn btn-enemy btn-era-ancient-land-naval">火船</button>
                 </div>
             </div>
         </div>
@@ -4560,7 +4560,7 @@ permalink: /sandbox_war_game.html
             cannae: {
                 id: 'cannae',
                 name: '坎尼会战',
-                year: -216, era: 'ancient',
+                year: -216, era: 'ancient-land',
                 mode: 'pve_historical',
                 side: 'carthage_vs_rome',
                 playerRole: 'attacker',
@@ -4600,7 +4600,7 @@ permalink: /sandbox_war_game.html
             changping: {
                 id: 'changping',
                 name: '长平之战',
-                year: -260, era: 'ancient',
+                year: -260, era: 'ancient-land',
                 mode: 'pve_historical',
                 side: 'qin_vs_zhao',
                 playerRole: 'defender',
@@ -4648,7 +4648,7 @@ permalink: /sandbox_war_game.html
             mobeibei: {
                 id: 'mobeibei',
                 name: '漠北之战',
-                year: -119, era: 'ancient',
+                year: -119, era: 'ancient-land',
                 mode: 'pve_historical',
                 side: 'han_vs_xiongnu',
                 playerRole: 'attacker',
@@ -4778,7 +4778,7 @@ permalink: /sandbox_war_game.html
             chibi: {
                 id: 'chibi',
                 name: '赤壁之战',
-                year: 208, era: 'ancient',
+                year: 208, era: 'ancient-naval',
                 mode: 'pve_historical',
                 side: 'sunlian_vs_cao',
                 playerRole: 'attacker',
@@ -5342,10 +5342,12 @@ permalink: /sandbox_war_game.html
             // 按战役年代显示对应兵种按钮 (ww2/ancient, custom 显示全部)
             applyEra(era) {
                 const showWw2 = (era === 'ww2' || era === 'custom');
-                const showAncient = (era === 'ancient' || era === 'custom');
+                const showAncientLand = (era === 'ancient-land' || era === 'custom');
+                const showAncientNaval = (era === 'ancient-naval' || era === 'custom');
                 const showGunpowder = (era === 'gunpowder' || era === 'custom');
                 document.querySelectorAll('.btn-era-ww2').forEach(b => b.style.display = showWw2 ? '' : 'none');
-                document.querySelectorAll('.btn-era-ancient').forEach(b => b.style.display = showAncient ? '' : 'none');
+                document.querySelectorAll('.btn-era-ancient-land').forEach(b => b.style.display = showAncientLand ? '' : 'none');
+                document.querySelectorAll('.btn-era-ancient-naval').forEach(b => b.style.display = showAncientNaval ? '' : 'none');
                 document.querySelectorAll('.btn-era-gunpowder').forEach(b => b.style.display = showGunpowder ? '' : 'none');
             }
 
