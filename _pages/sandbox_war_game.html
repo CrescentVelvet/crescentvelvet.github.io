@@ -1843,6 +1843,7 @@ permalink: /sandbox_war_game.html
          *     id: 'prokhorovka',
          *     name: '普罗霍罗夫卡',
          *     year: 1943, era: 'ww2',
+                availableUnits: ['tank','soldier','artillery','rocket','command','supply','engineer','medic','antitank','lightTank','tankDestroyer','scout','apc','mortar'],
          *     side: 'ussr_vs_germany',
          *     playerRole: 'attacker',  // 玩家=苏军(进攻方)
          *     historicalBrief: '1943.7.12 史上最大坦克对决, 苏军第 5 近卫
@@ -1903,6 +1904,7 @@ permalink: /sandbox_war_game.html
          *     id: 'stalingrad',
          *     name: '斯大林格勒废墟',
          *     year: 1942, era: 'ww2',
+                availableUnits: ['tank','soldier','artillery','rocket','command','supply','engineer','medic','antitank','lightTank','tankDestroyer','scout','apc','mortar'],
          *     side: 'ussr_vs_germany',
          *     playerRole: 'defender',  // 玩家=苏军(防守方)
          *     historicalBrief: '1942.11 城市巷战"老鼠战争", 苏军第 62
@@ -4314,6 +4316,7 @@ permalink: /sandbox_war_game.html
                 id: 'prokhorovka',
                 name: '普罗霍罗夫卡',
                 year: 1943, era: 'ww2',
+                availableUnits: ['tank','soldier','artillery','rocket','command','supply','engineer','medic','antitank','lightTank','tankDestroyer','scout','apc','mortar'],
                 mode: 'pve_historical',
                 side: 'ussr_vs_germany',
                 playerRole: 'attacker',
@@ -4364,6 +4367,7 @@ permalink: /sandbox_war_game.html
                 id: 'stalingrad',
                 name: '斯大林格勒废墟',
                 year: 1942, era: 'ww2',
+                availableUnits: ['tank','soldier','artillery','rocket','command','supply','engineer','medic','antitank','lightTank','tankDestroyer','scout','apc','mortar'],
                 mode: 'pve_historical',
                 side: 'ussr_vs_germany',
                 playerRole: 'defender',
@@ -4424,6 +4428,7 @@ permalink: /sandbox_war_game.html
                 id: 'normandy',
                 name: '诺曼底滩头',
                 year: 1944, era: 'ww2',
+                availableUnits: ['tank','soldier','artillery','rocket','command','supply','engineer','medic','antitank','lightTank','tankDestroyer','scout','apc','mortar'],
                 mode: 'pve_historical',
                 side: 'allied_vs_germany',
                 playerRole: 'attacker',
@@ -4467,6 +4472,7 @@ permalink: /sandbox_war_game.html
                 id: 'alamain',
                 name: '阿拉曼沙漠',
                 year: 1942, era: 'ww2',
+                availableUnits: ['tank','soldier','artillery','rocket','command','supply','engineer','medic','antitank','lightTank','tankDestroyer','scout','apc','mortar'],
                 mode: 'pve_historical',
                 side: 'allied_vs_axis',
                 playerRole: 'attacker',
@@ -4510,6 +4516,7 @@ permalink: /sandbox_war_game.html
                 id: 'bulge',
                 name: '阿登突出部',
                 year: 1944, era: 'ww2',
+                availableUnits: ['tank','soldier','artillery','rocket','command','supply','engineer','medic','antitank','lightTank','tankDestroyer','scout','apc','mortar'],
                 mode: 'pve_historical',
                 side: 'us_vs_germany',
                 playerRole: 'defender',
@@ -4561,6 +4568,7 @@ permalink: /sandbox_war_game.html
                 id: 'cannae',
                 name: '坎尼会战',
                 year: -216, era: 'ancient-land',
+                availableUnits: ['melee','archer','cavalry','catapult','crossbow'],
                 mode: 'pve_historical',
                 side: 'carthage_vs_rome',
                 playerRole: 'attacker',
@@ -4601,6 +4609,7 @@ permalink: /sandbox_war_game.html
                 id: 'changping',
                 name: '长平之战',
                 year: -260, era: 'ancient-land',
+                availableUnits: ['melee','archer','cavalry','catapult','crossbow'],
                 mode: 'pve_historical',
                 side: 'qin_vs_zhao',
                 playerRole: 'defender',
@@ -4649,6 +4658,7 @@ permalink: /sandbox_war_game.html
                 id: 'mobeibei',
                 name: '漠北之战',
                 year: -119, era: 'ancient-land',
+                availableUnits: ['melee','archer','cavalry','catapult','crossbow'],
                 mode: 'pve_historical',
                 side: 'han_vs_xiongnu',
                 playerRole: 'attacker',
@@ -4692,6 +4702,7 @@ permalink: /sandbox_war_game.html
                 id: 'saelhu',
                 name: '萨尔浒之战',
                 year: 1619, era: 'gunpowder',
+                availableUnits: ['firearm','grenadier','nestOfBees','hongyipao'],
                 mode: 'pve_historical',
                 side: 'ming_vs_later_jin',
                 playerRole: 'attacker',
@@ -4736,6 +4747,7 @@ permalink: /sandbox_war_game.html
                 id: 'ningyuan',
                 name: '宁远之战',
                 year: 1626, era: 'gunpowder',
+                availableUnits: ['firearm','grenadier','nestOfBees','hongyipao'],
                 mode: 'pve_historical',
                 side: 'ming_vs_later_jin',
                 playerRole: 'defender',
@@ -4779,6 +4791,7 @@ permalink: /sandbox_war_game.html
                 id: 'chibi',
                 name: '赤壁之战',
                 year: 208, era: 'ancient-naval',
+                availableUnits: ['warship','fireship'],
                 mode: 'pve_historical',
                 side: 'sunlian_vs_cao',
                 playerRole: 'attacker',
@@ -4816,6 +4829,7 @@ permalink: /sandbox_war_game.html
                 id: 'custom_pvp',
                 name: '自定义战役 (PVP)',
                 year: null, era: 'custom',
+                availableUnits: null,
                 mode: 'pvp_custom',
                 side: 'blue_vs_red',
                 playerRole: 'both',
@@ -5231,8 +5245,8 @@ permalink: /sandbox_war_game.html
                 }
                 // 应用模式 UI (PVE 隐藏 enemy 投放)
                 this.applyMode(scenario.mode);
-                // 按年代显示对应兵种按钮
-                this.applyEra(scenario.era);
+                // 按想定可用兵种显示对应按钮 (null/[] = 全部, 自定义战役用)
+                this.applyAvailableUnits(scenario.availableUnits);
                 // 同步选择框
                 const select = document.getElementById('scenarioSelect');
                 if (select) select.value = scenarioId;
@@ -5340,15 +5354,16 @@ permalink: /sandbox_war_game.html
             }
 
             // 按战役年代显示对应兵种按钮 (ww2/ancient, custom 显示全部)
-            applyEra(era) {
-                const showWw2 = (era === 'ww2' || era === 'custom');
-                const showAncientLand = (era === 'ancient-land' || era === 'custom');
-                const showAncientNaval = (era === 'ancient-naval' || era === 'custom');
-                const showGunpowder = (era === 'gunpowder' || era === 'custom');
-                document.querySelectorAll('.btn-era-ww2').forEach(b => b.style.display = showWw2 ? '' : 'none');
-                document.querySelectorAll('.btn-era-ancient-land').forEach(b => b.style.display = showAncientLand ? '' : 'none');
-                document.querySelectorAll('.btn-era-ancient-naval').forEach(b => b.style.display = showAncientNaval ? '' : 'none');
-                document.querySelectorAll('.btn-era-gunpowder').forEach(b => b.style.display = showGunpowder ? '' : 'none');
+            // 按想定 availableUnits 显示对应兵种按钮 (解析 onclick 的 type, null=全部)
+            applyAvailableUnits(types) {
+                const showAll = !types || types.length === 0;
+                document.querySelectorAll('.control-row button').forEach(b => {
+                    const onclick = b.getAttribute('onclick') || '';
+                    const match = onclick.match(/addUnit\('[^']+','([^']+)'\)/);
+                    if (match) {
+                        b.style.display = (showAll || types.includes(match[1])) ? '' : 'none';
+                    }
+                });
             }
 
             updatePointsDisplay() {
