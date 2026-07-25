@@ -1200,30 +1200,40 @@ permalink: /sandbox_war_game.html
         .projectile-drone::before { content: ''; position: absolute; width: 15px; height: 3px; left: 50%; top: 50%; margin-left: -7.5px; margin-top: -1.5px; background: linear-gradient(to right, #3a3a3a, #6a6a6a 50%, #3a3a3a); clip-path: polygon(0 100%, 12% 0, 88% 0, 100% 100%, 50% 55%); box-shadow: 0 0 0 1px #2a2a2a; }
         .projectile-drone::after { content: ''; position: absolute; width: 8px; height: 2px; left: 50%; top: -2px; margin-left: -4px; background: rgba(190,190,190,.6); border-radius: 1px; box-shadow: 0 0 4px rgba(200,200,200,.5); }
 
+        /* 子弹命中: 小特效 (子弹多了不混乱) */
         .impact {
             position: absolute;
-            width: 18px;
-            height: 18px;
-            margin-left: -9px;
-            margin-top: -9px;
-            border: 3px solid #ffd166;
+            width: 8px; height: 8px;
+            margin-left: -4px; margin-top: -4px;
+            border: 2px solid #ffd166;
             background: #e85b36;
-            box-shadow: 0 0 0 3px rgba(91, 48, 24, .48), 0 0 12px #ff9f43;
-            animation: impactFlash 0.28s steps(3, end) forwards;
+            box-shadow: 0 0 5px #ff9f43;
+            animation: impactFlash 0.22s steps(3, end) forwards;
             pointer-events: none;
             z-index: 20;
         }
-
-        .impact::before, .impact::after { content: ''; position: absolute; background: #fff3b0; }
-        .impact::before { width: 6px; height: 18px; left: 3px; top: -3px; }
-        .impact::after { width: 18px; height: 6px; left: -3px; top: 3px; }
-        .impact .impact-spark { position: absolute; width: 4px; height: 4px; background: #ffd166; }
+        .impact::before, .impact::after { content: ''; position: absolute; background: #fff3b0; display: none; }
+        .impact .impact-spark { position: absolute; width: 4px; height: 4px; background: #ffd166; display: none; }
         .impact .s1 { left: -8px; top: -4px; } .impact .s2 { right: -8px; top: 1px; }
         .impact .s3 { left: 1px; bottom: -8px; } .impact .s4 { right: -4px; top: -8px; }
+        /* 大爆炸: 仅导弹击中(弹道/巡航) + 单位阵亡 使用 (18px + 十字 + 火星) */
+        .impact.impact-missile, .impact.impact-drone, .impact.impact-big {
+            width: 18px; height: 18px;
+            margin-left: -9px; margin-top: -9px;
+            border-width: 3px;
+            box-shadow: 0 0 0 3px rgba(91, 48, 24, .48), 0 0 12px #ff9f43;
+            animation: impactFlash 0.3s steps(3, end) forwards;
+        }
+        .impact.impact-missile::before, .impact.impact-missile::after,
+        .impact.impact-drone::before, .impact.impact-drone::after,
+        .impact.impact-big::before, .impact.impact-big::after { display: block; }
+        .impact.impact-missile::before, .impact.impact-drone::before, .impact.impact-big::before { width: 6px; height: 18px; left: 3px; top: -3px; }
+        .impact.impact-missile::after, .impact.impact-drone::after, .impact.impact-big::after { width: 18px; height: 6px; left: -3px; top: 3px; }
+        .impact.impact-missile .impact-spark, .impact.impact-drone .impact-spark, .impact.impact-big .impact-spark { display: block; }
         .impact.impact-arrow { width: 10px; height: 10px; margin-left: -5px; margin-top: -5px; border-width: 2px; background: #d8d0b7; box-shadow: 0 0 0 2px rgba(74, 47, 27, .45); }
         .impact.impact-arrow::before, .impact.impact-arrow::after { display: none; }
         .impact.impact-melee { width: 9px; height: 9px; margin-left: -5px; margin-top: -5px; background: #dceff0; border-color: #8bb4b7; box-shadow: 0 0 5px #e6ffff; }
-        .impact.impact-stone { background: #786f61; border-color: #c3b394; box-shadow: 0 0 0 3px rgba(65, 54, 42, .4); }
+        .impact.impact-stone { background: #786f61; border-color: #c3b394; box-shadow: 0 0 0 2px rgba(65, 54, 42, .4); }
 
         .obstacle {
             position: absolute;
@@ -6593,6 +6603,17 @@ permalink: /sandbox_war_game.html
                 this.battlefield.appendChild(projectile.element);
             }
 
+            // 大爆炸特效: 仅单位阵亡时使用 (普通子弹命中用小特效, 见 .impact 基类)
+            spawnExplosion(x, y) {
+                const e = document.createElement('div');
+                e.className = 'impact impact-big';
+                e.innerHTML = '<i class="impact-spark s1"></i><i class="impact-spark s2"></i><i class="impact-spark s3"></i><i class="impact-spark s4"></i>';
+                e.style.left = x + 'px';
+                e.style.top = y + 'px';
+                this.battlefield.appendChild(e);
+                setTimeout(() => e.remove(), 320);
+            }
+
             startBattle() {
                 if (this.units.length < 2) {
                     alert('至少投放2个兵力！');
@@ -6671,6 +6692,8 @@ permalink: /sandbox_war_game.html
                 // 移除死亡的单位
                 this.units = this.units.filter(unit => {
                     if (unit.isDead() && unit.element) {
+                        // 阵亡大爆炸特效
+                        this.spawnExplosion(unit.x + unit.getSize() / 2, unit.y + unit.getSize() / 2);
                         unit.element.remove();
                         // v3.0 累加损失点值
                         if (unit.team === 'ally') this.allyLostPoints += (unit.pointCost || 0);
