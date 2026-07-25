@@ -147,21 +147,36 @@ permalink: /sandbox_war_game.html
             -moz-osx-font-smoothing: unset;
         }
 
-        .battlefield {
+        /* 响应式视口: 承载边框/底纹/裁切, 尺寸由 JS 按朝向适配 */
+        .battlefield-viewport {
+            position: relative;
             width: 100%;
-            height: 750px;
             background: #26362c;
             border: 4px solid var(--pixel-text);
-            position: relative;
             box-shadow: 8px 8px 0px rgba(0,0,0,0.5);
             overflow: hidden;
-            background-image: 
+            background-image:
                 radial-gradient(circle at 18% 22%, rgba(160, 135, 82, 0.45) 0 18px, transparent 19px),
                 radial-gradient(circle at 74% 68%, rgba(60, 90, 62, 0.7) 0 30px, transparent 31px),
                 linear-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px),
                 linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px),
                 linear-gradient(135deg, rgba(29, 46, 36, 0.9), rgba(50, 58, 38, 0.9));
             background-size: 220px 180px, 260px 220px, 40px 40px, 40px 40px, auto;
+            box-sizing: border-box;
+            margin: 0 auto;
+        }
+
+        /* 固定设计尺寸的舞台: 横屏 1100×750 / 竖屏 750×1100, 由 JS 缩放适配视口 */
+        .battlefield {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 1100px;
+            height: 750px;
+            transform-origin: top left;
+            background: transparent;
+            box-shadow: none;
+            border: none;
         }
 
         .terrain-canvas,
@@ -1304,6 +1319,8 @@ permalink: /sandbox_war_game.html
                 border-width: 3px;
                 box-shadow: 4px 4px 0px rgba(0,0,0,0.5);
                 gap: 8px;
+                max-height: 42vh;
+                overflow-y: auto;
             }
 
             .control-row {
@@ -1322,8 +1339,7 @@ permalink: /sandbox_war_game.html
                 padding: 6px;
             }
 
-            .battlefield {
-                height: 450px;
+            .battlefield-viewport {
                 border-width: 3px;
                 box-shadow: 4px 4px 0px rgba(0,0,0,0.5);
             }
@@ -1366,8 +1382,8 @@ permalink: /sandbox_war_game.html
                 padding: 4px;
             }
 
-            .battlefield {
-                height: 340px;
+            .battlefield-viewport {
+                border-width: 2px;
             }
 
             .battle-log {
@@ -1477,14 +1493,16 @@ permalink: /sandbox_war_game.html
             </div>
         </div>
 
-        <div class="battlefield" id="battlefield">
-            <canvas class="terrain-canvas" id="terrainCanvas"></canvas>
-            <canvas class="decor-canvas" id="decorCanvas"></canvas>
-            <svg id="debugPathLayer" xmlns="http://www.w3.org/2000/svg"></svg>
-            <svg id="synergyLayer" xmlns="http://www.w3.org/2000/svg"></svg>
-            <div class="empty-state" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; opacity: 0.5; pointer-events: none; z-index: 2;">
-                <p>投放兵力开始战斗</p>
-                <p style="font-size: 0.8em; margin-top: 10px;">点击按钮添加兵力</p>
+        <div class="battlefield-viewport" id="bfViewport">
+            <div class="battlefield" id="battlefield">
+                <canvas class="terrain-canvas" id="terrainCanvas"></canvas>
+                <canvas class="decor-canvas" id="decorCanvas"></canvas>
+                <svg id="debugPathLayer" xmlns="http://www.w3.org/2000/svg"></svg>
+                <svg id="synergyLayer" xmlns="http://www.w3.org/2000/svg"></svg>
+                <div class="empty-state" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; opacity: 0.5; pointer-events: none; z-index: 2;">
+                    <p>投放兵力开始战斗</p>
+                    <p style="font-size: 0.8em; margin-top: 10px;">点击按钮添加兵力</p>
+                </div>
             </div>
         </div>
 
@@ -5247,6 +5265,94 @@ permalink: /sandbox_war_game.html
             ballistic: 'ballistic', cruise: 'cruise'
         };
 
+        // ============================================================
+        // 朝向适配: 竖屏时把 1100×750 横屏设计转置为 750×1100 竖屏
+        // ============================================================
+        const STAGE_DESIGN_W = 1100; // 横屏设计宽
+        const STAGE_DESIGN_H = 750;  // 横屏设计高
+
+        function warIsPortrait() {
+            // 窗口更高 than 宽 即视为竖屏 (手机竖屏 / 桌面窄高窗口)
+            return window.innerHeight > window.innerWidth;
+        }
+
+        // 当前舞台设计尺寸 (竖屏时宽高互换)
+        function stageDesignW() { return warIsPortrait() ? STAGE_DESIGN_H : STAGE_DESIGN_W; }
+        function stageDesignH() { return warIsPortrait() ? STAGE_DESIGN_W : STAGE_DESIGN_H; }
+
+        // 将横屏设计的想定数据转置为竖屏坐标 (player 西->北, enemy 东->南)
+        // 规则: (x,y)->(y,x), (w,h)->(h,w), angle = (270 - angle) mod 360
+        function transposeScenarioForPortrait(scenario) {
+            if (!scenario) return scenario;
+            const out = Object.assign({}, scenario);
+            const swapRect = (r) => r ? { x: r.y, y: r.x, w: r.h, h: r.w } : r;
+            if (out.playerZone) out.playerZone = swapRect(out.playerZone);
+            if (out.obstacles) out.obstacles = out.obstacles.map(o => Object.assign({}, swapRect(o), { type: o.type }));
+            if (out.enemyForce) out.enemyForce = out.enemyForce.map(f => Object.assign({}, f, {
+                x: f.y, y: f.x,
+                angle: (((270 - (f.angle || 0)) % 360) + 360) % 360
+            }));
+            return out;
+        }
+
+        // 按朝向给想定套用竖屏转置, 返回适配当前朝后的想定对象
+        function scenarioForCurrentOrientation(scenarioId) {
+            const raw = SCENARIOS[scenarioId];
+            if (!raw) return null;
+            return warIsPortrait() ? transposeScenarioForPortrait(raw) : raw;
+        }
+
+        // 计算 #battlefield(舞台, 固定设计尺寸) 在 #bfViewport(视口) 内的缩放与平移
+        // 视口尺寸按设计比例由可用宽度推导, 高度受限于屏幕, 避免挤掉控制面板
+        function fitStage() {
+            const vp = document.getElementById('bfViewport');
+            const stage = document.getElementById('battlefield');
+            if (!vp || !stage) return;
+            const dW = stageDesignW();
+            const dH = stageDesignH();
+            // 舞台固定设计尺寸 (竖屏则 750×1100)
+            stage.style.width = dW + 'px';
+            stage.style.height = dH + 'px';
+            // 视口尺寸 (含边框): 取父级可用宽, 按设计比例推高, 受屏幕高度约束
+            const parent = vp.parentElement;
+            const availW = parent ? parent.clientWidth : window.innerWidth;
+            let vw = Math.max(160, availW);
+            let vh = vw * dH / dW;
+            const maxH = window.innerHeight * (warIsPortrait() ? 0.60 : 0.80);
+            if (vh > maxH) { vh = maxH; vw = vh * dW / dH; }
+            vp.style.width = vw + 'px';
+            vp.style.height = vh + 'px';
+            // 舞台等比缩放并居中于视口内容区 (clientWidth/Height 已扣除边框)
+            const boxW = vp.clientWidth || vw;
+            const boxH = vp.clientHeight || vh;
+            const s = Math.min(boxW / dW, boxH / dH);
+            const visW = dW * s, visH = dH * s;
+            const tx = (boxW - visW) / 2;
+            const ty = (boxH - visH) / 2;
+            stage.style.transform = `translate(${tx}px, ${ty}px) scale(${s})`;
+        }
+
+        // 朝向切换时重排舞台并重载当前想定 (转置后兵种/掩体重新落位)
+        let _lastWarOrientation = warIsPortrait();
+        function handleOrientationChange() {
+            const nowPortrait = warIsPortrait();
+            if (nowPortrait === _lastWarOrientation) {
+                // 纯尺寸变化: 仅重排舞台 + 重绘地形 (DPR/尺寸自愈)
+                fitStage();
+                if (battlefieldManager.terrainRenderer) battlefieldManager.terrainRenderer.render();
+                return;
+            }
+            _lastWarOrientation = nowPortrait;
+            fitStage();
+            // 重新加载当前想定以套用竖屏转置
+            if (battlefieldManager.currentScenario) {
+                const sid = battlefieldManager.currentScenario.id;
+                battlefieldManager.switchToScenario(sid);
+            } else if (battlefieldManager.terrainRenderer) {
+                battlefieldManager.terrainRenderer.render();
+            }
+        }
+
         // ── v3.0 战场地图绘制器 ──
         class TerrainRenderer {
             constructor(terrainCanvas, decorCanvas, scenario) {
@@ -5258,13 +5364,17 @@ permalink: /sandbox_war_game.html
                 this._seed = 0;
                 this.w = 1;
                 this.h = 1;
+                // 竖屏标记 (海水带/阵营标注需按竖屏方向绘制)
+                this.isPortrait = warIsPortrait();
                 this.resize();
             }
 
             resize() {
-                const rect = this.terrainCanvas.getBoundingClientRect();
-                this.w = Math.max(1, Math.floor(rect.width));
-                this.h = Math.max(1, Math.floor(rect.height));
+                // 读舞台固定设计尺寸 (offsetWidth 不受 CSS scale 影响); 落空则回退到边界框
+                const cw = this.terrainCanvas.offsetWidth;
+                const ch = this.terrainCanvas.offsetHeight;
+                this.w = Math.max(1, Math.floor(cw || this.terrainCanvas.getBoundingClientRect().width));
+                this.h = Math.max(1, Math.floor(ch || this.terrainCanvas.getBoundingClientRect().height));
                 const dpr = window.devicePixelRatio || 1;
                 [this.terrainCanvas, this.decorCanvas].forEach(c => {
                     c.width = this.w * dpr;
@@ -5276,6 +5386,8 @@ permalink: /sandbox_war_game.html
             }
 
             render() {
+                // 每次渲染都刷新朝向 (resize/朝向变化后自愈, 避免短时残留旧方向)
+                this.isPortrait = warIsPortrait();
                 this.resize();
                 this.drawGround();
                 this.drawFeatures();
@@ -5300,19 +5412,32 @@ permalink: /sandbox_war_game.html
                     'blue_vs_red': ['蓝方', '红方']
                 };
                 const labels = sideMap[this.scenario.side] || ['友军', '敌军'];
-                const zone = this.scenario.playerZone || { x: 0, w: 550 };
-                const playerIsWest = (zone.x + zone.w / 2) < this.w / 2;
-                const playerX = zone.x + zone.w / 2;
-                const enemyX = playerIsWest ? this.w - 150 : 150;
+                const zone = this.scenario.playerZone || { x: 0, y: 0, w: 550, h: 750 };
                 ctx.save();
                 ctx.globalAlpha = 0.5;
                 ctx.font = 'bold 90px "ZCOOL QingKe HuangYou", sans-serif';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                ctx.fillStyle = '#3498db';
-                ctx.fillText(labels[0], playerX, this.h / 2);
-                ctx.fillStyle = '#e74c3c';
-                ctx.fillText(labels[1], enemyX, this.h / 2);
+                if (this.isPortrait) {
+                    // 竖屏: 玩家方(北/上)与敌方(南/下)沿 Y 轴标注
+                    const playerY = zone.y + zone.h / 2;
+                    const playerIsNorth = playerY < this.h / 2;
+                    const playerLabelY = playerIsNorth ? Math.max(80, playerY) : this.h - 90;
+                    const enemyLabelY = playerIsNorth ? this.h - 90 : Math.max(80, playerY);
+                    ctx.fillStyle = '#3498db';
+                    ctx.fillText(labels[0], this.w / 2, playerLabelY);
+                    ctx.fillStyle = '#e74c3c';
+                    ctx.fillText(labels[1], this.w / 2, enemyLabelY);
+                } else {
+                    // 横屏: 玩家方(西/东)与敌方沿 X 轴标注
+                    const playerIsWest = (zone.x + zone.w / 2) < this.w / 2;
+                    const playerX = zone.x + zone.w / 2;
+                    const enemyX = playerIsWest ? this.w - 150 : 150;
+                    ctx.fillStyle = '#3498db';
+                    ctx.fillText(labels[0], playerX, this.h / 2);
+                    ctx.fillStyle = '#e74c3c';
+                    ctx.fillText(labels[1], enemyX, this.h / 2);
+                }
                 ctx.restore();
             }
 
@@ -5323,35 +5448,57 @@ permalink: /sandbox_war_game.html
                 this.seed(this.scenario.id + ':ground');
 
                 if (type === 'beach') {
-                    // 海水区 (西侧 0-150px, 像素蓝)
+                    // 海水区 (横屏: 西侧 0-150px | 竖屏: 北侧 0-150px)
+                    const seaLen = 150, wetLen = 25;
                     ctx.fillStyle = '#2c5f7c';
-                    ctx.fillRect(0, 0, 150, this.h);
+                    if (this.isPortrait) ctx.fillRect(0, 0, this.w, seaLen);
+                    else ctx.fillRect(0, 0, seaLen, this.h);
                     ctx.save();
                     ctx.fillStyle = '#3a7a9c';
-                    for (let i = 0; i < 500; i++) ctx.fillRect(this.randInt(150), this.randInt(this.h), 4, 4);
+                    for (let i = 0; i < 500; i++) {
+                        if (this.isPortrait) ctx.fillRect(this.randInt(this.w), this.randInt(seaLen), 4, 4);
+                        else ctx.fillRect(this.randInt(seaLen), this.randInt(this.h), 4, 4);
+                    }
                     ctx.fillStyle = '#1f4a5c';
-                    for (let i = 0; i < 250; i++) ctx.fillRect(this.randInt(150), this.randInt(this.h), 4, 4);
+                    for (let i = 0; i < 250; i++) {
+                        if (this.isPortrait) ctx.fillRect(this.randInt(this.w), this.randInt(seaLen), 4, 4);
+                        else ctx.fillRect(this.randInt(seaLen), this.randInt(this.h), 4, 4);
+                    }
                     ctx.restore();
-                    // 湿沙交界 (150-175px)
+                    // 湿沙交界 (海水内侧 150-175px)
                     ctx.fillStyle = '#b89860';
-                    ctx.fillRect(150, 0, 25, this.h);
+                    if (this.isPortrait) ctx.fillRect(0, seaLen, this.w, wetLen);
+                    else ctx.fillRect(seaLen, 0, wetLen, this.h);
                     // 沙滩区 (175px+)
                     ctx.fillStyle = p.ground;
-                    ctx.fillRect(175, 0, this.w - 175, this.h);
+                    if (this.isPortrait) ctx.fillRect(0, seaLen + wetLen, this.w, this.h - seaLen - wetLen);
+                    else ctx.fillRect(seaLen + wetLen, 0, this.w - seaLen - wetLen, this.h);
                     // 沙滩像素噪点
                     ctx.save();
                     ctx.globalAlpha = 0.15;
                     ctx.fillStyle = p.shadow;
-                    for (let i = 0; i < 1500; i++) ctx.fillRect(175 + this.randInt(this.w - 175), this.randInt(this.h), 2, 2);
+                    for (let i = 0; i < 1500; i++) {
+                        if (this.isPortrait) ctx.fillRect(this.randInt(this.w), seaLen + wetLen + this.randInt(this.h - seaLen - wetLen), 2, 2);
+                        else ctx.fillRect(seaLen + wetLen + this.randInt(this.w - seaLen - wetLen), this.randInt(this.h), 2, 2);
+                    }
                     ctx.restore();
                     // 水陆交界波浪
                     ctx.strokeStyle = '#6fb0d8';
                     ctx.lineWidth = 2;
-                    for (let y = 0; y < this.h; y += 8) {
-                        ctx.beginPath();
-                        ctx.moveTo(147, y);
-                        ctx.lineTo(147 + Math.sin(y * 0.3) * 3, y + 4);
-                        ctx.stroke();
+                    if (this.isPortrait) {
+                        for (let x = 0; x < this.w; x += 8) {
+                            ctx.beginPath();
+                            ctx.moveTo(x, 147);
+                            ctx.lineTo(x + 4, 147 + Math.sin(x * 0.3) * 3);
+                            ctx.stroke();
+                        }
+                    } else {
+                        for (let y = 0; y < this.h; y += 8) {
+                            ctx.beginPath();
+                            ctx.moveTo(147, y);
+                            ctx.lineTo(147 + Math.sin(y * 0.3) * 3, y + 4);
+                            ctx.stroke();
+                        }
                     }
                 } else if (type === 'desert') {
                     // 深沙底色
@@ -5563,7 +5710,8 @@ permalink: /sandbox_war_game.html
                     ctx.fillStyle = this.scenario.terrain.palette.shadow;
                     for (let i = 0; i < 200; i++) {
                         ctx.globalAlpha = 0.25;
-                        ctx.fillRect(175 + this.randInt(this.w - 175), this.randInt(this.h), 2, 2);
+                        if (this.isPortrait) ctx.fillRect(this.randInt(this.w), 175 + this.randInt(this.h - 175), 2, 2);
+                        else ctx.fillRect(175 + this.randInt(this.w - 175), this.randInt(this.h), 2, 2);
                     }
                     ctx.restore();
                 }
@@ -5644,8 +5792,8 @@ permalink: /sandbox_war_game.html
                     }
                 } else if (type === 'beach') {
                     for (let i = 0; i < 12; i++) {
-                        const x = 185 + this.randInt(Math.max(1, this.w - 210));
-                        const y = this.randInt(this.h);
+                        const x = this.isPortrait ? this.randInt(this.w) : 185 + this.randInt(Math.max(1, this.w - 210));
+                        const y = this.isPortrait ? 185 + this.randInt(Math.max(1, this.h - 210)) : this.randInt(this.h);
                         ctx.globalAlpha = 0.65;
                         ctx.fillStyle = '#52585a';
                         ctx.fillRect(x, y, 13, 3);
@@ -5745,11 +5893,15 @@ permalink: /sandbox_war_game.html
 
             // ── v3.0 加载想定: 渲染地形 + 部署 DOM 掩体 ──
             loadScenario(scenarioId) {
-                const scenario = SCENARIOS[scenarioId];
-                if (!scenario) {
+                const raw = SCENARIOS[scenarioId];
+                if (!raw) {
                     console.warn('想定未找到:', scenarioId);
                     return;
                 }
+                // 按当前朝向套用竖屏转置 (竖屏: 西<->北, 兵种/掩体坐标转置)
+                const scenario = scenarioForCurrentOrientation(scenarioId);
+                // 先按朝向适配舞台尺寸, 再渲染地形 (canvas 读舞台设计尺寸)
+                fitStage();
                 this.currentScenario = scenario;
                 const terrainCanvas = document.getElementById('terrainCanvas');
                 const decorCanvas = document.getElementById('decorCanvas');
@@ -6577,16 +6729,25 @@ permalink: /sandbox_war_game.html
             else if (type === 'artillery' || type === 'rocket' || type === 'mortar' || type === 'catapult') unitSize = 20;
             else if (type === 'command' || type === 'supply' || type === 'scout' || type === 'apc' || type === 'cavalry') unitSize = 18;
             else unitSize = 14;
-            const deploymentDepth = Math.min(280, battlefield.offsetWidth * 0.28);
+            // 竖屏: 玩家方部署在上沿(北), 敌方部署在下沿(南); 横屏: 玩家方西, 敌方东
+            const portrait = warIsPortrait();
+            const deploymentDepth = Math.min(280, (portrait ? battlefield.offsetHeight : battlefield.offsetWidth) * 0.28);
             let x = 0;
             let y = 0;
             let placed = false;
 
             for (let attempt = 0; attempt < 60; attempt++) {
-                x = team === 'ally'
-                    ? 30 + Math.random() * deploymentDepth
-                    : battlefield.offsetWidth - deploymentDepth - unitSize - 30 + Math.random() * deploymentDepth;
-                y = 40 + Math.random() * (battlefield.offsetHeight - unitSize - 80);
+                if (portrait) {
+                    x = 30 + Math.random() * (battlefield.offsetWidth - unitSize - 60);
+                    y = team === 'ally'
+                        ? 30 + Math.random() * deploymentDepth
+                        : battlefield.offsetHeight - deploymentDepth - unitSize - 30 + Math.random() * deploymentDepth;
+                } else {
+                    x = team === 'ally'
+                        ? 30 + Math.random() * deploymentDepth
+                        : battlefield.offsetWidth - deploymentDepth - unitSize - 30 + Math.random() * deploymentDepth;
+                    y = 40 + Math.random() * (battlefield.offsetHeight - unitSize - 80);
+                }
 
                 if (
                     !battlefieldManager.collidesWithObstacle(x, y, unitSize, unitSize, 8) &&
@@ -6659,6 +6820,13 @@ permalink: /sandbox_war_game.html
                 unit = new Soldier(x, y, team, health);
             }
 
+            // 初始朝向: 朝向敌方方向 (横屏 玩家东/敌西; 竖屏 玩家南/敌北)
+            const initAngle = portrait
+                ? (team === 'ally' ? 180 : 0)
+                : (team === 'ally' ? 90 : 270);
+            unit.angle = initAngle;
+            unit.desiredAngle = initAngle;
+
             battlefieldManager.addUnit(unit);
         }
 
@@ -6719,15 +6887,15 @@ permalink: /sandbox_war_game.html
                 }, { passive: false });
 
                 // 禁用页面滚动（仅限战场区域，避免影响日志滚动）
-                document.getElementById('battlefield').addEventListener('touchmove', function(e) {
+                document.getElementById('bfViewport').addEventListener('touchmove', function(e) {
                     e.preventDefault();
                 }, { passive: false });
 
-                // 添加触摸反馈
-                const battlefield = document.getElementById('battlefield');
-                battlefield.addEventListener('touchstart', function(e) {
+                // 添加触摸反馈 (反馈层挂在未变换的视口上, 用屏幕坐标定位)
+                const viewport = document.getElementById('bfViewport');
+                viewport.addEventListener('touchstart', function(e) {
                     const touch = e.touches[0];
-                    const rect = battlefield.getBoundingClientRect();
+                    const rect = viewport.getBoundingClientRect();
                     const x = touch.clientX - rect.left;
                     const y = touch.clientY - rect.top;
                     
@@ -6745,7 +6913,7 @@ permalink: /sandbox_war_game.html
                         animation: touchFeedback 0.3s ease-out forwards;
                     `;
                     
-                    battlefield.appendChild(feedback);
+                    viewport.appendChild(feedback);
                     
                     setTimeout(() => {
                         feedback.remove();
@@ -6773,9 +6941,25 @@ permalink: /sandbox_war_game.html
         // 初始化
         document.addEventListener('DOMContentLoaded', function() {
             logBattle('系统就绪', 'info');
+            // 按朝向适配舞台尺寸 (必须在加载想定/渲染地形前)
+            fitStage();
             addMobileOptimizations();
             // v3.0 加载默认想定 (斯大林格勒保卫战 PVE)
             battlefieldManager.loadScenario('stalingrad');
+            // 窗口尺寸/朝向变化: 防抖后统一交由 handleOrientationChange 处理
+            // (纯缩放仅重排舞台+重绘; 横竖屏翻转则重载当前想定套用竖屏转置)
+            let _resizeTimer = null;
+            window.addEventListener('resize', function() {
+                clearTimeout(_resizeTimer);
+                _resizeTimer = setTimeout(function() { handleOrientationChange(); }, 150);
+            });
+            // 朝向媒体查询: 设备翻转时立即触发 (比 resize 更及时)
+            if (window.matchMedia) {
+                const mq = window.matchMedia('(orientation: portrait)');
+                const onOri = function() { handleOrientationChange(); };
+                if (mq.addEventListener) mq.addEventListener('change', onOri);
+                else if (mq.addListener) mq.addListener(onOri);
+            }
             // debug 路线开关 (按 D 键) + 协同链开关 (按 S 键)
             document.addEventListener('keydown', function(e) {
                 if (e.key === 'd' || e.key === 'D') battlefieldManager.toggleDebugPaths();
