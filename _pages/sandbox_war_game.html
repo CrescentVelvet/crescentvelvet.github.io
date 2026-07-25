@@ -4593,7 +4593,22 @@ permalink: /sandbox_war_game.html
                     }
 
                     const step = Math.min(dist, this.speed * deltaTime);
-                    this.angle = Math.atan2(dy, dx) * 180 / Math.PI + 90;
+                    if (this.ballistic) {
+                        // 抛物线弹道: 弹头沿抛物线切线朝向(上升时朝斜上, 顶点水平, 下落时朝斜下), 而非始终朝右
+                        const tdx = this.endX - this.startX;
+                        const tdy = this.endY - this.startY;
+                        const totalDist = Math.sqrt(tdx * tdx + tdy * tdy) || 1;
+                        const sx = this.x - this.startX;
+                        const sy = this.y - this.startY;
+                        const traveled = Math.sqrt(sx * sx + sy * sy);
+                        const t = Math.min(1, traveled / totalDist);
+                        const arcHeight = 80 + totalDist * 0.15;
+                        const vx = tdx;
+                        const vy = tdy - 4 * arcHeight * (1 - 2 * t); // 视觉 y 切线 = 直线分量 + 抛物线导数
+                        this.angle = Math.atan2(vy, vx) * 180 / Math.PI + 90;
+                    } else {
+                        this.angle = Math.atan2(dy, dx) * 180 / Math.PI + 90;
+                    }
                     this.x += (dx / dist) * step;
                     this.y += (dy / dist) * step;
                     if (battlefieldManager.collidesWithObstacle(this.x, this.y, 8, 8)) {
