@@ -981,11 +981,11 @@ permalink: /sandbox_war_game.html
         }
 
         /* ===== 现代导弹兵种 ===== */
-        /* 弹道导弹车 (22px, 阵营色底盘 + 驾驶室 + 多联发射筒, 每筒一枚导弹, 发射一枚空一筒) */
+        /* 弹道导弹车 (坦克2倍体积 44px, 阵营色底盘 + 驾驶室 + 多联发射筒, 每筒一枚导弹, 发射一枚空一筒) */
         .unit.ballistic {
-            --unit-size: 22px;
+            --unit-size: 44px;
             --body-size: 36px;
-            --scale: 0.611;
+            --scale: 1.222;
         }
         .ballistic-base {
             position: absolute;
@@ -2432,7 +2432,8 @@ permalink: /sandbox_war_game.html
             }
 
             getSize() {
-                if (this.type === 'tank' || this.type === 'lightTank' || this.type === 'tankDestroyer' || this.type === 'ballistic' || this.type === 'cruise') return 22;
+                if (this.type === 'ballistic') return 44;
+                if (this.type === 'tank' || this.type === 'lightTank' || this.type === 'tankDestroyer' || this.type === 'cruise') return 22;
                 if (this.type === 'artillery' || this.type === 'rocket' || this.type === 'mortar' || this.type === 'catapult' || this.type === 'nestOfBees' || this.type === 'hongyipao') return 20;
                 if (this.type === 'command' || this.type === 'supply' || this.type === 'scout' || this.type === 'apc' || this.type === 'cavalry' || this.type === 'warship' || this.type === 'fireship') return 18;
                 return 14;
@@ -4415,8 +4416,8 @@ permalink: /sandbox_war_game.html
             constructor(x, y, team, health) {
                 super(x, y, team, health);
                 this.type = 'ballistic';
-                this.attackRange = 500;
-                this.minRange = 80;
+                this.attackRange = 700;
+                this.minRange = 100;
                 this.attackPower = 80;
                 this.maxSpeed = 15;
                 this.attackCooldown = 6000;
