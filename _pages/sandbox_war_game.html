@@ -981,7 +981,7 @@ permalink: /sandbox_war_game.html
         }
 
         /* ===== 现代导弹兵种 ===== */
-        /* 弹道导弹车 (22px, 阵营色底盘 + 驾驶室 + 垂直发射筒 + 露出弹头) */
+        /* 弹道导弹车 (22px, 阵营色底盘 + 驾驶室 + 多联发射筒, 每筒一枚导弹, 发射一枚空一筒) */
         .unit.ballistic {
             --unit-size: 22px;
             --body-size: 36px;
@@ -1005,26 +1005,22 @@ permalink: /sandbox_war_game.html
             box-shadow: inset 1px 1px var(--color), inset -1px -1px rgba(0,0,0,.4);
         }
         .ballistic-cab::before { content: ''; position: absolute; width: 5px; height: 4px; left: 2px; top: 2px; background: rgba(170,210,230,.55); box-shadow: inset 0 1px rgba(255,255,255,.4); }
-        /* 弹头先绘制, 发射筒覆盖其下半部, 形成"弹头露出筒口"的视觉 */
-        .ballistic-missile {
+        /* 多联发射筒: 每筒一枚垂直导弹, .loaded 表示筒内有弹(露出弹头), 发射后移除 .loaded */
+        .ballistic-rack {
             position: absolute;
-            width: 5px; height: 11px;
-            left: 16px; top: -5px;
-            background: linear-gradient(to bottom, #d64545 0 18%, #f3f3f3 18% 70%, #c8c8c8 70% 100%);
-            clip-path: polygon(50% 0, 100% 22%, 100% 100%, 0 100%, 0 22%);
-            box-shadow: 0 0 0 1px #5a3a3a;
+            left: 13px; top: 4px;
+            display: flex;
+            gap: 2px;
         }
-        .ballistic-missile::before { content: ''; position: absolute; width: 3px; height: 2px; left: 1px; top: 4px; background: #f5d76e; border-radius: 50%; }
-        .ballistic-canister {
-            position: absolute;
-            width: 11px; height: 23px;
-            left: 13px; top: 3px;
-            background: linear-gradient(90deg, #1f2326 0 16%, #4a5258 16% 50%, #363b40 50% 84%, #1b1f22 84%);
-            border-radius: 2px 2px 1px 1px;
-            box-shadow: inset 1px 0 rgba(255,255,255,.14), inset -1px 0 rgba(0,0,0,.55), 0 1px 1px rgba(0,0,0,.4);
+        .ballistic-tube {
+            position: relative;
+            width: 5px; height: 22px;
+            background: linear-gradient(90deg, #1f2326 0 18%, #4a5258 18% 50%, #363b40 50% 82%, #1b1f22 82%);
+            border-radius: 1px;
+            box-shadow: inset 1px 0 rgba(255,255,255,.14), inset -1px 0 rgba(0,0,0,.55);
         }
-        .ballistic-canister::before { content: ''; position: absolute; width: 9px; height: 2px; left: 1px; top: 7px; background: rgba(0,0,0,.5); box-shadow: 0 9px 0 rgba(0,0,0,.4); }
-        .ballistic-canister::after { content: ''; position: absolute; width: 7px; height: 3px; left: 2px; top: 0; background: #121416; border-radius: 50% 50% 0 0; }
+        .ballistic-tube::after { content: ''; position: absolute; width: 3px; height: 2px; left: 1px; top: 0; background: #121416; border-radius: 50% 50% 0 0; }
+        .ballistic-tube.loaded::before { content: ''; position: absolute; width: 3px; height: 6px; left: 1px; top: -3px; background: linear-gradient(to bottom, #d64545 0 30%, #f3f3f3 30% 100%); clip-path: polygon(50% 0, 100% 30%, 100% 100%, 0 100%, 0 30%); box-shadow: 0 0 0 1px #5a3a3a; }
         .ballistic-wheel {
             position: absolute;
             width: 7px; height: 7px;
@@ -2486,14 +2482,16 @@ permalink: /sandbox_war_game.html
                 } else if (this.type === 'fireship') {
                     body = '<div class="warship-shadow"></div><div class="fireship-hull"></div><div class="fireship-mast"></div><div class="fireship-flame"></div>';
                 } else if (this.type === 'ballistic') {
-                    body = '<div class="vehicle-shadow"></div><div class="ballistic-base"></div><div class="ballistic-cab"></div><div class="ballistic-missile"></div><div class="ballistic-canister"></div><div class="ballistic-wheel left"></div><div class="ballistic-wheel right"></div>';
+                    let tubes = '';
+                    for (let i = 0; i < this.maxAmmo; i++) tubes += `<div class="ballistic-tube${i < this.ammo ? ' loaded' : ''}"></div>`;
+                    body = '<div class="vehicle-shadow"></div><div class="ballistic-base"></div><div class="ballistic-cab"></div><div class="ballistic-rack">' + tubes + '</div><div class="ballistic-wheel left"></div><div class="ballistic-wheel right"></div>';
                 } else if (this.type === 'cruise') {
                     body = '<div class="vehicle-shadow"></div><div class="cruise-base"></div><div class="cruise-cab"></div><div class="cruise-box"></div><div class="cruise-wheel left"></div><div class="cruise-wheel right"></div>';
                 } else {
                     body = '<div class="soldier-shadow"></div><div class="soldier-head"></div><div class="soldier-body"></div>';
                 }
 
-                return `<div class="unit-body">${body}</div><div class="hp-bar"><div class="hp-fill" style="width: ${this.getHealthPercent()}%"></div></div>${this.ammo !== undefined ? `<div class="unit-ammo">${Math.max(0, this.ammo)}</div>` : ''}`;
+                return `<div class="unit-body">${body}</div><div class="hp-bar"><div class="hp-fill" style="width: ${this.getHealthPercent()}%"></div></div>${this.ammo !== undefined && this.type !== 'ballistic' ? `<div class="unit-ammo">${Math.max(0, this.ammo)}</div>` : ''}`;
             }
 
             getHealthPercent() {
@@ -2518,11 +2516,18 @@ permalink: /sandbox_war_game.html
 
                 // 导弹车: 实时刷新载弹量徽章 (打出一发少一发)
                 if (this.ammo !== undefined) {
-                    const ammoEl = this.element.querySelector('.unit-ammo');
-                    if (ammoEl) {
-                        const a = Math.max(0, this.ammo);
-                        ammoEl.textContent = a;
-                        ammoEl.classList.toggle('empty', a === 0);
+                    if (this.type === 'ballistic') {
+                        // 弹道导弹车: 每筒一枚, 前 ammo 筒 .loaded(露出弹头), 其余空筒
+                        const tubes = this.element.querySelectorAll('.ballistic-tube');
+                        const loaded = Math.max(0, this.ammo);
+                        tubes.forEach((tube, i) => tube.classList.toggle('loaded', i < loaded));
+                    } else {
+                        const ammoEl = this.element.querySelector('.unit-ammo');
+                        if (ammoEl) {
+                            const a = Math.max(0, this.ammo);
+                            ammoEl.textContent = a;
+                            ammoEl.classList.toggle('empty', a === 0);
+                        }
                     }
                 }
 
