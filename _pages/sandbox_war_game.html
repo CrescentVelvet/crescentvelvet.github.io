@@ -514,13 +514,13 @@ permalink: /sandbox_war_game.html
             --body-size: 22px;
             --scale: 0.636;
         }
-        .unit.engineer .soldier-body { background: var(--color); box-shadow: inset 0 0 0 2px var(--color-dark), 0 2px 0 rgba(0,0,0,0.45); }
-        .unit.engineer .soldier-head { background: #f5cba7; box-shadow: inset 0 0 0 2px #d68910; }
+        .unit.engineer .soldier-body { background: var(--color); }
+        .unit.engineer .soldier-head { background: #f5cba7; box-shadow: inset 1px 1px #fce8d0, inset -2px -2px #d68910; }
         .engineer-tool {
             position: absolute;
             width: 3px; height: 4px;
             left: 14px; top: 8px;
-            background: #f1c40f;
+            background: radial-gradient(circle at 35% 35%, #f4d03f, #c49a0d);
         }
 
         /* 医疗兵 (14px, body 阵营色 + 白头 + 红十字) */
@@ -529,8 +529,8 @@ permalink: /sandbox_war_game.html
             --body-size: 22px;
             --scale: 0.636;
         }
-        .unit.medic .soldier-body { background: var(--color); box-shadow: inset 0 0 0 2px var(--color-dark), 0 2px 0 rgba(0,0,0,0.45); }
-        .unit.medic .soldier-head { background: #fadbd8; box-shadow: inset 0 0 0 2px #bdc3c7; }
+        .unit.medic .soldier-body { background: var(--color); }
+        .unit.medic .soldier-head { background: #fadbd8; box-shadow: inset 1px 1px #fef0ee, inset -2px -2px #bdc3c7; }
         .medic-cross {
             position: absolute;
             width: 3px; height: 3px;
@@ -544,13 +544,13 @@ permalink: /sandbox_war_game.html
             --body-size: 22px;
             --scale: 0.636;
         }
-        .unit.antitank .soldier-body { background: var(--color); box-shadow: inset 0 0 0 2px var(--color-dark), 0 2px 0 rgba(0,0,0,0.45); }
-        .unit.antitank .soldier-head { background: var(--color-light); box-shadow: inset 0 0 0 2px var(--color); }
+        .unit.antitank .soldier-body { background: var(--color); }
+        .unit.antitank .soldier-head { background: var(--color-light); box-shadow: inset 1px 1px rgba(255,255,255,.3), inset -2px -2px var(--color); }
         .antitank-tube {
             position: absolute;
             width: 3px; height: 8px;
             left: 14px; top: 8px;
-            background: #2c3e50;
+            background: linear-gradient(90deg, #1b2225, #34495e, #1b2225);
         }
 
         /* 轻型坦克 (22px, body 阵营中色 + 细长炮管, 区分主战坦克深色粗管) */
@@ -676,7 +676,7 @@ permalink: /sandbox_war_game.html
             --body-size: 22px;
             --scale: 0.636;
         }
-        .unit.melee .soldier-body { background: var(--color); box-shadow: inset 0 0 0 2px var(--color-dark), 0 2px 0 rgba(0,0,0,0.45); }
+        .unit.melee .soldier-body { background: var(--color); }
         .unit.melee .soldier-head { background: #bdc3c7; box-shadow: inset 0 0 0 2px #7f8c8d; }
         .melee-spear {
             position: absolute;
@@ -691,7 +691,7 @@ permalink: /sandbox_war_game.html
             --body-size: 22px;
             --scale: 0.636;
         }
-        .unit.archer .soldier-body { background: var(--color); box-shadow: inset 0 0 0 2px var(--color-dark), 0 2px 0 rgba(0,0,0,0.45); }
+        .unit.archer .soldier-body { background: var(--color); }
         .unit.archer .soldier-head { background: #d4a373; box-shadow: inset 0 0 0 2px #8a5a3c; }
         .archer-bow {
             position: absolute;
@@ -781,7 +781,7 @@ permalink: /sandbox_war_game.html
             --body-size: 22px;
             --scale: 0.636;
         }
-        .unit.crossbow .soldier-body { background: var(--color); box-shadow: inset 0 0 0 2px var(--color-dark), 0 2px 0 rgba(0,0,0,0.45); }
+        .unit.crossbow .soldier-body { background: var(--color); }
         .unit.crossbow .soldier-head { background: #d4a373; box-shadow: inset 0 0 0 2px #8a5a3c; }
         .crossbow-div {
             position: absolute;
@@ -804,13 +804,13 @@ permalink: /sandbox_war_game.html
             --body-size: 22px;
             --scale: 0.636;
         }
-        .unit.firearm .soldier-body { background: var(--color); box-shadow: inset 0 0 0 2px var(--color-dark), 0 2px 0 rgba(0,0,0,0.45); }
-        .unit.firearm .soldier-head { background: #d4a373; box-shadow: inset 0 0 0 2px #8a5a3c; }
+        .unit.firearm .soldier-body { background: var(--color); }
+        .unit.firearm .soldier-head { background: #d4a373; box-shadow: inset 1px 1px #f4c38a, inset -2px -2px #8a5a3c; }
         .firearm-gun {
             position: absolute;
             width: 3px; height: 10px;
             left: 14px; top: 4px;
-            background: #2c3e50;
+            background: linear-gradient(90deg, #1b2225, #34495e, #1b2225);
         }
 
         /* 掷弹兵 (14px, 阵营色 + 炸弹) */
@@ -819,13 +819,13 @@ permalink: /sandbox_war_game.html
             --body-size: 22px;
             --scale: 0.636;
         }
-        .unit.grenadier .soldier-body { background: var(--color); box-shadow: inset 0 0 0 2px var(--color-dark), 0 2px 0 rgba(0,0,0,0.45); }
-        .unit.grenadier .soldier-head { background: #d4a373; box-shadow: inset 0 0 0 2px #8a5a3c; }
+        .unit.grenadier .soldier-body { background: var(--color); }
+        .unit.grenadier .soldier-head { background: #d4a373; box-shadow: inset 1px 1px #f4c38a, inset -2px -2px #8a5a3c; }
         .grenadier-bomb {
             position: absolute;
             width: 4px; height: 4px;
             left: 13px; top: 7px;
-            background: #2c3e50;
+            background: radial-gradient(circle at 35% 35%, #34495e, #1b2225);
             border-radius: 50%;
         }
         .grenadier-fuse {
