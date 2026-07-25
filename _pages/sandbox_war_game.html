@@ -1020,7 +1020,8 @@ permalink: /sandbox_war_game.html
             box-shadow: inset 1px 0 rgba(255,255,255,.14), inset -1px 0 rgba(0,0,0,.55);
         }
         .ballistic-tube::after { content: ''; position: absolute; width: 3px; height: 2px; left: 1px; top: 0; background: #121416; border-radius: 50% 50% 0 0; }
-        .ballistic-tube.loaded::before { content: ''; position: absolute; width: 3px; height: 4px; left: 1px; top: -2px; background: linear-gradient(to bottom, #d64545 0 50%, #f3f3f3 50% 100%); clip-path: polygon(50% 0, 100% 30%, 100% 100%, 0 100%, 0 30%); box-shadow: 0 0 0 1px #5a3a3a; }
+        /* 有弹筒: 高耸导弹探出短筒口(红尖头+白弹体), 空筒只剩矮黑洞, 高差一目了然 */
+        .ballistic-tube.loaded::before { content: ''; position: absolute; width: 3px; height: 12px; left: 1px; top: -9px; background: linear-gradient(to bottom, #d64545 0 18%, #f3f3f3 18% 70%, #c8c8c8 70% 100%); clip-path: polygon(50% 0, 100% 22%, 100% 100%, 0 100%, 0 22%); box-shadow: 0 0 0 1px #5a3a3a; }
         .ballistic-wheel {
             position: absolute;
             width: 7px; height: 7px;
