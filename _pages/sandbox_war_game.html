@@ -4690,18 +4690,19 @@ permalink: /sandbox_war_game.html
                 playerForce: {
                     pointBudgetHint: 165,
                     defaultLayout: [
-                        { type: 'mediumTank', count: 6 },
-                        { type: 'lightTank', count: 2 },
-                        { type: 'antitankInf', count: 2 },
-                        { type: 'katyusha', count: 2 }
+                        { type: 'mediumTank', x: 250, y: 200, angle: 90, count: 18, formation: 'block' },
+                        { type: 'mediumTank', x: 250, y: 550, angle: 90, count: 18, formation: 'block' },
+                        { type: 'lightTank', x: 180, y: 375, angle: 90, count: 10, formation: 'wedge' },
+                        { type: 'antitankInf', x: 350, y: 375, angle: 90, count: 6, formation: 'line' },
+                        { type: 'katyusha', x: 80, y: 375, angle: 90, count: 4, formation: 'column' }
                     ]
                 },
                 enemyForce: [
-                    { type: 'heavyTank', x: 900, y: 150, angle: 270, count: 2 },
-                    { type: 'heavyTank', x: 900, y: 380, angle: 270, count: 2 },
-                    { type: 'mediumTank', x: 950, y: 260, angle: 270, count: 3 },
-                    { type: 'tankDestroyer', x: 980, y: 470, angle: 270, count: 2 },
-                    { type: 'armoredInf', x: 880, y: 200, angle: 270, count: 3 }
+                    { type: 'heavyTank', x: 880, y: 200, angle: 270, count: 12, formation: 'block' },
+                    { type: 'heavyTank', x: 880, y: 550, angle: 270, count: 10, formation: 'block' },
+                    { type: 'mediumTank', x: 960, y: 375, angle: 270, count: 12, formation: 'wedge' },
+                    { type: 'tankDestroyer', x: 1010, y: 200, angle: 270, count: 8, formation: 'line' },
+                    { type: 'armoredInf', x: 820, y: 375, angle: 270, count: 8, formation: 'line' }
                 ],
                 objectives: {
                     type: 'annihilation',
@@ -4749,20 +4750,20 @@ permalink: /sandbox_war_game.html
                 playerForce: {
                     pointBudgetHint: 80,
                     defaultLayout: [
-                        { type: 'rifleman', count: 4 },
-                        { type: 'antitankInf', count: 1 },
-                        { type: 'sniper', count: 1 },
-                        { type: 'mediumTank', count: 2 },
-                        { type: 'medic', count: 1 }
+                        { type: 'rifleman', x: 700, y: 200, angle: 270, count: 20, formation: 'block' },
+                        { type: 'rifleman', x: 700, y: 550, angle: 270, count: 18, formation: 'block' },
+                        { type: 'antitankInf', x: 600, y: 375, angle: 270, count: 6, formation: 'line' },
+                        { type: 'mediumTank', x: 850, y: 400, angle: 270, count: 4, formation: 'block' },
+                        { type: 'medic', x: 800, y: 620, angle: 270, count: 2, formation: 'random' },
+                        { type: 'sniper', x: 900, y: 120, angle: 270, count: 2, formation: 'random' }
                     ]
                 },
                 enemyForce: [
-                    { type: 'assaultInf', x: 50, y: 100, angle: 90, count: 3 },
-                    { type: 'assaultInf', x: 50, y: 300, angle: 90, count: 3 },
-                    { type: 'assaultInf', x: 50, y: 500, angle: 90, count: 3 },
-                    { type: 'assaultGun', x: 80, y: 200, angle: 90, count: 3 },
-                    { type: 'sniper', x: 120, y: 350, angle: 90, count: 1 },
-                    { type: 'heavyTank', x: 80, y: 600, angle: 90, count: 2 }
+                    { type: 'assaultInf', x: 120, y: 200, angle: 90, count: 18, formation: 'block' },
+                    { type: 'assaultInf', x: 120, y: 550, angle: 90, count: 16, formation: 'block' },
+                    { type: 'assaultGun', x: 200, y: 375, angle: 90, count: 6, formation: 'line' },
+                    { type: 'heavyTank', x: 150, y: 400, angle: 90, count: 6, formation: 'block' },
+                    { type: 'sniper', x: 80, y: 120, angle: 90, count: 2, formation: 'random' }
                 ],
                 objectives: {
                     type: 'defense',
@@ -4797,16 +4798,18 @@ permalink: /sandbox_war_game.html
                 playerForce: {
                     pointBudgetHint: 90,
                     defaultLayout: [
-                        { type: 'rifleman', count: 6 },
-                        { type: 'antitankInf', count: 2 },
-                        { type: 'lightTank', count: 2 }
+                        { type: 'rifleman', x: 250, y: 200, angle: 90, count: 18, formation: 'line' },
+                        { type: 'rifleman', x: 250, y: 550, angle: 90, count: 16, formation: 'line' },
+                        { type: 'antitankInf', x: 300, y: 375, angle: 90, count: 6, formation: 'line' },
+                        { type: 'lightTank', x: 220, y: 375, angle: 90, count: 8, formation: 'block' }
                     ]
                 },
                 enemyForce: [
-                    { type: 'assaultInf', x: 950, y: 100, angle: 270, count: 3 },
-                    { type: 'assaultInf', x: 950, y: 300, angle: 270, count: 3 },
-                    { type: 'heavyTank', x: 920, y: 500, angle: 270, count: 2 },
-                    { type: 'assaultGun', x: 980, y: 200, angle: 270, count: 2 }
+                    { type: 'assaultInf', x: 950, y: 200, angle: 270, count: 16, formation: 'line' },
+                    { type: 'assaultInf', x: 950, y: 550, angle: 270, count: 14, formation: 'line' },
+                    { type: 'heavyTank', x: 920, y: 375, angle: 270, count: 8, formation: 'block' },
+                    { type: 'assaultGun', x: 990, y: 120, angle: 270, count: 6, formation: 'line' },
+                    { type: 'assaultGun', x: 990, y: 630, angle: 270, count: 6, formation: 'line' }
                 ],
                 objectives: {
                     type: 'annihilation',
@@ -4842,15 +4845,17 @@ permalink: /sandbox_war_game.html
                 playerForce: {
                     pointBudgetHint: 130,
                     defaultLayout: [
-                        { type: 'mediumTank', count: 5 },
-                        { type: 'lightTank', count: 3 },
-                        { type: 'scoutCar', count: 2 }
+                        { type: 'mediumTank', x: 250, y: 200, angle: 90, count: 20, formation: 'block' },
+                        { type: 'mediumTank', x: 250, y: 550, angle: 90, count: 18, formation: 'block' },
+                        { type: 'lightTank', x: 180, y: 375, angle: 90, count: 10, formation: 'wedge' },
+                        { type: 'scoutCar', x: 100, y: 375, angle: 90, count: 6, formation: 'line' }
                     ]
                 },
                 enemyForce: [
-                    { type: 'heavyTank', x: 900, y: 150, angle: 270, count: 3 },
-                    { type: 'mediumTank', x: 950, y: 350, angle: 270, count: 4 },
-                    { type: 'tankDestroyer', x: 980, y: 550, angle: 270, count: 2 }
+                    { type: 'heavyTank', x: 900, y: 200, angle: 270, count: 12, formation: 'block' },
+                    { type: 'mediumTank', x: 900, y: 550, angle: 270, count: 14, formation: 'block' },
+                    { type: 'tankDestroyer', x: 990, y: 375, angle: 270, count: 10, formation: 'line' },
+                    { type: 'scoutCar', x: 820, y: 375, angle: 270, count: 6, formation: 'line' }
                 ],
                 objectives: {
                     type: 'annihilation',
@@ -4892,17 +4897,18 @@ permalink: /sandbox_war_game.html
                 playerForce: {
                     pointBudgetHint: 70,
                     defaultLayout: [
-                        { type: 'rifleman', count: 5 },
-                        { type: 'antitankInf', count: 2 },
-                        { type: 'lightTank', count: 2 },
-                        { type: 'medic', count: 1 }
+                        { type: 'rifleman', x: 700, y: 200, angle: 270, count: 18, formation: 'block' },
+                        { type: 'rifleman', x: 700, y: 550, angle: 270, count: 18, formation: 'block' },
+                        { type: 'antitankInf', x: 600, y: 375, angle: 270, count: 6, formation: 'line' },
+                        { type: 'lightTank', x: 850, y: 375, angle: 270, count: 6, formation: 'block' },
+                        { type: 'medic', x: 800, y: 620, angle: 270, count: 2, formation: 'random' }
                     ]
                 },
                 enemyForce: [
-                    { type: 'heavyTank', x: 50, y: 150, angle: 90, count: 3 },
-                    { type: 'mediumTank', x: 50, y: 350, angle: 90, count: 4 },
-                    { type: 'assaultInf', x: 80, y: 550, angle: 90, count: 4 },
-                    { type: 'tankDestroyer', x: 30, y: 200, angle: 90, count: 2 }
+                    { type: 'heavyTank', x: 100, y: 200, angle: 90, count: 12, formation: 'block' },
+                    { type: 'mediumTank', x: 100, y: 550, angle: 90, count: 14, formation: 'block' },
+                    { type: 'assaultInf', x: 150, y: 375, angle: 90, count: 14, formation: 'line' },
+                    { type: 'tankDestroyer', x: 50, y: 375, angle: 90, count: 8, formation: 'line' }
                 ],
                 objectives: {
                     type: 'defense',
@@ -4933,17 +4939,17 @@ permalink: /sandbox_war_game.html
                 playerForce: {
                     pointBudgetHint: 70,
                     defaultLayout: [
-                        { type: 'melee', count: 3 },
-                        { type: 'cavalry', count: 4 },
-                        { type: 'archer', count: 2 }
+                        { type: 'melee', x: 250, y: 375, angle: 90, count: 16, formation: 'line' },
+                        { type: 'cavalry', x: 180, y: 120, angle: 90, count: 12, formation: 'wedge' },
+                        { type: 'cavalry', x: 180, y: 630, angle: 90, count: 12, formation: 'wedge' },
+                        { type: 'archer', x: 330, y: 200, angle: 90, count: 8, formation: 'line' },
+                        { type: 'archer', x: 330, y: 550, angle: 90, count: 8, formation: 'line' }
                     ]
                 },
                 enemyForce: [
-                    { type: 'melee', x: 900, y: 100, angle: 270, count: 3 },
-                    { type: 'melee', x: 900, y: 300, angle: 270, count: 3 },
-                    { type: 'melee', x: 900, y: 500, angle: 270, count: 2 },
-                    { type: 'archer', x: 950, y: 200, angle: 270, count: 1 },
-                    { type: 'archer', x: 950, y: 450, angle: 270, count: 1 }
+                    { type: 'melee', x: 850, y: 375, angle: 270, count: 40, formation: 'block' },
+                    { type: 'cavalry', x: 950, y: 120, angle: 270, count: 6, formation: 'wedge' },
+                    { type: 'cavalry', x: 950, y: 630, angle: 270, count: 6, formation: 'wedge' }
                 ],
                 objectives: {
                     type: 'annihilation',
@@ -4977,22 +4983,19 @@ permalink: /sandbox_war_game.html
                 playerForce: {
                     pointBudgetHint: 70,
                     defaultLayout: [
-                        { type: 'melee', count: 8 },
-                        { type: 'crossbow', count: 4 },
-                        { type: 'cavalry', count: 3 }
+                        { type: 'melee', x: 700, y: 200, angle: 270, count: 16, formation: 'block' },
+                        { type: 'melee', x: 700, y: 550, angle: 270, count: 16, formation: 'block' },
+                        { type: 'crossbow', x: 600, y: 375, angle: 270, count: 10, formation: 'line' },
+                        { type: 'cavalry', x: 820, y: 120, angle: 270, count: 6, formation: 'wedge' },
+                        { type: 'cavalry', x: 820, y: 630, angle: 270, count: 6, formation: 'wedge' }
                     ]
                 },
                 enemyForce: [
-                    // 秦军步兵方阵前排 (密集多列)
-                    { type: 'melee', x: 60, y: 120, angle: 90, count: 4 },
-                    { type: 'melee', x: 60, y: 320, angle: 90, count: 4 },
-                    { type: 'melee', x: 60, y: 520, angle: 90, count: 3 },
-                    // 弓箭手后排
-                    { type: 'archer', x: 100, y: 220, angle: 90, count: 3 },
-                    { type: 'archer', x: 100, y: 420, angle: 90, count: 2 },
-                    // 骑兵侧翼包抄
-                    { type: 'cavalry', x: 30, y: 80, angle: 90, count: 2 },
-                    { type: 'cavalry', x: 30, y: 620, angle: 90, count: 2 }
+                    { type: 'melee', x: 150, y: 200, angle: 90, count: 18, formation: 'block' },
+                    { type: 'melee', x: 150, y: 550, angle: 90, count: 18, formation: 'block' },
+                    { type: 'crossbow', x: 250, y: 375, angle: 90, count: 12, formation: 'line' },
+                    { type: 'cavalry', x: 80, y: 120, angle: 90, count: 6, formation: 'wedge' },
+                    { type: 'cavalry', x: 80, y: 630, angle: 90, count: 6, formation: 'wedge' }
                 ],
                 objectives: {
                     type: 'defense',
@@ -5027,16 +5030,18 @@ permalink: /sandbox_war_game.html
                 playerForce: {
                     pointBudgetHint: 120,
                     defaultLayout: [
-                        { type: 'cavalry', count: 8 },
-                        { type: 'melee', count: 3 },
-                        { type: 'archer', count: 2 }
+                        { type: 'cavalry', x: 250, y: 200, angle: 90, count: 16, formation: 'block' },
+                        { type: 'cavalry', x: 250, y: 550, angle: 90, count: 16, formation: 'block' },
+                        { type: 'cavalry', x: 180, y: 375, angle: 90, count: 10, formation: 'wedge' },
+                        { type: 'melee', x: 330, y: 375, angle: 90, count: 6, formation: 'line' },
+                        { type: 'archer', x: 100, y: 375, angle: 90, count: 6, formation: 'line' }
                     ]
                 },
                 enemyForce: [
-                    { type: 'cavalry', x: 900, y: 120, angle: 270, count: 3 },
-                    { type: 'cavalry', x: 950, y: 300, angle: 270, count: 4 },
-                    { type: 'cavalry', x: 900, y: 500, angle: 270, count: 3 },
-                    { type: 'melee', x: 980, y: 380, angle: 270, count: 2 }
+                    { type: 'cavalry', x: 900, y: 200, angle: 270, count: 14, formation: 'wedge' },
+                    { type: 'cavalry', x: 900, y: 550, angle: 270, count: 14, formation: 'wedge' },
+                    { type: 'cavalry', x: 980, y: 375, angle: 270, count: 10, formation: 'line' },
+                    { type: 'archer', x: 820, y: 375, angle: 270, count: 10, formation: 'line' }
                 ],
                 objectives: {
                     type: 'annihilation',
@@ -5070,18 +5075,18 @@ permalink: /sandbox_war_game.html
                 playerForce: {
                     pointBudgetHint: 500,
                     defaultLayout: [
-                        { type: 'firearm', count: 20 },
-                        { type: 'grenadier', count: 10 },
-                        { type: 'nestOfBees', count: 5 },
-                        { type: 'melee', count: 15 }
+                        { type: 'firearm', x: 250, y: 200, angle: 90, count: 18, formation: 'line' },
+                        { type: 'firearm', x: 250, y: 550, angle: 90, count: 16, formation: 'line' },
+                        { type: 'grenadier', x: 320, y: 375, angle: 90, count: 6, formation: 'line' },
+                        { type: 'nestOfBees', x: 150, y: 375, angle: 90, count: 6, formation: 'block' },
+                        { type: 'melee', x: 360, y: 375, angle: 90, count: 8, formation: 'block' }
                     ]
                 },
                 enemyForce: [
-                    { type: 'cavalry', x: 900, y: 100, angle: 270, count: 15 },
-                    { type: 'cavalry', x: 950, y: 320, angle: 270, count: 15 },
-                    { type: 'cavalry', x: 900, y: 540, angle: 270, count: 10 },
-                    { type: 'melee', x: 980, y: 220, angle: 270, count: 5 },
-                    { type: 'melee', x: 980, y: 420, angle: 270, count: 5 }
+                    { type: 'cavalry', x: 900, y: 200, angle: 270, count: 14, formation: 'wedge' },
+                    { type: 'cavalry', x: 900, y: 550, angle: 270, count: 14, formation: 'wedge' },
+                    { type: 'cavalry', x: 980, y: 375, angle: 270, count: 12, formation: 'line' },
+                    { type: 'melee', x: 820, y: 375, angle: 270, count: 10, formation: 'block' }
                 ],
                 objectives: {
                     type: 'annihilation',
@@ -5115,17 +5120,17 @@ permalink: /sandbox_war_game.html
                 playerForce: {
                     pointBudgetHint: 120,
                     defaultLayout: [
-                        { type: 'hongyipao', count: 3 },
-                        { type: 'firearm', count: 10 },
-                        { type: 'melee', count: 10 }
+                        { type: 'hongyipao', x: 820, y: 200, angle: 270, count: 6, formation: 'line' },
+                        { type: 'hongyipao', x: 820, y: 550, angle: 270, count: 6, formation: 'line' },
+                        { type: 'firearm', x: 720, y: 375, angle: 270, count: 24, formation: 'line' },
+                        { type: 'melee', x: 880, y: 375, angle: 270, count: 14, formation: 'block' }
                     ]
                 },
                 enemyForce: [
-                    { type: 'cavalry', x: 50, y: 150, angle: 90, count: 8 },
-                    { type: 'cavalry', x: 50, y: 350, angle: 90, count: 8 },
-                    { type: 'cavalry', x: 50, y: 550, angle: 90, count: 7 },
-                    { type: 'melee', x: 80, y: 250, angle: 90, count: 8 },
-                    { type: 'melee', x: 80, y: 450, angle: 90, count: 7 }
+                    { type: 'cavalry', x: 80, y: 200, angle: 90, count: 14, formation: 'wedge' },
+                    { type: 'cavalry', x: 80, y: 550, angle: 90, count: 14, formation: 'wedge' },
+                    { type: 'melee', x: 150, y: 375, angle: 90, count: 18, formation: 'block' },
+                    { type: 'melee', x: 50, y: 375, angle: 90, count: 10, formation: 'column' }
                 ],
                 objectives: {
                     type: 'defense',
@@ -5153,17 +5158,15 @@ permalink: /sandbox_war_game.html
                 playerForce: {
                     pointBudgetHint: 260,
                     defaultLayout: [
-                        { type: 'warship', count: 12 },
-                        { type: 'fireship', count: 8 }
+                        { type: 'warship', x: 250, y: 200, angle: 90, count: 16, formation: 'line' },
+                        { type: 'warship', x: 250, y: 550, angle: 90, count: 16, formation: 'line' },
+                        { type: 'fireship', x: 180, y: 375, angle: 90, count: 18, formation: 'wedge' }
                     ]
                 },
                 enemyForce: [
-                    // 铁索连环: 曹军战船密集方阵 (船挨船, 火攻易蔓延)
-                    { type: 'warship', x: 900, y: 100, angle: 270, count: 6 },
-                    { type: 'warship', x: 900, y: 280, angle: 270, count: 6 },
-                    { type: 'warship', x: 900, y: 460, angle: 270, count: 6 },
-                    { type: 'warship', x: 920, y: 190, angle: 270, count: 6 },
-                    { type: 'warship', x: 920, y: 370, angle: 270, count: 6 }
+                    { type: 'warship', x: 880, y: 200, angle: 270, count: 18, formation: 'block' },
+                    { type: 'warship', x: 880, y: 550, angle: 270, count: 18, formation: 'block' },
+                    { type: 'warship', x: 960, y: 375, angle: 270, count: 14, formation: 'line' }
                 ],
                 objectives: {
                     type: 'annihilation',
@@ -5217,21 +5220,21 @@ permalink: /sandbox_war_game.html
                 playerForce: {
                     pointBudgetHint: 200,
                     defaultLayout: [
-                        { type: 'tank', count: 5 },
-                        { type: 'lightTank', count: 3 },
-                        { type: 'scout', count: 2 },
-                        { type: 'soldier', count: 4 },
-                        { type: 'ballistic', count: 2 },
-                        { type: 'cruise', count: 2 }
+                        { type: 'tank', x: 250, y: 200, angle: 90, count: 14, formation: 'block' },
+                        { type: 'tank', x: 250, y: 550, angle: 90, count: 14, formation: 'block' },
+                        { type: 'lightTank', x: 180, y: 375, angle: 90, count: 10, formation: 'wedge' },
+                        { type: 'soldier', x: 330, y: 200, angle: 90, count: 8, formation: 'line' },
+                        { type: 'soldier', x: 330, y: 550, angle: 90, count: 8, formation: 'line' },
+                        { type: 'ballistic', x: 80, y: 375, angle: 90, count: 3, formation: 'column' },
+                        { type: 'cruise', x: 120, y: 375, angle: 90, count: 3, formation: 'column' }
                     ]
                 },
                 enemyForce: [
-                    { type: 'tank', x: 900, y: 120, angle: 270, count: 4 },
-                    { type: 'tank', x: 950, y: 320, angle: 270, count: 4 },
-                    { type: 'tank', x: 900, y: 520, angle: 270, count: 3 },
-                    { type: 'artillery', x: 980, y: 220, angle: 270, count: 2 },
-                    { type: 'soldier', x: 920, y: 400, angle: 270, count: 4 },
-                    { type: 'rocket', x: 980, y: 450, angle: 270, count: 2 }
+                    { type: 'tank', x: 900, y: 200, angle: 270, count: 12, formation: 'block' },
+                    { type: 'tank', x: 900, y: 550, angle: 270, count: 12, formation: 'block' },
+                    { type: 'soldier', x: 820, y: 375, angle: 270, count: 14, formation: 'line' },
+                    { type: 'artillery', x: 980, y: 200, angle: 270, count: 6, formation: 'line' },
+                    { type: 'rocket', x: 980, y: 550, angle: 270, count: 4, formation: 'line' }
                 ],
                 objectives: {
                     type: 'annihilation',
@@ -5262,7 +5265,10 @@ permalink: /sandbox_war_game.html
             firearm: 'firearm', grenadier: 'grenadier', nestOfBees: 'nestOfBees', hongyipao: 'hongyipao',
             // 水战
             warship: 'warship', fireship: 'fireship',
-            ballistic: 'ballistic', cruise: 'cruise'
+            ballistic: 'ballistic', cruise: 'cruise',
+            // 直接实现型兵种 (想定里可直接写实现名, 映射到自己, 兜底防 fallback 成 soldier)
+            tank: 'tank', soldier: 'soldier', artillery: 'artillery', rocket: 'rocket',
+            command: 'command', supply: 'supply', scout: 'scout', antitank: 'antitank'
         };
 
         // ============================================================
@@ -5351,6 +5357,66 @@ permalink: /sandbox_war_game.html
             } else if (battlefieldManager.terrainRenderer) {
                 battlefieldManager.terrainRenderer.render();
             }
+        }
+
+        // ============================================================
+        // 阵型布局: 按朝向在锚点周围排兵 (block/line/column/wedge/arc/random)
+        // ============================================================
+        // 返回相对锚点的 [forward, right] 偏移列表 (forward=朝向方向, right=右侧)
+        function formationOffsets(count, formation, spacing) {
+            spacing = Math.max(20, spacing || 32);
+            const pts = [];
+            const N = Math.max(1, count);
+            const mk = (f, r) => pts.push([f, r]);
+            if (formation === 'line') {
+                // 横队: 单行, 沿 right 轴展开 (正面迎敌的战线)
+                for (let i = 0; i < N; i++) mk(0, (i - (N - 1) / 2) * spacing);
+            } else if (formation === 'column') {
+                // 纵队: 单列, 沿 forward 轴纵深
+                for (let i = 0; i < N; i++) mk((i - (N - 1) / 2) * spacing, 0);
+            } else if (formation === 'wedge') {
+                // 楔形: 箭头, 前端一点, 逐行加宽 (冲锋突击)
+                let i = 0, row = 0;
+                while (i < N) {
+                    const inRow = Math.min(row + 1, N - i);
+                    for (let j = 0; j < inRow; j++) {
+                        mk(row * spacing * 0.85, (j - (inRow - 1) / 2) * spacing);
+                        i++;
+                    }
+                    row++;
+                }
+            } else if (formation === 'arc') {
+                // 弧形: 凹面朝敌的浅弧线 (包抄/合围)
+                const radius = N * spacing * 0.5;
+                for (let i = 0; i < N; i++) {
+                    const t = (i - (N - 1) / 2) / Math.max(1, N - 1);
+                    const ang = t * Math.PI / 3; // ±30°
+                    mk(radius * (1 - Math.cos(ang)) * 0.5, Math.sin(ang) * radius);
+                }
+            } else if (formation === 'random') {
+                for (let i = 0; i < N; i++) mk((Math.random() - 0.5) * spacing * 3, (Math.random() - 0.5) * spacing * 3);
+            } else {
+                // block 默认: 方阵, 居中网格 (主战线/密集步兵)
+                const cols = Math.ceil(Math.sqrt(N));
+                const rows = Math.ceil(N / cols);
+                for (let i = 0; i < N; i++) {
+                    const c = i % cols, rrow = Math.floor(i / cols);
+                    mk((rrow - (rows - 1) / 2) * spacing, (c - (cols - 1) / 2) * spacing);
+                }
+            }
+            return pts;
+        }
+
+        // 将阵型偏移按朝向 angleDeg 旋转到世界坐标, 返回 [{x,y}] 列表
+        function placeFormation(ax, ay, angleDeg, count, formation, spacing) {
+            const offs = formationOffsets(count, formation, spacing);
+            const a = angleDeg * Math.PI / 180;
+            const Fx = Math.sin(a), Fy = -Math.cos(a); // forward
+            const Rx = Math.cos(a), Ry = Math.sin(a);  // right
+            return offs.map(([f, r]) => ({
+                x: ax + f * Fx + r * Rx,
+                y: ay + f * Fy + r * Ry
+            }));
         }
 
         // ── v3.0 战场地图绘制器 ──
@@ -5937,30 +6003,41 @@ permalink: /sandbox_war_game.html
                 }
             }
 
-            // PVE 模式: 按想定自动部署双方兵力
+            // PVE 模式: 按想定自动部署双方兵力 (阵型 + 大兵团)
             deployScenarioForces(scenario) {
-                // 部署敌方兵力 (按位置/朝向/数量, 散布)
+                const jitter = (v, r) => v + (Math.random() - 0.5) * r;
+                // 部署敌方兵力: 每个 group 在锚点按阵型展开, 朝向玩家
                 for (const group of scenario.enemyForce) {
                     const mappedType = SCENARIO_TYPE_MAP[group.type] || 'soldier';
-                    for (let i = 0; i < (group.count || 1); i++) {
-                        const ox = (Math.random() - 0.5) * 36;
-                        const oy = (Math.random() - 0.5) * 36;
-                        this.spawnScenarioUnit('enemy', mappedType, group.x + ox, group.y + oy, group.angle || 0);
+                    const ang = group.angle || 0;
+                    const positions = placeFormation(group.x, group.y, ang,
+                        group.count || 1, group.formation || 'block', group.spacing || 36);
+                    for (const p of positions) {
+                        this.spawnScenarioUnit('enemy', mappedType, jitter(p.x, 6), jitter(p.y, 6), ang);
                     }
                 }
-                // 部署玩家方兵力 (按 playerZone 网格散布)
+                // 部署玩家方兵力: group 带锚点则按阵型展开; 否则回退 playerZone 网格
                 const layout = (scenario.playerForce && scenario.playerForce.defaultLayout) || [];
                 const zone = scenario.playerZone || { x: 0, y: 0, w: 500, h: 750 };
-                let idx = 0;
+                let zoneIdx = 0;
                 for (const group of layout) {
                     const mappedType = SCENARIO_TYPE_MAP[group.type] || 'soldier';
-                    for (let i = 0; i < (group.count || 1); i++) {
-                        const col = idx % 5;
-                        const row = Math.floor(idx / 5);
-                        const px = zone.x + 40 + col * 60 + (Math.random() - 0.5) * 16;
-                        const py = zone.y + 60 + row * 50 + (Math.random() - 0.5) * 16;
-                        this.spawnScenarioUnit('ally', mappedType, px, py, 90);
-                        idx++;
+                    if (typeof group.x === 'number' && typeof group.y === 'number') {
+                        const ang = group.angle || 90;
+                        const positions = placeFormation(group.x, group.y, ang,
+                            group.count || 1, group.formation || 'block', group.spacing || 36);
+                        for (const p of positions) {
+                            this.spawnScenarioUnit('ally', mappedType, jitter(p.x, 6), jitter(p.y, 6), ang);
+                        }
+                    } else {
+                        for (let i = 0; i < (group.count || 1); i++) {
+                            const col = zoneIdx % 5;
+                            const row = Math.floor(zoneIdx / 5);
+                            const px = zone.x + 40 + col * 60 + (Math.random() - 0.5) * 16;
+                            const py = zone.y + 60 + row * 50 + (Math.random() - 0.5) * 16;
+                            this.spawnScenarioUnit('ally', mappedType, px, py, 90);
+                            zoneIdx++;
+                        }
                     }
                 }
             }
