@@ -1008,19 +1008,19 @@ permalink: /sandbox_war_game.html
         /* 多联发射筒: 每筒一枚垂直导弹, .loaded 表示筒内有弹(露出弹头), 发射后移除 .loaded */
         .ballistic-rack {
             position: absolute;
-            left: 13px; top: 4px;
+            left: 13px; top: 19px;
             display: flex;
             gap: 2px;
         }
         .ballistic-tube {
             position: relative;
-            width: 5px; height: 22px;
+            width: 5px; height: 7px;
             background: linear-gradient(90deg, #1f2326 0 18%, #4a5258 18% 50%, #363b40 50% 82%, #1b1f22 82%);
             border-radius: 1px;
             box-shadow: inset 1px 0 rgba(255,255,255,.14), inset -1px 0 rgba(0,0,0,.55);
         }
         .ballistic-tube::after { content: ''; position: absolute; width: 3px; height: 2px; left: 1px; top: 0; background: #121416; border-radius: 50% 50% 0 0; }
-        .ballistic-tube.loaded::before { content: ''; position: absolute; width: 3px; height: 6px; left: 1px; top: -3px; background: linear-gradient(to bottom, #d64545 0 30%, #f3f3f3 30% 100%); clip-path: polygon(50% 0, 100% 30%, 100% 100%, 0 100%, 0 30%); box-shadow: 0 0 0 1px #5a3a3a; }
+        .ballistic-tube.loaded::before { content: ''; position: absolute; width: 3px; height: 4px; left: 1px; top: -2px; background: linear-gradient(to bottom, #d64545 0 50%, #f3f3f3 50% 100%); clip-path: polygon(50% 0, 100% 30%, 100% 100%, 0 100%, 0 30%); box-shadow: 0 0 0 1px #5a3a3a; }
         .ballistic-wheel {
             position: absolute;
             width: 7px; height: 7px;
