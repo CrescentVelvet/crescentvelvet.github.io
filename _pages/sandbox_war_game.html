@@ -965,6 +965,81 @@ permalink: /sandbox_war_game.html
             border-radius: 50% 50% 0 0;
         }
 
+        /* ===== 现代导弹兵种 ===== */
+        /* 弹道导弹车 (20px, 阵营色底盘 + 垂直发射管) */
+        .unit.ballistic {
+            --unit-size: 20px;
+            --body-size: 32px;
+            --scale: 0.625;
+        }
+        .ballistic-base {
+            position: absolute;
+            width: 22px; height: 8px;
+            left: 5px; top: 22px;
+            clip-path: polygon(8% 0, 92% 0, 100% 40%, 92% 100%, 8% 100%, 0 40%);
+            background: var(--color-dark);
+            box-shadow: inset 2px 1px var(--color), inset -2px -1px rgba(0,0,0,.4), 0 2px 0 rgba(0,0,0,.45);
+        }
+        .ballistic-rail {
+            position: absolute;
+            width: 8px; height: 16px;
+            left: 12px; top: 6px;
+            background: linear-gradient(90deg, var(--color-dark) 0 20%, var(--color) 20% 80%, var(--color-dark) 80%);
+            clip-path: polygon(20% 0, 80% 0, 100% 100%, 0 100%);
+            box-shadow: inset 1px 1px var(--color-light);
+        }
+        .ballistic-missile {
+            position: absolute;
+            width: 4px; height: 14px;
+            left: 14px; top: 2px;
+            background: linear-gradient(90deg, #ccc 0 30%, #fff 30% 70%, #ccc 70%);
+            clip-path: polygon(50% 0, 100% 25%, 80% 100%, 20% 100%, 0 25%);
+        }
+        .ballistic-wheel {
+            position: absolute;
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 35% 35%, #4a4a4a 0 30%, #1a1a1a 31%);
+            box-shadow: 0 0 0 1px #050707;
+            top: 26px;
+        }
+        .ballistic-wheel.left { left: 7px; }
+        .ballistic-wheel.right { right: 7px; }
+
+        /* 巡航导弹车 (20px, 阵营色底盘 + 倾斜发射箱) */
+        .unit.cruise {
+            --unit-size: 20px;
+            --body-size: 32px;
+            --scale: 0.625;
+        }
+        .cruise-base {
+            position: absolute;
+            width: 22px; height: 8px;
+            left: 5px; top: 22px;
+            clip-path: polygon(8% 0, 92% 0, 100% 40%, 92% 100%, 8% 100%, 0 40%);
+            background: var(--color-dark);
+            box-shadow: inset 2px 1px var(--color), inset -2px -1px rgba(0,0,0,.4), 0 2px 0 rgba(0,0,0,.45);
+        }
+        .cruise-box {
+            position: absolute;
+            width: 16px; height: 8px;
+            left: 8px; top: 12px;
+            background: linear-gradient(90deg, var(--color-dark) 0 20%, var(--color) 20% 80%, var(--color-dark) 80%);
+            clip-path: polygon(0 30%, 75% 0, 100% 30%, 100% 100%, 0 100%);
+            box-shadow: inset 1px 1px var(--color-light);
+        }
+        .cruise-box::before { content: ''; position: absolute; width: 10px; height: 2px; left: 3px; top: 2px; background: rgba(255,255,255,.15); }
+        .cruise-wheel {
+            position: absolute;
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 35% 35%, #4a4a4a 0 30%, #1a1a1a 31%);
+            box-shadow: 0 0 0 1px #050707;
+            top: 26px;
+        }
+        .cruise-wheel.left { left: 7px; }
+        .cruise-wheel.right { right: 7px; }
+
         /* ===== Unit artwork: command-and-conquer silhouettes + age-of-empires equipment ===== */
         .unit-body { filter: drop-shadow(2px 3px 0 rgba(8, 15, 13, 0.52)); }
         .unit-body > div { box-sizing: border-box; }
@@ -1320,6 +1395,7 @@ permalink: /sandbox_war_game.html
                         <option value="saelhu">萨尔浒之战 (火药 PVE)</option>
                         <option value="ningyuan">宁远之战 (火药 PVE)</option>
                         <option value="chibi">赤壁之战 (古代 PVE)</option>
+                        <option value="desert_storm">沙漠风暴 (现代 PVE)</option>
                         <option value="custom_pvp">自定义战役 (PVP)</option>
                     </select>
                     <button onclick="addObstacle()" class="pixel-btn btn-obstacle">+掩体</button>
@@ -1344,6 +1420,8 @@ permalink: /sandbox_war_game.html
                     <button onclick="addUnit('ally','scout')" class="pixel-btn btn-ally btn-era-ww2">侦察</button>
                     <button onclick="addUnit('ally','apc')" class="pixel-btn btn-ally btn-era-ww2">运兵</button>
                     <button onclick="addUnit('ally','mortar')" class="pixel-btn btn-ally btn-era-ww2">迫击</button>
+                    <button onclick="addUnit('ally','ballistic')" class="pixel-btn btn-ally btn-era-ww2">弹道</button>
+                    <button onclick="addUnit('ally','cruise')" class="pixel-btn btn-ally btn-era-ww2">巡航</button>
                     <button onclick="addUnit('ally','melee')" class="pixel-btn btn-ally btn-era-ancient-land">近战</button>
                     <button onclick="addUnit('ally','archer')" class="pixel-btn btn-ally btn-era-ancient-land">弓箭</button>
                     <button onclick="addUnit('ally','cavalry')" class="pixel-btn btn-ally btn-era-ancient-land">骑兵</button>
@@ -1372,6 +1450,8 @@ permalink: /sandbox_war_game.html
                     <button onclick="addUnit('enemy','scout')" class="pixel-btn btn-enemy btn-era-ww2">侦察</button>
                     <button onclick="addUnit('enemy','apc')" class="pixel-btn btn-enemy btn-era-ww2">运兵</button>
                     <button onclick="addUnit('enemy','mortar')" class="pixel-btn btn-enemy btn-era-ww2">迫击</button>
+                    <button onclick="addUnit('enemy','ballistic')" class="pixel-btn btn-enemy btn-era-ww2">弹道</button>
+                    <button onclick="addUnit('enemy','cruise')" class="pixel-btn btn-enemy btn-era-ww2">巡航</button>
                     <button onclick="addUnit('enemy','melee')" class="pixel-btn btn-enemy btn-era-ancient-land">近战</button>
                     <button onclick="addUnit('enemy','archer')" class="pixel-btn btn-enemy btn-era-ancient-land">弓箭</button>
                     <button onclick="addUnit('enemy','cavalry')" class="pixel-btn btn-enemy btn-era-ancient-land">骑兵</button>
@@ -2283,7 +2363,7 @@ permalink: /sandbox_war_game.html
 
             getSize() {
                 if (this.type === 'tank' || this.type === 'lightTank' || this.type === 'tankDestroyer') return 22;
-                if (this.type === 'artillery' || this.type === 'rocket' || this.type === 'mortar' || this.type === 'catapult' || this.type === 'nestOfBees' || this.type === 'hongyipao') return 20;
+                if (this.type === 'artillery' || this.type === 'rocket' || this.type === 'mortar' || this.type === 'catapult' || this.type === 'nestOfBees' || this.type === 'hongyipao' || this.type === 'ballistic' || this.type === 'cruise') return 20;
                 if (this.type === 'command' || this.type === 'supply' || this.type === 'scout' || this.type === 'apc' || this.type === 'cavalry' || this.type === 'warship' || this.type === 'fireship') return 18;
                 return 14;
             }
@@ -2332,6 +2412,10 @@ permalink: /sandbox_war_game.html
                     body = '<div class="warship-shadow"></div><div class="warship-hull"></div><div class="warship-mast"></div><div class="warship-sail"></div>';
                 } else if (this.type === 'fireship') {
                     body = '<div class="warship-shadow"></div><div class="fireship-hull"></div><div class="fireship-mast"></div><div class="fireship-flame"></div>';
+                } else if (this.type === 'ballistic') {
+                    body = '<div class="vehicle-shadow"></div><div class="ballistic-base"></div><div class="ballistic-rail"></div><div class="ballistic-missile"></div><div class="ballistic-wheel left"></div><div class="ballistic-wheel right"></div>';
+                } else if (this.type === 'cruise') {
+                    body = '<div class="vehicle-shadow"></div><div class="cruise-base"></div><div class="cruise-box"></div><div class="cruise-wheel left"></div><div class="cruise-wheel right"></div>';
                 } else {
                     body = '<div class="soldier-shadow"></div><div class="soldier-head"></div><div class="soldier-body"></div>';
                 }
@@ -4236,6 +4320,95 @@ permalink: /sandbox_war_game.html
             }
         }
 
+        // ── 现代导弹兵种 ──
+        // 弹道导弹车: 抛物线弹道, 超远射程, 大溅射
+        class BallisticMissile extends Mortar {
+            constructor(x, y, team, health) {
+                super(x, y, team, health);
+                this.type = 'ballistic';
+                this.attackRange = 500;
+                this.minRange = 80;
+                this.attackPower = 80;
+                this.maxSpeed = 15;
+                this.attackCooldown = 6000;
+                this.armorType = 'vehicle';
+                this.damageTable = { infantry: 1.2, cavalry: 1.0, vehicle: 1.0, tank: 0.9 };
+            }
+
+            // 弹道导弹: 抛物线散布弹道 + 100px 大溅射
+            tryAttack(target) {
+                const moraleFactor = this.getMoraleAttackFactor();
+                if (moraleFactor === 0) return;
+                const now = Date.now();
+                const buffed = this.commandBuffUntil && this.commandBuffUntil > now;
+                const cooldown = this.attackCooldown * moraleFactor * (buffed ? 0.85 : 1);
+                if (now - this.lastAttackTime < cooldown) return;
+
+                const distance = this.getDistance(target);
+                if (distance <= this.attackRange && distance >= this.minRange &&
+                    target.team !== this.team && !target.isDead()) {
+                    this.turnToward(target);
+                    if (!this.hasLineOfSight(target)) return;
+
+                    this.lastAttackTime = now;
+                    let damage = this.getAttackDamage(target);
+                    if (buffed) damage = Math.round(damage * 1.1);
+                    const scatterX = (Math.random() - 0.5) * 20;
+                    const scatterY = (Math.random() - 0.5) * 20;
+                    const targetX = target.x + target.getSize() / 2 + scatterX;
+                    const targetY = target.y + target.getSize() / 2 + scatterY;
+                    battlefieldManager.spawnScatterProjectile(this, target, targetX, targetY, damage);
+                    const proj = battlefieldManager.projectiles[battlefieldManager.projectiles.length - 1];
+                    if (proj) {
+                        proj.splashRadius = 100;  // 大溅射
+                        proj.ballistic = true;    // 抛物线弹道
+                        proj.startX = this.x + this.getSize() / 2;
+                        proj.startY = this.y + this.getSize() / 2;
+                        proj.endX = targetX;
+                        proj.endY = targetY;
+                    }
+                }
+            }
+        }
+
+        // 巡航导弹车: 巡航飞行(追踪直线), 远程, 中等溅射
+        class CruiseMissile extends Tank {
+            constructor(x, y, team, health) {
+                super(x, y, team, health);
+                this.type = 'cruise';
+                this.attackRange = 400;
+                this.attackPower = 45;
+                this.maxSpeed = 18;
+                this.attackCooldown = 4000;
+                this.armorType = 'vehicle';
+                this.damageTable = { infantry: 1.2, cavalry: 1.0, vehicle: 1.0, tank: 0.9 };
+            }
+
+            // 巡航导弹: 追踪弹道(低空直线飞行) + 50px 溅射
+            tryAttack(target) {
+                const moraleFactor = this.getMoraleAttackFactor();
+                if (moraleFactor === 0) return;
+                const now = Date.now();
+                const buffed = this.commandBuffUntil && this.commandBuffUntil > now;
+                const cooldown = this.attackCooldown * moraleFactor * (buffed ? 0.85 : 1);
+                if (now - this.lastAttackTime < cooldown) return;
+
+                const distance = this.getDistance(target);
+                if (distance <= this.attackRange && target.team !== this.team && !target.isDead()) {
+                    this.turnToward(target);
+                    if (!this.canMoveFire && !this.isFacing(target)) return;
+
+                    this.lastAttackTime = now;
+                    let damage = this.getAttackDamage(target);
+                    if (buffed) damage = Math.round(damage * 1.1);
+                    // 巡航导弹用追踪弹道 (直线低空飞行) + 溅射
+                    battlefieldManager.spawnProjectile(this, target, damage);
+                    const proj = battlefieldManager.projectiles[battlefieldManager.projectiles.length - 1];
+                    if (proj) proj.splashRadius = 50;
+                }
+            }
+        }
+
         class Projectile {
             constructor(source, target, damage) {
                 this.source = source;
@@ -4267,7 +4440,10 @@ permalink: /sandbox_war_game.html
                     hongyipao: { size: 10, visual: 'shell',  speed: 280, radius: 12 },
                     // 水战
                     warship:  { size: 4, visual: 'bullet', speed: 380, radius: 7 },
-                    fireship: { size: 8, visual: 'rocket', speed: 300, radius: 9 }
+                    fireship: { size: 8, visual: 'rocket', speed: 300, radius: 9 },
+                    // 现代导弹
+                    ballistic: { size: 8, visual: 'rocket', speed: 200, radius: 12 },
+                    cruise:    { size: 6, visual: 'rocket', speed: 280, radius: 10 }
                 };
                 const spec = specs[source.type] || specs.soldier;
                 this.size = spec.size;
@@ -4280,6 +4456,12 @@ permalink: /sandbox_war_game.html
                 this.scatterX = undefined;
                 this.scatterY = undefined;
                 this.splashRadius = 0;
+                // 抛物线弹道 (弹道导弹): 导弹先向上弧形飞再落下
+                this.ballistic = false;
+                this.startX = 0;
+                this.startY = 0;
+                this.endX = 0;
+                this.endY = 0;
 
                 this.x = source.x + source.getSize() / 2;
                 this.y = source.y + source.getSize() / 2;
@@ -4337,9 +4519,15 @@ permalink: /sandbox_war_game.html
                 const dist = Math.sqrt(dx * dx + dy * dy);
 
                 if (dist <= this.radius) {
-                    const killed = this.target.takeDamage(this.damage);
-                    logBattle(`${this.team === 'ally' ? '友军' : '敌军'} ${unitTypeName(this.source.type)} 命中 ${this.target.team === 'ally' ? '友军' : '敌军'} ${unitTypeName(this.target.type)} (-${this.damage})${killed ? ' 击毁！' : ''}`, `${this.team} attack`);
-                    this.createImpact(targetX, targetY);
+                    // 追踪弹道溅射 (巡航导弹等)
+                    if (this.splashRadius > 0) {
+                        this.doSplashDamage(targetX, targetY);
+                        this.createImpact(targetX, targetY);
+                    } else {
+                        const killed = this.target.takeDamage(this.damage);
+                        logBattle(`${this.team === 'ally' ? '友军' : '敌军'} ${unitTypeName(this.source.type)} 命中 ${this.target.team === 'ally' ? '友军' : '敌军'} ${unitTypeName(this.target.type)} (-${this.damage})${killed ? ' 击毁！' : ''}`, `${this.team} attack`);
+                        this.createImpact(targetX, targetY);
+                    }
                     return false;
                 }
 
@@ -4373,7 +4561,20 @@ permalink: /sandbox_war_game.html
 
             updateVisual() {
                 this.element.style.left = (this.x - this.size / 2) + 'px';
-                this.element.style.top = (this.y - this.size / 2) + 'px';
+                let top = this.y - this.size / 2;
+                // 抛物线弹道 (弹道导弹): 视觉 y 加弧形偏移, 不影响实际碰撞位置
+                if (this.ballistic) {
+                    const tdx = this.endX - this.startX;
+                    const tdy = this.endY - this.startY;
+                    const totalDist = Math.sqrt(tdx * tdx + tdy * tdy) || 1;
+                    const dx = this.x - this.startX;
+                    const dy = this.y - this.startY;
+                    const traveled = Math.sqrt(dx * dx + dy * dy);
+                    const t = Math.min(1, traveled / totalDist);
+                    const arcHeight = 80 + totalDist * 0.15; // 抛物线高度 (距离越远越高)
+                    top += -arcHeight * 4 * t * (1 - t); // 抛物线 y 偏移 (向上为负)
+                }
+                this.element.style.top = top + 'px';
                 this.element.style.transform = `rotate(${this.angle}deg)`;
             }
 
@@ -4950,6 +5151,54 @@ permalink: /sandbox_war_game.html
                 playerForce: { pointBudgetHint: 0, defaultLayout: [] },
                 enemyForce: [],
                 objectives: { type: 'annihilation', target: 'all_enemy', timeLimit: 0, failCondition: 'player_all_destroyed' }
+            },
+            desert_storm: {
+                id: 'desert_storm',
+                name: '沙漠风暴',
+                year: 1991, era: 'ww2',
+                availableUnits: ['tank','soldier','artillery','rocket','command','supply','engineer','medic','antitank','lightTank','tankDestroyer','scout','apc','mortar','ballistic','cruise'],
+                mode: 'pve_historical',
+                side: 'us_vs_iraq',
+                playerRole: 'attacker',
+                historicalBrief: '1991年1月, 多国部队发起沙漠风暴行动, 空地一体战40天击溃伊军共和国卫队',
+                terrain: {
+                    type: 'desert',
+                    palette: { ground: '#c4a46a', accent: '#d4b47a', shadow: '#8a6a30' },
+                    pattern: '伊拉克沙漠'
+                },
+                playerZone: { x: 0, y: 0, w: 450, h: 750 },
+                obstacles: [
+                    { x: 300, y: 150, w: 118, h: 34, type: 'mound' },
+                    { x: 500, y: 400, w: 118, h: 34, type: 'mound' },
+                    { x: 700, y: 250, w: 118, h: 34, type: 'mound' },
+                    { x: 400, y: 550, w: 64, h: 64, type: 'house' },
+                    { x: 750, y: 500, w: 64, h: 64, type: 'house' }
+                ],
+                playerForce: {
+                    pointBudgetHint: 200,
+                    defaultLayout: [
+                        { type: 'tank', count: 5 },
+                        { type: 'lightTank', count: 3 },
+                        { type: 'scout', count: 2 },
+                        { type: 'soldier', count: 4 },
+                        { type: 'ballistic', count: 2 },
+                        { type: 'cruise', count: 2 }
+                    ]
+                },
+                enemyForce: [
+                    { type: 'tank', x: 900, y: 120, angle: 270, count: 4 },
+                    { type: 'tank', x: 950, y: 320, angle: 270, count: 4 },
+                    { type: 'tank', x: 900, y: 520, angle: 270, count: 3 },
+                    { type: 'artillery', x: 980, y: 220, angle: 270, count: 2 },
+                    { type: 'soldier', x: 920, y: 400, angle: 270, count: 4 },
+                    { type: 'rocket', x: 980, y: 450, angle: 270, count: 2 }
+                ],
+                objectives: {
+                    type: 'annihilation',
+                    target: 'all_enemy',
+                    timeLimit: 600,
+                    failCondition: 'player_all_destroyed OR timeout'
+                }
             }
         };
 
@@ -4972,7 +5221,8 @@ permalink: /sandbox_war_game.html
             // 火药时代
             firearm: 'firearm', grenadier: 'grenadier', nestOfBees: 'nestOfBees', hongyipao: 'hongyipao',
             // 水战
-            warship: 'warship', fireship: 'fireship'
+            warship: 'warship', fireship: 'fireship',
+            ballistic: 'ballistic', cruise: 'cruise'
         };
 
         // ── v3.0 战场地图绘制器 ──
@@ -5024,6 +5274,7 @@ permalink: /sandbox_war_game.html
                     'han_vs_xiongnu': ['汉军', '匈奴'],
                     'sunlian_vs_cao': ['孙刘联军', '曹军'],
                     'ming_vs_later_jin': ['明军', '后金军'],
+                    'us_vs_iraq': ['多国部队', '伊军'],
                     'blue_vs_red': ['蓝方', '红方']
                 };
                 const labels = sideMap[this.scenario.side] || ['友军', '敌军'];
@@ -5586,6 +5837,8 @@ permalink: /sandbox_war_game.html
                 else if (type === 'hongyipao') unit = new Hongyipao(x, y, team, health);
                 else if (type === 'warship') unit = new Warship(x, y, team, health);
                 else if (type === 'fireship') unit = new Fireship(x, y, team, health);
+                else if (type === 'ballistic') unit = new BallisticMissile(x, y, team, health);
+                else if (type === 'cruise') unit = new CruiseMissile(x, y, team, health);
                 else unit = new Soldier(x, y, team, health);
                 unit.angle = angle;
                 unit.desiredAngle = angle;
@@ -6221,6 +6474,8 @@ permalink: /sandbox_war_game.html
             grenadier:  { health: 70,  pointCost: 6 },
             nestOfBees: { health: 80,  pointCost: 20 },
             hongyipao: { health: 100, pointCost: 25 },
+            ballistic: { health: 90,  pointCost: 35 },
+            cruise:    { health: 100, pointCost: 28 },
             // 水战
             warship:  { health: 150, pointCost: 15 },
             fireship: { health: 150, pointCost: 10 }
@@ -6250,6 +6505,8 @@ permalink: /sandbox_war_game.html
             if (type === 'grenadier') return '掷弹兵';
             if (type === 'nestOfBees') return '蜂巢炮';
             if (type === 'hongyipao') return '红衣大炮';
+            if (type === 'ballistic') return '弹道导弹车';
+            if (type === 'cruise') return '巡航导弹车';
             if (type === 'warship') return '战船';
             if (type === 'fireship') return '火船';
             return '步兵';
@@ -6372,6 +6629,10 @@ permalink: /sandbox_war_game.html
                 unit = new Warship(x, y, team, health);
             } else if (type === 'fireship') {
                 unit = new Fireship(x, y, team, health);
+            } else if (type === 'ballistic') {
+                unit = new BallisticMissile(x, y, team, health);
+            } else if (type === 'cruise') {
+                unit = new CruiseMissile(x, y, team, health);
             } else {
                 unit = new Soldier(x, y, team, health);
             }
