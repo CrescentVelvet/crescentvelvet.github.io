@@ -1015,7 +1015,7 @@ permalink: /sandbox_war_game.html
         /* 有弹筒: 高耸导弹探出短筒口(红尖头+白弹体), 空筒只剩矮黑洞, 高差一目了然 */
         .ballistic-tube.loaded::before { content: ''; position: absolute; width: 3px; height: 12px; left: 1px; top: -9px; background: linear-gradient(to bottom, #d64545 0 18%, #f3f3f3 18% 70%, #c8c8c8 70% 100%); clip-path: polygon(50% 0, 100% 22%, 100% 100%, 0 100%, 0 22%); box-shadow: 0 0 0 1px #5a3a3a; }
 
-        /* 巡航导弹车 (坦克2倍体积 44px, 宽扁车体 + 前置发射箱, 前朝上) */
+        /* 巡航导弹车 (坦克2倍体积 44px, 宽扁车体 + 前置多联挂架, 每挂一枚巡航导弹, 前朝上) */
         .unit.cruise {
             --unit-size: 44px;
             --body-size: 36px;
@@ -1030,17 +1030,33 @@ permalink: /sandbox_war_game.html
             box-shadow: inset 2px 1px var(--color), inset -2px -1px rgba(0,0,0,.45), 0 2px 0 rgba(0,0,0,.5);
         }
         .cruise-chassis::before { content: ''; position: absolute; width: 24px; height: 2px; left: 3px; top: 3px; background: rgba(255,255,255,.12); }
-        /* 前置发射箱 + 露出弹头(红尖头+白弹体, 朝前向上高耸) */
-        .cruise-box {
+        /* 多联挂架: 前置(顶部)立于底盘, 每挂一枚巡航导弹, .loaded 有弹, 发射一枚空一挂 */
+        .cruise-rack {
             position: absolute;
-            width: 9px; height: 10px;
-            left: 13.5px; top: 11px;
-            background: linear-gradient(90deg, #1f2326 0 14%, var(--color-dark) 14% 86%, #1b1f22 86%);
-            clip-path: polygon(20% 0, 80% 0, 100% 12%, 100% 100%, 0 100%, 0 12%);
-            box-shadow: inset 1px 1px var(--color), 0 1px 1px rgba(0,0,0,.4);
+            left: 4px; top: 14px;
+            display: flex;
+            gap: 2px;
         }
-        .cruise-box::before { content: ''; position: absolute; width: 5px; height: 2px; left: 2px; top: 3px; background: rgba(255,255,255,.14); }
-        .cruise-box::after { content: ''; position: absolute; width: 4px; height: 11px; left: 2.5px; top: -8px; background: linear-gradient(to bottom, #d64545 0 30%, #f3f3f3 30% 100%); clip-path: polygon(50% 0, 100% 25%, 100% 100%, 0 100%, 0 25%); box-shadow: 0 0 0 1px #5a3a3a; }
+        .cruise-cell {
+            position: relative;
+            width: 4px; height: 7px;
+            background: linear-gradient(90deg, #1f2326 0 18%, #4a5258 18% 50%, #363b40 50% 82%, #1b1f22 82%);
+            border-radius: 1px;
+            box-shadow: inset 1px 0 rgba(255,255,255,.14), inset -1px 0 rgba(0,0,0,.55);
+        }
+        .cruise-cell::after { content: ''; position: absolute; width: 2px; height: 2px; left: 1px; top: 0; background: #121416; border-radius: 50% 50% 0 0; }
+        .cruise-cell:not(.loaded) .cruise-missile { display: none; }
+        /* 巡航导弹: 有翅膀的小棍子(灰色弹体 + 中部主翼 + 尾翼, 朝上高耸) */
+        .cruise-missile {
+            position: absolute;
+            width: 3px; height: 12px;
+            left: 0.5px; top: -9px;
+            background: linear-gradient(to bottom, #7a7a7a 0 25%, #5a5a5a 25% 100%);
+            border-radius: 50% 50% 1px 1px;
+            box-shadow: 0 0 0 1px #2e2e2e;
+        }
+        .cruise-missile::before { content: ''; position: absolute; width: 6px; height: 2px; left: 50%; top: 38%; margin-left: -3px; background: #4a4a4a; box-shadow: 0 0 0 1px #2a2a2a; }
+        .cruise-missile::after { content: ''; position: absolute; width: 4px; height: 2px; left: 50%; bottom: 0; margin-left: -2px; background: #4a4a4a; }
 
         /* ===== Unit artwork: command-and-conquer silhouettes + age-of-empires equipment ===== */
         .unit-body { filter: drop-shadow(2px 3px 0 rgba(8, 15, 13, 0.52)); }
@@ -2452,12 +2468,14 @@ permalink: /sandbox_war_game.html
                     for (let i = 0; i < this.maxAmmo; i++) tubes += `<div class="ballistic-tube${i < this.ammo ? ' loaded' : ''}"></div>`;
                     body = '<div class="vehicle-shadow"></div><div class="ballistic-chassis"></div><div class="ballistic-rack">' + tubes + '</div>';
                 } else if (this.type === 'cruise') {
-                    body = '<div class="vehicle-shadow"></div><div class="cruise-chassis"></div><div class="cruise-box"></div>';
+                    let cells = '';
+                    for (let i = 0; i < this.maxAmmo; i++) cells += `<div class="cruise-cell${i < this.ammo ? ' loaded' : ''}"><div class="cruise-missile"></div></div>`;
+                    body = '<div class="vehicle-shadow"></div><div class="cruise-chassis"></div><div class="cruise-rack">' + cells + '</div>';
                 } else {
                     body = '<div class="soldier-shadow"></div><div class="soldier-head"></div><div class="soldier-body"></div>';
                 }
 
-                return `<div class="unit-body">${body}</div><div class="hp-bar"><div class="hp-fill" style="width: ${this.getHealthPercent()}%"></div></div>${this.ammo !== undefined && this.type !== 'ballistic' ? `<div class="unit-ammo">${Math.max(0, this.ammo)}</div>` : ''}`;
+                return `<div class="unit-body">${body}</div><div class="hp-bar"><div class="hp-fill" style="width: ${this.getHealthPercent()}%"></div></div>${this.ammo !== undefined && this.type !== 'ballistic' && this.type !== 'cruise' ? `<div class="unit-ammo">${Math.max(0, this.ammo)}</div>` : ''}`;
             }
 
             getHealthPercent() {
@@ -2487,6 +2505,11 @@ permalink: /sandbox_war_game.html
                         const tubes = this.element.querySelectorAll('.ballistic-tube');
                         const loaded = Math.max(0, this.ammo);
                         tubes.forEach((tube, i) => tube.classList.toggle('loaded', i < loaded));
+                    } else if (this.type === 'cruise') {
+                        // 巡航导弹车: 每挂一枚, 前 ammo 挂 .loaded(挂巡航导弹), 其余空挂
+                        const cells = this.element.querySelectorAll('.cruise-cell');
+                        const loaded = Math.max(0, this.ammo);
+                        cells.forEach((cell, i) => cell.classList.toggle('loaded', i < loaded));
                     } else {
                         const ammoEl = this.element.querySelector('.unit-ammo');
                         if (ammoEl) {
