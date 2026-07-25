@@ -966,76 +966,78 @@ permalink: /sandbox_war_game.html
         }
 
         /* ===== 现代导弹兵种 ===== */
-        /* 弹道导弹车 (20px, 阵营色底盘 + 垂直发射管) */
+        /* 弹道导弹车 (22px, 阵营色底盘 + 垂直发射管 + 火箭弹) */
         .unit.ballistic {
-            --unit-size: 20px;
-            --body-size: 32px;
-            --scale: 0.625;
+            --unit-size: 22px;
+            --body-size: 36px;
+            --scale: 0.611;
         }
         .ballistic-base {
             position: absolute;
-            width: 22px; height: 8px;
-            left: 5px; top: 22px;
+            width: 26px; height: 9px;
+            left: 5px; top: 24px;
             clip-path: polygon(8% 0, 92% 0, 100% 40%, 92% 100%, 8% 100%, 0 40%);
             background: var(--color-dark);
             box-shadow: inset 2px 1px var(--color), inset -2px -1px rgba(0,0,0,.4), 0 2px 0 rgba(0,0,0,.45);
         }
         .ballistic-rail {
             position: absolute;
-            width: 8px; height: 16px;
-            left: 12px; top: 6px;
+            width: 10px; height: 18px;
+            left: 13px; top: 6px;
             background: linear-gradient(90deg, var(--color-dark) 0 20%, var(--color) 20% 80%, var(--color-dark) 80%);
             clip-path: polygon(20% 0, 80% 0, 100% 100%, 0 100%);
             box-shadow: inset 1px 1px var(--color-light);
         }
         .ballistic-missile {
             position: absolute;
-            width: 4px; height: 14px;
-            left: 14px; top: 2px;
-            background: linear-gradient(90deg, #ccc 0 30%, #fff 30% 70%, #ccc 70%);
-            clip-path: polygon(50% 0, 100% 25%, 80% 100%, 20% 100%, 0 25%);
+            width: 5px; height: 18px;
+            left: 15px; top: 0;
+            background: linear-gradient(90deg, #ddd 0 30%, #fff 30% 70%, #ddd 70%);
+            clip-path: polygon(50% 0, 100% 15%, 100% 85%, 70% 100%, 30% 100%, 0 85%, 0 15%);
         }
+        .ballistic-missile::before { content: ''; position: absolute; width: 5px; height: 4px; left: 0; top: 14px; background: #d35400; clip-path: polygon(0 0, 100% 0, 80% 100%, 20% 100%); }
+        .ballistic-missile::after { content: ''; position: absolute; width: 3px; height: 3px; left: 1px; top: 16px; background: #f39c12; box-shadow: 0 0 4px #e74c3c; }
         .ballistic-wheel {
             position: absolute;
-            width: 6px; height: 6px;
+            width: 7px; height: 7px;
             border-radius: 50%;
             background: radial-gradient(circle at 35% 35%, #4a4a4a 0 30%, #1a1a1a 31%);
             box-shadow: 0 0 0 1px #050707;
-            top: 26px;
+            top: 29px;
         }
         .ballistic-wheel.left { left: 7px; }
         .ballistic-wheel.right { right: 7px; }
 
-        /* 巡航导弹车 (20px, 阵营色底盘 + 倾斜发射箱) */
+        /* 巡航导弹车 (22px, 阵营色底盘 + 倾斜发射箱) */
         .unit.cruise {
-            --unit-size: 20px;
-            --body-size: 32px;
-            --scale: 0.625;
+            --unit-size: 22px;
+            --body-size: 36px;
+            --scale: 0.611;
         }
         .cruise-base {
             position: absolute;
-            width: 22px; height: 8px;
-            left: 5px; top: 22px;
+            width: 26px; height: 9px;
+            left: 5px; top: 24px;
             clip-path: polygon(8% 0, 92% 0, 100% 40%, 92% 100%, 8% 100%, 0 40%);
             background: var(--color-dark);
             box-shadow: inset 2px 1px var(--color), inset -2px -1px rgba(0,0,0,.4), 0 2px 0 rgba(0,0,0,.45);
         }
         .cruise-box {
             position: absolute;
-            width: 16px; height: 8px;
-            left: 8px; top: 12px;
+            width: 18px; height: 9px;
+            left: 9px; top: 13px;
             background: linear-gradient(90deg, var(--color-dark) 0 20%, var(--color) 20% 80%, var(--color-dark) 80%);
             clip-path: polygon(0 30%, 75% 0, 100% 30%, 100% 100%, 0 100%);
             box-shadow: inset 1px 1px var(--color-light);
         }
-        .cruise-box::before { content: ''; position: absolute; width: 10px; height: 2px; left: 3px; top: 2px; background: rgba(255,255,255,.15); }
+        .cruise-box::before { content: ''; position: absolute; width: 12px; height: 2px; left: 3px; top: 2px; background: rgba(255,255,255,.15); }
         .cruise-wheel {
             position: absolute;
-            width: 6px; height: 6px;
+            width: 7px; height: 7px;
             border-radius: 50%;
             background: radial-gradient(circle at 35% 35%, #4a4a4a 0 30%, #1a1a1a 31%);
             box-shadow: 0 0 0 1px #050707;
-            top: 26px;
+            top: 29px;
         }
         .cruise-wheel.left { left: 7px; }
         .cruise-wheel.right { right: 7px; }
@@ -1153,6 +1155,14 @@ permalink: /sandbox_war_game.html
         .projectile-arrow::after { content: ''; position: absolute; width: 5px; height: 4px; left: -2px; bottom: -3px; background: #9d6a3a; clip-path: polygon(0 0, 100% 50%, 0 100%); }
         .projectile-stone { border-radius: 50%; background: #8a8173; border-color: #403b34; box-shadow: 0 0 0 1px #201e1a; }
         .projectile-melee { border-radius: 0; background: #dfe8e5; border-color: #637070; box-shadow: 0 0 2px #eef9f7; }
+        /* 弹道导弹: 火箭弹 (尖头 + 尾翼 + 火焰拖尾) */
+        .projectile-missile { border-radius: 50% 50% 0 0; background: linear-gradient(to bottom, #eee 0 60%, #ccc 60% 100%); border-color: #888; box-shadow: 0 0 0 1px #333, 0 0 10px #e67e22; }
+        .projectile-missile::before { content: ''; position: absolute; width: 4px; height: 4px; left: 50%; bottom: -3px; margin-left: -2px; background: #e67e22; clip-path: polygon(0 0, 100% 0, 75% 100%, 25% 100%); box-shadow: 0 0 6px #e74c3c; }
+        .projectile-missile::after { content: ''; position: absolute; width: 8px; height: 3px; left: 50%; top: 70%; margin-left: -4px; background: rgba(232, 130, 30, 0.5); }
+        /* 巡航导弹: 无人机 (机翼 + 扁平机身) */
+        .projectile-drone { border-radius: 2px; background: linear-gradient(90deg, #4a4a4a 0 30%, #6a6a6a 30% 70%, #4a4a4a 70%); border-color: #333; box-shadow: 0 0 0 1px #222, 0 0 8px rgba(100,100,100,0.4); }
+        .projectile-drone::before { content: ''; position: absolute; width: 12px; height: 2px; left: 50%; top: 50%; margin-left: -6px; margin-top: -1px; background: #555; box-shadow: 0 0 0 1px #333; }
+        .projectile-drone::after { content: ''; position: absolute; width: 3px; height: 3px; left: 50%; top: -2px; margin-left: -1.5px; background: #888; border-radius: 50%; }
 
         .impact {
             position: absolute;
@@ -2362,8 +2372,8 @@ permalink: /sandbox_war_game.html
             }
 
             getSize() {
-                if (this.type === 'tank' || this.type === 'lightTank' || this.type === 'tankDestroyer') return 22;
-                if (this.type === 'artillery' || this.type === 'rocket' || this.type === 'mortar' || this.type === 'catapult' || this.type === 'nestOfBees' || this.type === 'hongyipao' || this.type === 'ballistic' || this.type === 'cruise') return 20;
+                if (this.type === 'tank' || this.type === 'lightTank' || this.type === 'tankDestroyer' || this.type === 'ballistic' || this.type === 'cruise') return 22;
+                if (this.type === 'artillery' || this.type === 'rocket' || this.type === 'mortar' || this.type === 'catapult' || this.type === 'nestOfBees' || this.type === 'hongyipao') return 20;
                 if (this.type === 'command' || this.type === 'supply' || this.type === 'scout' || this.type === 'apc' || this.type === 'cavalry' || this.type === 'warship' || this.type === 'fireship') return 18;
                 return 14;
             }
@@ -2514,7 +2524,7 @@ permalink: /sandbox_war_game.html
                     <strong>${typeName}</strong><br>
                     阵营: ${this.team === 'ally' ? '友军' : '敌军'}<br>
                     生命值: ${this.health}/${this.maxHealth}${extra}<br>
-                    士气: ${Math.round(this.morale)}<br>
+                    士气: ${Math.round(this.morale)}${this.ammo !== undefined ? `<br>弹药: ${this.ammo}/${this.maxAmmo}` : ''}<br>
                     状态: ${this.getStateText()}
                 `;
                 info.style.display = 'block';
@@ -4333,10 +4343,13 @@ permalink: /sandbox_war_game.html
                 this.attackCooldown = 6000;
                 this.armorType = 'vehicle';
                 this.damageTable = { infantry: 1.2, cavalry: 1.0, vehicle: 1.0, tank: 0.9 };
+                this.maxAmmo = 3;     // 载弹量 3 发
+                this.ammo = 3;
             }
 
-            // 弹道导弹: 抛物线散布弹道 + 100px 大溅射
+            // 弹道导弹: 抛物线散布弹道 + 100px 大溅射 (载弹量限制)
             tryAttack(target) {
+                if (this.ammo <= 0) return;  // 弹药耗尽
                 const moraleFactor = this.getMoraleAttackFactor();
                 if (moraleFactor === 0) return;
                 const now = Date.now();
@@ -4351,6 +4364,7 @@ permalink: /sandbox_war_game.html
                     if (!this.hasLineOfSight(target)) return;
 
                     this.lastAttackTime = now;
+                    this.ammo--;  // 消耗弹药
                     let damage = this.getAttackDamage(target);
                     if (buffed) damage = Math.round(damage * 1.1);
                     const scatterX = (Math.random() - 0.5) * 20;
@@ -4362,6 +4376,7 @@ permalink: /sandbox_war_game.html
                     if (proj) {
                         proj.splashRadius = 100;  // 大溅射
                         proj.ballistic = true;    // 抛物线弹道
+                        proj.visual = 'missile';  // 火箭弹视觉
                         proj.startX = this.x + this.getSize() / 2;
                         proj.startY = this.y + this.getSize() / 2;
                         proj.endX = targetX;
@@ -4371,7 +4386,7 @@ permalink: /sandbox_war_game.html
             }
         }
 
-        // 巡航导弹车: 巡航飞行(追踪直线), 远程, 中等溅射
+        // 巡航导弹车: 巡航飞行(追踪直线), 远程, 中等溅射 (载弹量限制)
         class CruiseMissile extends Tank {
             constructor(x, y, team, health) {
                 super(x, y, team, health);
@@ -4382,10 +4397,13 @@ permalink: /sandbox_war_game.html
                 this.attackCooldown = 4000;
                 this.armorType = 'vehicle';
                 this.damageTable = { infantry: 1.2, cavalry: 1.0, vehicle: 1.0, tank: 0.9 };
+                this.maxAmmo = 5;     // 载弹量 5 发
+                this.ammo = 5;
             }
 
-            // 巡航导弹: 追踪弹道(低空直线飞行) + 50px 溅射
+            // 巡航导弹: 追踪弹道(低空直线飞行) + 50px 溅射 (载弹量限制)
             tryAttack(target) {
+                if (this.ammo <= 0) return;  // 弹药耗尽
                 const moraleFactor = this.getMoraleAttackFactor();
                 if (moraleFactor === 0) return;
                 const now = Date.now();
@@ -4399,12 +4417,16 @@ permalink: /sandbox_war_game.html
                     if (!this.canMoveFire && !this.isFacing(target)) return;
 
                     this.lastAttackTime = now;
+                    this.ammo--;  // 消耗弹药
                     let damage = this.getAttackDamage(target);
                     if (buffed) damage = Math.round(damage * 1.1);
                     // 巡航导弹用追踪弹道 (直线低空飞行) + 溅射
                     battlefieldManager.spawnProjectile(this, target, damage);
                     const proj = battlefieldManager.projectiles[battlefieldManager.projectiles.length - 1];
-                    if (proj) proj.splashRadius = 50;
+                    if (proj) {
+                        proj.splashRadius = 50;
+                        proj.visual = 'drone';  // 无人机视觉
+                    }
                 }
             }
         }
