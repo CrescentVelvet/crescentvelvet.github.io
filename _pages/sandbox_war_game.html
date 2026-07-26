@@ -4607,6 +4607,8 @@ permalink: /sandbox_war_game.html
                 this.wpIndex = 0;
                 this.fliesOver = false;
                 this.terminalSpeed = 0;
+                this.altitude = 0;       // 巡航视觉高度 (末端俯冲线性收敛到0)
+                this.shadowEl = null;    // 地面投影阴影元素 (随高度缩放/浓淡)
 
                 this.x = source.x + source.getSize() / 2;
                 this.y = source.y + source.getSize() / 2;
@@ -4753,8 +4755,41 @@ permalink: /sandbox_war_game.html
                     const arcHeight = 80 + totalDist * 0.15; // 抛物线高度 (距离越远越高)
                     top += -arcHeight * 4 * t * (1 - t); // 抛物线 y 偏移 (向上为负)
                 }
+                // 巡航弹道 (巡航导弹): 贴地巡航有视觉高度, 末端俯冲时高度收敛到0, 同步地面投影阴影
+                if (this.fliesOver && this.waypoints) {
+                    const onTerminal = this.wpIndex >= this.waypoints.length - 1;
+                    const CRUISE_ALT = 14;
+                    if (onTerminal) {
+                        // 末端俯冲: 距目标 120px 内高度线性降到 0 (导弹从巡航高度扎下)
+                        const ddx = this.scatterX - this.x;
+                        const ddy = this.scatterY - this.y;
+                        const distToTarget = Math.hypot(ddx, ddy);
+                        this.altitude = Math.min(CRUISE_ALT, CRUISE_ALT * (distToTarget / 120));
+                    } else {
+                        this.altitude = CRUISE_ALT;  // 巡航段恒定高度
+                    }
+                    top -= this.altitude;  // 视觉抬高 (向上为负), 逻辑位置不变
+                    this.updateShadow();
+                }
                 this.element.style.top = top + 'px';
                 this.element.style.transform = `rotate(${this.angle}deg)`;
+            }
+
+            // 巡航导弹地面投影: 高空时大而淡, 俯冲贴地时小而浓
+            updateShadow() {
+                if (!this.shadowEl) {
+                    if (!this.element.parentNode) return;
+                    this.shadowEl = document.createElement('div');
+                    this.shadowEl.style.cssText = 'position:absolute;pointer-events:none;border-radius:50%;background:rgba(0,0,0,0.32);z-index:9;';
+                    this.element.parentNode.insertBefore(this.shadowEl, this.element);
+                }
+                const alt = this.altitude;
+                const s = this.boxW * (0.7 + alt * 0.06);           // 越高阴影越大
+                this.shadowEl.style.width = s + 'px';
+                this.shadowEl.style.height = (s * 0.5) + 'px';
+                this.shadowEl.style.left = (this.x - s / 2) + 'px';
+                this.shadowEl.style.top = (this.y - s * 0.25) + 'px';
+                this.shadowEl.style.opacity = String(0.5 - alt * 0.022);  // 越高越淡, 贴地最浓
             }
 
             createImpact(x, y) {
@@ -4769,6 +4804,7 @@ permalink: /sandbox_war_game.html
 
             remove() {
                 this.element.remove();
+                if (this.shadowEl) { this.shadowEl.remove(); this.shadowEl = null; }
             }
         }
 
