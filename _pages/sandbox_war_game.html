@@ -1200,6 +1200,27 @@ permalink: /sandbox_war_game.html
         .projectile-drone::before { content: ''; position: absolute; width: 15px; height: 3px; left: 50%; top: 50%; margin-left: -7.5px; margin-top: -1.5px; background: linear-gradient(to right, #3a3a3a, #6a6a6a 50%, #3a3a3a); clip-path: polygon(0 100%, 12% 0, 88% 0, 100% 100%, 50% 55%); box-shadow: 0 0 0 1px #2a2a2a; }
         .projectile-drone::after { content: ''; position: absolute; width: 8px; height: 2px; left: 50%; top: -2px; margin-left: -4px; background: rgba(190,190,190,.6); border-radius: 1px; box-shadow: 0 0 4px rgba(200,200,200,.5); }
 
+        /* 巡航导弹末端俯冲: 尾部喷火 (随机端机体方向延伸, 随弹体旋转) */
+        .projectile-drone .drone-flame {
+            position: absolute;
+            left: 50%;
+            top: 100%;
+            margin-left: -2.5px;
+            width: 5px;
+            height: 10px;
+            background: linear-gradient(to bottom, #fff3b0 0%, #ffd166 25%, #ff9f43 55%, #e74c3c 82%, rgba(231,76,60,0) 100%);
+            border-radius: 0 0 50% 50%;
+            box-shadow: 0 0 6px #e67e22, 0 0 10px rgba(231,76,60,0.5);
+            animation: droneFlame 0.09s steps(2, end) infinite alternate;
+            display: none;
+            z-index: 2;
+        }
+        .projectile-drone.diving .drone-flame { display: block; }
+        @keyframes droneFlame {
+            from { height: 7px; opacity: 0.8; }
+            to { height: 13px; opacity: 1; }
+        }
+
         /* 子弹命中: 小特效 (子弹多了不混乱) */
         .impact {
             position: absolute;
@@ -4544,6 +4565,12 @@ permalink: /sandbox_war_game.html
                         proj.visual = 'drone';     // 无人机/巡航弹视觉
                         proj.speed = 200;          // 巡航段慢速贴地 (有来袭感)
                         proj.terminalSpeed = 450;  // 末端俯冲加速
+                        // 尾部喷火元素 (末端俯冲时显示)
+                        if (!proj.element.querySelector('.drone-flame')) {
+                            const flame = document.createElement('div');
+                            flame.className = 'drone-flame';
+                            proj.element.appendChild(flame);
+                        }
                     }
                 }
             }
@@ -4755,7 +4782,7 @@ permalink: /sandbox_war_game.html
                     const arcHeight = 80 + totalDist * 0.15; // 抛物线高度 (距离越远越高)
                     top += -arcHeight * 4 * t * (1 - t); // 抛物线 y 偏移 (向上为负)
                 }
-                // 巡航弹道 (巡航导弹): 贴地巡航有视觉高度, 末端俯冲时高度收敛到0, 同步地面投影阴影
+                // 巡航弹道 (巡航导弹): 贴地巡航有视觉高度, 末端俯冲时高度收敛到0, 同步地面投影阴影 + 尾部喷火
                 if (this.fliesOver && this.waypoints) {
                     const onTerminal = this.wpIndex >= this.waypoints.length - 1;
                     const CRUISE_ALT = 14;
@@ -4770,6 +4797,8 @@ permalink: /sandbox_war_game.html
                     }
                     top -= this.altitude;  // 视觉抬高 (向上为负), 逻辑位置不变
                     this.updateShadow();
+                    // 末端俯冲时尾部喷火 (.drone-flame 由 .diving 控制显隐)
+                    this.element.classList.toggle('diving', onTerminal);
                 }
                 this.element.style.top = top + 'px';
                 this.element.style.transform = `rotate(${this.angle}deg)`;
