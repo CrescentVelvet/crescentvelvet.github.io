@@ -4462,7 +4462,7 @@ permalink: /sandbox_war_game.html
             }
         }
 
-        // 巡航导弹车: 巡航飞行(追踪直线), 远程, 中等溅射 (载弹量限制)
+        // 巡航导弹车: 航路点低空巡航(贝塞尔曲线弹道, 飞越掩体) + 末端俯冲 + 高价值斩首索敌 (载弹量限制)
         class CruiseMissile extends Tank {
             constructor(x, y, team, health) {
                 super(x, y, team, health);
@@ -4477,7 +4477,26 @@ permalink: /sandbox_war_game.html
                 this.ammo = 5;
             }
 
-            // 巡航导弹: 追踪弹道(低空直线飞行) + 50px 溅射 (载弹量限制)
+            // 巡航导弹雷达导引头: 视线始终视为清晰 (可越障打击, 不会触发"绕掩体"机动)
+            hasLineOfSight() { return true; }
+
+            // 斩首/反炮兵索敌: 优先敌方后排高价值单位 (火炮/火箭/导弹/攻城/指挥/补给), 不被视线干扰
+            findNearestEnemy(allUnits) {
+                const highValue = new Set(['artillery', 'rocket', 'mortar', 'ballistic', 'cruise',
+                                           'hongyipao', 'nestOfBees', 'catapult', 'command', 'supply']);
+                let best = null;
+                let bestScore = Infinity;
+                for (const unit of allUnits) {
+                    if (unit === this || unit.team === this.team || unit.isDead()) continue;
+                    const d = this.getDistance(unit);
+                    // 高价值: 距离 - 300 (强烈优先, 纵深斩首); 普通单位: 距离 + 220 (避免浪费导弹打步兵/坦克)
+                    const score = d + (highValue.has(unit.type) ? -300 : 220);
+                    if (score < bestScore) { bestScore = score; best = unit; }
+                }
+                return best;
+            }
+
+            // 巡航导弹: 航路点串联巡航 (贝塞尔曲线弹道, 飞越掩体) + 末端俯冲加速 + 50px 溅射 (载弹量限制)
             tryAttack(target) {
                 if (this.ammo <= 0) return;  // 弹药耗尽
                 const moraleFactor = this.getMoraleAttackFactor();
@@ -4496,12 +4515,35 @@ permalink: /sandbox_war_game.html
                     this.ammo--;  // 消耗弹药
                     let damage = this.getAttackDamage(target);
                     if (buffed) damage = Math.round(damage * 1.1);
-                    // 巡航导弹用追踪弹道 (直线低空飞行) + 溅射
-                    battlefieldManager.spawnProjectile(this, target, damage);
+
+                    // 航路点: 起点 -> 贝塞尔(0.4) -> 贝塞尔(0.75) -> 目标点, 垂直方向随机偏移形成贴地巡航曲线
+                    const sx = this.x + this.getSize() / 2;
+                    const sy = this.y + this.getSize() / 2;
+                    const tx = target.x + target.getSize() / 2 + (Math.random() - 0.5) * 20;
+                    const ty = target.y + target.getSize() / 2 + (Math.random() - 0.5) * 20;
+                    const ddx = tx - sx, ddy = ty - sy;
+                    const dlen = Math.hypot(ddx, ddy) || 1;
+                    const perpX = -ddy / dlen, perpY = ddx / dlen;
+                    const curve = (Math.random() < 0.5 ? -1 : 1) * (50 + Math.random() * 70);
+                    const cx = (sx + tx) / 2 + perpX * curve;
+                    const cy = (sy + ty) / 2 + perpY * curve;
+                    const bz = (t, a, b, c) => (1 - t) * (1 - t) * a + 2 * (1 - t) * t * b + t * t * c;
+                    const wp1 = { x: bz(0.4, sx, cx, tx), y: bz(0.4, sy, cy, ty) };
+                    const wp2 = { x: bz(0.75, sx, cx, tx), y: bz(0.75, sy, cy, ty) };
+
+                    // 用散布弹道承载航路点 (先飞向 wp1, 到点后 Projectile.update 自动续飞下一段)
+                    battlefieldManager.spawnScatterProjectile(this, target, wp1.x, wp1.y, damage);
                     const proj = battlefieldManager.projectiles[battlefieldManager.projectiles.length - 1];
                     if (proj) {
-                        proj.splashRadius = 50;
-                        proj.visual = 'drone';  // 无人机视觉
+                        proj.waypoints = [wp1, wp2, { x: tx, y: ty }];
+                        proj.wpIndex = 0;
+                        proj.scatterX = wp1.x;
+                        proj.scatterY = wp1.y;
+                        proj.fliesOver = true;     // 低空飞越掩体, 中途不碰撞起爆
+                        proj.splashRadius = 50;    // 中等溅射
+                        proj.visual = 'drone';     // 无人机/巡航弹视觉
+                        proj.speed = 200;          // 巡航段慢速贴地 (有来袭感)
+                        proj.terminalSpeed = 450;  // 末端俯冲加速
                     }
                 }
             }
@@ -4560,6 +4602,11 @@ permalink: /sandbox_war_game.html
                 this.startY = 0;
                 this.endX = 0;
                 this.endY = 0;
+                // 巡航弹道 (巡航导弹): 航路点串联低空巡航, fliesOver 飞越掩体无视中途碰撞, terminalSpeed 末端俯冲加速
+                this.waypoints = null;
+                this.wpIndex = 0;
+                this.fliesOver = false;
+                this.terminalSpeed = 0;
 
                 this.x = source.x + source.getSize() / 2;
                 this.y = source.y + source.getSize() / 2;
@@ -4577,9 +4624,10 @@ permalink: /sandbox_war_game.html
             }
 
             update(deltaTime) {
-                // 散布弹道：飞向固定点，到达后对范围内所有敌方单位溅射
+                // 散布/巡航弹道：飞向固定点，到达后对范围内所有敌方单位溅射
                 if (this.scatterX !== undefined) {
-                    if (battlefieldManager.collidesWithObstacle(this.x, this.y, 8, 8)) {
+                    // 巡航导弹 fliesOver: 低空飞越掩体, 中途不碰撞起爆
+                    if (!this.fliesOver && battlefieldManager.collidesWithObstacle(this.x, this.y, 8, 8)) {
                         this.doSplashDamage(this.x, this.y);
                         this.createImpact(this.x, this.y);
                         return false;
@@ -4590,12 +4638,24 @@ permalink: /sandbox_war_game.html
                     const dist = Math.sqrt(dx * dx + dy * dy);
 
                     if (dist <= this.radius) {
+                        // 到达当前航路点: 巡航弹道还有后续航路点则继续飞下一段, 否则起爆
+                        if (this.waypoints && this.wpIndex < this.waypoints.length - 1) {
+                            this.wpIndex++;
+                            const next = this.waypoints[this.wpIndex];
+                            this.scatterX = next.x;
+                            this.scatterY = next.y;
+                            this.updateVisual();
+                            return true;
+                        }
                         this.doSplashDamage(this.scatterX, this.scatterY);
                         this.createImpact(this.scatterX, this.scatterY);
                         return false;
                     }
 
-                    const step = Math.min(dist, this.speed * deltaTime);
+                    // 巡航段慢速贴地飞行, 末端航路点(攻击末段)加速俯冲
+                    const onTerminal = this.waypoints && this.wpIndex >= this.waypoints.length - 1;
+                    const effSpeed = onTerminal ? (this.terminalSpeed || this.speed) : this.speed;
+                    const step = Math.min(dist, effSpeed * deltaTime);
                     if (this.ballistic) {
                         // 抛物线弹道: 弹头沿抛物线切线朝向(上升时朝斜上, 顶点水平, 下落时朝斜下), 而非始终朝右
                         const tdx = this.endX - this.startX;
@@ -4614,7 +4674,7 @@ permalink: /sandbox_war_game.html
                     }
                     this.x += (dx / dist) * step;
                     this.y += (dy / dist) * step;
-                    if (battlefieldManager.collidesWithObstacle(this.x, this.y, 8, 8)) {
+                    if (!this.fliesOver && battlefieldManager.collidesWithObstacle(this.x, this.y, 8, 8)) {
                         this.doSplashDamage(this.x, this.y);
                         this.createImpact(this.x, this.y);
                         return false;
