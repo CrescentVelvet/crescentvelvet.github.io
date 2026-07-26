@@ -1196,9 +1196,10 @@ permalink: /sandbox_war_game.html
         .projectile-missile::before { content: ''; position: absolute; width: 10px; height: 6px; left: -2px; bottom: -4px; background: #8a8a8a; clip-path: polygon(15% 0, 85% 0, 100% 100%, 55% 100%, 50% 50%, 45% 100%, 0 100%); box-shadow: 0 0 0 1px #444; }
         .projectile-missile::after { content: ''; position: absolute; width: 5px; height: 8px; left: 50%; bottom: -11px; margin-left: -2.5px; background: linear-gradient(to bottom, #ffd24a, #e67e22 55%, rgba(231,76,60,0)); clip-path: polygon(25% 0, 75% 0, 100% 100%, 0 100%); box-shadow: 0 0 6px #e74c3c; }
         /* 巡航导弹: 无人机 (机身 + 后掠机翼 + 桨叶) */
-        .projectile-drone { border-radius: 50% 50% 3px 3px; background: linear-gradient(to bottom, #7a7a7a 0 25%, #5a5a5a 25% 100%); border: 1px solid #2e2e2e; box-shadow: 0 0 0 1px #222, 0 0 8px rgba(100,100,100,0.45); }
-        .projectile-drone::before { content: ''; position: absolute; width: 15px; height: 3px; left: 50%; top: 50%; margin-left: -7.5px; margin-top: -1.5px; background: linear-gradient(to right, #3a3a3a, #6a6a6a 50%, #3a3a3a); clip-path: polygon(0 100%, 12% 0, 88% 0, 100% 100%, 50% 55%); box-shadow: 0 0 0 1px #2a2a2a; }
-        .projectile-drone::after { content: ''; position: absolute; width: 8px; height: 2px; left: 50%; top: -2px; margin-left: -4px; background: rgba(190,190,190,.6); border-radius: 1px; box-shadow: 0 0 4px rgba(200,200,200,.5); }
+        /* 巡航导弹: 细棍机身(银白渐变, 亮显) + 两片大后掠翼 + 阵营色机鼻(辨识敌我) */
+        .projectile-drone { border-radius: 50% 50% 2px 2px; background: linear-gradient(to bottom, #eef2f5 0%, #c2cad0 35%, #7e878c 75%, #4a5054 100%); border: 1px solid #2a2f33; box-shadow: 0 0 0 1px rgba(255,255,255,0.18), 0 0 7px var(--shot-edge, rgba(180,200,220,0.5)); }
+        .projectile-drone::before { content: ''; position: absolute; width: 22px; height: 5px; left: 50%; top: 58%; margin-left: -11px; margin-top: -2.5px; background: linear-gradient(to right, #4a5054, #aab2b7 50%, #4a5054); clip-path: polygon(0 100%, 8% 0, 92% 0, 100% 100%, 50% 68%); box-shadow: 0 0 0 1px #23282b; }
+        .projectile-drone::after { content: ''; position: absolute; width: 4px; height: 3px; left: 50%; top: 0; margin-left: -2px; background: var(--shot-edge, #8a9296); border-radius: 50% 50% 0 0; box-shadow: 0 0 4px var(--shot-edge, #8a9296); }
 
         /* 巡航导弹末端俯冲: 尾部喷火 (随机端机体方向延伸, 随弹体旋转) */
         .projectile-drone .drone-flame {
@@ -4563,7 +4564,7 @@ permalink: /sandbox_war_game.html
                         proj.fliesOver = true;     // 低空飞越掩体, 中途不碰撞起爆
                         proj.splashRadius = 50;    // 中等溅射
                         proj.visual = 'drone';     // 无人机/巡航弹视觉
-                        proj.speed = 200;          // 巡航段慢速贴地 (有来袭感)
+                        proj.speed = 150;          // 巡航段慢速贴地 (有来袭感)
                         proj.terminalSpeed = 450;  // 末端俯冲加速
                         // 尾部喷火元素 (末端俯冲时显示)
                         if (!proj.element.querySelector('.drone-flame')) {
@@ -4644,7 +4645,7 @@ permalink: /sandbox_war_game.html
                 // 弹体尺寸: 火箭弹/无人机使用专属比例, 其余按 size 方形
                 const box = this.visual === 'bullet' ? { w: 3, h: this.size + 4 }
                           : this.visual === 'missile' ? { w: 6, h: 14 }
-                          : this.visual === 'drone' ? { w: 6, h: 9 }
+                          : this.visual === 'drone' ? { w: 4, h: 12 }
                           : { w: this.size, h: this.size };
                 this.boxW = box.w; this.boxH = box.h;
                 this.element.style.width = box.w + 'px';
