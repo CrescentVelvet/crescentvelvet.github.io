@@ -24,6 +24,7 @@ title: "待办清单"
             --done: #16a34a;
             --done-bg: #dcfce7;
             --p-high: #ef4444;
+            --tree-line: #dfe3e8;
         }
         * { box-sizing: border-box; }
         body {
@@ -39,21 +40,9 @@ title: "待办清单"
             margin: 0 auto;
             padding: 24px 16px 60px;
         }
-        h1 {
-            font-size: 1.4em;
-            margin: 0 0 4px;
-        }
-        .subtitle {
-            color: var(--text-muted);
-            font-size: 13px;
-            margin: 0 0 20px;
-        }
-        .stats {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 14px;
-            flex-wrap: wrap;
-        }
+        h1 { font-size: 1.4em; margin: 0 0 4px; }
+        .subtitle { color: var(--text-muted); font-size: 13px; margin: 0 0 20px; }
+        .stats { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
         .stat {
             background: var(--card);
             border: 1px solid var(--border);
@@ -62,15 +51,8 @@ title: "待办清单"
             flex: 1;
             min-width: 90px;
         }
-        .stat .num {
-            font-size: 1.5em;
-            font-weight: 700;
-            line-height: 1.1;
-        }
-        .stat .lbl {
-            font-size: 12px;
-            color: var(--text-muted);
-        }
+        .stat .num { font-size: 1.5em; font-weight: 700; line-height: 1.1; }
+        .stat .lbl { font-size: 12px; color: var(--text-muted); }
         .stat.todo .num { color: var(--todo); }
         .stat.doing .num { color: var(--doing); }
         .stat.done .num { color: var(--done); }
@@ -81,19 +63,9 @@ title: "待办清单"
             padding: 12px 14px;
             margin-bottom: 18px;
         }
-        .progress-top {
-            display: flex;
-            justify-content: space-between;
-            font-size: 13px;
-            margin-bottom: 8px;
-        }
+        .progress-top { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 8px; }
         .progress-top b { color: var(--accent); }
-        .progress-track {
-            height: 8px;
-            background: #eef0f3;
-            border-radius: 999px;
-            overflow: hidden;
-        }
+        .progress-track { height: 8px; background: #eef0f3; border-radius: 999px; overflow: hidden; }
         .progress-fill {
             height: 100%;
             background: linear-gradient(90deg, var(--accent), var(--done));
@@ -101,12 +73,7 @@ title: "待办清单"
             transition: width .3s;
             width: 0;
         }
-        .filters {
-            display: flex;
-            gap: 6px;
-            margin-bottom: 14px;
-            flex-wrap: wrap;
-        }
+        .filters { display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; }
         .filter-btn {
             border: 1px solid var(--border);
             background: var(--card);
@@ -118,92 +85,92 @@ title: "待办清单"
             transition: all .15s;
         }
         .filter-btn:hover { color: var(--text); }
-        .filter-btn.active {
-            background: var(--accent);
-            color: #fff;
-            border-color: var(--accent);
+        .filter-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+        .tree { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 8px; }
+        .node { position: relative; }
+        .children {
+            margin-left: 14px;
+            padding-left: 14px;
+            border-left: 1px dashed var(--tree-line);
         }
-        .group {
-            margin-bottom: 18px;
-        }
-        .group-title {
-            font-size: 13px;
-            font-weight: 700;
-            color: var(--text-muted);
-            margin: 0 0 8px 2px;
+        .node.collapsed > .children { display: none; }
+        .row {
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 10px;
+            padding: 9px 8px;
+            border-radius: 8px;
         }
-        .dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            display: inline-block;
-        }
-        .dot.todo { background: var(--todo); }
-        .dot.doing { background: var(--doing); }
-        .dot.done { background: var(--done); }
-        .task {
-            background: var(--card);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 12px 14px;
-            margin-bottom: 8px;
-            display: flex;
-            align-items: flex-start;
-            gap: 12px;
-        }
-        .task:last-child { margin-bottom: 0; }
-        .task-main { flex: 1; min-width: 0; }
-        .task-title {
-            font-weight: 600;
-            font-size: 14px;
-            margin: 0 0 4px;
-            word-break: break-word;
-        }
-        .task.done .task-title {
-            text-decoration: line-through;
+        .row.parent { font-weight: 700; font-size: 14px; }
+        .row.leaf { font-size: 14px; }
+        .row.leaf:hover { background: #fafbfc; }
+        .caret {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 18px;
+            height: 18px;
+            flex-shrink: 0;
+            cursor: pointer;
             color: var(--text-muted);
+            user-select: none;
+            transition: transform .15s;
+            border-radius: 4px;
         }
-        .task-note {
-            font-size: 13px;
-            color: var(--text-muted);
-            margin: 0;
-            word-break: break-word;
-        }
-        .task-meta {
-            display: flex;
-            gap: 6px;
-            flex-wrap: wrap;
-            margin-top: 6px;
-        }
-        .tag {
-            font-size: 11px;
-            padding: 2px 8px;
-            border-radius: 999px;
-            background: #eef1f4;
-            color: var(--text-muted);
-        }
-        .tag.due { background: #fff1f2; color: #be123c; }
-        .tag.prio-high { background: #fef2f2; color: var(--p-high); }
+        .caret:hover { background: #eef1f4; color: var(--text); }
+        .node.collapsed > .row > .caret { transform: rotate(-90deg); }
+        .caret-spacer { display: inline-block; width: 18px; flex-shrink: 0; }
+        .node-title { flex: 1; min-width: 0; word-break: break-word; }
+        .row.leaf.done .node-title { text-decoration: line-through; color: var(--text-muted); }
         .badge {
             flex-shrink: 0;
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 600;
-            padding: 3px 10px;
+            padding: 2px 9px;
             border-radius: 999px;
             white-space: nowrap;
         }
         .badge.todo { background: var(--todo-bg); color: var(--todo); }
         .badge.doing { background: var(--doing-bg); color: var(--doing); }
         .badge.done { background: var(--done-bg); color: var(--done); }
-        .empty {
-            text-align: center;
+        .parent-progress {
+            flex-shrink: 0;
+            font-size: 12px;
             color: var(--text-muted);
-            padding: 40px 0;
-            font-size: 13px;
+            font-variant-numeric: tabular-nums;
         }
+        .parent-progress .all { color: var(--text-muted); }
+        .parent-progress .fin { color: var(--done); font-weight: 700; }
+        .mini-bar {
+            width: 60px;
+            height: 6px;
+            background: #eef0f3;
+            border-radius: 999px;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+        .mini-bar > span {
+            display: block;
+            height: 100%;
+            background: var(--done);
+            border-radius: 999px;
+            transition: width .3s;
+            width: 0;
+        }
+        .task-meta { display: flex; gap: 6px; flex-wrap: wrap; flex-shrink: 0; align-items: center; }
+        .tag {
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 999px;
+            background: #eef1f4;
+            color: var(--text-muted);
+            white-space: nowrap;
+        }
+        .tag.due { background: #fff1f2; color: #be123c; }
+        .tag.prio-high { background: #fef2f2; color: var(--p-high); }
+        .note { font-size: 12px; color: var(--text-muted); flex-shrink: 0; }
+        .empty { text-align: center; color: var(--text-muted); padding: 40px 0; font-size: 13px; }
         a.home {
             display: inline-block;
             margin-bottom: 16px;
@@ -212,13 +179,17 @@ title: "待办清单"
             font-size: 13px;
         }
         a.home:hover { text-decoration: underline; }
+        @media (max-width: 560px) {
+            .task-meta { display: none; }
+            .mini-bar { width: 40px; }
+        }
     </style>
 </head>
 <body>
     <div class="wrap">
         <a href="/" class="home">&larr; 返回首页</a>
         <h1>待办清单</h1>
-        <p class="subtitle">在源码 <code>tasks</code> 数组中增删任务、修改 <code>status</code> 字段即可更新页面</p>
+        <p class="subtitle">在源码 <code>tasks</code> 树中增删节点；叶子任务改 <code>status</code> 即更新页面，父节点进度自动聚合</p>
 
         <div class="stats">
             <div class="stat"><div class="num" id="totalCount">0</div><div class="lbl">总计</div></div>
@@ -228,10 +199,7 @@ title: "待办清单"
         </div>
 
         <div class="progress">
-            <div class="progress-top">
-                <span>整体进度</span>
-                <span><b id="progressPercent">0%</b></span>
-            </div>
+            <div class="progress-top"><span>整体进度</span><span><b id="progressPercent">0%</b></span></div>
             <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
         </div>
 
@@ -242,24 +210,41 @@ title: "待办清单"
             <button class="filter-btn" data-filter="done">已完成</button>
         </div>
 
-        <div id="list"></div>
+        <div class="tree" id="tree"></div>
     </div>
 
     <script>
     (function () {
         // ============================================================
-        //  待办数据：在此增删任务、修改 status 即可更新页面
-        //  status 取值：'todo'（待办）/ 'doing'（进行中）/ 'done'（已完成）
-        //  可选字段：prio（'high' 高亮）、category（分类标签）、due（截止日期字符串）、note（备注）
+        //  待办数据（树状）：在此增删节点
+        //  · 父节点：{ title, children:[...] }，进度自动聚合
+        //  · 叶子任务：{ title, status }，可选 prio/category/due/note
+        //  · status 取值：'todo'（待办）/ 'doing'（进行中）/ 'done'（已完成）
+        //  · 支持任意层级嵌套（分类下可再有子分类）
         // ============================================================
         var tasks = [
-            { title: "完成毕业论文初稿", status: "doing", prio: "high", category: "学业", due: "2026-08-30", note: "重点写第三章实验部分" },
-            { title: "复习线性代数", status: "todo", category: "学业", note: "重点看特征值与SVD" },
-            { title: "整理本月读书笔记", status: "todo", category: "日常", note: "《人类简史》+《设计心理学》" },
-            { title: "搭建个人博客子页面", status: "done", category: "项目", note: "已上线 todo_list 页面" },
-            { title: "每周三次有氧运动", status: "doing", category: "健康", note: "本周已完成2次" },
-            { title: "护照延期办理", status: "todo", prio: "high", category: "日常", due: "2026-09-15" },
-            { title: "学完 Three.js 入门教程", status: "todo", category: "技能" }
+            {
+                title: "搬迁方面",
+                children: [
+                    { title: "收拾行李",       status: "todo", prio: "high", due: "2026-08-30", note: "先打包非必需物品" },
+                    { title: "公寓申请退房",   status: "todo", due: "2026-08-25", note: "联系物业提交退房申请" },
+                    { title: "路由器退还",     status: "todo", note: "宽带运营商归还设备" },
+                    { title: "电竞桌打包",     status: "todo" },
+                    { title: "显示器打包",     status: "todo", note: "原装箱+气泡膜" },
+                    { title: "电脑主机打包",   status: "todo", prio: "high", note: "防震填充" },
+                    { title: "快递寄送",       status: "todo", due: "2026-08-28", note: "预约上门取件" }
+                ]
+            },
+            {
+                title: "工作方面",
+                children: [
+                    { title: "HYPIR模型编译",        status: "todo", prio: "high" },
+                    { title: "人脸增强任务转测",     status: "todo" },
+                    { title: "人体微动任务探索",     status: "todo", note: "调研+方案设计" },
+                    { title: "新视界端侧服务修改",   status: "todo" },
+                    { title: "新视界云侧服务部署",   status: "todo", note: "联调环境" }
+                ]
+            }
         ];
 
         var STATUS_META = {
@@ -269,24 +254,31 @@ title: "待办清单"
         };
 
         var currentFilter = "all";
-        var listEl = document.getElementById("list");
+        var treeEl = document.getElementById("tree");
 
-        function counts() {
-            var c = { todo: 0, doing: 0, done: 0 };
-            tasks.forEach(function (t) { if (c[t.status] !== undefined) c[t.status]++; });
-            return c;
+        // 递归统计某节点的叶子状态
+        function countStatus(node) {
+            if (!node.children) {
+                var c = { todo: 0, doing: 0, done: 0, total: 0 };
+                if (node.status === "todo") c.todo = 1;
+                else if (node.status === "doing") c.doing = 1;
+                else if (node.status === "done") c.done = 1;
+                c.total = 1;
+                return c;
+            }
+            var agg = { todo: 0, doing: 0, done: 0, total: 0 };
+            node.children.forEach(function (ch) {
+                var s = countStatus(ch);
+                agg.todo += s.todo; agg.doing += s.doing; agg.done += s.done; agg.total += s.total;
+            });
+            return agg;
         }
 
-        function renderStats() {
-            var c = counts();
-            var total = tasks.length;
-            document.getElementById("totalCount").textContent = total;
-            document.getElementById("todoCount").textContent = c.todo;
-            document.getElementById("doingCount").textContent = c.doing;
-            document.getElementById("doneCount").textContent = c.done;
-            var pct = total === 0 ? 0 : Math.round(c.done / total * 100);
-            document.getElementById("progressPercent").textContent = pct + "%";
-            document.getElementById("progressFill").style.width = pct + "%";
+        // 过滤模式下：该节点（含后代）是否有匹配项
+        function nodeMatches(node, filter) {
+            if (filter === "all") return true;
+            if (!node.children) return node.status === filter;
+            return node.children.some(function (ch) { return nodeMatches(ch, filter); });
         }
 
         function escapeHtml(s) {
@@ -295,52 +287,79 @@ title: "待办清单"
                 .replace(/"/g, "&quot;");
         }
 
-        function taskCard(t) {
-            var meta = STATUS_META[t.status] || STATUS_META.todo;
-            var tags = "";
-            if (t.category) tags += '<span class="tag">' + escapeHtml(t.category) + "</span>";
-            if (t.due) tags += '<span class="tag due">截止 ' + escapeHtml(t.due) + "</span>";
-            if (t.prio === "high") tags += '<span class="tag prio-high">高优先</span>';
-            return '<div class="task ' + t.status + '">'
-                + '<div class="badge ' + t.status + '">' + meta.label + "</div>"
-                + '<div class="task-main">'
-                + '<div class="task-title">' + escapeHtml(t.title) + "</div>"
-                + (t.note ? '<div class="task-note">' + escapeHtml(t.note) + "</div>" : "")
-                + (tags ? '<div class="task-meta">' + tags + "</div>" : "")
+        function leafTags(t) {
+            var html = "";
+            if (t.category) html += '<span class="tag">' + escapeHtml(t.category) + "</span>";
+            if (t.due) html += '<span class="tag due">截止 ' + escapeHtml(t.due) + "</span>";
+            if (t.prio === "high") html += '<span class="tag prio-high">高优先</span>";
+            return html ? '<span class="task-meta">' + html + "</span>" : "";
+        }
+
+        function renderNode(node, depth) {
+            // 过滤时跳过无匹配的分支
+            if (!nodeMatches(node, currentFilter)) return "";
+
+            if (node.children) {
+                var s = countStatus(node);
+                var pct = s.total ? Math.round(s.done / s.total * 100) : 0;
+                var childHtml = node.children.map(function (ch) { return renderNode(ch, depth + 1); }).join("");
+                return '<div class="node" data-depth="' + depth + '">'
+                    + '<div class="row parent">'
+                    + '<span class="caret" title="展开/折叠" tabindex="0">&#9660;</span>'
+                    + '<span class="node-title">' + escapeHtml(node.title) + "</span>"
+                    + '<span class="parent-progress"><span class="fin">' + s.done + "</span><span class=\"all\">/" + s.total + "</span></span>"
+                    + '<span class="mini-bar"><span style="width:' + pct + '%"></span></span>'
+                    + "</div>"
+                    + '<div class="children">' + childHtml + "</div>"
+                    + "</div>";
+            }
+
+            var meta = STATUS_META[node.status] || STATUS_META.todo;
+            return '<div class="node" data-depth="' + depth + '">'
+                + '<div class="row leaf ' + node.status + '">'
+                + '<span class="caret-spacer"></span>'
+                + '<span class="badge ' + node.status + '">' + meta.label + "</span>"
+                + '<span class="node-title">' + escapeHtml(node.title) + "</span>"
+                + leafTags(node)
+                + (node.note ? '<span class="note">' + escapeHtml(node.note) + "</span>" : "")
                 + "</div></div>";
         }
 
-        function renderList() {
-            var filtered = currentFilter === "all"
-                ? tasks.slice()
-                : tasks.filter(function (t) { return t.status === currentFilter; });
-
-            if (filtered.length === 0) {
-                listEl.innerHTML = '<div class="empty">暂无任务</div>';
-                return;
-            }
-
-            if (currentFilter !== "all") {
-                listEl.innerHTML = filtered.map(taskCard).join("");
-                return;
-            }
-
-            // 分组：按 status 聚合，组内按原顺序
-            var groups = ["todo", "doing", "done"];
-            var html = "";
-            groups.forEach(function (s) {
-                var items = filtered.filter(function (t) { return t.status === s; });
-                if (items.length === 0) return;
-                html += '<div class="group">'
-                    + '<div class="group-title"><span class="dot ' + s + '"></span>'
-                    + STATUS_META[s].label + " · " + items.length + "</div>"
-                    + items.map(taskCard).join("")
-                    + "</div>";
-            });
-            listEl.innerHTML = html;
+        function renderStats() {
+            var root = countStatus({ children: tasks });
+            document.getElementById("totalCount").textContent = root.total;
+            document.getElementById("todoCount").textContent = root.todo;
+            document.getElementById("doingCount").textContent = root.doing;
+            document.getElementById("doneCount").textContent = root.done;
+            var pct = root.total === 0 ? 0 : Math.round(root.done / root.total * 100);
+            document.getElementById("progressPercent").textContent = pct + "%";
+            document.getElementById("progressFill").style.width = pct + "%";
         }
 
-        // 筛选按钮
+        function renderTree() {
+            var html = tasks.map(function (n) { return renderNode(n, 0); }).join("");
+            treeEl.innerHTML = html || '<div class="empty">暂无任务</div>';
+        }
+
+        // 折叠：点击 caret 切换父节点
+        treeEl.addEventListener("click", function (e) {
+            var caret = e.target.closest(".caret");
+            if (!caret) return;
+            var node = caret.closest(".node");
+            if (!node) return;
+            node.classList.toggle("collapsed");
+        });
+
+        // 键盘支持折叠
+        treeEl.addEventListener("keydown", function (e) {
+            if (e.key !== "Enter" && e.key !== " ") return;
+            var caret = e.target.closest(".caret");
+            if (!caret) return;
+            e.preventDefault();
+            caret.closest(".node").classList.toggle("collapsed");
+        });
+
+        // 筛选
         document.getElementById("filters").addEventListener("click", function (e) {
             var btn = e.target.closest(".filter-btn");
             if (!btn) return;
@@ -348,11 +367,11 @@ title: "待办清单"
             document.querySelectorAll(".filter-btn").forEach(function (b) {
                 b.classList.toggle("active", b === btn);
             });
-            renderList();
+            renderTree();
         });
 
         renderStats();
-        renderList();
+        renderTree();
     })();
     </script>
 </body>
