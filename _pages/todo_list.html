@@ -291,7 +291,7 @@ title: "待办清单"
             var html = "";
             if (t.category) html += '<span class="tag">' + escapeHtml(t.category) + "</span>";
             if (t.due) html += '<span class="tag due">截止 ' + escapeHtml(t.due) + "</span>";
-            if (t.prio === "high") html += '<span class="tag prio-high">高优先</span>";
+            if (t.prio === "high") html += '<span class="tag prio-high">高优先</span>';
             return html ? '<span class="task-meta">' + html + "</span>" : "";
         }
 
