@@ -12,14 +12,8 @@ title: "待办清单"
     <style>
         :root {
             --bg: #f7f8fa;
-            --card: #ffffff;
-            --border: #e3e6eb;
             --text: #1f2329;
-            --text-muted: #8a909a;
-            --line: #c8ced6;
-            --root-bg: #2563eb;
-            --branch-bg: #eef2ff;
-            --branch-bd: #c7d2fe;
+            --text-muted: #6b7280;
             --todo: #9ca3af;
             --doing: #f59e0b;
             --done: #16a34a;
@@ -30,107 +24,128 @@ title: "待办清单"
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
             background: var(--bg);
             color: var(--text);
-            line-height: 1.6;
+            line-height: 1.5;
             -webkit-font-smoothing: antialiased;
         }
         .wrap {
-            max-width: 920px;
+            max-width: 980px;
             margin: 0 auto;
-            padding: 24px 16px 60px;
+            padding: 20px 16px 40px;
         }
-        h1 { font-size: 1.25em; margin: 0 0 4px; }
-        .subtitle { color: var(--text-muted); font-size: 13px; margin: 0 0 18px; }
+        h1 { font-size: 1.2em; margin: 0 0 2px; }
+        .subtitle { color: var(--text-muted); font-size: 13px; margin: 0 0 14px; }
         a.home {
             display: inline-block;
-            margin-bottom: 14px;
-            color: var(--root-bg);
+            margin-bottom: 12px;
+            color: #2563eb;
             text-decoration: none;
             font-size: 13px;
         }
         a.home:hover { text-decoration: underline; }
 
-        .tree {
-            background: var(--card);
-            border: 1px solid var(--border);
-            border-radius: 14px;
-            padding: 18px 16px;
+        .canvas {
+            background: #fff;
+            border: 1px solid #e3e6eb;
+            border-radius: 16px;
+            padding: 12px;
+            overflow: hidden;
         }
-        .node { position: relative; }
-        .node-row {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            padding: 3px 0;
+        svg.mindmap { display: block; width: 100%; height: auto; user-select: none; }
+
+        /* connectors */
+        .link {
+            fill: none;
+            stroke: #c7ccd4;
+            stroke-width: 1.6;
+            stroke-linecap: round;
+            stroke-dasharray: 1200;
+            stroke-dashoffset: 1200;
+            transition: stroke-dashoffset .7s ease, stroke .2s, stroke-width .2s;
         }
-        .children {
-            margin-left: 10px;
-            padding-left: 18px;
-            border-left: 2px dashed var(--line);
+        .ready .link { stroke-dashoffset: 0; }
+        .node.lit > .kids > .link { stroke: #6366f1; stroke-width: 2.6; }
+
+        /* bubbles */
+        .bubble {
+            cursor: default;
+            transform-box: fill-box;
+            transform-origin: center;
+            transition: r .18s ease, filter .2s ease;
+            opacity: 0;
+            transition: opacity .5s ease, r .18s ease, filter .2s ease;
         }
-        .node.collapsed > .children { display: none; }
-        .pill {
-            display: inline-flex;
-            align-items: center;
-            gap: 7px;
-            padding: 5px 14px;
-            border-radius: 999px;
-            font-size: 14px;
-            background: var(--card);
-            border: 1px solid var(--border);
-            white-space: nowrap;
+        .ready .bubble { opacity: 1; }
+        .bubble.parent, .bubble.root { cursor: pointer; }
+        .bubble.parent:hover, .bubble.root:hover {
+            filter: drop-shadow(0 2px 6px rgba(99,102,241,.45));
         }
-        .pill.root {
-            font-weight: 800;
-            font-size: 15px;
-            background: var(--root-bg);
-            color: #fff;
-            border-color: var(--root-bg);
+        .node.collapsed > .bubble { stroke-dasharray: 3 3; }
+        .node.leaf.done .lbl { text-decoration: line-through; fill: var(--text-muted); }
+
+        /* labels */
+        .lbl {
+            font-size: 13px;
+            fill: var(--text);
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity .5s ease;
         }
-        .pill.parent {
-            font-weight: 700;
-            background: var(--branch-bg);
-            border-color: var(--branch-bd);
+        .ready .lbl { opacity: 1; }
+        .bubble + .lbl-on { fill: #fff; font-weight: 700; font-size: 12px; }
+
+        /* root pulse halo */
+        .halo {
+            fill: #2563eb;
+            opacity: 0;
+            transform-box: fill-box;
+            transform-origin: center;
         }
-        .pill.leaf.done {
-            text-decoration: line-through;
-            color: var(--text-muted);
+        .ready .halo { animation: pulse 2.6s ease-out infinite; }
+        @keyframes pulse {
+            0%   { opacity: .35; transform: scale(1); }
+            70%  { opacity: 0;   transform: scale(1.7); }
+            100% { opacity: 0;   transform: scale(1.7); }
         }
-        .dot {
-            width: 9px;
-            height: 9px;
-            border-radius: 50%;
-            flex: 0 0 auto;
-            box-shadow: 0 0 0 2px rgba(0,0,0,.04);
+
+        /* collapse animation */
+        .kids {
+            transform-box: fill-box;
+            transform-origin: 0 0;
+            transition: opacity .32s ease, transform .32s ease;
         }
-        .dot.todo { background: var(--todo); }
-        .dot.doing { background: var(--doing); }
-        .dot.done { background: var(--done); }
-        .caret {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 18px;
-            height: 18px;
-            flex: 0 0 auto;
-            cursor: pointer;
-            color: var(--text-muted);
-            user-select: none;
-            transition: transform .15s;
-            border-radius: 4px;
-            font-size: 10px;
+        .node.collapsed > .kids {
+            opacity: 0;
+            transform: scale(.4);
+            pointer-events: none;
         }
-        .caret:hover { background: #eef1f4; color: var(--text); }
-        .node.collapsed > .node-row > .caret { transform: rotate(-90deg); }
-        .caret-spacer { display: inline-block; width: 18px; flex: 0 0 auto; }
+        .legend {
+            display: flex; gap: 16px; flex-wrap: wrap;
+            font-size: 12px; color: var(--text-muted);
+            margin-top: 12px; padding: 0 6px;
+        }
+        .legend span { display: inline-flex; align-items: center; gap: 5px; }
+        .legend i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+        .legend .i-todo { background: var(--todo); }
+        .legend .i-doing { background: var(--doing); }
+        .legend .i-done { background: var(--done); }
+        .legend .hint { margin-left: auto; }
     </style>
 </head>
 <body>
     <div class="wrap">
         <a href="/" class="home">&larr; 返回首页</a>
         <h1>待办清单</h1>
-        <p class="subtitle">在源码 <code>tasks</code> 树中增删节点；叶子任务改 <code>status</code> 即更新（todo / doing / done）</p>
+        <p class="subtitle">点击圆形节点展开 / 收起子节点。源码 <code>tasks</code> 树中改叶子 <code>status</code> 即更新</p>
 
-        <div class="tree" id="tree"></div>
+        <div class="canvas">
+            <svg class="mindmap" id="mindmap" xmlns="http://www.w3.org/2000/svg"></svg>
+        </div>
+        <div class="legend">
+            <span><i class="i-todo"></i>待办</span>
+            <span><i class="i-doing"></i>进行中</span>
+            <span><i class="i-done"></i>已完成</span>
+            <span class="hint">圆节点可点击折叠</span>
+        </div>
     </div>
 
     <script>
@@ -139,7 +154,7 @@ title: "待办清单"
         //  待办数据（树状）：在此增删节点
         //  · 父节点：{ title, children:[...] }
         //  · 叶子任务：{ title, status }，可选 prio/due/note
-        //  · status 取值：'todo'（待办）/ 'doing'（进行中）/ 'done'（已完成）
+        //  · status：'todo' / 'doing' / 'done'
         // ============================================================
         var tasks = [
             {
@@ -166,51 +181,111 @@ title: "待办清单"
             }
         ];
 
-        var treeEl = document.getElementById("tree");
+        var STATUS = { todo: "#9ca3af", doing: "#f59e0b", done: "#16a34a" };
 
-        function escapeHtml(s) {
+        var LEVEL_X = 210;   // 列间距
+        var LEAF_GAP = 40;   // 叶子纵向间距
+        var TOP = 50;
+        var LEFT = 70;
+        var cursor = { y: TOP };
+
+        function layout(node, depth) {
+            node.depth = depth;
+            node.x = LEFT + depth * LEVEL_X;
+            if (node.children && node.children.length) {
+                node.children.forEach(function (c) { layout(c, depth + 1); });
+                var ys = node.children.map(function (c) { return c.y; });
+                node.y = (Math.min.apply(null, ys) + Math.max.apply(null, ys)) / 2;
+            } else {
+                node.y = cursor.y;
+                cursor.y += LEAF_GAP;
+            }
+        }
+
+        function escapeXml(s) {
             return String(s == null ? "" : s)
                 .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
                 .replace(/"/g, "&quot;");
         }
 
-        function renderNode(node, isRoot) {
-            var hasChildren = node.children && node.children.length;
-            var isLeaf = !hasChildren;
-            var status = node.status || "todo";
-
-            var caret = hasChildren
-                ? '<span class="caret" title="展开/折叠" tabindex="0">&#9660;</span>'
-                : '<span class="caret-spacer"></span>';
-
-            var pillCls = isRoot ? "pill root"
-                : (isLeaf ? "pill leaf " + status : "pill parent");
-            var dot = isLeaf ? '<span class="dot ' + status + '"></span>' : "";
-
-            var childrenHtml = hasChildren
-                ? '<div class="children">' + node.children.map(function (c) { return renderNode(c, false); }).join("") + "</div>"
-                : "";
-
-            return '<div class="node">'
-                + '<div class="node-row">' + caret
-                + '<span class="' + pillCls + '">' + dot + escapeHtml(node.title) + "</span></div>"
-                + childrenHtml
-                + "</div>";
+        function linkPath(x1, y1, x2, y2) {
+            var mx = (x1 + x2) / 2;
+            return "M " + x1 + " " + y1 + " C " + mx + " " + y1 + ", " + mx + " " + y2 + ", " + x2 + " " + y2;
         }
 
-        treeEl.innerHTML = renderNode({ title: "待办清单", children: tasks }, true);
+        function renderNode(node, parentX, parentY) {
+            var lx = node.x - parentX;
+            var ly = node.y - parentY;
+            var isRoot = node.depth === 0;
+            var isLeaf = !node.children || !node.children.length;
+            var hasKids = !isLeaf;
+            var status = node.status || "todo";
+            var color = STATUS[status] || STATUS.todo;
 
-        treeEl.addEventListener("click", function (e) {
-            var caret = e.target.closest(".caret");
-            if (!caret) return;
-            caret.closest(".node").classList.toggle("collapsed");
+            var r = isRoot ? 36 : (isLeaf ? 8 : 28);
+            var cls = "bubble" + (isRoot ? " root" : (isLeaf ? " leaf" : " parent"));
+            var fill = isRoot ? "url(#g-root)" : (isLeaf ? color : "url(#g-branch)");
+            var stroke = isLeaf ? "#fff" : "none";
+            var nodeCls = "node" + (isLeaf ? " leaf " + status : "") + (hasKids ? " parent" : "");
+
+            var html = '<g class="' + nodeCls + '" transform="translate(' + lx + "," + ly + ')">';
+
+            if (isRoot) html += '<circle class="halo" r="' + (r + 2) + '"/>';
+            html += '<circle class="' + cls + '" r="' + r + '" fill="' + fill + '" stroke="' + stroke + '" stroke-width="2"/>';
+
+            if (isLeaf) {
+                html += '<text class="lbl" x="' + (r + 10) + '" y="4">' + escapeXml(node.title) + "</text>";
+            } else {
+                html += '<text class="lbl lbl-on" x="0" y="4" text-anchor="middle">' + escapeXml(node.title) + "</text>";
+            }
+
+            if (hasKids) {
+                html += '<g class="kids">';
+                node.children.forEach(function (c) {
+                    var clx = c.x - node.x;
+                    var cly = c.y - node.y;
+                    html += '<path class="link" d="' + linkPath(0, 0, clx, cly) + '"/>';
+                    html += renderNode(c, node.x, node.y);
+                });
+                html += "</g>";
+            }
+            html += "</g>";
+            return html;
+        }
+
+        var root = { title: "待办清单", children: tasks };
+        layout(root, 0);
+        var width = LEFT + 2 * LEVEL_X + 230;
+        var height = cursor.y + 40;
+
+        var svg = document.getElementById("mindmap");
+        svg.setAttribute("viewBox", "0 0 " + width + " " + height);
+        svg.innerHTML =
+              '<defs>'
+            + '<radialGradient id="g-root" cx="35%" cy="30%"><stop offset="0%" stop-color="#60a5fa"/><stop offset="100%" stop-color="#1d4ed8"/></radialGradient>'
+            + '<radialGradient id="g-branch" cx="35%" cy="30%"><stop offset="0%" stop-color="#a5b4fc"/><stop offset="100%" stop-color="#6366f1"/></radialGradient>'
+            + '</defs>'
+            + renderNode(root, root.x, root.y);
+
+        requestAnimationFrame(function () {
+            svg.classList.add("ready");
         });
-        treeEl.addEventListener("keydown", function (e) {
-            if (e.key !== "Enter" && e.key !== " ") return;
-            var caret = e.target.closest(".caret");
-            if (!caret) return;
-            e.preventDefault();
-            caret.closest(".node").classList.toggle("collapsed");
+
+        svg.addEventListener("click", function (e) {
+            var bubble = e.target.closest(".bubble.parent, .bubble.root");
+            if (!bubble) return;
+            bubble.closest(".node").classList.toggle("collapsed");
+        });
+
+        svg.addEventListener("mouseover", function (e) {
+            var bubble = e.target.closest(".bubble.parent, .bubble.root");
+            if (!bubble) return;
+            bubble.closest(".node").classList.add("lit");
+        });
+        svg.addEventListener("mouseout", function (e) {
+            var bubble = e.target.closest(".bubble.parent, .bubble.root");
+            if (!bubble) return;
+            bubble.closest(".node").classList.remove("lit");
         });
     })();
     </script>
