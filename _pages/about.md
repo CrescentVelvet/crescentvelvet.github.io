@@ -159,6 +159,7 @@ redirect_from:
         <a href="/wish_analyzer.html" class="link-button">抽卡分析</a>
         <a href="/exam_notes/" class="link-button">信创考试</a>
         <a href="/anime-tracker/" class="link-button">动画世代</a>
+        <a href="/todo_list.html" class="link-button">待办清单</a>
         <a href="/game_plane.html" class="link-button">飞机大战</a>
         <a href="/sandbox_war_game.html" class="link-button">沙盘战争</a>
         <a href="/tower_defense.html" class="link-button">塔防战争</a>

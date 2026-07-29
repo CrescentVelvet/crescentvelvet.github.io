@@ -1,0 +1,359 @@
+---
+permalink: /todo_list.html
+layout: null
+title: "待办清单"
+---
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>待办清单</title>
+    <style>
+        :root {
+            --bg: #f7f8fa;
+            --card: #ffffff;
+            --border: #e3e6eb;
+            --text: #1f2329;
+            --text-muted: #8a909a;
+            --accent: #2563eb;
+            --todo: #9ca3af;
+            --todo-bg: #f1f3f5;
+            --doing: #f59e0b;
+            --doing-bg: #fef3c7;
+            --done: #16a34a;
+            --done-bg: #dcfce7;
+            --p-high: #ef4444;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+        }
+        .wrap {
+            max-width: 820px;
+            margin: 0 auto;
+            padding: 24px 16px 60px;
+        }
+        h1 {
+            font-size: 1.4em;
+            margin: 0 0 4px;
+        }
+        .subtitle {
+            color: var(--text-muted);
+            font-size: 13px;
+            margin: 0 0 20px;
+        }
+        .stats {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 14px;
+            flex-wrap: wrap;
+        }
+        .stat {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px 14px;
+            flex: 1;
+            min-width: 90px;
+        }
+        .stat .num {
+            font-size: 1.5em;
+            font-weight: 700;
+            line-height: 1.1;
+        }
+        .stat .lbl {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+        .stat.todo .num { color: var(--todo); }
+        .stat.doing .num { color: var(--doing); }
+        .stat.done .num { color: var(--done); }
+        .progress {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 12px 14px;
+            margin-bottom: 18px;
+        }
+        .progress-top {
+            display: flex;
+            justify-content: space-between;
+            font-size: 13px;
+            margin-bottom: 8px;
+        }
+        .progress-top b { color: var(--accent); }
+        .progress-track {
+            height: 8px;
+            background: #eef0f3;
+            border-radius: 999px;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent), var(--done));
+            border-radius: 999px;
+            transition: width .3s;
+            width: 0;
+        }
+        .filters {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 14px;
+            flex-wrap: wrap;
+        }
+        .filter-btn {
+            border: 1px solid var(--border);
+            background: var(--card);
+            color: var(--text-muted);
+            padding: 6px 14px;
+            border-radius: 999px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all .15s;
+        }
+        .filter-btn:hover { color: var(--text); }
+        .filter-btn.active {
+            background: var(--accent);
+            color: #fff;
+            border-color: var(--accent);
+        }
+        .group {
+            margin-bottom: 18px;
+        }
+        .group-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text-muted);
+            margin: 0 0 8px 2px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .dot.todo { background: var(--todo); }
+        .dot.doing { background: var(--doing); }
+        .dot.done { background: var(--done); }
+        .task {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 12px 14px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        }
+        .task:last-child { margin-bottom: 0; }
+        .task-main { flex: 1; min-width: 0; }
+        .task-title {
+            font-weight: 600;
+            font-size: 14px;
+            margin: 0 0 4px;
+            word-break: break-word;
+        }
+        .task.done .task-title {
+            text-decoration: line-through;
+            color: var(--text-muted);
+        }
+        .task-note {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin: 0;
+            word-break: break-word;
+        }
+        .task-meta {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            margin-top: 6px;
+        }
+        .tag {
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 999px;
+            background: #eef1f4;
+            color: var(--text-muted);
+        }
+        .tag.due { background: #fff1f2; color: #be123c; }
+        .tag.prio-high { background: #fef2f2; color: var(--p-high); }
+        .badge {
+            flex-shrink: 0;
+            font-size: 12px;
+            font-weight: 600;
+            padding: 3px 10px;
+            border-radius: 999px;
+            white-space: nowrap;
+        }
+        .badge.todo { background: var(--todo-bg); color: var(--todo); }
+        .badge.doing { background: var(--doing-bg); color: var(--doing); }
+        .badge.done { background: var(--done-bg); color: var(--done); }
+        .empty {
+            text-align: center;
+            color: var(--text-muted);
+            padding: 40px 0;
+            font-size: 13px;
+        }
+        a.home {
+            display: inline-block;
+            margin-bottom: 16px;
+            color: var(--accent);
+            text-decoration: none;
+            font-size: 13px;
+        }
+        a.home:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <a href="/" class="home">&larr; 返回首页</a>
+        <h1>待办清单</h1>
+        <p class="subtitle">在源码 <code>tasks</code> 数组中增删任务、修改 <code>status</code> 字段即可更新页面</p>
+
+        <div class="stats">
+            <div class="stat"><div class="num" id="totalCount">0</div><div class="lbl">总计</div></div>
+            <div class="stat todo"><div class="num" id="todoCount">0</div><div class="lbl">待办</div></div>
+            <div class="stat doing"><div class="num" id="doingCount">0</div><div class="lbl">进行中</div></div>
+            <div class="stat done"><div class="num" id="doneCount">0</div><div class="lbl">已完成</div></div>
+        </div>
+
+        <div class="progress">
+            <div class="progress-top">
+                <span>整体进度</span>
+                <span><b id="progressPercent">0%</b></span>
+            </div>
+            <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+        </div>
+
+        <div class="filters" id="filters">
+            <button class="filter-btn active" data-filter="all">全部</button>
+            <button class="filter-btn" data-filter="todo">待办</button>
+            <button class="filter-btn" data-filter="doing">进行中</button>
+            <button class="filter-btn" data-filter="done">已完成</button>
+        </div>
+
+        <div id="list"></div>
+    </div>
+
+    <script>
+    (function () {
+        // ============================================================
+        //  待办数据：在此增删任务、修改 status 即可更新页面
+        //  status 取值：'todo'（待办）/ 'doing'（进行中）/ 'done'（已完成）
+        //  可选字段：prio（'high' 高亮）、category（分类标签）、due（截止日期字符串）、note（备注）
+        // ============================================================
+        var tasks = [
+            { title: "完成毕业论文初稿", status: "doing", prio: "high", category: "学业", due: "2026-08-30", note: "重点写第三章实验部分" },
+            { title: "复习线性代数", status: "todo", category: "学业", note: "重点看特征值与SVD" },
+            { title: "整理本月读书笔记", status: "todo", category: "日常", note: "《人类简史》+《设计心理学》" },
+            { title: "搭建个人博客子页面", status: "done", category: "项目", note: "已上线 todo_list 页面" },
+            { title: "每周三次有氧运动", status: "doing", category: "健康", note: "本周已完成2次" },
+            { title: "护照延期办理", status: "todo", prio: "high", category: "日常", due: "2026-09-15" },
+            { title: "学完 Three.js 入门教程", status: "todo", category: "技能" }
+        ];
+
+        var STATUS_META = {
+            todo:  { label: "待办",  order: 1 },
+            doing: { label: "进行中", order: 2 },
+            done:  { label: "已完成", order: 3 }
+        };
+
+        var currentFilter = "all";
+        var listEl = document.getElementById("list");
+
+        function counts() {
+            var c = { todo: 0, doing: 0, done: 0 };
+            tasks.forEach(function (t) { if (c[t.status] !== undefined) c[t.status]++; });
+            return c;
+        }
+
+        function renderStats() {
+            var c = counts();
+            var total = tasks.length;
+            document.getElementById("totalCount").textContent = total;
+            document.getElementById("todoCount").textContent = c.todo;
+            document.getElementById("doingCount").textContent = c.doing;
+            document.getElementById("doneCount").textContent = c.done;
+            var pct = total === 0 ? 0 : Math.round(c.done / total * 100);
+            document.getElementById("progressPercent").textContent = pct + "%";
+            document.getElementById("progressFill").style.width = pct + "%";
+        }
+
+        function escapeHtml(s) {
+            return String(s == null ? "" : s)
+                .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;");
+        }
+
+        function taskCard(t) {
+            var meta = STATUS_META[t.status] || STATUS_META.todo;
+            var tags = "";
+            if (t.category) tags += '<span class="tag">' + escapeHtml(t.category) + "</span>";
+            if (t.due) tags += '<span class="tag due">截止 ' + escapeHtml(t.due) + "</span>";
+            if (t.prio === "high") tags += '<span class="tag prio-high">高优先</span>';
+            return '<div class="task ' + t.status + '">'
+                + '<div class="badge ' + t.status + '">' + meta.label + "</div>"
+                + '<div class="task-main">'
+                + '<div class="task-title">' + escapeHtml(t.title) + "</div>"
+                + (t.note ? '<div class="task-note">' + escapeHtml(t.note) + "</div>" : "")
+                + (tags ? '<div class="task-meta">' + tags + "</div>" : "")
+                + "</div></div>";
+        }
+
+        function renderList() {
+            var filtered = currentFilter === "all"
+                ? tasks.slice()
+                : tasks.filter(function (t) { return t.status === currentFilter; });
+
+            if (filtered.length === 0) {
+                listEl.innerHTML = '<div class="empty">暂无任务</div>';
+                return;
+            }
+
+            if (currentFilter !== "all") {
+                listEl.innerHTML = filtered.map(taskCard).join("");
+                return;
+            }
+
+            // 分组：按 status 聚合，组内按原顺序
+            var groups = ["todo", "doing", "done"];
+            var html = "";
+            groups.forEach(function (s) {
+                var items = filtered.filter(function (t) { return t.status === s; });
+                if (items.length === 0) return;
+                html += '<div class="group">'
+                    + '<div class="group-title"><span class="dot ' + s + '"></span>'
+                    + STATUS_META[s].label + " · " + items.length + "</div>"
+                    + items.map(taskCard).join("")
+                    + "</div>";
+            });
+            listEl.innerHTML = html;
+        }
+
+        // 筛选按钮
+        document.getElementById("filters").addEventListener("click", function (e) {
+            var btn = e.target.closest(".filter-btn");
+            if (!btn) return;
+            currentFilter = btn.dataset.filter;
+            document.querySelectorAll(".filter-btn").forEach(function (b) {
+                b.classList.toggle("active", b === btn);
+            });
+            renderList();
+        });
+
+        renderStats();
+        renderList();
+    })();
+    </script>
+</body>
+</html>
