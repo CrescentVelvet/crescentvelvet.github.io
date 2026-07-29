@@ -16,15 +16,13 @@ title: "待办清单"
             --border: #e3e6eb;
             --text: #1f2329;
             --text-muted: #8a909a;
-            --accent: #2563eb;
+            --line: #c8ced6;
+            --root-bg: #2563eb;
+            --branch-bg: #eef2ff;
+            --branch-bd: #c7d2fe;
             --todo: #9ca3af;
-            --todo-bg: #f1f3f5;
             --doing: #f59e0b;
-            --doing-bg: #fef3c7;
             --done: #16a34a;
-            --done-bg: #dcfce7;
-            --p-high: #ef4444;
-            --tree-line: #dfe3e8;
         }
         * { box-sizing: border-box; }
         body {
@@ -36,179 +34,101 @@ title: "待办清单"
             -webkit-font-smoothing: antialiased;
         }
         .wrap {
-            max-width: 820px;
+            max-width: 920px;
             margin: 0 auto;
             padding: 24px 16px 60px;
         }
-        h1 { font-size: 1.4em; margin: 0 0 4px; }
-        .subtitle { color: var(--text-muted); font-size: 13px; margin: 0 0 20px; }
-        .stats { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
-        .stat {
-            background: var(--card);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 10px 14px;
-            flex: 1;
-            min-width: 90px;
-        }
-        .stat .num { font-size: 1.5em; font-weight: 700; line-height: 1.1; }
-        .stat .lbl { font-size: 12px; color: var(--text-muted); }
-        .stat.todo .num { color: var(--todo); }
-        .stat.doing .num { color: var(--doing); }
-        .stat.done .num { color: var(--done); }
-        .progress {
-            background: var(--card);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 12px 14px;
-            margin-bottom: 18px;
-        }
-        .progress-top { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 8px; }
-        .progress-top b { color: var(--accent); }
-        .progress-track { height: 8px; background: #eef0f3; border-radius: 999px; overflow: hidden; }
-        .progress-fill {
-            height: 100%;
-            background: linear-gradient(90deg, var(--accent), var(--done));
-            border-radius: 999px;
-            transition: width .3s;
-            width: 0;
-        }
-        .filters { display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; }
-        .filter-btn {
-            border: 1px solid var(--border);
-            background: var(--card);
-            color: var(--text-muted);
-            padding: 6px 14px;
-            border-radius: 999px;
-            cursor: pointer;
+        h1 { font-size: 1.25em; margin: 0 0 4px; }
+        .subtitle { color: var(--text-muted); font-size: 13px; margin: 0 0 18px; }
+        a.home {
+            display: inline-block;
+            margin-bottom: 14px;
+            color: var(--root-bg);
+            text-decoration: none;
             font-size: 13px;
-            transition: all .15s;
         }
-        .filter-btn:hover { color: var(--text); }
-        .filter-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+        a.home:hover { text-decoration: underline; }
 
-        .tree { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 8px; }
-        .node { position: relative; }
-        .children {
-            margin-left: 14px;
-            padding-left: 14px;
-            border-left: 1px dashed var(--tree-line);
+        .tree {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 18px 16px;
         }
-        .node.collapsed > .children { display: none; }
-        .row {
+        .node { position: relative; }
+        .node-row {
             display: flex;
             align-items: center;
-            gap: 10px;
-            padding: 9px 8px;
-            border-radius: 8px;
+            gap: 6px;
+            padding: 3px 0;
         }
-        .row.parent { font-weight: 700; font-size: 14px; }
-        .row.leaf { font-size: 14px; }
-        .row.leaf:hover { background: #fafbfc; }
+        .children {
+            margin-left: 10px;
+            padding-left: 18px;
+            border-left: 2px dashed var(--line);
+        }
+        .node.collapsed > .children { display: none; }
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 5px 14px;
+            border-radius: 999px;
+            font-size: 14px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            white-space: nowrap;
+        }
+        .pill.root {
+            font-weight: 800;
+            font-size: 15px;
+            background: var(--root-bg);
+            color: #fff;
+            border-color: var(--root-bg);
+        }
+        .pill.parent {
+            font-weight: 700;
+            background: var(--branch-bg);
+            border-color: var(--branch-bd);
+        }
+        .pill.leaf.done {
+            text-decoration: line-through;
+            color: var(--text-muted);
+        }
+        .dot {
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            flex: 0 0 auto;
+            box-shadow: 0 0 0 2px rgba(0,0,0,.04);
+        }
+        .dot.todo { background: var(--todo); }
+        .dot.doing { background: var(--doing); }
+        .dot.done { background: var(--done); }
         .caret {
             display: inline-flex;
             align-items: center;
             justify-content: center;
             width: 18px;
             height: 18px;
-            flex-shrink: 0;
+            flex: 0 0 auto;
             cursor: pointer;
             color: var(--text-muted);
             user-select: none;
             transition: transform .15s;
             border-radius: 4px;
+            font-size: 10px;
         }
         .caret:hover { background: #eef1f4; color: var(--text); }
-        .node.collapsed > .row > .caret { transform: rotate(-90deg); }
-        .caret-spacer { display: inline-block; width: 18px; flex-shrink: 0; }
-        .node-title { flex: 1; min-width: 0; word-break: break-word; }
-        .row.leaf.done .node-title { text-decoration: line-through; color: var(--text-muted); }
-        .badge {
-            flex-shrink: 0;
-            font-size: 11px;
-            font-weight: 600;
-            padding: 2px 9px;
-            border-radius: 999px;
-            white-space: nowrap;
-        }
-        .badge.todo { background: var(--todo-bg); color: var(--todo); }
-        .badge.doing { background: var(--doing-bg); color: var(--doing); }
-        .badge.done { background: var(--done-bg); color: var(--done); }
-        .parent-progress {
-            flex-shrink: 0;
-            font-size: 12px;
-            color: var(--text-muted);
-            font-variant-numeric: tabular-nums;
-        }
-        .parent-progress .all { color: var(--text-muted); }
-        .parent-progress .fin { color: var(--done); font-weight: 700; }
-        .mini-bar {
-            width: 60px;
-            height: 6px;
-            background: #eef0f3;
-            border-radius: 999px;
-            overflow: hidden;
-            flex-shrink: 0;
-        }
-        .mini-bar > span {
-            display: block;
-            height: 100%;
-            background: var(--done);
-            border-radius: 999px;
-            transition: width .3s;
-            width: 0;
-        }
-        .task-meta { display: flex; gap: 6px; flex-wrap: wrap; flex-shrink: 0; align-items: center; }
-        .tag {
-            font-size: 11px;
-            padding: 2px 8px;
-            border-radius: 999px;
-            background: #eef1f4;
-            color: var(--text-muted);
-            white-space: nowrap;
-        }
-        .tag.due { background: #fff1f2; color: #be123c; }
-        .tag.prio-high { background: #fef2f2; color: var(--p-high); }
-        .note { font-size: 12px; color: var(--text-muted); flex-shrink: 0; }
-        .empty { text-align: center; color: var(--text-muted); padding: 40px 0; font-size: 13px; }
-        a.home {
-            display: inline-block;
-            margin-bottom: 16px;
-            color: var(--accent);
-            text-decoration: none;
-            font-size: 13px;
-        }
-        a.home:hover { text-decoration: underline; }
-        @media (max-width: 560px) {
-            .task-meta { display: none; }
-            .mini-bar { width: 40px; }
-        }
+        .node.collapsed > .node-row > .caret { transform: rotate(-90deg); }
+        .caret-spacer { display: inline-block; width: 18px; flex: 0 0 auto; }
     </style>
 </head>
 <body>
     <div class="wrap">
         <a href="/" class="home">&larr; 返回首页</a>
         <h1>待办清单</h1>
-        <p class="subtitle">在源码 <code>tasks</code> 树中增删节点；叶子任务改 <code>status</code> 即更新页面，父节点进度自动聚合</p>
-
-        <div class="stats">
-            <div class="stat"><div class="num" id="totalCount">0</div><div class="lbl">总计</div></div>
-            <div class="stat todo"><div class="num" id="todoCount">0</div><div class="lbl">待办</div></div>
-            <div class="stat doing"><div class="num" id="doingCount">0</div><div class="lbl">进行中</div></div>
-            <div class="stat done"><div class="num" id="doneCount">0</div><div class="lbl">已完成</div></div>
-        </div>
-
-        <div class="progress">
-            <div class="progress-top"><span>整体进度</span><span><b id="progressPercent">0%</b></span></div>
-            <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
-        </div>
-
-        <div class="filters" id="filters">
-            <button class="filter-btn active" data-filter="all">全部</button>
-            <button class="filter-btn" data-filter="todo">待办</button>
-            <button class="filter-btn" data-filter="doing">进行中</button>
-            <button class="filter-btn" data-filter="done">已完成</button>
-        </div>
+        <p class="subtitle">在源码 <code>tasks</code> 树中增删节点；叶子任务改 <code>status</code> 即更新（todo / doing / done）</p>
 
         <div class="tree" id="tree"></div>
     </div>
@@ -217,10 +137,9 @@ title: "待办清单"
     (function () {
         // ============================================================
         //  待办数据（树状）：在此增删节点
-        //  · 父节点：{ title, children:[...] }，进度自动聚合
-        //  · 叶子任务：{ title, status }，可选 prio/category/due/note
+        //  · 父节点：{ title, children:[...] }
+        //  · 叶子任务：{ title, status }，可选 prio/due/note
         //  · status 取值：'todo'（待办）/ 'doing'（进行中）/ 'done'（已完成）
-        //  · 支持任意层级嵌套（分类下可再有子分类）
         // ============================================================
         var tasks = [
             {
@@ -247,39 +166,7 @@ title: "待办清单"
             }
         ];
 
-        var STATUS_META = {
-            todo:  { label: "待办",  order: 1 },
-            doing: { label: "进行中", order: 2 },
-            done:  { label: "已完成", order: 3 }
-        };
-
-        var currentFilter = "all";
         var treeEl = document.getElementById("tree");
-
-        // 递归统计某节点的叶子状态
-        function countStatus(node) {
-            if (!node.children) {
-                var c = { todo: 0, doing: 0, done: 0, total: 0 };
-                if (node.status === "todo") c.todo = 1;
-                else if (node.status === "doing") c.doing = 1;
-                else if (node.status === "done") c.done = 1;
-                c.total = 1;
-                return c;
-            }
-            var agg = { todo: 0, doing: 0, done: 0, total: 0 };
-            node.children.forEach(function (ch) {
-                var s = countStatus(ch);
-                agg.todo += s.todo; agg.doing += s.doing; agg.done += s.done; agg.total += s.total;
-            });
-            return agg;
-        }
-
-        // 过滤模式下：该节点（含后代）是否有匹配项
-        function nodeMatches(node, filter) {
-            if (filter === "all") return true;
-            if (!node.children) return node.status === filter;
-            return node.children.some(function (ch) { return nodeMatches(ch, filter); });
-        }
 
         function escapeHtml(s) {
             return String(s == null ? "" : s)
@@ -287,70 +174,37 @@ title: "待办清单"
                 .replace(/"/g, "&quot;");
         }
 
-        function leafTags(t) {
-            var html = "";
-            if (t.category) html += '<span class="tag">' + escapeHtml(t.category) + "</span>";
-            if (t.due) html += '<span class="tag due">截止 ' + escapeHtml(t.due) + "</span>";
-            if (t.prio === "high") html += '<span class="tag prio-high">高优先</span>';
-            return html ? '<span class="task-meta">' + html + "</span>" : "";
+        function renderNode(node, isRoot) {
+            var hasChildren = node.children && node.children.length;
+            var isLeaf = !hasChildren;
+            var status = node.status || "todo";
+
+            var caret = hasChildren
+                ? '<span class="caret" title="展开/折叠" tabindex="0">&#9660;</span>'
+                : '<span class="caret-spacer"></span>';
+
+            var pillCls = isRoot ? "pill root"
+                : (isLeaf ? "pill leaf " + status : "pill parent");
+            var dot = isLeaf ? '<span class="dot ' + status + '"></span>' : "";
+
+            var childrenHtml = hasChildren
+                ? '<div class="children">' + node.children.map(function (c) { return renderNode(c, false); }).join("") + "</div>"
+                : "";
+
+            return '<div class="node">'
+                + '<div class="node-row">' + caret
+                + '<span class="' + pillCls + '">' + dot + escapeHtml(node.title) + "</span></div>"
+                + childrenHtml
+                + "</div>";
         }
 
-        function renderNode(node, depth) {
-            // 过滤时跳过无匹配的分支
-            if (!nodeMatches(node, currentFilter)) return "";
+        treeEl.innerHTML = renderNode({ title: "待办清单", children: tasks }, true);
 
-            if (node.children) {
-                var s = countStatus(node);
-                var pct = s.total ? Math.round(s.done / s.total * 100) : 0;
-                var childHtml = node.children.map(function (ch) { return renderNode(ch, depth + 1); }).join("");
-                return '<div class="node" data-depth="' + depth + '">'
-                    + '<div class="row parent">'
-                    + '<span class="caret" title="展开/折叠" tabindex="0">&#9660;</span>'
-                    + '<span class="node-title">' + escapeHtml(node.title) + "</span>"
-                    + '<span class="parent-progress"><span class="fin">' + s.done + "</span><span class=\"all\">/" + s.total + "</span></span>"
-                    + '<span class="mini-bar"><span style="width:' + pct + '%"></span></span>'
-                    + "</div>"
-                    + '<div class="children">' + childHtml + "</div>"
-                    + "</div>";
-            }
-
-            var meta = STATUS_META[node.status] || STATUS_META.todo;
-            return '<div class="node" data-depth="' + depth + '">'
-                + '<div class="row leaf ' + node.status + '">'
-                + '<span class="caret-spacer"></span>'
-                + '<span class="badge ' + node.status + '">' + meta.label + "</span>"
-                + '<span class="node-title">' + escapeHtml(node.title) + "</span>"
-                + leafTags(node)
-                + (node.note ? '<span class="note">' + escapeHtml(node.note) + "</span>" : "")
-                + "</div></div>";
-        }
-
-        function renderStats() {
-            var root = countStatus({ children: tasks });
-            document.getElementById("totalCount").textContent = root.total;
-            document.getElementById("todoCount").textContent = root.todo;
-            document.getElementById("doingCount").textContent = root.doing;
-            document.getElementById("doneCount").textContent = root.done;
-            var pct = root.total === 0 ? 0 : Math.round(root.done / root.total * 100);
-            document.getElementById("progressPercent").textContent = pct + "%";
-            document.getElementById("progressFill").style.width = pct + "%";
-        }
-
-        function renderTree() {
-            var html = tasks.map(function (n) { return renderNode(n, 0); }).join("");
-            treeEl.innerHTML = html || '<div class="empty">暂无任务</div>';
-        }
-
-        // 折叠：点击 caret 切换父节点
         treeEl.addEventListener("click", function (e) {
             var caret = e.target.closest(".caret");
             if (!caret) return;
-            var node = caret.closest(".node");
-            if (!node) return;
-            node.classList.toggle("collapsed");
+            caret.closest(".node").classList.toggle("collapsed");
         });
-
-        // 键盘支持折叠
         treeEl.addEventListener("keydown", function (e) {
             if (e.key !== "Enter" && e.key !== " ") return;
             var caret = e.target.closest(".caret");
@@ -358,20 +212,6 @@ title: "待办清单"
             e.preventDefault();
             caret.closest(".node").classList.toggle("collapsed");
         });
-
-        // 筛选
-        document.getElementById("filters").addEventListener("click", function (e) {
-            var btn = e.target.closest(".filter-btn");
-            if (!btn) return;
-            currentFilter = btn.dataset.filter;
-            document.querySelectorAll(".filter-btn").forEach(function (b) {
-                b.classList.toggle("active", b === btn);
-            });
-            renderTree();
-        });
-
-        renderStats();
-        renderTree();
     })();
     </script>
 </body>
