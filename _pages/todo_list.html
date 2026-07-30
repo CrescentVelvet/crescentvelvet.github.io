@@ -58,47 +58,29 @@ title: "待办清单"
         .ready .link { stroke-dashoffset: 0; }
         .node.lit > .kids > .links > .link { stroke: #6366f1; stroke-width: 2.6; }
 
-        /* bubbles */
+        /* nodes (rounded pills) */
         .bubble {
             cursor: default;
-            transform-box: fill-box;
-            transform-origin: center;
             opacity: 0;
-            transition: opacity .5s ease, stroke-width .18s ease;
+            transition: opacity .5s ease, stroke-width .18s ease, fill .2s ease;
         }
         .ready .bubble { opacity: 1; }
         .bubble.parent, .bubble.root { cursor: pointer; }
-        .bubble.parent:hover, .bubble.root:hover {
-            stroke: #ffffff;
-            stroke-width: 3;
-        }
+        .bubble.parent:hover, .bubble.root:hover { stroke: #ffffff; stroke-width: 2.5; }
         .node.collapsed > .bubble { stroke: #d1d5db; stroke-dasharray: 3 3; }
-        .node.leaf.done .lbl { text-decoration: line-through; fill: var(--text-muted); }
+        .node.leaf.done .lbl { text-decoration: line-through; opacity: .55; }
 
         /* labels */
         .lbl {
             font-size: 13px;
-            fill: var(--text);
+            fill: #ffffff;
             pointer-events: none;
             opacity: 0;
             transition: opacity .5s ease;
         }
         .ready .lbl { opacity: 1; }
-        .bubble + .lbl-on { fill: #fff; font-weight: 700; font-size: 12px; }
-
-        /* root pulse halo */
-        .halo {
-            fill: #2563eb;
-            opacity: 0;
-            transform-box: fill-box;
-            transform-origin: center;
-        }
-        .ready .halo { animation: pulse 2.6s ease-out infinite; }
-        @keyframes pulse {
-            0%   { opacity: .35; transform: scale(1); }
-            70%  { opacity: 0;   transform: scale(1.7); }
-            100% { opacity: 0;   transform: scale(1.7); }
-        }
+        .lbl.root { font-size: 15px; font-weight: 800; }
+        .lbl.lbl-on { font-weight: 700; }
 
         /* collapse animation */
         .kids {
@@ -240,43 +222,57 @@ title: "待办清单"
             var status = node.status || "todo";
             var color = STATUS[status] || STATUS.todo;
 
-            var r = isRoot ? 36 : (isLeaf ? 8 : 28);
-            var cls = "bubble" + (isRoot ? " root" : (isLeaf ? " leaf" : " parent"));
             var fill = isRoot ? "#2563eb" : (isLeaf ? color : "#6366f1");
-            var stroke = isLeaf ? "#fff" : "none";
             var nodeCls = "node" + (isLeaf ? " leaf " + status : "") + (hasKids ? " parent" : "");
+            var bubbleCls = "bubble" + (isRoot ? " root" : (isLeaf ? " leaf" : " parent"));
+            var lblCls = "lbl" + (isRoot ? " root" : (hasKids ? " lbl-on" : ""));
 
             var html = '<g class="' + nodeCls + '" transform="translate(' + lx + "," + ly + ')">';
 
-            if (isRoot) html += '<circle class="halo" r="' + (r + 2) + '"/>';
-
             if (hasKids) {
-                html += '<g class="kids">';
-                html += '<g class="links">';
+                html += '<g class="kids"><g class="links">';
                 node.children.forEach(function (c) {
                     var clx = c.x - node.x;
                     var cly = c.y - node.y;
                     html += '<path class="link" d="' + linkPath(0, 0, clx, cly) + '"/>';
                 });
-                html += '</g>';
-                html += '<g class="nodes">';
+                html += '</g><g class="nodes">';
                 node.children.forEach(function (c) {
                     html += renderNode(c, node.x, node.y);
                 });
-                html += '</g>';
-                html += '</g>';
+                html += '</g></g>';
             }
 
-            html += '<circle class="' + cls + '" r="' + r + '" fill="' + fill + '" stroke="' + stroke + '" stroke-width="2"/>';
-
-            if (isLeaf) {
-                html += '<text class="lbl" x="' + (r + 10) + '" y="4">' + escapeXml(node.title) + "</text>";
-            } else {
-                html += '<text class="lbl lbl-on" x="0" y="4" text-anchor="middle">' + escapeXml(node.title) + "</text>";
-            }
+            // pill: sized to text after render (sizePills)
+            html += '<rect class="' + bubbleCls + '" x="-40" y="-15" width="80" height="30" rx="15" fill="' + fill + '"/>';
+            html += '<text class="' + lblCls + '" x="0" y="1" text-anchor="middle" dominant-baseline="central">' + escapeXml(node.title) + '</text>';
             html += "</g>";
             return html;
         }
+
+        function sizePills() {
+            var rects = svg.querySelectorAll("rect.bubble");
+            for (var i = 0; i < rects.length; i++) {
+                var rect = rects[i];
+                var text = rect.nextElementSibling;
+                if (!text || text.tagName.toLowerCase() !== "text") continue;
+                var bb = text.getBBox();
+                if (!bb.width) continue;
+                var padX = isRootOf(rect) ? 20 : 15, padY = 7;
+                var w = bb.width + padX * 2, h = bb.height + padY * 2;
+                rect.setAttribute("x", (-w / 2).toFixed(1));
+                rect.setAttribute("y", (-h / 2).toFixed(1));
+                rect.setAttribute("width", w.toFixed(1));
+                rect.setAttribute("height", h.toFixed(1));
+                rect.setAttribute("rx", (h / 2).toFixed(1));
+            }
+            var cb = svg.getBBox();
+            if (cb.width && cb.height) {
+                var pad = 30;
+                svg.setAttribute("viewBox", (cb.x - pad) + " " + (cb.y - pad) + " " + (cb.width + pad * 2) + " " + (cb.height + pad * 2));
+            }
+        }
+        function isRootOf(rect) { return rect.classList.contains("root"); }
 
         var root = { title: "待办清单", children: tasks };
         layout(root, 0);
@@ -287,7 +283,9 @@ title: "待办清单"
         svg.setAttribute("viewBox", "0 0 " + width + " " + height);
         svg.innerHTML = renderNode(root, 0, 0);
 
+        sizePills();
         requestAnimationFrame(function () {
+            sizePills();
             svg.classList.add("ready");
         });
 
