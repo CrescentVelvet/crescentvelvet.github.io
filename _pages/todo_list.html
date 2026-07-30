@@ -278,10 +278,10 @@ title: "待办清单"
                 html += '</g></g>';
             }
 
-            // pill: sized to text after render (sizePills); 父节点随深度:字号/padding递减,字距递增
+            // pill: sized to text after render (sizePills); 父节点随深度:字号/padding/字距/颜色均递减(根最大最深)
             var padX = hasKids ? Math.max(12, 20 - node.depth * 3) : 15;
             var fs = hasKids ? Math.max(14, 17 - node.depth * 2) : 13;
-            var ls = hasKids ? Math.min(3, node.depth * 1.5) : 0;
+            var ls = hasKids ? Math.max(0, 4 - node.depth) : 0;
             html += '<rect class="' + bubbleCls + '" x="-40" y="-15" width="80" height="30" rx="15" fill="' + fill + '" data-pad="' + padX + '"/>';
             var tstyle = hasKids ? ' style="font-size:' + fs + 'px;letter-spacing:' + ls + 'px"' : "";
             html += '<text class="' + lblCls + '"' + tstyle + ' x="0" y="1" text-anchor="middle" dominant-baseline="central">' + escapeXml(node.title) + '</text>';
