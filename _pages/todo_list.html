@@ -56,7 +56,7 @@ title: "待办清单"
             transition: stroke-dashoffset .7s ease, stroke .2s, stroke-width .2s;
         }
         .ready .link { stroke-dashoffset: 0; }
-        .node.lit > .kids > .link { stroke: #6366f1; stroke-width: 2.6; }
+        .node.lit > .kids > .links > .link { stroke: #6366f1; stroke-width: 2.6; }
 
         /* bubbles */
         .bubble {
@@ -222,23 +222,30 @@ title: "待办清单"
             var html = '<g class="' + nodeCls + '" transform="translate(' + lx + "," + ly + ')">';
 
             if (isRoot) html += '<circle class="halo" r="' + (r + 2) + '"/>';
+
+            if (hasKids) {
+                html += '<g class="kids">';
+                html += '<g class="links">';
+                node.children.forEach(function (c) {
+                    var clx = c.x - node.x;
+                    var cly = c.y - node.y;
+                    html += '<path class="link" d="' + linkPath(0, 0, clx, cly) + '"/>';
+                });
+                html += '</g>';
+                html += '<g class="nodes">';
+                node.children.forEach(function (c) {
+                    html += renderNode(c, node.x, node.y);
+                });
+                html += '</g>';
+                html += '</g>';
+            }
+
             html += '<circle class="' + cls + '" r="' + r + '" fill="' + fill + '" stroke="' + stroke + '" stroke-width="2"/>';
 
             if (isLeaf) {
                 html += '<text class="lbl" x="' + (r + 10) + '" y="4">' + escapeXml(node.title) + "</text>";
             } else {
                 html += '<text class="lbl lbl-on" x="0" y="4" text-anchor="middle">' + escapeXml(node.title) + "</text>";
-            }
-
-            if (hasKids) {
-                html += '<g class="kids">';
-                node.children.forEach(function (c) {
-                    var clx = c.x - node.x;
-                    var cly = c.y - node.y;
-                    html += '<path class="link" d="' + linkPath(0, 0, clx, cly) + '"/>';
-                    html += renderNode(c, node.x, node.y);
-                });
-                html += "</g>";
             }
             html += "</g>";
             return html;
