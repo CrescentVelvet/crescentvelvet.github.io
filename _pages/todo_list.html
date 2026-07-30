@@ -63,16 +63,16 @@ title: "待办清单"
             cursor: default;
             transform-box: fill-box;
             transform-origin: center;
-            transition: r .18s ease, filter .2s ease;
             opacity: 0;
-            transition: opacity .5s ease, r .18s ease, filter .2s ease;
+            transition: opacity .5s ease, stroke-width .18s ease;
         }
         .ready .bubble { opacity: 1; }
         .bubble.parent, .bubble.root { cursor: pointer; }
         .bubble.parent:hover, .bubble.root:hover {
-            filter: drop-shadow(0 2px 6px rgba(99,102,241,.45));
+            stroke: #ffffff;
+            stroke-width: 3;
         }
-        .node.collapsed > .bubble { stroke-dasharray: 3 3; }
+        .node.collapsed > .bubble { stroke: #d1d5db; stroke-dasharray: 3 3; }
         .node.leaf.done .lbl { text-decoration: line-through; fill: var(--text-muted); }
 
         /* labels */
@@ -166,12 +166,12 @@ title: "待办清单"
                     {
                         title: "人脸增强模块",
                         children: [
-                            { title: "HYPIR模型复现",   status: "todo" },
-                            { title: "退化数据集构建",   status: "todo" },
-                            { title: "美颜数据集构建",   status: "todo" },
-                            { title: "模型训练",         status: "todo" },
-                            { title: "自测实验报告",     status: "todo" },
-                            { title: "转测邮件",         status: "todo" }
+                            { title: "HYPIR模型复现",   status: "done" },
+                            { title: "退化数据集构建",   status: "done" },
+                            { title: "美颜数据集构建",   status: "done" },
+                            { title: "模型训练",         status: "done" },
+                            { title: "自测实验报告",     status: "done" },
+                            { title: "转测邮件",         status: "done" }
                         ]
                     },
                     {
@@ -184,10 +184,10 @@ title: "待办清单"
                     {
                         title: "去噪重建模块",
                         children: [
-                            { title: "端侧稠密重建算法卡片", status: "todo" },
-                            { title: "端侧去噪重建算法卡片", status: "todo" },
-                            { title: "端侧路由配置",         status: "todo" },
-                            { title: "云侧docker-compose",   status: "todo" },
+                            { title: "端侧稠密重建算法卡片", status: "done" },
+                            { title: "端侧去噪重建算法卡片", status: "done" },
+                            { title: "端侧路由配置",         status: "done" },
+                            { title: "云侧docker-compose",   status: "done" },
                             { title: "云侧端到端脚本",       status: "todo" },
                             { title: "端云接口对齐",         status: "todo" },
                             { title: "云侧算法查询回调",     status: "todo" }
@@ -242,7 +242,7 @@ title: "待办清单"
 
             var r = isRoot ? 36 : (isLeaf ? 8 : 28);
             var cls = "bubble" + (isRoot ? " root" : (isLeaf ? " leaf" : " parent"));
-            var fill = isRoot ? "url(#g-root)" : (isLeaf ? color : "url(#g-branch)");
+            var fill = isRoot ? "#2563eb" : (isLeaf ? color : "#6366f1");
             var stroke = isLeaf ? "#fff" : "none";
             var nodeCls = "node" + (isLeaf ? " leaf " + status : "") + (hasKids ? " parent" : "");
 
@@ -285,12 +285,7 @@ title: "待办清单"
 
         var svg = document.getElementById("mindmap");
         svg.setAttribute("viewBox", "0 0 " + width + " " + height);
-        svg.innerHTML =
-              '<defs>'
-            + '<radialGradient id="g-root" cx="35%" cy="30%"><stop offset="0%" stop-color="#60a5fa"/><stop offset="100%" stop-color="#1d4ed8"/></radialGradient>'
-            + '<radialGradient id="g-branch" cx="35%" cy="30%"><stop offset="0%" stop-color="#a5b4fc"/><stop offset="100%" stop-color="#6366f1"/></radialGradient>'
-            + '</defs>'
-            + renderNode(root, 0, 0);
+        svg.innerHTML = renderNode(root, 0, 0);
 
         requestAnimationFrame(function () {
             svg.classList.add("ready");
