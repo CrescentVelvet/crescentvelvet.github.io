@@ -43,13 +43,6 @@ title: "待办清单"
         }
         a.home:hover { text-decoration: underline; }
 
-        .canvas {
-            background: #fff;
-            border: 1px solid #e3e6eb;
-            border-radius: 16px;
-            padding: 12px;
-            overflow: hidden;
-        }
         svg.mindmap { display: block; width: 100%; height: auto; user-select: none; }
 
         /* connectors */
@@ -137,9 +130,7 @@ title: "待办清单"
         <h1>待办清单</h1>
         <p class="subtitle">点击圆形节点展开 / 收起子节点。源码 <code>tasks</code> 树中改叶子 <code>status</code> 即更新</p>
 
-        <div class="canvas">
-            <svg class="mindmap" id="mindmap" xmlns="http://www.w3.org/2000/svg"></svg>
-        </div>
+        <svg class="mindmap" id="mindmap" xmlns="http://www.w3.org/2000/svg"></svg>
         <div class="legend">
             <span><i class="i-todo"></i>待办</span>
             <span><i class="i-doing"></i>进行中</span>
