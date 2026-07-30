@@ -102,8 +102,7 @@ title: "待办清单"
 
         /* collapse animation */
         .kids {
-            transform-box: fill-box;
-            transform-origin: 0 0;
+            transform-box: view-box;
             transition: opacity .32s ease, transform .32s ease;
         }
         .node.collapsed > .kids {
@@ -231,7 +230,7 @@ title: "待办清单"
             }
 
             if (hasKids) {
-                html += '<g class="kids">';
+                html += '<g class="kids" style="transform-origin:' + node.x + 'px ' + node.y + 'px">';
                 node.children.forEach(function (c) {
                     var clx = c.x - node.x;
                     var cly = c.y - node.y;
