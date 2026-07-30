@@ -333,6 +333,8 @@ title: "待办清单"
                 var g = svg.querySelector('[data-id="' + id + '"]');
                 if (g) g.classList.add("collapsed");
             }
+            var prev = svg.querySelector(".node.selected");
+            if (prev) prev.classList.remove("selected");
             if (selectedId != null) {
                 var sg = svg.querySelector('[data-id="' + selectedId + '"]');
                 if (sg) sg.classList.add("selected");
