@@ -161,14 +161,14 @@ title: "待办清单"
     <div class="wrap">
         <a href="/" class="home">&larr; 返回首页</a>
         <h1>待办清单</h1>
-        <p class="subtitle">单击节点选中编辑 · 双击父节点折叠 · 改完点「导出 JSON」下载覆盖 <code>assets/data/todo_list.json</code></p>
+        <p class="subtitle">单击父节点折叠 · 双击节点选中编辑 · 改完点「导出 JSON」下载覆盖 <code>assets/data/todo_list.json</code></p>
 
         <svg class="mindmap" id="mindmap" xmlns="http://www.w3.org/2000/svg"></svg>
         <div class="legend">
             <span><i class="i-todo"></i>待办</span>
             <span><i class="i-doing"></i>进行中</span>
             <span><i class="i-done"></i>已完成</span>
-            <span class="hint">单击选中 · 双击折叠</span>
+            <span class="hint">单击折叠 · 双击编辑</span>
         </div>
 
         <div class="toolbar">
@@ -426,22 +426,30 @@ title: "待办清单"
         });
         document.getElementById("btnReset").addEventListener("click", load);
 
+        var collapseTimer = null;
+        function toggleCollapse(node) {
+            var id = parseInt(node.getAttribute("data-id"), 10);
+            if (node.classList.contains("collapsed")) { delete collapsed[id]; }
+            else { collapsed[id] = true; }
+            node.classList.toggle("collapsed");
+        }
         svg.addEventListener("click", function (e) {
-            var bubble = e.target.closest(".bubble");
-            if (!bubble) return;
-            var g = bubble.closest(".node");
-            if (!g) return;
-            selectedId = parseInt(g.getAttribute("data-id"), 10);
-            applyState();
-        });
-        svg.addEventListener("dblclick", function (e) {
             var bubble = e.target.closest(".bubble.parent, .bubble.root");
             if (!bubble) return;
-            var g = bubble.closest(".node");
-            var id = parseInt(g.getAttribute("data-id"), 10);
-            if (g.classList.contains("collapsed")) { delete collapsed[id]; }
-            else { collapsed[id] = true; }
-            g.classList.toggle("collapsed");
+            var node = bubble.closest(".node");
+            if (collapseTimer) clearTimeout(collapseTimer);
+            collapseTimer = setTimeout(function () {
+                collapseTimer = null;
+                toggleCollapse(node);
+            }, 220);
+        });
+        svg.addEventListener("dblclick", function (e) {
+            if (collapseTimer) { clearTimeout(collapseTimer); collapseTimer = null; }
+            var bubble = e.target.closest(".bubble");
+            if (!bubble) return;
+            var node = bubble.closest(".node");
+            selectedId = parseInt(node.getAttribute("data-id"), 10);
+            applyState();
         });
         svg.addEventListener("mouseover", function (e) {
             var bubble = e.target.closest(".bubble.parent, .bubble.root");
