@@ -256,7 +256,7 @@ title: "待办清单"
             + '<radialGradient id="g-root" cx="35%" cy="30%"><stop offset="0%" stop-color="#60a5fa"/><stop offset="100%" stop-color="#1d4ed8"/></radialGradient>'
             + '<radialGradient id="g-branch" cx="35%" cy="30%"><stop offset="0%" stop-color="#a5b4fc"/><stop offset="100%" stop-color="#6366f1"/></radialGradient>'
             + '</defs>'
-            + renderNode(root, root.x, root.y);
+            + renderNode(root, 0, 0);
 
         requestAnimationFrame(function () {
             svg.classList.add("ready");
