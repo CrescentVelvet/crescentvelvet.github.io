@@ -9,6 +9,9 @@ title: "待办清单"
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>待办清单</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=ZCOOL+QingKe+HuangYou&family=DotGothic16&display=swap" rel="stylesheet">
     <style>
         :root {
             --bg: #f7f8fa;
@@ -72,6 +75,7 @@ title: "待办清单"
 
         /* labels */
         .lbl {
+            font-family: 'Microsoft YaHei', '微软雅黑', sans-serif;
             font-size: 13px;
             fill: #ffffff;
             pointer-events: none;
@@ -79,8 +83,8 @@ title: "待办清单"
             transition: opacity .5s ease;
         }
         .ready .lbl { opacity: 1; }
-        .lbl.root { font-size: 15px; font-weight: 800; }
-        .lbl.lbl-on { font-weight: 700; }
+        .lbl.root { font-family: 'ZCOOL QingKe HuangYou', 'DotGothic16', monospace; font-size: 15px; font-weight: 800; }
+        .lbl.lbl-on { font-family: 'ZCOOL QingKe HuangYou', 'DotGothic16', monospace; font-weight: 700; }
 
         /* collapse animation */
         .kids {
@@ -288,6 +292,7 @@ title: "待办清单"
             sizePills();
             svg.classList.add("ready");
         });
+        if (document.fonts && document.fonts.ready) document.fonts.ready.then(sizePills);
 
         svg.addEventListener("click", function (e) {
             var bubble = e.target.closest(".bubble.parent, .bubble.root");
