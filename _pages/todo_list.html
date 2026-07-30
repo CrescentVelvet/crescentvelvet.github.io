@@ -108,20 +108,91 @@ title: "待办清单"
         .legend .i-doing { background: var(--doing); }
         .legend .i-done { background: var(--done); }
         .legend .hint { margin-left: auto; }
+
+        /* selected node + editor */
+        .node.selected > .bubble { stroke: #f59e0b; stroke-width: 3; }
+        .toolbar { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+        .editor {
+            margin-top: 12px;
+            background: #fff;
+            border: 1px solid #e3e6eb;
+            border-radius: 12px;
+            padding: 12px 14px;
+        }
+        .ed-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+        .ed-row:last-child { margin-bottom: 0; }
+        .sel-info { font-size: 12px; color: var(--text-muted); }
+        .ed-btn {
+            border: 1px solid #d0d4da;
+            background: #fff;
+            color: var(--text);
+            padding: 6px 14px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: background .15s, border-color .15s, color .15s;
+        }
+        .ed-btn:hover:not(:disabled) { background: #f3f4f6; }
+        .ed-btn:disabled { opacity: .45; cursor: default; }
+        .ed-btn.primary { background: #2563eb; border-color: #2563eb; color: #fff; }
+        .ed-btn.primary:hover { background: #1d4ed8; }
+        .ed-btn.danger { color: #dc2626; border-color: #fecaca; }
+        .ed-btn.danger:hover { background: #fef2f2; }
+        .ed-input {
+            flex: 1; min-width: 160px;
+            padding: 7px 10px;
+            border: 1px solid #d0d4da;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+        }
+        .ed-input:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,.15); }
+        .ed-select {
+            padding: 7px 10px;
+            border: 1px solid #d0d4da;
+            border-radius: 8px;
+            font-size: 14px;
+            background: #fff;
+            font-family: inherit;
+        }
     </style>
 </head>
 <body>
     <div class="wrap">
         <a href="/" class="home">&larr; 返回首页</a>
         <h1>待办清单</h1>
-        <p class="subtitle">点击圆形节点展开 / 收起子节点。源码 <code>tasks</code> 树中改叶子 <code>status</code> 即更新</p>
+        <p class="subtitle">单击节点选中编辑 · 双击父节点折叠 · 改完点「导出 JSON」下载覆盖 <code>assets/data/todo_list.json</code></p>
 
         <svg class="mindmap" id="mindmap" xmlns="http://www.w3.org/2000/svg"></svg>
         <div class="legend">
             <span><i class="i-todo"></i>待办</span>
             <span><i class="i-doing"></i>进行中</span>
             <span><i class="i-done"></i>已完成</span>
-            <span class="hint">圆节点可点击折叠</span>
+            <span class="hint">单击选中 · 双击折叠</span>
+        </div>
+
+        <div class="toolbar">
+            <button id="btnExport" class="ed-btn primary" type="button">导出 JSON</button>
+            <button id="btnReset" class="ed-btn" type="button">重置（重载文件）</button>
+        </div>
+
+        <div class="editor" id="editor" style="display:none">
+            <div class="ed-row">
+                <span id="selInfo" class="sel-info"></span>
+            </div>
+            <div class="ed-row">
+                <input id="selTitle" type="text" class="ed-input" placeholder="标题">
+                <select id="selStatus" class="ed-select">
+                    <option value="todo">待办</option>
+                    <option value="doing">进行中</option>
+                    <option value="done">已完成</option>
+                </select>
+            </div>
+            <div class="ed-row">
+                <button id="btnAddChild" class="ed-btn" type="button">+ 子节点</button>
+                <button id="btnCollapse" class="ed-btn" type="button">折叠/展开</button>
+                <button id="btnDelete" class="ed-btn danger" type="button">删除</button>
+            </div>
         </div>
     </div>
 
@@ -178,7 +249,7 @@ title: "待办清单"
             var bubbleCls = "bubble" + (isRoot ? " root" : (isLeaf ? " leaf" : " parent"));
             var lblCls = "lbl" + (isRoot ? " root" : (hasKids ? " lbl-on" : ""));
 
-            var html = '<g class="' + nodeCls + '" transform="translate(' + lx + "," + ly + ')">';
+            var html = '<g class="' + nodeCls + '" data-id="' + node._id + '" transform="translate(' + lx + "," + ly + ')">';
 
             if (hasKids) {
                 html += '<g class="kids"><g class="links">';
@@ -227,40 +298,151 @@ title: "待办清单"
 
         var root = null;
         var svg = document.getElementById("mindmap");
+        var selectedId = null;
+        var collapsed = {};
+        var nextId = 1;
+
+        function assignIds(node, parent) {
+            node._id = nextId++;
+            node._parent = parent;
+            if (node.children) node.children.forEach(function (c) { assignIds(c, node); });
+        }
+        function findNode(id, n) {
+            n = n || root;
+            if (n._id === id) return n;
+            if (n.children) for (var i = 0; i < n.children.length; i++) { var r = findNode(id, n.children[i]); if (r) return r; }
+            return null;
+        }
+        function isLeaf(n) { return !n.children || !n.children.length; }
 
         function render(rootNode) {
+            cursor.y = TOP;
+            maxDepth = 0;
             layout(rootNode, 0);
             var width = LEFT + maxDepth * LEVEL_X + 240;
             var height = cursor.y + 40;
             svg.setAttribute("viewBox", "0 0 " + width + " " + height);
             svg.innerHTML = renderNode(rootNode, 0, 0);
             sizePills();
-            requestAnimationFrame(function () {
-                sizePills();
-                svg.classList.add("ready");
-            });
+            requestAnimationFrame(function () { sizePills(); svg.classList.add("ready"); });
             if (document.fonts && document.fonts.ready) document.fonts.ready.then(sizePills);
+            applyState();
+        }
+        function applyState() {
+            for (var id in collapsed) {
+                var g = svg.querySelector('[data-id="' + id + '"]');
+                if (g) g.classList.add("collapsed");
+            }
+            if (selectedId != null) {
+                var sg = svg.querySelector('[data-id="' + selectedId + '"]');
+                if (sg) sg.classList.add("selected");
+            }
+            updatePanel();
         }
 
-        fetch("assets/data/todo_list.json")
-            .then(function (r) {
-                if (!r.ok) throw new Error("HTTP " + r.status);
-                return r.json();
-            })
-            .then(function (data) {
-                root = data;
-                render(root);
-            })
-            .catch(function (e) {
-                svg.textContent = "加载待办数据失败：" + e.message;
-            });
+        var panel = document.getElementById("editor");
+        var selInfo = document.getElementById("selInfo");
+        var selTitle = document.getElementById("selTitle");
+        var selStatus = document.getElementById("selStatus");
+        var btnAddChild = document.getElementById("btnAddChild");
+        var btnDelete = document.getElementById("btnDelete");
+        var btnCollapse = document.getElementById("btnCollapse");
 
-        svg.addEventListener("click", function (e) {
-            var bubble = e.target.closest(".bubble.parent, .bubble.root");
-            if (!bubble) return;
-            bubble.closest(".node").classList.toggle("collapsed");
+        function updatePanel() {
+            var n = selectedId == null ? null : findNode(selectedId);
+            if (!n) { panel.style.display = "none"; return; }
+            panel.style.display = "";
+            var kind = n === root ? "根节点" : (isLeaf(n) ? "叶子任务" : "父节点");
+            var chain = n._parent ? " · 上级：" + n._parent.title : "";
+            selInfo.textContent = kind + chain;
+            if (document.activeElement !== selTitle) selTitle.value = n.title || "";
+            var leaf = isLeaf(n);
+            selStatus.style.display = leaf ? "" : "none";
+            if (leaf && document.activeElement !== selStatus) selStatus.value = n.status || "todo";
+            btnAddChild.disabled = false;
+            btnDelete.disabled = (n === root);
+            btnCollapse.style.display = leaf ? "none" : "";
+        }
+
+        selTitle.addEventListener("input", function () {
+            var n = findNode(selectedId);
+            if (!n) return;
+            n.title = selTitle.value;
+            render(root);
+        });
+        selStatus.addEventListener("change", function () {
+            var n = findNode(selectedId);
+            if (!n || !isLeaf(n)) return;
+            n.status = selStatus.value;
+            render(root);
+        });
+        btnAddChild.addEventListener("click", function () {
+            var n = findNode(selectedId);
+            if (!n) return;
+            n.children = n.children || [];
+            var child = { title: "新节点", status: "todo", _parent: n, _id: nextId++ };
+            n.children.push(child);
+            selectedId = child._id;
+            render(root);
+            selTitle.focus();
+            selTitle.select();
+        });
+        btnDelete.addEventListener("click", function () {
+            var n = findNode(selectedId);
+            if (!n || n === root) return;
+            var p = n._parent;
+            var i = p.children.indexOf(n);
+            if (i >= 0) p.children.splice(i, 1);
+            delete collapsed[n._id];
+            selectedId = p._id;
+            render(root);
+        });
+        btnCollapse.addEventListener("click", function () {
+            var n = findNode(selectedId);
+            if (!n || isLeaf(n)) return;
+            if (collapsed[selectedId]) delete collapsed[selectedId]; else collapsed[selectedId] = true;
+            render(root);
         });
 
+        function cleanNode(n) {
+            var o = { title: n.title };
+            if (n.status && isLeaf(n)) o.status = n.status;
+            if (n.prio) o.prio = n.prio;
+            if (n.due) o.due = n.due;
+            if (n.note) o.note = n.note;
+            if (n.children && n.children.length) o.children = n.children.map(cleanNode);
+            return o;
+        }
+        document.getElementById("btnExport").addEventListener("click", function () {
+            var blob = new Blob([JSON.stringify(cleanNode(root), null, 2)], { type: "application/json" });
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement("a");
+            a.href = url;
+            a.download = "todo_list.json";
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+        });
+        document.getElementById("btnReset").addEventListener("click", load);
+
+        svg.addEventListener("click", function (e) {
+            var bubble = e.target.closest(".bubble");
+            if (!bubble) return;
+            var g = bubble.closest(".node");
+            if (!g) return;
+            selectedId = parseInt(g.getAttribute("data-id"), 10);
+            applyState();
+        });
+        svg.addEventListener("dblclick", function (e) {
+            var bubble = e.target.closest(".bubble.parent, .bubble.root");
+            if (!bubble) return;
+            var g = bubble.closest(".node");
+            var id = parseInt(g.getAttribute("data-id"), 10);
+            if (g.classList.contains("collapsed")) { delete collapsed[id]; }
+            else { collapsed[id] = true; }
+            g.classList.toggle("collapsed");
+        });
         svg.addEventListener("mouseover", function (e) {
             var bubble = e.target.closest(".bubble.parent, .bubble.root");
             if (!bubble) return;
@@ -271,6 +453,26 @@ title: "待办清单"
             if (!bubble) return;
             bubble.closest(".node").classList.remove("lit");
         });
+
+        function load() {
+            fetch("assets/data/todo_list.json")
+                .then(function (r) {
+                    if (!r.ok) throw new Error("HTTP " + r.status);
+                    return r.json();
+                })
+                .then(function (data) {
+                    root = data;
+                    nextId = 1;
+                    assignIds(root, null);
+                    selectedId = root._id;
+                    collapsed = {};
+                    render(root);
+                })
+                .catch(function (e) {
+                    svg.textContent = "加载待办数据失败：" + e.message;
+                });
+        }
+        load();
     })();
     </script>
 </body>
