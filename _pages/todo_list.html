@@ -127,61 +127,8 @@ title: "待办清单"
 
     <script>
     (function () {
-        // ============================================================
-        //  待办数据（树状）：在此增删节点
-        //  · 父节点：{ title, children:[...] }
-        //  · 叶子任务：{ title, status }，可选 prio/due/note
-        //  · status：'todo' / 'doing' / 'done'
-        // ============================================================
-        var tasks = [
-            {
-                title: "生活方面",
-                children: [
-                    { title: "收拾行李",       status: "todo", prio: "high", due: "2026-08-30", note: "先打包非必需物品" },
-                    { title: "公寓申请退房",   status: "todo", due: "2026-08-25", note: "联系物业提交退房申请" },
-                    { title: "路由器退还",     status: "todo", note: "宽带运营商归还设备" },
-                    { title: "电竞桌打包",     status: "todo" },
-                    { title: "显示器打包",     status: "todo", note: "原装箱+气泡膜" },
-                    { title: "电脑主机打包",   status: "todo", prio: "high", note: "防震填充" },
-                    { title: "快递寄送",       status: "todo", due: "2026-08-28", note: "预约上门取件" }
-                ]
-            },
-            {
-                title: "工作方面",
-                children: [
-                    {
-                        title: "人脸增强模块",
-                        children: [
-                            { title: "HYPIR模型复现",   status: "done" },
-                            { title: "退化数据集构建",   status: "done" },
-                            { title: "美颜数据集构建",   status: "done" },
-                            { title: "模型训练",         status: "done" },
-                            { title: "自测实验报告",     status: "done" },
-                            { title: "转测邮件",         status: "done" }
-                        ]
-                    },
-                    {
-                        title: "人脸微动模块",
-                        children: [
-                            { title: "论文调研与探索", status: "todo" },
-                            { title: "实习生安排",     status: "todo" }
-                        ]
-                    },
-                    {
-                        title: "去噪重建模块",
-                        children: [
-                            { title: "端侧稠密重建算法卡片", status: "done" },
-                            { title: "端侧去噪重建算法卡片", status: "done" },
-                            { title: "端侧路由配置",         status: "done" },
-                            { title: "云侧docker-compose",   status: "done" },
-                            { title: "云侧端到端脚本",       status: "todo" },
-                            { title: "端云接口对齐",         status: "todo" },
-                            { title: "云侧算法查询回调",     status: "todo" }
-                        ]
-                    }
-                ]
-            }
-        ];
+        // 待办数据已外置到 /assets/data/todo_list.json，下方通过 fetch 加载
+        var tasks = [];
 
         var STATUS = { todo: "#9ca3af", doing: "#f59e0b", done: "#16a34a" };
 
@@ -278,21 +225,35 @@ title: "待办清单"
         }
         function isRootOf(rect) { return rect.classList.contains("root"); }
 
-        var root = { title: "待办清单", children: tasks };
-        layout(root, 0);
-        var width = LEFT + maxDepth * LEVEL_X + 240;
-        var height = cursor.y + 40;
-
+        var root = null;
         var svg = document.getElementById("mindmap");
-        svg.setAttribute("viewBox", "0 0 " + width + " " + height);
-        svg.innerHTML = renderNode(root, 0, 0);
 
-        sizePills();
-        requestAnimationFrame(function () {
+        function render(rootNode) {
+            layout(rootNode, 0);
+            var width = LEFT + maxDepth * LEVEL_X + 240;
+            var height = cursor.y + 40;
+            svg.setAttribute("viewBox", "0 0 " + width + " " + height);
+            svg.innerHTML = renderNode(rootNode, 0, 0);
             sizePills();
-            svg.classList.add("ready");
-        });
-        if (document.fonts && document.fonts.ready) document.fonts.ready.then(sizePills);
+            requestAnimationFrame(function () {
+                sizePills();
+                svg.classList.add("ready");
+            });
+            if (document.fonts && document.fonts.ready) document.fonts.ready.then(sizePills);
+        }
+
+        fetch("assets/data/todo_list.json")
+            .then(function (r) {
+                if (!r.ok) throw new Error("HTTP " + r.status);
+                return r.json();
+            })
+            .then(function (data) {
+                root = data;
+                render(root);
+            })
+            .catch(function (e) {
+                svg.textContent = "加载待办数据失败：" + e.message;
+            });
 
         svg.addEventListener("click", function (e) {
             var bubble = e.target.closest(".bubble.parent, .bubble.root");
