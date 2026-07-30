@@ -149,7 +149,7 @@ title: "待办清单"
         // ============================================================
         var tasks = [
             {
-                title: "搬迁方面",
+                title: "生活方面",
                 children: [
                     { title: "收拾行李",       status: "todo", prio: "high", due: "2026-08-30", note: "先打包非必需物品" },
                     { title: "公寓申请退房",   status: "todo", due: "2026-08-25", note: "联系物业提交退房申请" },
@@ -163,11 +163,36 @@ title: "待办清单"
             {
                 title: "工作方面",
                 children: [
-                    { title: "HYPIR模型编译",        status: "todo", prio: "high" },
-                    { title: "人脸增强任务转测",     status: "todo" },
-                    { title: "人体微动任务探索",     status: "todo", note: "调研+方案设计" },
-                    { title: "新视界端侧服务修改",   status: "todo" },
-                    { title: "新视界云侧服务部署",   status: "todo", note: "联调环境" }
+                    {
+                        title: "人脸增强模块",
+                        children: [
+                            { title: "HYPIR模型复现",   status: "todo" },
+                            { title: "退化数据集构建",   status: "todo" },
+                            { title: "美颜数据集构建",   status: "todo" },
+                            { title: "模型训练",         status: "todo" },
+                            { title: "自测实验报告",     status: "todo" },
+                            { title: "转测邮件",         status: "todo" }
+                        ]
+                    },
+                    {
+                        title: "人脸微动模块",
+                        children: [
+                            { title: "论文调研与探索", status: "todo" },
+                            { title: "实习生安排",     status: "todo" }
+                        ]
+                    },
+                    {
+                        title: "去噪重建模块",
+                        children: [
+                            { title: "端侧稠密重建算法卡片", status: "todo" },
+                            { title: "端侧去噪重建算法卡片", status: "todo" },
+                            { title: "端侧路由配置",         status: "todo" },
+                            { title: "云侧docker-compose",   status: "todo" },
+                            { title: "云侧端到端脚本",       status: "todo" },
+                            { title: "端云接口对齐",         status: "todo" },
+                            { title: "云侧算法查询回调",     status: "todo" }
+                        ]
+                    }
                 ]
             }
         ];
@@ -179,10 +204,12 @@ title: "待办清单"
         var TOP = 50;
         var LEFT = 70;
         var cursor = { y: TOP };
+        var maxDepth = 0;
 
         function layout(node, depth) {
             node.depth = depth;
             node.x = LEFT + depth * LEVEL_X;
+            if (depth > maxDepth) maxDepth = depth;
             if (node.children && node.children.length) {
                 node.children.forEach(function (c) { layout(c, depth + 1); });
                 var ys = node.children.map(function (c) { return c.y; });
@@ -253,7 +280,7 @@ title: "待办清单"
 
         var root = { title: "待办清单", children: tasks };
         layout(root, 0);
-        var width = LEFT + 2 * LEVEL_X + 230;
+        var width = LEFT + maxDepth * LEVEL_X + 240;
         var height = cursor.y + 40;
 
         var svg = document.getElementById("mindmap");
