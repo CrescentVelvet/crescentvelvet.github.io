@@ -477,7 +477,10 @@ title: "待办清单"
             fetch("assets/data/todo_list.json")
                 .then(function (r) {
                     if (!r.ok) throw new Error("HTTP " + r.status);
-                    return r.json();
+                    return r.text();
+                })
+                .then(function (text) {
+                    return JSON.parse(text.replace(/,\s*([}\]])/g, "$1"));
                 })
                 .then(function (data) {
                     root = data;

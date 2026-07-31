@@ -4,48 +4,24 @@
     {
       "title": "生活方面",
       "children": [
-        {
-          "title": "收拾行李",
-          "status": "doing",
-        },
-        {
-          "title": "公寓申请退房",
-          "status": "doing",
-        },
-        {
-          "title": "路由器退还",
-          "status": "doing",
-        },
+        { "title": "收拾行李", "status": "doing" },
+        { "title": "公寓申请退房", "status": "doing" },
+        { "title": "路由器退还", "status": "doing" },
         {
           "title": "电竞桌打包",
           "children": [
-            {
-              "title": "京东送重货",
-              "status": "doing"
-            }
+            { "title": "京东送重货", "status": "doing" }
           ]
         },
-        {
-          "title": "显示器打包",
-          "status": "todo",
-        },
+        { "title": "显示器打包", "status": "todo" },
         {
           "title": "电脑主机打包",
           "children": [
-            {
-              "title": "玻璃面板碎裂",
-              "status": "done"
-            },
-            {
-              "title": "京东速运保价",
-              "status": "doing"
-            }
+            { "title": "玻璃面板碎裂", "status": "done" },
+            { "title": "京东速运保价", "status": "doing" }
           ]
         },
-        {
-          "title": "快递寄送",
-          "status": "todo",
-        }
+        { "title": "快递寄送", "status": "todo" }
       ]
     },
     {
@@ -54,76 +30,31 @@
         {
           "title": "人脸增强模块",
           "children": [
-            {
-              "title": "HYPIR模型复现",
-              "status": "done"
-            },
-            {
-              "title": "退化数据集构建",
-              "status": "done"
-            },
-            {
-              "title": "美颜数据集构建",
-              "status": "done"
-            },
-            {
-              "title": "模型训练",
-              "status": "done"
-            },
-            {
-              "title": "自测实验报告",
-              "status": "done"
-            },
-            {
-              "title": "转测邮件",
-              "status": "done"
-            }
+            { "title": "HYPIR模型复现", "status": "done" },
+            { "title": "退化数据集构建", "status": "done" },
+            { "title": "美颜数据集构建", "status": "done" },
+            { "title": "模型训练", "status": "done" },
+            { "title": "自测实验报告", "status": "done" },
+            { "title": "转测邮件", "status": "done" }
           ]
         },
         {
           "title": "人脸微动模块",
           "children": [
-            {
-              "title": "论文调研与探索",
-              "status": "doing"
-            },
-            {
-              "title": "实习生安排",
-              "status": "doing"
-            }
+            { "title": "论文调研与探索", "status": "doing" },
+            { "title": "实习生安排", "status": "doing" }
           ]
         },
         {
           "title": "去噪重建模块",
           "children": [
-            {
-              "title": "端侧稠密重建算法卡片",
-              "status": "done"
-            },
-            {
-              "title": "端侧去噪重建算法卡片",
-              "status": "done"
-            },
-            {
-              "title": "端侧路由配置",
-              "status": "done"
-            },
-            {
-              "title": "云侧docker-compose",
-              "status": "done"
-            },
-            {
-              "title": "云侧端到端脚本",
-              "status": "doing"
-            },
-            {
-              "title": "端云接口对齐",
-              "status": "doing"
-            },
-            {
-              "title": "云侧算法查询回调",
-              "status": "doing"
-            }
+            { "title": "端侧稠密重建算法卡片", "status": "done" },
+            { "title": "端侧去噪重建算法卡片", "status": "done" },
+            { "title": "端侧路由配置", "status": "done" },
+            { "title": "云侧docker-compose", "status": "done" },
+            { "title": "云侧端到端脚本", "status": "doing" },
+            { "title": "端云接口对齐", "status": "doing" },
+            { "title": "云侧算法查询回调", "status": "doing" }
           ]
         }
       ]
