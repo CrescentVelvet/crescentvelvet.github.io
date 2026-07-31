@@ -210,7 +210,7 @@ title: "待办清单"
             var r = Math.round(r1 + (r2 - r1) * t), g = Math.round(g1 + (g2 - g1) * t), b = Math.round(b1 + (b2 - b1) * t);
             return "#" + [r, g, b].map(function (x) { var h = x.toString(16); return h.length < 2 ? "0" + h : h; }).join("");
         }
-        var PARENT_NEAR = "#2563eb", PARENT_FAR = "#7c3aed";
+        var PARENT_NEAR = "#8B4513", PARENT_FAR = "#FF00FF";
         function parentColor(depth) {
             var t = maxDepth > 0 ? Math.min(depth / maxDepth, 1) : 0;
             return lerpHex(PARENT_NEAR, PARENT_FAR, t);
@@ -279,8 +279,8 @@ title: "待办清单"
             }
 
             // pill: sized to text after render (sizePills); 父节点随深度:字号/padding/字距/颜色均递减(根最大最深)
-            var padX = hasKids ? Math.max(12, 20 - node.depth * 3) : 15;
-            var fs = hasKids ? Math.max(14, 17 - node.depth * 2) : 13;
+            var padX = hasKids ? Math.max(12, 40 - node.depth * 6) : 15;
+            var fs = hasKids ? Math.max(14, 25 - node.depth * 6) : 13;
             var ls = hasKids ? Math.max(0, 4 - node.depth) : 0;
             html += '<rect class="' + bubbleCls + '" x="-40" y="-15" width="80" height="30" rx="15" fill="' + fill + '" data-pad="' + padX + '"/>';
             var tstyle = hasKids ? ' style="font-size:' + fs + 'px;letter-spacing:' + ls + 'px"' : "";
