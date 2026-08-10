@@ -1130,7 +1130,7 @@ title: "算法框图绘制"
             const node = findNodeAt(pt);
             if (node) {
                 selectElement(node.id, 'node');
-                state.dragging = { id: node.id, startPt: pt, origX: node.x, origY: node.y, moved: false };
+                state.dragging = { id: node.id, startPt: pt, origX: node.x, origY: node.y, moved: false, cx: e.clientX, cy: e.clientY };
             } else {
                 const conn = findConnAt(e);
                 if (conn) {
@@ -1205,6 +1205,12 @@ title: "算法框图绘制"
             return;
         }
         if (state.dragging) {
+            if (!state.dragging.moved) {
+                const sdx = e.clientX - state.dragging.cx;
+                const sdy = e.clientY - state.dragging.cy;
+                if (sdx * sdx + sdy * sdy < 9) return;
+                state.dragging.moved = true;
+            }
             const pt = getPoint(e);
             const dx = pt.x - state.dragging.startPt.x;
             const dy = pt.y - state.dragging.startPt.y;
@@ -1212,7 +1218,6 @@ title: "算法框图绘制"
             if (node) {
                 node.x = state.dragging.origX + dx;
                 node.y = state.dragging.origY + dy;
-                state.dragging.moved = true;
                 renderNode(node);
                 state.conns.filter(c => c.from === node.id || c.to === node.id).forEach(renderConn);
             }
