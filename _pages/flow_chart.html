@@ -723,7 +723,7 @@ title: "算法框图绘制"
             case 'start':
             case 'end': {
                 const rx = w / 2, ry = h / 2;
-                return `M${x},${y + ry} A${rx},${ry} 0 1 0 ${x},${y + h} A${rx},${ry} 0 1 0 ${x},${y} Z`;
+                return `M${x},${y + ry} A${rx},${ry} 0 1 0 ${x + w},${y + ry} A${rx},${ry} 0 1 0 ${x},${y + ry} Z`;
             }
             case 'decision': {
                 const cx = x + w / 2, cy = y + h / 2;
@@ -757,6 +757,12 @@ title: "算法框图绘制"
             shapeEl.setAttribute('height', n.h);
             shapeEl.setAttribute('rx', 12);
             shapeEl.setAttribute('ry', 12);
+        } else if (n.shape === 'start' || n.shape === 'end') {
+            shapeEl = document.createElementNS(SVG_NS, 'ellipse');
+            shapeEl.setAttribute('cx', n.x + n.w / 2);
+            shapeEl.setAttribute('cy', n.y + n.h / 2);
+            shapeEl.setAttribute('rx', n.w / 2);
+            shapeEl.setAttribute('ry', n.h / 2);
         } else {
             shapeEl = document.createElementNS(SVG_NS, 'path');
             shapeEl.setAttribute('d', nodeShapePath(n));
@@ -1500,6 +1506,8 @@ title: "算法框图绘制"
             let shapeXml = '';
             if (n.shape === 'process') {
                 shapeXml = `<rect x="${n.x}" y="${n.y}" width="${n.w}" height="${n.h}" rx="12" ry="12" fill="${hexToRgba(n.color, 0.14)}" stroke="${n.color}" stroke-width="2"/>`;
+            } else if (n.shape === 'start' || n.shape === 'end') {
+                shapeXml = `<ellipse cx="${n.x + n.w / 2}" cy="${n.y + n.h / 2}" rx="${n.w / 2}" ry="${n.h / 2}" fill="${hexToRgba(n.color, 0.14)}" stroke="${n.color}" stroke-width="2"/>`;
             } else {
                 shapeXml = `<path d="${nodeShapePath(n)}" fill="${hexToRgba(n.color, 0.14)}" stroke="${n.color}" stroke-width="2"/>`;
             }
