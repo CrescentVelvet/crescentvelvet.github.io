@@ -16,17 +16,15 @@
 
     { "shape": "start",    "x": 500, "y": 1170, "w": 160, "h": 64,  "text": "3D人体重建\n训练帧序列",                "color": "#6b7280" },
     { "shape": "data",     "x": 500, "y": 1300, "w": 190, "h": 64,  "text": "输入照片GT\n(多视角照片)",              "color": "#6b7280" },
-    { "shape": "process",  "x": 500, "y": 1440, "w": 220, "h": 82,  "text": "人脸定位\nRetinaFace+SAM3\n重叠率匹配",   "color": "#4f6df5" },
-    { "shape": "process",  "x": 500, "y": 1580, "w": 260, "h": 64,  "text": "区域增强\ncrop→512→EnhModel→回缩",       "color": "#4f6df5" },
-    { "shape": "process",  "x": 500, "y": 1700, "w": 240, "h": 64,  "text": "渐变融合\n54px渐变掩码+alpha",          "color": "#4f6df5" },
-    { "shape": "decision", "x": 500, "y": 1820, "w": 260, "h": 110, "text": "美颜后处理(可选)\nRetouchFormer",        "color": "#7c3aed" },
-    { "shape": "data",     "x": 500, "y": 1980, "w": 170, "h": 64,  "text": "增强GT\n(监督目标)",                   "color": "#2563eb" },
-    { "shape": "process",  "x": 500, "y": 2110, "w": 320, "h": 82,  "text": "3DGS训练循环\nrender→比对GT→loss→backprop\n0~5000轮", "color": "#4f6df5" },
-    { "shape": "data",     "x": 500, "y": 2280, "w": 190, "h": 64,  "text": "高斯渲染图\n(iter 5000)",               "color": "#db2777" },
-    { "shape": "process",  "x": 500, "y": 2410, "w": 300, "h": 82,  "text": "后处理增强\n(同前处理管线)\n人脸定位→区域增强→渐变融合→美颜", "color": "#db2777" },
-    { "shape": "data",     "x": 500, "y": 2550, "w": 190, "h": 64,  "text": "增强渲染图\n→回写GT",                   "color": "#db2777" },
-    { "shape": "process",  "x": 500, "y": 2680, "w": 200, "h": 64,  "text": "3DGS训练循环\n继续1000轮",              "color": "#4f6df5" },
-    { "shape": "end",      "x": 500, "y": 2810, "w": 200, "h": 52,  "text": "高质量3D人体重建",                      "color": "#059669" }
+    { "shape": "process",  "x": 500, "y": 1430, "w": 180, "h": 64,  "text": "前处理增强\n(训练前)",                  "color": "#2563eb" },
+    { "shape": "process",  "x": 860, "y": 1720, "w": 330, "h": 120, "text": "增强管线(共用)\n人脸定位 RetinaFace+SAM3\n区域增强 crop→512→EnhModel\n渐变融合 54px掩码\n(可选)美颜 RetouchFormer", "color": "#4f6df5" },
+    { "shape": "data",     "x": 500, "y": 1580, "w": 170, "h": 64,  "text": "增强GT\n(监督目标)",                   "color": "#2563eb" },
+    { "shape": "process",  "x": 500, "y": 1710, "w": 320, "h": 82,  "text": "3DGS训练循环\nrender→比对GT→loss→backprop\n0~5000轮", "color": "#4f6df5" },
+    { "shape": "data",     "x": 500, "y": 1880, "w": 190, "h": 64,  "text": "高斯渲染图\n(iter 5000)",               "color": "#db2777" },
+    { "shape": "process",  "x": 500, "y": 2010, "w": 180, "h": 64,  "text": "后处理增强\n(训练中)",                  "color": "#db2777" },
+    { "shape": "data",     "x": 500, "y": 2160, "w": 190, "h": 64,  "text": "增强渲染图\n→回写GT",                   "color": "#db2777" },
+    { "shape": "process",  "x": 500, "y": 2290, "w": 200, "h": 64,  "text": "3DGS训练循环\n继续1000轮",              "color": "#4f6df5" },
+    { "shape": "end",      "x": 500, "y": 2420, "w": 200, "h": 52,  "text": "高质量3D人体重建",                      "color": "#059669" }
   ],
   "conns": [
     { "from": 0,  "to": 1,  "text": "" },
@@ -46,16 +44,15 @@
     { "from": 11, "to": 12, "text": "Phase B" },
 
     { "from": 12, "to": 13, "text": "" },
-    { "from": 13, "to": 14, "text": "前处理\n(训练前)" },
-    { "from": 14, "to": 15, "text": "人脸定位" },
-    { "from": 15, "to": 16, "text": "EnhModel推理" },
-    { "from": 16, "to": 17, "text": "渐变融合" },
-    { "from": 17, "to": 18, "text": "" },
-    { "from": 18, "to": 19, "text": "监督目标" },
-    { "from": 19, "to": 20, "text": "iter 5000\n渲染" },
-    { "from": 20, "to": 21, "text": "后处理\n(训练中)" },
-    { "from": 21, "to": 22, "text": "增强渲染图" },
-    { "from": 22, "to": 23, "text": "回写GT" },
-    { "from": 23, "to": 24, "text": "重建完成" }
+    { "from": 13, "to": 14, "text": "GT照片" },
+    { "from": 14, "to": 15, "text": "调用" },
+    { "from": 15, "to": 16, "text": "增强GT" },
+    { "from": 16, "to": 17, "text": "监督目标" },
+    { "from": 17, "to": 18, "text": "iter 5000\n渲染" },
+    { "from": 18, "to": 19, "text": "渲染图" },
+    { "from": 19, "to": 15, "text": "调用\n(同一管线)" },
+    { "from": 15, "to": 20, "text": "增强渲染图" },
+    { "from": 20, "to": 21, "text": "回写GT" },
+    { "from": 21, "to": 22, "text": "重建完成" }
   ]
 }
