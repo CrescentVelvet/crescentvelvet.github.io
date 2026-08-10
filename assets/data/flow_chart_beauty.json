@@ -15,16 +15,15 @@
     { "shape": "process",  "x": 500, "y": 1030, "w": 200, "h": 64,  "text": "EnhModel\n人脸增强模型",                "color": "#d97706" },
 
     { "shape": "start",    "x": 500, "y": 1170, "w": 160, "h": 64,  "text": "3D人体重建\n训练帧序列",                "color": "#6b7280" },
-    { "shape": "process",  "x": 500, "y": 1300, "w": 180, "h": 64,  "text": "高斯重建训练\n5000轮",                  "color": "#4f6df5" },
-    { "shape": "data",     "x": 220, "y": 1450, "w": 170, "h": 64,  "text": "输入照片GT\n(训练前)",                  "color": "#2563eb" },
-    { "shape": "data",     "x": 780, "y": 1450, "w": 180, "h": 64,  "text": "高斯渲染图\n(5000轮渲染)",              "color": "#db2777" },
-    { "shape": "process",  "x": 220, "y": 1600, "w": 190, "h": 64,  "text": "前处理增强\nEnhModel增强GT",            "color": "#2563eb" },
-    { "shape": "process",  "x": 780, "y": 1600, "w": 200, "h": 64,  "text": "后处理增强\nEnhModel增强渲染图",         "color": "#db2777" },
-    { "shape": "process",  "x": 500, "y": 1760, "w": 220, "h": 82,  "text": "人脸定位\nRetinaFace+SAM3\n重叠率匹配",   "color": "#4f6df5" },
-    { "shape": "process",  "x": 500, "y": 1920, "w": 260, "h": 64,  "text": "区域增强\ncrop→512→EnhModel→回缩",       "color": "#4f6df5" },
-    { "shape": "process",  "x": 500, "y": 2050, "w": 240, "h": 64,  "text": "渐变融合\n54px渐变掩码+alpha",          "color": "#4f6df5" },
-    { "shape": "decision", "x": 500, "y": 2180, "w": 260, "h": 110, "text": "美颜后处理(可选)\nRetouchFormer",        "color": "#7c3aed" },
-    { "shape": "end",      "x": 500, "y": 2350, "w": 220, "h": 82,  "text": "增强图像回写GT\n前处理→监督目标\n后处理→迭代精修", "color": "#059669" }
+    { "shape": "data",     "x": 500, "y": 1300, "w": 190, "h": 64,  "text": "输入照片GT\n(多视角照片)",              "color": "#6b7280" },
+    { "shape": "data",     "x": 220, "y": 1460, "w": 200, "h": 64,  "text": "GT照片\n(前处理·训练前)",              "color": "#2563eb" },
+    { "shape": "process",  "x": 780, "y": 1460, "w": 300, "h": 64,  "text": "3DGS训练循环\nrender→比对GT→loss→backprop", "color": "#4f6df5" },
+    { "shape": "data",     "x": 780, "y": 1610, "w": 190, "h": 64,  "text": "高斯渲染图\n(iter 5000)",               "color": "#db2777" },
+    { "shape": "process",  "x": 500, "y": 1770, "w": 220, "h": 82,  "text": "人脸定位\nRetinaFace+SAM3\n重叠率匹配",   "color": "#4f6df5" },
+    { "shape": "process",  "x": 500, "y": 1930, "w": 260, "h": 64,  "text": "区域增强\ncrop→512→EnhModel→回缩",       "color": "#4f6df5" },
+    { "shape": "process",  "x": 500, "y": 2060, "w": 240, "h": 64,  "text": "渐变融合\n54px渐变掩码+alpha",          "color": "#4f6df5" },
+    { "shape": "decision", "x": 500, "y": 2190, "w": 260, "h": 110, "text": "美颜后处理(可选)\nRetouchFormer",        "color": "#7c3aed" },
+    { "shape": "end",      "x": 500, "y": 2370, "w": 260, "h": 82,  "text": "增强图像回写GT\n前处理→监督目标→训练\n后处理→回写GT→迭代精修", "color": "#059669" }
   ],
   "conns": [
     { "from": 0,  "to": 1,  "text": "" },
@@ -44,15 +43,14 @@
     { "from": 11, "to": 12, "text": "Phase B" },
 
     { "from": 12, "to": 13, "text": "" },
-    { "from": 12, "to": 14, "text": "GT照片" },
-    { "from": 13, "to": 15, "text": "5000轮渲染" },
-    { "from": 14, "to": 16, "text": "" },
-    { "from": 15, "to": 17, "text": "" },
-    { "from": 16, "to": 18, "text": "增强GT" },
-    { "from": 17, "to": 18, "text": "增强渲染图" },
-    { "from": 18, "to": 19, "text": "人脸定位" },
-    { "from": 19, "to": 20, "text": "EnhModel推理" },
-    { "from": 20, "to": 21, "text": "渐变融合" },
-    { "from": 21, "to": 22, "text": "回写GT" }
+    { "from": 13, "to": 14, "text": "前处理\n(训练前)" },
+    { "from": 13, "to": 15, "text": "监督目标" },
+    { "from": 15, "to": 16, "text": "iter 5000\n渲染" },
+    { "from": 14, "to": 17, "text": "GT照片" },
+    { "from": 16, "to": 17, "text": "渲染图" },
+    { "from": 17, "to": 18, "text": "人脸定位" },
+    { "from": 18, "to": 19, "text": "EnhModel推理" },
+    { "from": 19, "to": 20, "text": "渐变融合" },
+    { "from": 20, "to": 21, "text": "回写GT" }
   ]
 }
