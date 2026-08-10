@@ -1,0 +1,1568 @@
+---
+permalink: /flow_chart.html
+layout: null
+title: "算法框图绘制"
+---
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>算法框图绘制</title>
+    <style>
+        :root {
+            --primary: #4f6df5;
+            --primary-dark: #3b54d8;
+            --primary-light: #eef1ff;
+            --success: #2ec27e;
+            --success-dark: #25a968;
+            --danger: #ef4f6f;
+            --danger-dark: #d63856;
+            --warning: #f59e0b;
+            --warning-dark: #d97706;
+            --neutral: #6b7280;
+            --neutral-dark: #4b5563;
+            --bg: #f0f2f8;
+            --canvas-bg: #fafbfc;
+            --card: #ffffff;
+            --border: #e5e7eb;
+            --border-soft: #eef2f7;
+            --text: #1f2937;
+            --text-muted: #6b7280;
+            --shadow-sm: 0 1px 2px rgba(15,23,42,0.05);
+            --shadow: 0 4px 16px rgba(15,23,42,0.08);
+            --shadow-lg: 0 12px 40px rgba(15,23,42,0.14);
+            --radius-sm: 6px;
+            --radius: 10px;
+            --radius-lg: 14px;
+            --header-h: 52px;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", Arial, sans-serif;
+            height: 100%;
+            width: 100%;
+            overflow: hidden;
+            -webkit-font-smoothing: antialiased;
+            color: var(--text);
+            background: var(--bg);
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .app {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        .header {
+            background: linear-gradient(135deg, #4f6df5 0%, #3b54d8 60%, #2c3fd0 100%);
+            color: #fff;
+            height: var(--header-h);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 18px;
+            box-shadow: 0 4px 20px rgba(79,109,245,0.28);
+            flex-shrink: 0;
+            z-index: 50;
+        }
+        .header h1 {
+            font-size: 17px;
+            font-weight: 600;
+            letter-spacing: 1.5px;
+            text-shadow: 0 1px 4px rgba(0,0,0,0.15);
+        }
+        .header-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        .header-actions button {
+            background: rgba(255,255,255,0.16);
+            color: #fff;
+            border: 1px solid rgba(255,255,255,0.22);
+            padding: 6px 12px;
+            border-radius: var(--radius-sm);
+            font-size: 12.5px;
+            cursor: pointer;
+            transition: background 0.18s, transform 0.1s;
+            font-family: inherit;
+            min-width: auto;
+            box-shadow: none;
+            flex-grow: 0;
+        }
+        .header-actions button:hover {
+            background: rgba(255,255,255,0.28);
+        }
+        .header-actions button:active { transform: translateY(1px); }
+        .header-actions button.accent {
+            background: #fff;
+            color: var(--primary-dark);
+            border-color: #fff;
+            font-weight: 600;
+        }
+        .header-actions button.accent:hover { background: #f3f5ff; }
+        .body {
+            display: flex;
+            flex: 1;
+            min-height: 0;
+            overflow: hidden;
+        }
+        .toolbar {
+            width: 72px;
+            background: var(--card);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 12px 0;
+            gap: 6px;
+            flex-shrink: 0;
+            overflow-y: auto;
+        }
+        .tool-btn {
+            width: 52px;
+            height: 52px;
+            border: 1px solid transparent;
+            border-radius: var(--radius-sm);
+            background: transparent;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 3px;
+            color: var(--text-muted);
+            font-size: 10px;
+            transition: background 0.15s, border-color 0.15s, color 0.15s;
+            font-family: inherit;
+            padding: 4px;
+            flex-grow: 0;
+            min-width: auto;
+            box-shadow: none;
+        }
+        .tool-btn svg {
+            width: 20px;
+            height: 20px;
+            display: block;
+        }
+        .tool-btn:hover {
+            background: var(--primary-light);
+            color: var(--primary-dark);
+        }
+        .tool-btn.active {
+            background: var(--primary-light);
+            border-color: var(--primary);
+            color: var(--primary-dark);
+            box-shadow: 0 2px 6px rgba(79,109,245,0.18);
+        }
+        .tool-divider {
+            width: 36px;
+            height: 1px;
+            background: var(--border);
+            margin: 4px 0;
+        }
+        .canvas-wrap {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            background:
+                linear-gradient(var(--border-soft) 1px, transparent 1px) 0 0/24px 24px,
+                linear-gradient(90deg, var(--border-soft) 1px, transparent 1px) 0 0/24px 24px,
+                var(--canvas-bg);
+        }
+        .canvas-wrap.tool-add-node,
+        .canvas-wrap.tool-add-decision,
+        .canvas-wrap.tool-add-data,
+        .canvas-wrap.tool-add-start,
+        .canvas-wrap.tool-add-end {
+            cursor: crosshair;
+        }
+        .canvas-wrap.tool-pan { cursor: grab; }
+        .canvas-wrap.panning { cursor: grabbing !important; }
+        .canvas-wrap.tool-connect { cursor: cell; }
+        .canvas-wrap.tool-delete { cursor: not-allowed; }
+        #svg-canvas {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        .zoom-indicator {
+            position: absolute;
+            bottom: 12px;
+            left: 12px;
+            background: rgba(255,255,255,0.92);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 4px 10px;
+            font-size: 12px;
+            color: var(--text-muted);
+            box-shadow: var(--shadow-sm);
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+        .zoom-indicator button {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            cursor: pointer;
+            color: var(--text);
+            font-size: 13px;
+            line-height: 1;
+            padding: 2px 6px;
+            font-family: inherit;
+            min-width: auto;
+            box-shadow: none;
+            flex-grow: 0;
+        }
+        .zoom-indicator button:hover { background: var(--primary-light); border-color: var(--primary); }
+        .hint {
+            position: absolute;
+            top: 12px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(79,109,245,0.92);
+            color: #fff;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 12.5px;
+            box-shadow: var(--shadow);
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s;
+            white-space: nowrap;
+        }
+        .hint.show { opacity: 1; }
+        .panel {
+            width: 260px;
+            background: var(--card);
+            border-left: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+            overflow: hidden;
+        }
+        .panel-section {
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--border-soft);
+        }
+        .panel-section h3 {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .panel-section h3 .dot {
+            width: 8px; height: 8px; border-radius: 50%; background: var(--primary);
+        }
+        .panel-field { margin-bottom: 10px; }
+        .panel-field label {
+            display: block;
+            font-size: 11.5px;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+            font-weight: 500;
+        }
+        .panel-field input[type="text"],
+        .panel-field textarea,
+        .panel-field select {
+            width: 100%;
+            padding: 7px 9px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 13px;
+            font-family: inherit;
+            background: #fafbfc;
+            color: var(--text);
+            transition: border-color 0.15s, box-shadow 0.15s;
+        }
+        .panel-field input:focus,
+        .panel-field textarea:focus,
+        .panel-field select:focus {
+            outline: none;
+            border-color: var(--primary);
+            background: #fff;
+            box-shadow: 0 0 0 3px rgba(79,109,245,0.15);
+        }
+        .panel-field textarea { resize: vertical; min-height: 54px; max-height: 120px; }
+        .color-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        .color-swatch {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            border: 2px solid #fff;
+            box-shadow: 0 0 0 1px var(--border);
+            cursor: pointer;
+            transition: transform 0.12s, box-shadow 0.12s;
+        }
+        .color-swatch:hover { transform: scale(1.12); }
+        .color-swatch.active { box-shadow: 0 0 0 2px var(--primary); transform: scale(1.12); }
+        .panel-empty {
+            padding: 24px 16px;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 12.5px;
+            line-height: 1.6;
+        }
+        .panel-empty .icon {
+            font-size: 28px;
+            opacity: 0.4;
+            margin-bottom: 8px;
+            display: block;
+        }
+        .panel-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .panel-actions button {
+            flex: 1;
+            min-width: 70px;
+            padding: 7px 10px;
+            border: none;
+            border-radius: var(--radius-sm);
+            font-size: 12.5px;
+            cursor: pointer;
+            font-family: inherit;
+            transition: background 0.15s, transform 0.1s;
+            flex-grow: 1;
+            box-shadow: none;
+        }
+        .panel-actions button:active { transform: translateY(1px); }
+        .btn-primary { background: var(--primary); color: #fff; }
+        .btn-primary:hover { background: var(--primary-dark); }
+        .btn-danger { background: var(--danger); color: #fff; }
+        .btn-danger:hover { background: var(--danger-dark); }
+        .btn-neutral { background: #eef0f4; color: var(--text); }
+        .btn-neutral:hover { background: #e0e3eb; }
+        .stats {
+            font-size: 11.5px;
+            color: var(--text-muted);
+            line-height: 1.7;
+        }
+        .stats b { color: var(--text); font-weight: 600; }
+        /* SVG node styles */
+        .node-shape {
+            cursor: move;
+            transition: filter 0.15s;
+        }
+        .node-group:hover .node-shape { filter: drop-shadow(0 2px 6px rgba(79,109,245,0.25)); }
+        .node-group.selected .node-shape {
+            filter: drop-shadow(0 0 0 2px var(--primary));
+        }
+        .node-group.selected .node-outline {
+            stroke: var(--primary);
+            stroke-width: 2.5;
+        }
+        .node-text {
+            font-size: 13px;
+            font-family: inherit;
+            text-anchor: middle;
+            dominant-baseline: central;
+            pointer-events: none;
+            user-select: none;
+        }
+        .conn-path {
+            fill: none;
+            stroke-width: 2;
+            cursor: pointer;
+            transition: stroke-width 0.15s;
+        }
+        .conn-group:hover .conn-path { stroke-width: 3.5; }
+        .conn-group.selected .conn-path { stroke-width: 3.5; }
+        .conn-label-bg {
+            cursor: pointer;
+        }
+        .conn-label {
+            font-size: 12px;
+            font-family: inherit;
+            text-anchor: middle;
+            dominant-baseline: central;
+            pointer-events: none;
+            user-select: none;
+        }
+        .selection-box {
+            fill: none;
+            stroke: var(--primary);
+            stroke-width: 1.5;
+            stroke-dasharray: 4 3;
+            pointer-events: none;
+        }
+        .connect-source-mark {
+            fill: none;
+            stroke: var(--primary);
+            stroke-width: 2;
+            stroke-dasharray: 3 2;
+        }
+        /* edit overlay */
+        .edit-overlay {
+            position: absolute;
+            background: var(--card);
+            border: 1.5px solid var(--primary);
+            border-radius: var(--radius-sm);
+            padding: 4px;
+            box-shadow: var(--shadow-lg);
+            z-index: 40;
+            display: none;
+        }
+        .edit-overlay input {
+            border: none;
+            outline: none;
+            font-size: 13px;
+            font-family: inherit;
+            background: transparent;
+            color: var(--text);
+            text-align: center;
+            min-width: 120px;
+        }
+        .edit-overlay.edge input { text-align: center; }
+        /* hidden file input */
+        #file-input { display: none; }
+        /* scrollbar */
+        .toolbar::-webkit-scrollbar,
+        .panel::-webkit-scrollbar { width: 6px; }
+        .toolbar::-webkit-scrollbar-thumb,
+        .panel::-webkit-scrollbar-thumb { background: #c7cdd9; border-radius: 3px; }
+    </style>
+</head>
+<body>
+<div class="app">
+    <div class="header">
+        <h1>算法框图绘制</h1>
+        <div class="header-actions">
+            <button id="btn-save" title="保存到浏览器本地存储">保存</button>
+            <button id="btn-load" title="从浏览器本地存储加载">加载</button>
+            <button id="btn-export-json" title="导出为 JSON 文件">导出 JSON</button>
+            <button id="btn-import-json" title="从 JSON 文件导入">导入 JSON</button>
+            <button id="btn-clear" class="btn-neutral" title="清空画布">清空</button>
+            <button id="btn-export-svg" class="accent">导出 SVG</button>
+            <button id="btn-export-png" class="accent">导出 PNG</button>
+            <button id="btn-fit" title="适应内容">适应</button>
+            <input type="file" id="file-input" accept=".json,application/json" />
+        </div>
+    </div>
+    <div class="body">
+        <div class="toolbar" id="toolbar">
+            <button class="tool-btn active" data-tool="select" title="选择 / 移动 (V)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3l7 17 2.5-7L20 11z"/></svg>
+                <span>选择</span>
+            </button>
+            <button class="tool-btn" data-tool="pan" title="平移画布 (H)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 11V6.5a1.5 1.5 0 0 0-3 0V11"/><path d="M15 10.5V4.5a1.5 1.5 0 0 0-3 0V10"/><path d="M12 10V5.5a1.5 1.5 0 0 0-3 0V13"/><path d="M9 13V8.5a1.5 1.5 0 0 0-3 0v7.5a7 7 0 0 0 7 7h2a7 7 0 0 0 7-7V10"/></svg>
+                <span>平移</span>
+            </button>
+            <div class="tool-divider"></div>
+            <button class="tool-btn" data-tool="connect" title="连接节点 (C)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="2.5"/><circle cx="19" cy="12" r="2.5"/><path d="M7.5 12h9" marker-end="url(#arr)"/></svg>
+                <span>连接</span>
+            </button>
+            <div class="tool-divider"></div>
+            <button class="tool-btn" data-tool="add-start" title="开始/结束节点">
+                <svg viewBox="0 0 24 24" fill="currentColor"><ellipse cx="12" cy="12" rx="9" ry="7" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+                <span>起止</span>
+            </button>
+            <button class="tool-btn" data-tool="add-node" title="圆角矩形：处理 / 算法">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="6" width="18" height="12" rx="4"/></svg>
+                <span>处理</span>
+            </button>
+            <button class="tool-btn" data-tool="add-decision" title="菱形：判断">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l9 9-9 9-9-9z"/></svg>
+                <span>判断</span>
+            </button>
+            <button class="tool-btn" data-tool="add-data" title="平行四边形：数据">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 5h12l-2 14H4z"/></svg>
+                <span>数据</span>
+            </button>
+            <div class="tool-divider"></div>
+            <button class="tool-btn" data-tool="delete" title="删除元素 (Del)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>
+                <span>删除</span>
+            </button>
+        </div>
+        <div class="canvas-wrap tool-select" id="canvas-wrap">
+            <svg id="svg-canvas" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+                        <path d="M0 0 L10 5 L0 10 Z" fill="#4b5563"/>
+                    </marker>
+                    <marker id="arrow-selected" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+                        <path d="M0 0 L10 5 L0 10 Z" fill="#4f6df5"/>
+                    </marker>
+                </defs>
+                <g id="viewport-group">
+                    <g id="connections-layer"></g>
+                    <g id="nodes-layer"></g>
+                    <g id="overlay-layer"></g>
+                </g>
+            </svg>
+            <div class="hint" id="hint"></div>
+            <div class="zoom-indicator">
+                <button id="btn-zoom-out" title="缩小">−</button>
+                <span id="zoom-value">100%</span>
+                <button id="btn-zoom-in" title="放大">+</button>
+                <button id="btn-zoom-reset" title="重置缩放">1:1</button>
+            </div>
+        </div>
+        <div class="panel" id="panel">
+            <div class="panel-empty" id="panel-empty">
+                <span class="icon">⬡</span>
+                未选中元素<br>
+                点击工具栏添加节点<br>
+                或点击画布上的元素进行编辑
+            </div>
+            <div class="panel-section" id="panel-content" style="display:none;">
+                <h3><span class="dot"></span><span id="panel-title">属性</span></h3>
+                <div class="panel-field">
+                    <label id="label-text">文本</label>
+                    <textarea id="input-text" rows="2"></textarea>
+                </div>
+                <div class="panel-field" id="field-color">
+                    <label>颜色</label>
+                    <div class="color-row" id="color-row"></div>
+                </div>
+                <div class="panel-field" id="field-edge-style" style="display:none;">
+                    <label>连线样式</label>
+                    <select id="select-edge-style">
+                        <option value="solid">实线</option>
+                        <option value="dashed">虚线</option>
+                        <option value="dotted">点线</option>
+                    </select>
+                </div>
+                <div class="panel-actions">
+                    <button class="btn-primary" id="btn-apply">应用</button>
+                    <button class="btn-danger" id="btn-delete-elem">删除</button>
+                </div>
+            </div>
+            <div class="panel-section">
+                <h3><span class="dot" style="background:var(--success)"></span>画布统计</h3>
+                <div class="stats">
+                    节点数：<b id="stat-nodes">0</b><br>
+                    连接数：<b id="stat-conns">0</b><br>
+                    缩放：<b id="stat-zoom">100%</b>
+                </div>
+            </div>
+            <div class="panel-section" style="flex:1; overflow-y:auto;">
+                <h3><span class="dot" style="background:var(--warning)"></span>使用说明</h3>
+                <div class="stats" style="line-height:1.8;">
+                    · 点击左侧工具选择模式<br>
+                    · 处理/判断/数据：点击画布添加节点<br>
+                    · 选择：拖动节点移动，点击空白取消<br>
+                    · 连接：先点起点节点，再点终点节点<br>
+                    · 双击节点或连线可编辑文字<br>
+                    · 滚轮缩放，平移模式拖动画布<br>
+                    · Delete 键删除选中元素<br>
+                    · 保存/加载使用浏览器本地存储<br>
+                    · 导出 SVG/PNG 为图片文件
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="edit-overlay" id="edit-overlay"><input type="text" id="edit-input" /></div>
+
+<script>
+(function () {
+    'use strict';
+
+    const SVG_NS = 'http://www.w3.org/2000/svg';
+    const svg = document.getElementById('svg-canvas');
+    const viewportGroup = document.getElementById('viewport-group');
+    const nodesLayer = document.getElementById('nodes-layer');
+    const connsLayer = document.getElementById('connections-layer');
+    const overlayLayer = document.getElementById('overlay-layer');
+    const canvasWrap = document.getElementById('canvas-wrap');
+    const hintEl = document.getElementById('hint');
+    const zoomValueEl = document.getElementById('zoom-value');
+    const statNodesEl = document.getElementById('stat-nodes');
+    const statConnsEl = document.getElementById('stat-conns');
+    const statZoomEl = document.getElementById('stat-zoom');
+    const editOverlay = document.getElementById('edit-overlay');
+    const editInput = document.getElementById('edit-input');
+
+    const PALETTE = ['#4f6df5', '#2ec27e', '#ef4f6f', '#f59e0b', '#0d9488', '#8b5cf6', '#6b7280', '#1f2937'];
+    const SHAPE_DEFAULTS = {
+        'start': { w: 120, h: 52, color: '#2ec27e', label: '开始' },
+        'process': { w: 150, h: 64, color: '#4f6df5', label: '处理步骤' },
+        'decision': { w: 130, h: 90, color: '#f59e0b', label: '判断条件?' },
+        'data': { w: 150, h: 64, color: '#0d9488', label: '数据' },
+        'end': { w: 120, h: 52, color: '#ef4f6f', label: '结束' }
+    };
+    const TOOL_SHAPE = { 'add-start': 'start', 'add-node': 'process', 'add-decision': 'decision', 'add-data': 'data', 'add-end': 'end' };
+
+    let state = {
+        nodes: [],
+        conns: [],
+        selectedId: null,
+        selectedType: null,
+        tool: 'select',
+        pan: { x: 0, y: 0 },
+        zoom: 1,
+        nextId: 1,
+        connectSourceId: null,
+        dragging: null,
+        panning: null,
+        spaceDown: false
+    };
+
+    function newId() { return 'e' + (state.nextId++); }
+
+    function getPoint(evt) {
+        const rect = svg.getBoundingClientRect();
+        const x = (evt.clientX - rect.left - state.pan.x) / state.zoom;
+        const y = (evt.clientY - rect.top - state.pan.y) / state.zoom;
+        return { x, y };
+    }
+
+    function applyTransform() {
+        viewportGroup.setAttribute('transform', `translate(${state.pan.x} ${state.pan.y}) scale(${state.zoom})`);
+        const pct = Math.round(state.zoom * 100) + '%';
+        zoomValueEl.textContent = pct;
+        statZoomEl.textContent = pct;
+    }
+
+    function setTool(tool) {
+        state.tool = tool;
+        document.querySelectorAll('.tool-btn').forEach(b => b.classList.toggle('active', b.dataset.tool === tool));
+        canvasWrap.className = 'canvas-wrap tool-' + tool;
+        cancelConnect();
+        const hints = {
+            'select': '', 'pan': '拖动以平移画布',
+            'connect': '点击源节点，再点击目标节点',
+            'add-start': '点击画布添加开始/结束节点',
+            'add-node': '点击画布添加处理节点',
+            'add-decision': '点击画布添加判断节点',
+            'add-data': '点击画布添加数据节点',
+            'delete': '点击要删除的元素'
+        };
+        showHint(hints[tool]);
+    }
+
+    let hintTimer = null;
+    function showHint(text) {
+        if (!text) { hintEl.classList.remove('show'); return; }
+        hintEl.textContent = text;
+        hintEl.classList.add('show');
+        clearTimeout(hintTimer);
+        hintTimer = setTimeout(() => hintEl.classList.remove('show'), 3500);
+    }
+
+    function createNode(shape, x, y, text, color) {
+        const def = SHAPE_DEFAULTS[shape];
+        const node = {
+            id: newId(),
+            type: 'node',
+            shape: shape,
+            x: x - def.w / 2,
+            y: y - def.h / 2,
+            w: def.w,
+            h: def.h,
+            text: text != null ? text : def.label,
+            color: color || def.color
+        };
+        state.nodes.push(node);
+        renderNode(node);
+        updateStats();
+        return node;
+    }
+
+    function createConn(fromId, toId, text) {
+        if (fromId === toId) return null;
+        const exists = state.conns.find(c => c.from === fromId && c.to === toId);
+        if (exists) return null;
+        const conn = {
+            id: newId(),
+            type: 'conn',
+            from: fromId,
+            to: toId,
+            text: text || '',
+            style: 'solid',
+            color: '#4b5563'
+        };
+        state.conns.push(conn);
+        renderConn(conn);
+        updateStats();
+        return conn;
+    }
+
+    function nodeCenter(n) { return { x: n.x + n.w / 2, y: n.y + n.h / 2 }; }
+
+    function nodeShapePath(n) {
+        const { x, y, w, h, shape } = n;
+        switch (shape) {
+            case 'start':
+            case 'end': {
+                const rx = w / 2, ry = h / 2;
+                return `M${x},${y + ry} A${rx},${ry} 0 1 0 ${x},${y + h} A${rx},${ry} 0 1 0 ${x},${y} Z`;
+            }
+            case 'decision': {
+                const cx = x + w / 2, cy = y + h / 2;
+                return `M${cx},${y} L${x + w},${cy} L${cx},${y + h} L${x},${cy} Z`;
+            }
+            case 'data': {
+                const skew = 16;
+                return `M${x + skew},${y} L${x + w},${y} L${x + w - skew},${y + h} L${x},${y + h} Z`;
+            }
+            case 'process':
+            default:
+                return '';
+        }
+    }
+
+    function renderNode(n) {
+        let g = document.getElementById(n.id);
+        if (g) g.remove();
+        g = document.createElementNS(SVG_NS, 'g');
+        g.id = n.id;
+        g.classList.add('node-group');
+        if (state.selectedId === n.id) g.classList.add('selected');
+        g.dataset.nodeId = n.id;
+
+        let shapeEl;
+        if (n.shape === 'process') {
+            shapeEl = document.createElementNS(SVG_NS, 'rect');
+            shapeEl.setAttribute('x', n.x);
+            shapeEl.setAttribute('y', n.y);
+            shapeEl.setAttribute('width', n.w);
+            shapeEl.setAttribute('height', n.h);
+            shapeEl.setAttribute('rx', 12);
+            shapeEl.setAttribute('ry', 12);
+        } else {
+            shapeEl = document.createElementNS(SVG_NS, 'path');
+            shapeEl.setAttribute('d', nodeShapePath(n));
+        }
+        shapeEl.classList.add('node-shape', 'node-outline');
+        shapeEl.setAttribute('fill', hexToRgba(n.color, 0.14));
+        shapeEl.setAttribute('stroke', n.color);
+        shapeEl.setAttribute('stroke-width', 2);
+        g.appendChild(shapeEl);
+
+        const lines = wrapText(n.text, n.w - 16);
+        if (lines.length === 1) {
+            const t = document.createElementNS(SVG_NS, 'text');
+            t.classList.add('node-text');
+            t.setAttribute('x', n.x + n.w / 2);
+            t.setAttribute('y', n.y + n.h / 2);
+            t.setAttribute('fill', n.color);
+            t.textContent = lines[0];
+            g.appendChild(t);
+        } else {
+            const lh = 16;
+            const startY = n.y + n.h / 2 - (lines.length - 1) * lh / 2;
+            lines.forEach((line, i) => {
+                const t = document.createElementNS(SVG_NS, 'text');
+                t.classList.add('node-text');
+                t.setAttribute('x', n.x + n.w / 2);
+                t.setAttribute('y', startY + i * lh);
+                t.setAttribute('fill', n.color);
+                t.textContent = line;
+                g.appendChild(t);
+            });
+        }
+        nodesLayer.appendChild(g);
+    }
+
+    function wrapText(text, maxWidth) {
+        if (!text) return [''];
+        const ctx = getTextMeasureCtx();
+        const chars = Array.from(text);
+        if (chars.length <= 1) return [text];
+        const lines = [];
+        let cur = '';
+        for (let i = 0; i < chars.length; i++) {
+            const ch = chars[i];
+            if (ch === '\n') { lines.push(cur); cur = ''; continue; }
+            const test = cur + ch;
+            if (ctx.measureText(test).width > maxWidth && cur) {
+                lines.push(cur);
+                cur = ch;
+            } else {
+                cur = test;
+            }
+        }
+        if (cur) lines.push(cur);
+        return lines.length ? lines : [''];
+    }
+
+    let _measureCtx = null;
+    function getTextMeasureCtx() {
+        if (!_measureCtx) {
+            const c = document.createElement('canvas');
+            _measureCtx = c.getContext('2d');
+            _measureCtx.font = '13px -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif';
+        }
+        return _measureCtx;
+    }
+
+    function hexToRgba(hex, alpha) {
+        const m = hex.replace('#', '');
+        const r = parseInt(m.substring(0, 2), 16);
+        const g = parseInt(m.substring(2, 4), 16);
+        const b = parseInt(m.substring(4, 6), 16);
+        return `rgba(${r},${g},${b},${alpha})`;
+    }
+
+    function getNodeEdgePoint(n, dir) {
+        const cx = n.x + n.w / 2, cy = n.y + n.h / 2;
+        switch (dir) {
+            case 'top': return { x: cx, y: n.y };
+            case 'bottom': return { x: cx, y: n.y + n.h };
+            case 'left': return { x: n.x, y: cy };
+            case 'right': return { x: n.x + n.w, y: cy };
+        }
+    }
+
+    function computeConnPoints(from, to) {
+        const fc = nodeCenter(from), tc = nodeCenter(to);
+        const dx = tc.x - fc.x, dy = tc.y - fc.y;
+        let fromDir, toDir;
+        if (Math.abs(dx) * from.h > Math.abs(dy) * from.w) {
+            fromDir = dx > 0 ? 'right' : 'left';
+            toDir = dx > 0 ? 'left' : 'right';
+        } else {
+            fromDir = dy > 0 ? 'bottom' : 'top';
+            toDir = dy > 0 ? 'top' : 'bottom';
+        }
+        return { from: getNodeEdgePoint(from, fromDir), to: getNodeEdgePoint(to, toDir), fromDir, toDir };
+    }
+
+    function bezierPath(p1, p2, fromDir, toDir) {
+        const offset = 60;
+        let c1x = p1.x, c1y = p1.y, c2x = p2.x, c2y = p2.y;
+        switch (fromDir) {
+            case 'top': c1y -= offset; break;
+            case 'bottom': c1y += offset; break;
+            case 'left': c1x -= offset; break;
+            case 'right': c1x += offset; break;
+        }
+        switch (toDir) {
+            case 'top': c2y -= offset; break;
+            case 'bottom': c2y += offset; break;
+            case 'left': c2x -= offset; break;
+            case 'right': c2x += offset; break;
+        }
+        return `M${p1.x},${p1.y} C${c1x},${c1y} ${c2x},${c2y} ${p2.x},${p2.y}`;
+    }
+
+    function getConnPathD(c) {
+        const from = state.nodes.find(n => n.id === c.from);
+        const to = state.nodes.find(n => n.id === c.to);
+        if (!from || !to) return '';
+        const pts = computeConnPoints(from, to);
+        return bezierPath(pts.from, pts.to, pts.fromDir, pts.toDir);
+    }
+
+    function getConnMidPoint(c) {
+        const from = state.nodes.find(n => n.id === c.from);
+        const to = state.nodes.find(n => n.id === c.to);
+        if (!from || !to) return { x: 0, y: 0 };
+        const pts = computeConnPoints(from, to);
+        const offset = 60;
+        let c1x = pts.from.x, c1y = pts.from.y, c2x = pts.to.x, c2y = pts.to.y;
+        switch (pts.fromDir) {
+            case 'top': c1y -= offset; break;
+            case 'bottom': c1y += offset; break;
+            case 'left': c1x -= offset; break;
+            case 'right': c1x += offset; break;
+        }
+        switch (pts.toDir) {
+            case 'top': c2y -= offset; break;
+            case 'bottom': c2y += offset; break;
+            case 'left': c2x -= offset; break;
+            case 'right': c2x += offset; break;
+        }
+        const t = 0.5;
+        const mx = Math.pow(1 - t, 3) * pts.from.x + 3 * Math.pow(1 - t, 2) * t * c1x + 3 * (1 - t) * t * t * c2x + t * t * t * pts.to.x;
+        const my = Math.pow(1 - t, 3) * pts.from.y + 3 * Math.pow(1 - t, 2) * t * c1y + 3 * (1 - t) * t * t * c2y + t * t * t * pts.to.y;
+        return { x: mx, y: my };
+    }
+
+    function renderConn(c) {
+        let g = document.getElementById(c.id);
+        if (g) g.remove();
+        g = document.createElementNS(SVG_NS, 'g');
+        g.id = c.id;
+        g.classList.add('conn-group');
+        if (state.selectedId === c.id) g.classList.add('selected');
+        g.dataset.connId = c.id;
+
+        const d = getConnPathD(c);
+        const path = document.createElementNS(SVG_NS, 'path');
+        path.classList.add('conn-path');
+        path.setAttribute('d', d);
+        path.setAttribute('stroke', state.selectedId === c.id ? '#4f6df5' : c.color);
+        path.setAttribute('marker-end', state.selectedId === c.id ? 'url(#arrow-selected)' : 'url(#arrow)');
+        if (c.style === 'dashed') path.setAttribute('stroke-dasharray', '8 5');
+        else if (c.style === 'dotted') path.setAttribute('stroke-dasharray', '2 4');
+        g.appendChild(path);
+
+        if (c.text) {
+            const mid = getConnMidPoint(c);
+            const ctx = getTextMeasureCtx();
+            const tw = ctx.measureText(c.text).width + 10;
+            const th = 18;
+            const bg = document.createElementNS(SVG_NS, 'rect');
+            bg.classList.add('conn-label-bg');
+            bg.setAttribute('x', mid.x - tw / 2);
+            bg.setAttribute('y', mid.y - th / 2);
+            bg.setAttribute('width', tw);
+            bg.setAttribute('height', th);
+            bg.setAttribute('rx', 4);
+            bg.setAttribute('fill', '#ffffff');
+            bg.setAttribute('stroke', c.color);
+            bg.setAttribute('stroke-width', 1);
+            g.appendChild(bg);
+            const t = document.createElementNS(SVG_NS, 'text');
+            t.classList.add('conn-label');
+            t.setAttribute('x', mid.x);
+            t.setAttribute('y', mid.y);
+            t.setAttribute('fill', '#1f2937');
+            t.textContent = c.text;
+            g.appendChild(t);
+        }
+        connsLayer.appendChild(g);
+    }
+
+    function rerenderAll() {
+        nodesLayer.innerHTML = '';
+        connsLayer.innerHTML = '';
+        overlayLayer.innerHTML = '';
+        state.conns.forEach(renderConn);
+        state.nodes.forEach(renderNode);
+        updateStats();
+    }
+
+    function updateStats() {
+        statNodesEl.textContent = state.nodes.length;
+        statConnsEl.textContent = state.conns.length;
+    }
+
+    function selectElement(id, type) {
+        state.selectedId = id;
+        state.selectedType = type;
+        document.querySelectorAll('.node-group, .conn-group').forEach(el => el.classList.remove('selected'));
+        if (id) {
+            const el = document.getElementById(id);
+            if (el) el.classList.add('selected');
+        }
+        updatePanel();
+        rerenderAll();
+    }
+
+    function deleteSelected() {
+        if (!state.selectedId) return;
+        const id = state.selectedId;
+        if (state.selectedType === 'node') {
+            state.nodes = state.nodes.filter(n => n.id !== id);
+            state.conns = state.conns.filter(c => c.from !== id && c.to !== id);
+        } else if (state.selectedType === 'conn') {
+            state.conns = state.conns.filter(c => c.id !== id);
+        }
+        selectElement(null, null);
+        rerenderAll();
+    }
+
+    function findNodeAt(pt) {
+        for (let i = state.nodes.length - 1; i >= 0; i--) {
+            const n = state.nodes[i];
+            if (pt.x >= n.x && pt.x <= n.x + n.w && pt.y >= n.y && pt.y <= n.y + n.h) return n;
+        }
+        return null;
+    }
+
+    function findConnAt(evt) {
+        const target = evt.target;
+        const g = target.closest('.conn-group');
+        if (g) return state.conns.find(c => c.id === g.dataset.connId);
+        return null;
+    }
+
+    function cancelConnect() {
+        state.connectSourceId = null;
+        overlayLayer.innerHTML = '';
+    }
+
+    function drawConnectSourceMark() {
+        overlayLayer.innerHTML = '';
+        if (!state.connectSourceId) return;
+        const n = state.nodes.find(x => x.id === state.connectSourceId);
+        if (!n) return;
+        const ring = document.createElementNS(SVG_NS, 'rect');
+        ring.classList.add('connect-source-mark');
+        ring.setAttribute('x', n.x - 4);
+        ring.setAttribute('y', n.y - 4);
+        ring.setAttribute('width', n.w + 8);
+        ring.setAttribute('height', n.h + 8);
+        ring.setAttribute('rx', 14);
+        overlayLayer.appendChild(ring);
+    }
+
+    // ---- Panel ----
+    const panelEmpty = document.getElementById('panel-empty');
+    const panelContent = document.getElementById('panel-content');
+    const panelTitle = document.getElementById('panel-title');
+    const inputText = document.getElementById('input-text');
+    const colorRow = document.getElementById('color-row');
+    const fieldColor = document.getElementById('field-color');
+    const fieldEdgeStyle = document.getElementById('field-edge-style');
+    const selectEdgeStyle = document.getElementById('select-edge-style');
+
+    function buildColorSwatches(selected) {
+        colorRow.innerHTML = '';
+        PALETTE.forEach(c => {
+            const s = document.createElement('div');
+            s.className = 'color-swatch' + (c === selected ? ' active' : '');
+            s.style.background = c;
+            s.dataset.color = c;
+            colorRow.appendChild(s);
+        });
+    }
+
+    function updatePanel() {
+        if (!state.selectedId) {
+            panelEmpty.style.display = '';
+            panelContent.style.display = 'none';
+            return;
+        }
+        panelEmpty.style.display = 'none';
+        panelContent.style.display = '';
+        if (state.selectedType === 'node') {
+            const n = state.nodes.find(x => x.id === state.selectedId);
+            if (!n) { selectElement(null, null); return; }
+            panelTitle.textContent = '节点属性 — ' + shapeLabel(n.shape);
+            document.getElementById('label-text').textContent = '文本（算法/数据名称）';
+            inputText.value = n.text;
+            fieldColor.style.display = '';
+            fieldEdgeStyle.style.display = 'none';
+            buildColorSwatches(n.color);
+        } else if (state.selectedType === 'conn') {
+            const c = state.conns.find(x => x.id === state.selectedId);
+            if (!c) { selectElement(null, null); return; }
+            panelTitle.textContent = '连线属性';
+            document.getElementById('label-text').textContent = '操作名称';
+            inputText.value = c.text;
+            fieldColor.style.display = 'none';
+            fieldEdgeStyle.style.display = '';
+            selectEdgeStyle.value = c.style;
+        }
+    }
+
+    function shapeLabel(shape) {
+        return { start: '开始', end: '结束', process: '处理', decision: '判断', data: '数据' }[shape] || shape;
+    }
+
+    document.getElementById('btn-apply').addEventListener('click', () => {
+        if (!state.selectedId) return;
+        if (state.selectedType === 'node') {
+            const n = state.nodes.find(x => x.id === state.selectedId);
+            if (!n) return;
+            n.text = inputText.value || n.text;
+            const swatch = colorRow.querySelector('.color-swatch.active');
+            if (swatch) n.color = swatch.dataset.color;
+        } else if (state.selectedType === 'conn') {
+            const c = state.conns.find(x => x.id === state.selectedId);
+            if (!c) return;
+            c.text = inputText.value;
+            c.style = selectEdgeStyle.value;
+        }
+        selectElement(state.selectedId, state.selectedType);
+    });
+
+    document.getElementById('btn-delete-elem').addEventListener('click', deleteSelected);
+
+    colorRow.addEventListener('click', (e) => {
+        const s = e.target.closest('.color-swatch');
+        if (!s) return;
+        colorRow.querySelectorAll('.color-swatch').forEach(x => x.classList.remove('active'));
+        s.classList.add('active');
+    });
+
+    inputText.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            document.getElementById('btn-apply').click();
+        }
+    });
+
+    // ---- Canvas events ----
+    svg.addEventListener('mousedown', (e) => {
+        const pt = getPoint(e);
+        const tool = state.tool;
+
+        if (tool === 'pan' || (tool === 'select' && (e.button === 1 || state.spaceDown))) {
+            state.panning = { startX: e.clientX, startY: e.clientY, panX: state.pan.x, panY: state.pan.y };
+            canvasWrap.classList.add('panning');
+            e.preventDefault();
+            return;
+        }
+
+        if (tool === 'select') {
+            const node = findNodeAt(pt);
+            if (node) {
+                selectElement(node.id, 'node');
+                state.dragging = { id: node.id, startPt: pt, origX: node.x, origY: node.y, moved: false };
+            } else {
+                const conn = findConnAt(e);
+                if (conn) {
+                    selectElement(conn.id, 'conn');
+                } else {
+                    selectElement(null, null);
+                    if (e.button === 0) {
+                        state.panning = { startX: e.clientX, startY: e.clientY, panX: state.pan.x, panY: state.pan.y };
+                        canvasWrap.classList.add('panning');
+                    }
+                }
+            }
+            e.preventDefault();
+            return;
+        }
+
+        if (tool === 'connect') {
+            const node = findNodeAt(pt);
+            if (node) {
+                if (!state.connectSourceId) {
+                    state.connectSourceId = node.id;
+                    drawConnectSourceMark();
+                    showHint('已选源节点，再点击目标节点');
+                } else if (state.connectSourceId === node.id) {
+                    cancelConnect();
+                    showHint('已取消连接');
+                } else {
+                    createConn(state.connectSourceId, node.id, '');
+                    cancelConnect();
+                    showHint('已创建连接');
+                }
+            } else {
+                cancelConnect();
+            }
+            e.preventDefault();
+            return;
+        }
+
+        if (tool === 'delete') {
+            const node = findNodeAt(pt);
+            if (node) {
+                state.nodes = state.nodes.filter(n => n.id !== node.id);
+                state.conns = state.conns.filter(c => c.from !== node.id && c.to !== node.id);
+                rerenderAll();
+            } else {
+                const conn = findConnAt(e);
+                if (conn) {
+                    state.conns = state.conns.filter(c => c.id !== conn.id);
+                    rerenderAll();
+                }
+            }
+            e.preventDefault();
+            return;
+        }
+
+        if (tool.startsWith('add-')) {
+            const shape = TOOL_SHAPE[tool];
+            if (shape) {
+                const n = createNode(shape, pt.x, pt.y);
+                selectElement(n.id, 'node');
+            }
+            e.preventDefault();
+            return;
+        }
+    });
+
+    window.addEventListener('mousemove', (e) => {
+        if (state.panning) {
+            state.pan.x = state.panning.panX + (e.clientX - state.panning.startX);
+            state.pan.y = state.panning.panY + (e.clientY - state.panning.startY);
+            applyTransform();
+            return;
+        }
+        if (state.dragging) {
+            const pt = getPoint(e);
+            const dx = pt.x - state.dragging.startPt.x;
+            const dy = pt.y - state.dragging.startPt.y;
+            const node = state.nodes.find(n => n.id === state.dragging.id);
+            if (node) {
+                node.x = state.dragging.origX + dx;
+                node.y = state.dragging.origY + dy;
+                state.dragging.moved = true;
+                renderNode(node);
+                state.conns.filter(c => c.from === node.id || c.to === node.id).forEach(renderConn);
+            }
+        }
+    });
+
+    window.addEventListener('mouseup', () => {
+        if (state.panning) {
+            state.panning = null;
+            canvasWrap.classList.remove('panning');
+        }
+        if (state.dragging) state.dragging = null;
+    });
+
+    svg.addEventListener('dblclick', (e) => {
+        const pt = getPoint(e);
+        const node = findNodeAt(pt);
+        if (node) {
+            selectElement(node.id, 'node');
+            startInlineEdit(node, 'node', e);
+            return;
+        }
+        const conn = findConnAt(e);
+        if (conn) {
+            selectElement(conn.id, 'conn');
+            startInlineEdit(conn, 'conn', e);
+        }
+    });
+
+    function startInlineEdit(elem, type, evt) {
+        const svgRect = svg.getBoundingClientRect();
+        const cx = svgRect.left + state.pan.x + (elem.type === 'node' ? (elem.x + elem.w / 2) : getConnMidPoint(elem).x) * state.zoom;
+        const cy = svgRect.top + state.pan.y + (elem.type === 'node' ? (elem.y + elem.h / 2) : getConnMidPoint(elem).y) * state.zoom;
+        editOverlay.style.left = (cx - 80) + 'px';
+        editOverlay.style.top = (cy - 14) + 'px';
+        editOverlay.style.display = 'block';
+        editOverlay.className = 'edit-overlay' + (type === 'conn' ? ' edge' : '');
+        editInput.value = elem.text || '';
+        editInput.focus();
+        editInput.select();
+
+        function commit() {
+            elem.text = editInput.value;
+            editOverlay.style.display = 'none';
+            editInput.removeEventListener('blur', onBlur);
+            editInput.removeEventListener('keydown', onKey);
+            if (type === 'node') renderNode(elem);
+            else renderConn(elem);
+            updatePanel();
+        }
+        function cancel() {
+            editOverlay.style.display = 'none';
+            editInput.removeEventListener('blur', onBlur);
+            editInput.removeEventListener('keydown', onKey);
+        }
+        function onBlur() { commit(); }
+        function onKey(ev) {
+            if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); commit(); }
+            else if (ev.key === 'Escape') { ev.preventDefault(); cancel(); }
+        }
+        editInput.addEventListener('blur', onBlur);
+        editInput.addEventListener('keydown', onKey);
+    }
+
+    canvasWrap.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const rect = svg.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+        const delta = e.deltaY < 0 ? 1.12 : 1 / 1.12;
+        const newZoom = Math.max(0.2, Math.min(3, state.zoom * delta));
+        const ratio = newZoom / state.zoom;
+        state.pan.x = mx - (mx - state.pan.x) * ratio;
+        state.pan.y = my - (my - state.pan.y) * ratio;
+        state.zoom = newZoom;
+        applyTransform();
+    }, { passive: false });
+
+    // keyboard
+    window.addEventListener('keydown', (e) => {
+        if (editOverlay.style.display === 'block') return;
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+        if (e.key === 'Delete' || e.key === 'Backspace') {
+            e.preventDefault();
+            deleteSelected();
+        } else if (e.key === 'Escape') {
+            selectElement(null, null);
+            cancelConnect();
+        } else if (e.code === 'Space') {
+            state.spaceDown = true;
+            canvasWrap.style.cursor = 'grab';
+        } else if (e.key.toLowerCase() === 'v') setTool('select');
+        else if (e.key.toLowerCase() === 'h') setTool('pan');
+        else if (e.key.toLowerCase() === 'c') setTool('connect');
+    });
+    window.addEventListener('keyup', (e) => {
+        if (e.code === 'Space') {
+            state.spaceDown = false;
+            canvasWrap.style.cursor = '';
+        }
+    });
+
+    // toolbar
+    document.getElementById('toolbar').addEventListener('click', (e) => {
+        const btn = e.target.closest('.tool-btn');
+        if (btn) setTool(btn.dataset.tool);
+    });
+
+    // zoom controls
+    document.getElementById('btn-zoom-in').addEventListener('click', () => {
+        state.zoom = Math.min(3, state.zoom * 1.2);
+        applyTransform();
+    });
+    document.getElementById('btn-zoom-out').addEventListener('click', () => {
+        state.zoom = Math.max(0.2, state.zoom / 1.2);
+        applyTransform();
+    });
+    document.getElementById('btn-zoom-reset').addEventListener('click', () => {
+        state.zoom = 1;
+        applyTransform();
+    });
+
+    function fitContent() {
+        if (state.nodes.length === 0) {
+            state.pan = { x: 0, y: 0 };
+            state.zoom = 1;
+            applyTransform();
+            return;
+        }
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        state.nodes.forEach(n => {
+            minX = Math.min(minX, n.x);
+            minY = Math.min(minY, n.y);
+            maxX = Math.max(maxX, n.x + n.w);
+            maxY = Math.max(maxY, n.y + n.h);
+        });
+        const pad = 60;
+        const cw = canvasWrap.clientWidth;
+        const ch = canvasWrap.clientHeight;
+        const bw = maxX - minX, bh = maxY - minY;
+        const zoomX = (cw - pad * 2) / bw;
+        const zoomY = (ch - pad * 2) / bh;
+        state.zoom = Math.max(0.2, Math.min(2, Math.min(zoomX, zoomY)));
+        state.pan.x = pad + (cw - pad * 2 - bw * state.zoom) / 2 - minX * state.zoom;
+        state.pan.y = pad + (ch - pad * 2 - bh * state.zoom) / 2 - minY * state.zoom;
+        applyTransform();
+    }
+    document.getElementById('btn-fit').addEventListener('click', fitContent);
+
+    // ---- Save / Load ----
+    const STORAGE_KEY = 'flow_chart_data_v1';
+
+    function serialize() {
+        return JSON.stringify({
+            nodes: state.nodes,
+            conns: state.conns,
+            nextId: state.nextId,
+            pan: state.pan,
+            zoom: state.zoom
+        });
+    }
+
+    function deserialize(str) {
+        const data = JSON.parse(str);
+        state.nodes = data.nodes || [];
+        state.conns = data.conns || [];
+        state.nextId = data.nextId || (state.nodes.length + state.conns.length + 1);
+        state.pan = data.pan || { x: 0, y: 0 };
+        state.zoom = data.zoom || 1;
+        state.selectedId = null;
+        state.selectedType = null;
+        rerenderAll();
+        applyTransform();
+    }
+
+    document.getElementById('btn-save').addEventListener('click', () => {
+        try {
+            localStorage.setItem(STORAGE_KEY, serialize());
+            showHint('已保存到浏览器');
+        } catch (err) {
+            showHint('保存失败');
+        }
+    });
+    document.getElementById('btn-load').addEventListener('click', () => {
+        const data = localStorage.getItem(STORAGE_KEY);
+        if (!data) { showHint('没有保存的数据'); return; }
+        try {
+            deserialize(data);
+            showHint('已加载');
+        } catch (err) {
+            showHint('加载失败');
+        }
+    });
+    document.getElementById('btn-clear').addEventListener('click', () => {
+        if (state.nodes.length === 0 && state.conns.length === 0) { showHint('画布已为空'); return; }
+        if (!confirm('确定清空画布？此操作不可撤销（可先保存）。')) return;
+        state.nodes = [];
+        state.conns = [];
+        state.selectedId = null;
+        state.selectedType = null;
+        rerenderAll();
+        showHint('已清空');
+    });
+
+    // ---- JSON import / export ----
+    document.getElementById('btn-export-json').addEventListener('click', () => {
+        const json = serialize();
+        downloadBlob(new Blob([json], { type: 'application/json' }), 'flowchart.json');
+        showHint('已导出 JSON');
+    });
+    document.getElementById('btn-import-json').addEventListener('click', () => {
+        document.getElementById('file-input').click();
+    });
+    document.getElementById('file-input').addEventListener('change', function () {
+        const file = this.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function (e) {
+            try {
+                deserialize(e.target.result);
+                showHint('JSON 导入成功');
+            } catch (err) {
+                showHint('导入失败：文件格式错误');
+            }
+        };
+        reader.readAsText(file);
+        this.value = '';
+    });
+
+    // ---- Export ----
+    function buildExportSVG() {
+        let minX = 0, minY = 0, maxX = 0, maxY = 0;
+        if (state.nodes.length) {
+            minX = Infinity; minY = Infinity; maxX = -Infinity; maxY = -Infinity;
+            state.nodes.forEach(n => {
+                minX = Math.min(minX, n.x);
+                minY = Math.min(minY, n.y);
+                maxX = Math.max(maxX, n.x + n.w);
+                maxY = Math.max(maxY, n.y + n.h);
+            });
+            state.conns.forEach(c => {
+                const m = getConnMidPoint(c);
+                minX = Math.min(minX, m.x - 40);
+                minY = Math.min(minY, m.y - 20);
+                maxX = Math.max(maxX, m.x + 40);
+                maxY = Math.max(maxY, m.y + 20);
+            });
+        }
+        const pad = 30;
+        const w = (maxX - minX) + pad * 2;
+        const h = (maxY - minY) + pad * 2;
+        const offX = -minX + pad;
+        const offY = -minY + pad;
+
+        const parts = [];
+        parts.push(`<?xml version="1.0" encoding="UTF-8"?>`);
+        parts.push(`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" font-family="-apple-system, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', Arial, sans-serif">`);
+        parts.push(`<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 Z" fill="#4b5563"/></marker></defs>`);
+        parts.push(`<rect width="${w}" height="${h}" fill="#fafbfc"/>`);
+        parts.push(`<g transform="translate(${offX} ${offY})">`);
+
+        // connections
+        state.conns.forEach(c => {
+            const d = getConnPathD(c);
+            let dash = '';
+            if (c.style === 'dashed') dash = ' stroke-dasharray="8 5"';
+            else if (c.style === 'dotted') dash = ' stroke-dasharray="2 4"';
+            parts.push(`<path d="${d}" fill="none" stroke="${c.color}" stroke-width="2" marker-end="url(#arrow)"${dash}/>`);
+            if (c.text) {
+                const m = getConnMidPoint(c);
+                const ctx = getTextMeasureCtx();
+                const tw = ctx.measureText(c.text).width + 10;
+                parts.push(`<rect x="${m.x - tw / 2}" y="${m.y - 9}" width="${tw}" height="18" rx="4" fill="#ffffff" stroke="${c.color}" stroke-width="1"/>`);
+                parts.push(`<text x="${m.x}" y="${m.y}" font-size="12" text-anchor="middle" dominant-baseline="central" fill="#1f2937">${escapeXml(c.text)}</text>`);
+            }
+        });
+
+        // nodes
+        state.nodes.forEach(n => {
+            let shapeXml = '';
+            if (n.shape === 'process') {
+                shapeXml = `<rect x="${n.x}" y="${n.y}" width="${n.w}" height="${n.h}" rx="12" ry="12" fill="${hexToRgba(n.color, 0.14)}" stroke="${n.color}" stroke-width="2"/>`;
+            } else {
+                shapeXml = `<path d="${nodeShapePath(n)}" fill="${hexToRgba(n.color, 0.14)}" stroke="${n.color}" stroke-width="2"/>`;
+            }
+            parts.push(shapeXml);
+            const lines = wrapText(n.text, n.w - 16);
+            const lh = 16;
+            const startY = n.y + n.h / 2 - (lines.length - 1) * lh / 2;
+            lines.forEach((line, i) => {
+                parts.push(`<text x="${n.x + n.w / 2}" y="${startY + i * lh}" font-size="13" text-anchor="middle" dominant-baseline="central" fill="${n.color}">${escapeXml(line)}</text>`);
+            });
+        });
+        parts.push(`</g></svg>`);
+        return { svg: parts.join(''), width: w, height: h };
+    }
+
+    function escapeXml(s) {
+        return String(s).replace(/[<>&"']/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&apos;' }[c]));
+    }
+
+    function downloadBlob(blob, filename) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    document.getElementById('btn-export-svg').addEventListener('click', () => {
+        const { svg: svgStr } = buildExportSVG();
+        downloadBlob(new Blob([svgStr], { type: 'image/svg+xml' }), 'flowchart.svg');
+        showHint('已导出 SVG');
+    });
+
+    document.getElementById('btn-export-png').addEventListener('click', () => {
+        const { svg: svgStr, width, height } = buildExportSVG();
+        const blob = new Blob([svgStr], { type: 'image/svg+xml' });
+        const url = URL.createObjectURL(blob);
+        const img = new Image();
+        img.onload = () => {
+            const scale = 2;
+            const canvas = document.createElement('canvas');
+            canvas.width = width * scale;
+            canvas.height = height * scale;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#fafbfc';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            canvas.toBlob(b => {
+                downloadBlob(b, 'flowchart.png');
+                showHint('已导出 PNG');
+                URL.revokeObjectURL(url);
+            }, 'image/png');
+        };
+        img.onerror = () => { showHint('导出失败'); URL.revokeObjectURL(url); };
+        img.src = url;
+    });
+
+    // ---- Init with example ----
+    function loadExample() {
+        state.nodes = [];
+        state.conns = [];
+        const n1 = createNode('start', 360, 60, '开始', '#2ec27e');
+        const n2 = createNode('data', 360, 180, '输入数据 X', '#0d9488');
+        const n3 = createNode('process', 360, 300, '预处理\n(归一化)', '#4f6df5');
+        const n4 = createNode('decision', 360, 430, 'X > 阈值?', '#f59e0b');
+        const n5 = createNode('process', 180, 570, '算法 A', '#4f6df5');
+        const n6 = createNode('process', 540, 570, '算法 B', '#4f6df5');
+        const n7 = createNode('data', 360, 700, '输出结果', '#0d9488');
+        const n8 = createNode('end', 360, 820, '结束', '#ef4f6f');
+        createConn(n1.id, n2.id, '');
+        createConn(n2.id, n3.id, '读取');
+        createConn(n3.id, n4.id, '送入判断');
+        createConn(n4.id, n5.id, '是');
+        createConn(n4.id, n6.id, '否');
+        createConn(n5.id, n7.id, '结果1');
+        createConn(n6.id, n7.id, '结果2');
+        createConn(n7.id, n8.id, '返回');
+        rerenderAll();
+        setTimeout(fitContent, 50);
+    }
+
+    // initial state
+    applyTransform();
+    loadExample();
+    setTool('select');
+})();
+</script>
+</body>
+</html>
