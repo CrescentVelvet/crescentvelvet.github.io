@@ -580,7 +580,8 @@ title: "算法框图绘制"
                     · 滚轮缩放，平移模式拖动画布<br>
                     · Delete 键删除选中元素<br>
                     · 保存/加载使用浏览器本地存储<br>
-                    · 导出 SVG/PNG 为图片文件
+                    · 导出 SVG/PNG 为图片文件<br>
+                    · 样例存于 assets/data/flow_chart_*.json
                 </div>
             </div>
         </div>
@@ -1554,124 +1555,95 @@ title: "算法框图绘制"
         img.src = url;
     });
 
-    // ---- Sample loader ----
-    function loadSample(name) {
+    // ---- Sample loader (data files in assets/data/) ----
+    const SAMPLE_FILES = {
+        'default': '/assets/data/flow_chart_default.json',
+        'beauty':  '/assets/data/flow_chart_beauty.json'
+    };
+
+    function loadSampleData(data) {
         state.nodes = [];
         state.conns = [];
         state.selectedId = null;
         state.selectedType = null;
         state.nextId = 1;
-        const fn = SAMPLES[name];
-        if (fn) fn();
+
+        const idMap = [];
+        (data.nodes || []).forEach(n => {
+            const def = SHAPE_DEFAULTS[n.shape] || SHAPE_DEFAULTS.process;
+            const w = n.w || def.w;
+            const h = n.h || def.h;
+            const id = newId();
+            idMap.push(id);
+            state.nodes.push({
+                id: id,
+                type: 'node',
+                shape: n.shape,
+                x: n.x - w / 2,
+                y: n.y - h / 2,
+                w: w,
+                h: h,
+                text: n.text != null ? n.text : def.label,
+                color: n.color || def.color
+            });
+        });
+
+        (data.conns || []).forEach(c => {
+            const fromId = idMap[c.from];
+            const toId = idMap[c.to];
+            if (!fromId || !toId || fromId === toId) return;
+            if (state.conns.find(x => x.from === fromId && x.to === toId)) return;
+            state.conns.push({
+                id: newId(),
+                type: 'conn',
+                from: fromId,
+                to: toId,
+                text: c.text || '',
+                style: c.style || 'solid',
+                color: c.color || '#4b5563'
+            });
+        });
+
+        state.pan = { x: 0, y: 0 };
+        state.zoom = 1;
         rerenderAll();
         selectElement(null, null);
+        applyTransform();
         setTimeout(fitContent, 50);
     }
 
-    function N(shape, x, y, text, color, w, h) {
-        const node = createNode(shape, x, y, text, color, w, h);
-        return node.id;
+    function loadSample(name) {
+        if (name === 'empty') {
+            loadSampleData({ nodes: [], conns: [] });
+            showHint('已加载空白画布');
+            return;
+        }
+        const file = SAMPLE_FILES[name];
+        if (!file) { showHint('未知样例：' + name); return; }
+        fetch(file)
+            .then(function (r) {
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                return r.json();
+            })
+            .then(function (data) {
+                loadSampleData(data);
+                showHint('已加载样例：' + (data.name || name));
+            })
+            .catch(function (err) {
+                showHint('加载样例失败：' + err.message);
+            });
     }
-    function C(fromId, toId, text, style) {
-        const c = createConn(fromId, toId, text);
-        if (style && c) c.style = style;
-    }
-
-    const SAMPLES = {};
-
-    SAMPLES.empty = function () { };
-
-    SAMPLES.default = function () {
-        const n1 = N('start', 360, 60, '开始', '#2ec27e');
-        const n2 = N('data', 360, 180, '输入数据 X', '#0d9488');
-        const n3 = N('process', 360, 300, '预处理\n(归一化)', '#4f6df5');
-        const n4 = N('decision', 360, 430, 'X > 阈值?', '#f59e0b');
-        const n5 = N('process', 180, 570, '算法 A', '#4f6df5');
-        const n6 = N('process', 540, 570, '算法 B', '#4f6df5');
-        const n7 = N('data', 360, 700, '输出结果', '#0d9488');
-        const n8 = N('end', 360, 820, '结束', '#ef4f6f');
-        C(n1, n2, '');
-        C(n2, n3, '读取');
-        C(n3, n4, '送入判断');
-        C(n4, n5, '是');
-        C(n4, n6, '否');
-        C(n5, n7, '结果1');
-        C(n6, n7, '结果2');
-        C(n7, n8, '返回');
-    };
-
-    SAMPLES.beauty = function () {
-        // ---- Phase A: 离线 · 人脸增强模型准备 ----
-        const a1  = N('start',   500,  60, '原始人脸图像\nINPUT_DIR', '#6b7280', 170, 60);
-        const a2  = N('process', 500, 190, 'Resize(512)\nCenterCrop(512)\nNormalize', '#0f766e', 210, 82);
-        const a3  = N('data',    500, 330, 'src 张量\n[1,3,512,512]∈[-1,1]', '#0f766e', 210, 64);
-
-        // src 三路派生
-        const a4  = N('data',    200, 470, 'hq_orig\n原图对齐crop', '#2563eb', 160, 64);
-        const a5  = N('process', 500, 470, 'RetouchFormer\n美颜·去瑕疵·磨皮', '#7c3aed', 180, 64);
-        const a6  = N('data',    800, 470, 'lq_gauss\n高斯模糊退化', '#ea580c', 160, 64);
-
-        const a7  = N('data',    500, 610, 'hq_beauty\n美颜结果', '#db2777', 160, 64);
-
-        // 两张 parquet
-        const a8  = N('data',    350, 750, 'rest.parquet\nLQ→HQ=hq_orig', '#475569', 200, 64);
-        const a9  = N('data',    650, 750, 'rest_beauty.parquet\nLQ→HQ=hq_beauty', '#475569', 220, 64);
-
-        // 两条训练
-        const a10 = N('process', 350, 890, 'FineTuneSD2Trainer A\nexp_rest 基线复原', '#2563eb', 220, 64);
-        const a11 = N('process', 650, 890, 'FineTuneSD2Trainer B\nexp_rest_beauty 复原+美颜', '#db2777', 240, 64);
-
-        // 桥接
-        const a12 = N('process', 500, 1030, 'EnhModel\n人脸增强模型', '#d97706', 200, 64);
-
-        // ---- Phase B: 在线 · 3D人体重建人脸增强 ----
-        const b1  = N('start',   500, 1170, '3D人体重建\n训练帧序列', '#6b7280', 160, 64);
-        const b2  = N('decision', 500, 1310, '双时机增强\n前处理/后处理', '#2563eb', 180, 100);
-        const b3  = N('process',  500, 1480, '人脸定位\nRetinaFace+SAM3\n重叠率匹配', '#4f6df5', 220, 82);
-        const b4  = N('process',  500, 1640, '区域增强\ncrop→512→EnhModel→回缩', '#4f6df5', 260, 64);
-        const b5  = N('process',  500, 1770, '渐变融合\n54px渐变掩码+alpha', '#4f6df5', 240, 64);
-        const b6  = N('decision', 500, 1900, '美颜后处理(可选)\nRetouchFormer二次增强', '#7c3aed', 260, 110);
-        const b7  = N('end',      500, 2070, '增强图像回写GT\n继续训练', '#059669', 180, 64);
-
-        // Phase A 连接
-        C(a1,  a2,  '');
-        C(a2,  a3,  '');
-        C(a3,  a4,  'HQ·A 原图');
-        C(a3,  a5,  '美颜');
-        C(a5,  a7,  'HQ·B 美颜');
-        C(a3,  a6,  'LQ·共用');
-        C(a4,  a8,  'HQ');
-        C(a6,  a8,  'LQ', 'dashed');
-        C(a7,  a9,  'HQ');
-        C(a6,  a9,  'LQ', 'dashed');
-        C(a8,  a10, '训练A');
-        C(a9,  a11, '训练B');
-        C(a10, a12, 'exp_rest');
-        C(a11, a12, 'exp_rest_beauty');
-
-        // A→B 桥接
-        C(a12, b1,  'Phase B');
-
-        // Phase B 连接
-        C(b1,  b2,  '');
-        C(b2,  b3,  '');
-        C(b3,  b4,  '人脸定位');
-        C(b4,  b5,  'EnhModel推理');
-        C(b5,  b6,  '渐变融合');
-        C(b6,  b7,  '回写GT');
-    };
 
     // sample selector
     document.getElementById('select-sample').addEventListener('change', function () {
         loadSample(this.value);
-        showHint('已加载样例：' + this.options[this.selectedIndex].text);
     });
 
     // initial state — supports ?sample= URL parameter
     applyTransform();
     const _sampleParam = new URLSearchParams(window.location.search).get('sample');
-    const _initialSample = (_sampleParam && SAMPLES[_sampleParam]) ? _sampleParam : 'default';
-    if (SAMPLES[_initialSample] && _initialSample !== 'default') {
+    const _initialSample = _sampleParam || 'default';
+    if (_initialSample !== 'default') {
         document.getElementById('select-sample').value = _initialSample;
     }
     loadSample(_initialSample);

@@ -1,0 +1,23 @@
+{
+  "name": "默认样例",
+  "nodes": [
+    { "shape": "start",    "x": 360, "y": 60,  "text": "开始",            "color": "#2ec27e" },
+    { "shape": "data",     "x": 360, "y": 180, "text": "输入数据 X",      "color": "#0d9488" },
+    { "shape": "process",  "x": 360, "y": 300, "text": "预处理\n(归一化)", "color": "#4f6df5" },
+    { "shape": "decision", "x": 360, "y": 430, "text": "X > 阈值?",       "color": "#f59e0b" },
+    { "shape": "process",  "x": 180, "y": 570, "text": "算法 A",          "color": "#4f6df5" },
+    { "shape": "process",  "x": 540, "y": 570, "text": "算法 B",          "color": "#4f6df5" },
+    { "shape": "data",     "x": 360, "y": 700, "text": "输出结果",        "color": "#0d9488" },
+    { "shape": "end",      "x": 360, "y": 820, "text": "结束",            "color": "#ef4f6f" }
+  ],
+  "conns": [
+    { "from": 0, "to": 1, "text": "" },
+    { "from": 1, "to": 2, "text": "读取" },
+    { "from": 2, "to": 3, "text": "送入判断" },
+    { "from": 3, "to": 4, "text": "是" },
+    { "from": 3, "to": 5, "text": "否" },
+    { "from": 4, "to": 6, "text": "结果1" },
+    { "from": 5, "to": 6, "text": "结果2" },
+    { "from": 6, "to": 7, "text": "返回" }
+  ]
+}
