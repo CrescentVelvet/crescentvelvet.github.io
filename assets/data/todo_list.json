@@ -9,25 +9,38 @@
           "children": [
             {
               "title": "水培荔枝包装",
-              "status": "doing"
+              "status": "done"
             },
             {
               "title": "深圳出差入住酒店",
-              "status": "doing"
+              "status": "done"
             },
             {
               "title": "租孖岭房子",
-              "status": "doing"
+              "status": "done"
+            },
+            {
+              "title": "租雅宝房子",
+              "status": "todo"
             }
           ]
         },
         {
           "title": "公寓申请退房",
-          "status": "doing"
+          "children": [
+            {
+              "title": "同事帮忙验房",
+              "status": "done"
+            },
+            {
+              "title": "保洁清洗床垫",
+              "status": "done"
+            }
+          ]
         },
         {
           "title": "路由器退还",
-          "status": "doing"
+          "status": "done"
         },
         {
           "title": "电竞桌打包",
@@ -86,6 +99,14 @@
             {
               "title": "转测邮件",
               "status": "done"
+            },
+            {
+              "title": "算法框图绘制",
+              "status": "todo"
+            },
+            {
+              "title": "测试劣化样例分析",
+              "status": "todo"
             }
           ]
         },
@@ -99,6 +120,10 @@
             {
               "title": "实习生安排",
               "status": "doing"
+            },
+            {
+              "title": "视频生成方案测试",
+              "status": "todo"
             }
           ]
         },
@@ -123,15 +148,15 @@
             },
             {
               "title": "云侧端到端脚本",
-              "status": "doing"
+              "status": "done"
             },
             {
               "title": "端云接口对齐",
-              "status": "doing"
+              "status": "done"
             },
             {
               "title": "云侧算法查询回调",
-              "status": "doing"
+              "status": "done"
             }
           ]
         }
