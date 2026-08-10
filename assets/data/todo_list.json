@@ -102,7 +102,7 @@
             },
             {
               "title": "算法框图绘制",
-              "status": "todo"
+              "status": "doing"
             },
             {
               "title": "测试劣化样例分析",
@@ -123,6 +123,10 @@
             },
             {
               "title": "视频生成方案测试",
+              "status": "todo"
+            },
+            {
+              "title": "3DGS论文阅读",
               "status": "todo"
             }
           ]
