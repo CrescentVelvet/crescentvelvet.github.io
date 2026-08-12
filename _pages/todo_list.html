@@ -161,14 +161,12 @@ title: "待办清单"
     <div class="wrap">
         <a href="/" class="home">&larr; 返回首页</a>
         <h1>待办清单</h1>
-        <p class="subtitle">单击节点折叠（父）并选中编辑 · 改完点「导出 JSON」下载覆盖 <code>assets/data/todo_list.json</code></p>
 
         <svg class="mindmap" id="mindmap" xmlns="http://www.w3.org/2000/svg"></svg>
         <div class="legend">
             <span><i class="i-todo"></i>待办</span>
             <span><i class="i-doing"></i>进行中</span>
             <span><i class="i-done"></i>已完成</span>
-            <span class="hint">单击折叠并选中 · Alt+↑/↓ 交换同级顺序</span>
         </div>
 
         <div class="toolbar">
@@ -196,6 +194,8 @@ title: "待办清单"
                 <button id="btnDelete" class="ed-btn danger" type="button">删除</button>
             </div>
         </div>
+
+        <p class="subtitle" style="margin:14px 0 0">单击节点折叠（父）并选中编辑 · Alt+↑/↓ 或「↑ 上移/↓ 下移」按钮交换同级顺序 · 改完点「导出 JSON」下载覆盖 <code>assets/data/todo_list.json</code></p>
     </div>
 
     <script>
