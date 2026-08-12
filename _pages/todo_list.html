@@ -258,7 +258,7 @@ title: "待办清单"
             var color = STATUS[status] || STATUS.todo;
 
             var fill = isLeaf ? color : parentColor(node.depth);
-            var nodeCls = "node" + (isLeaf ? " leaf " + status : "") + (hasKids ? " parent" : "");
+            var nodeCls = "node" + (isLeaf ? " leaf " + status : "") + (hasKids ? " parent" : "") + (node.collapsed ? " collapsed" : "");
             var bubbleCls = "bubble" + (isRoot ? " root" : (isLeaf ? " leaf" : " parent"));
             var lblCls = "lbl" + (isRoot ? " root" : (hasKids ? " lbl-on" : ""));
 
@@ -317,7 +317,6 @@ title: "待办清单"
         var root = null;
         var svg = document.getElementById("mindmap");
         var selectedId = null;
-        var collapsed = {};
         var nextId = 1;
 
         function assignIds(node, parent) {
@@ -347,10 +346,6 @@ title: "待办清单"
             applyState();
         }
         function applyState() {
-            for (var id in collapsed) {
-                var g = svg.querySelector('[data-id="' + id + '"]');
-                if (g) g.classList.add("collapsed");
-            }
             var prev = svg.querySelector(".node.selected");
             if (prev) prev.classList.remove("selected");
             if (selectedId != null) {
@@ -413,14 +408,13 @@ title: "待办清单"
             var p = n._parent;
             var i = p.children.indexOf(n);
             if (i >= 0) p.children.splice(i, 1);
-            delete collapsed[n._id];
             selectedId = p._id;
             render(root);
         });
         btnCollapse.addEventListener("click", function () {
             var n = findNode(selectedId);
             if (!n || isLeaf(n)) return;
-            if (collapsed[selectedId]) delete collapsed[selectedId]; else collapsed[selectedId] = true;
+            n.collapsed = !n.collapsed;
             render(root);
         });
 
@@ -451,6 +445,7 @@ title: "待办清单"
             if (n.prio) o.prio = n.prio;
             if (n.due) o.due = n.due;
             if (n.note) o.note = n.note;
+            if (n.collapsed && n.children && n.children.length) o.collapsed = true;
             if (n.children && n.children.length) o.children = n.children.map(cleanNode);
             return o;
         }
@@ -467,11 +462,10 @@ title: "待办清单"
         });
         document.getElementById("btnReset").addEventListener("click", load);
 
-        function toggleCollapse(node) {
-            var id = parseInt(node.getAttribute("data-id"), 10);
-            if (node.classList.contains("collapsed")) { delete collapsed[id]; }
-            else { collapsed[id] = true; }
-            node.classList.toggle("collapsed");
+        function toggleCollapse(n) {
+            n.collapsed = !n.collapsed;
+            var g = svg.querySelector('[data-id="' + n._id + '"]');
+            if (g) g.classList.toggle("collapsed");
         }
         svg.addEventListener("click", function (e) {
             var bubble = e.target.closest(".bubble");
@@ -479,7 +473,8 @@ title: "待办清单"
             var node = bubble.closest(".node");
             selectedId = parseInt(node.getAttribute("data-id"), 10);
             if (bubble.classList.contains("parent") || bubble.classList.contains("root")) {
-                toggleCollapse(node);
+                var n = findNode(selectedId);
+                if (n) toggleCollapse(n);
             }
             applyState();
         });
@@ -508,7 +503,6 @@ title: "待办清单"
                     nextId = 1;
                     assignIds(root, null);
                     selectedId = root._id;
-                    collapsed = {};
                     render(root);
                 })
                 .catch(function (e) {
