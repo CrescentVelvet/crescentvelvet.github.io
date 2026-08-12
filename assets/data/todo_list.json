@@ -102,11 +102,24 @@
             },
             {
               "title": "算法框图绘制",
-              "status": "doing"
+              "status": "done"
             },
             {
               "title": "测试劣化样例分析",
-              "status": "todo"
+              "children": [
+                {
+                  "title": "白点问题检查高斯球",
+                  "status": "doing"
+                },
+                {
+                  "title": "融合问题检查位姿优化",
+                  "status": "doing"
+                },
+                {
+                  "title": "磨皮加强版本",
+                  "status": "doing"
+                }
+              ]
             }
           ]
         },
@@ -119,15 +132,32 @@
             },
             {
               "title": "实习生安排",
-              "status": "doing"
+              "status": "done"
             },
             {
               "title": "视频生成方案测试",
-              "status": "todo"
+              "children": [
+                {
+                  "title": "2DGS重建",
+                  "status": "doing"
+                },
+                {
+                  "title": "GOF三维重建",
+                  "status": "doing"
+                }
+              ]
             },
             {
               "title": "3DGS论文阅读",
               "status": "todo"
+            },
+            {
+              "title": "复现MiniMaxH3",
+              "status": "doing"
+            },
+            {
+              "title": "复现EVA动态重建",
+              "status": "doing"
             }
           ]
         },
