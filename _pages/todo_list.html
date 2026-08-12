@@ -190,6 +190,8 @@ title: "待办清单"
             </div>
             <div class="ed-row">
                 <button id="btnAddChild" class="ed-btn" type="button">+ 子节点</button>
+                <button id="btnMoveUp" class="ed-btn" type="button">↑ 上移</button>
+                <button id="btnMoveDown" class="ed-btn" type="button">↓ 下移</button>
                 <button id="btnCollapse" class="ed-btn" type="button">折叠/展开</button>
                 <button id="btnDelete" class="ed-btn danger" type="button">删除</button>
             </div>
@@ -362,6 +364,8 @@ title: "待办清单"
         var btnAddChild = document.getElementById("btnAddChild");
         var btnDelete = document.getElementById("btnDelete");
         var btnCollapse = document.getElementById("btnCollapse");
+        var btnMoveUp = document.getElementById("btnMoveUp");
+        var btnMoveDown = document.getElementById("btnMoveDown");
 
         function updatePanel() {
             var n = selectedId == null ? null : findNode(selectedId);
@@ -377,6 +381,11 @@ title: "待办清单"
             btnAddChild.disabled = false;
             btnDelete.disabled = (n === root);
             btnCollapse.style.display = leaf ? "none" : "";
+            var isRoot = n === root;
+            var sibs = isRoot ? null : n._parent.children;
+            var idx = sibs ? sibs.indexOf(n) : -1;
+            btnMoveUp.disabled = isRoot || idx <= 0;
+            btnMoveDown.disabled = isRoot || idx < 0 || idx >= sibs.length - 1;
         }
 
         selTitle.addEventListener("input", function () {
@@ -418,26 +427,27 @@ title: "待办清单"
             render(root);
         });
 
-        // Alt+↑/↓：将当前选中节点与上一个/下一个同级节点交换位置（新增节点后即可使用）
+        // 交换当前选中节点与上一个/下一个同级节点（dir=-1 上移，dir=+1 下移）
+        function swapSibling(dir) {
+            var n = findNode(selectedId);
+            if (!n || n === root) return false;
+            var p = n._parent;
+            var i = p.children.indexOf(n);
+            var j = i + dir;
+            if (j < 0 || j >= p.children.length) return false;
+            p.children[i] = p.children[j];
+            p.children[j] = n;
+            render(root);
+            return true;
+        }
+        // Alt+↑/↓：交换同级顺序（新增节点后即可使用）
         document.addEventListener("keydown", function (e) {
             if (!e.altKey) return;
             if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
-            var n = findNode(selectedId);
-            if (!n || n === root) return;
-            var p = n._parent;
-            var i = p.children.indexOf(n);
-            if (e.key === "ArrowUp" && i > 0) {
-                e.preventDefault();
-                p.children[i] = p.children[i - 1];
-                p.children[i - 1] = n;
-                render(root);
-            } else if (e.key === "ArrowDown" && i < p.children.length - 1) {
-                e.preventDefault();
-                p.children[i] = p.children[i + 1];
-                p.children[i + 1] = n;
-                render(root);
-            }
+            if (swapSibling(e.key === "ArrowUp" ? -1 : 1)) e.preventDefault();
         });
+        btnMoveUp.addEventListener("click", function () { swapSibling(-1); });
+        btnMoveDown.addEventListener("click", function () { swapSibling(1); });
 
         function cleanNode(n) {
             var o = { title: n.title };
