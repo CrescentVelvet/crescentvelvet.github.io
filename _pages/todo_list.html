@@ -168,7 +168,7 @@ title: "待办清单"
             <span><i class="i-todo"></i>待办</span>
             <span><i class="i-doing"></i>进行中</span>
             <span><i class="i-done"></i>已完成</span>
-            <span class="hint">单击折叠并选中</span>
+            <span class="hint">单击折叠并选中 · Alt+↑/↓ 交换同级顺序</span>
         </div>
 
         <div class="toolbar">
@@ -422,6 +422,27 @@ title: "待办清单"
             if (!n || isLeaf(n)) return;
             if (collapsed[selectedId]) delete collapsed[selectedId]; else collapsed[selectedId] = true;
             render(root);
+        });
+
+        // Alt+↑/↓：将当前选中节点与上一个/下一个同级节点交换位置（新增节点后即可使用）
+        document.addEventListener("keydown", function (e) {
+            if (!e.altKey) return;
+            if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+            var n = findNode(selectedId);
+            if (!n || n === root) return;
+            var p = n._parent;
+            var i = p.children.indexOf(n);
+            if (e.key === "ArrowUp" && i > 0) {
+                e.preventDefault();
+                p.children[i] = p.children[i - 1];
+                p.children[i - 1] = n;
+                render(root);
+            } else if (e.key === "ArrowDown" && i < p.children.length - 1) {
+                e.preventDefault();
+                p.children[i] = p.children[i + 1];
+                p.children[i + 1] = n;
+                render(root);
+            }
         });
 
         function cleanNode(n) {
