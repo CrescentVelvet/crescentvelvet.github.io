@@ -3,10 +3,10 @@
   "children": [
     {
       "title": "生活方面",
+      "collapsed": true,
       "children": [
         {
           "title": "收拾行李",
-          "collapsed": true,
           "children": [
             {
               "title": "水培荔枝包装",
@@ -28,7 +28,6 @@
         },
         {
           "title": "公寓申请退房",
-          "collapsed": true,
           "children": [
             {
               "title": "同事帮忙验房",
@@ -59,7 +58,6 @@
         },
         {
           "title": "电脑主机打包",
-          "collapsed": true,
           "children": [
             {
               "title": "玻璃面板碎裂",
@@ -70,6 +68,10 @@
               "status": "done"
             }
           ]
+        },
+        {
+          "title": "上门收纳师整理行李",
+          "status": "todo"
         }
       ]
     },
@@ -112,7 +114,7 @@
               "children": [
                 {
                   "title": "白点问题检查高斯球",
-                  "status": "doing"
+                  "status": "done"
                 },
                 {
                   "title": "融合问题检查位姿优化",
@@ -123,15 +125,45 @@
                   "status": "doing"
                 }
               ]
+            },
+            {
+              "title": "10月提交技术秘密ideaPPT",
+              "status": "todo"
             }
           ]
         },
         {
-          "title": "人脸微动模块",
+          "title": "人体微动模块",
           "children": [
             {
               "title": "论文调研与探索",
-              "status": "doing"
+              "children": [
+                {
+                  "title": "复现EVA-Gaussian",
+                  "status": "done"
+                },
+                {
+                  "title": "复现Deformable-Gaussian",
+                  "status": "done"
+                },
+                {
+                  "title": "复现MiniMaxH3",
+                  "status": "doing"
+                },
+                {
+                  "title": "复现PDF-Gaussian",
+                  "children": [
+                    {
+                      "title": "白色背景产生放射线",
+                      "status": "todo"
+                    }
+                  ]
+                },
+                {
+                  "title": "复现VGGT-Omega",
+                  "status": "doing"
+                }
+              ]
             },
             {
               "title": "实习生安排",
@@ -141,25 +173,46 @@
               "title": "视频生成方案测试",
               "children": [
                 {
+                  "title": "SAM2人物分割",
+                  "status": "done"
+                },
+                {
+                  "title": "Wan22视频生成",
+                  "status": "done"
+                },
+                {
                   "title": "2DGS重建",
                   "status": "doing"
                 },
                 {
                   "title": "GOF三维重建",
                   "status": "doing"
+                },
+                {
+                  "title": "SeeDacne2.5调研",
+                  "status": "todo"
                 }
               ]
             },
             {
-              "title": "3DGS论文阅读",
-              "status": "todo"
+              "title": "图像生成方案测试",
+              "children": [
+                {
+                  "title": "SAM3DBody姿态估计",
+                  "status": "doing"
+                },
+                {
+                  "title": "参考帧提取",
+                  "status": "todo"
+                },
+                {
+                  "title": "多帧图像条件注入",
+                  "status": "todo"
+                }
+              ]
             },
             {
-              "title": "复现MiniMaxH3",
-              "status": "doing"
-            },
-            {
-              "title": "复现EVA动态重建",
+              "title": "复现云端重建全流程",
               "status": "doing"
             }
           ]
@@ -197,6 +250,10 @@
               "status": "done"
             }
           ]
+        },
+        {
+          "title": "10月1级任职资格申请",
+          "status": "todo"
         }
       ]
     }
