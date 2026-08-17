@@ -82,7 +82,7 @@
           "title": "人脸增强模块",
           "children": [
             {
-              "title": "HYPIR模型复现",
+              "title": "HYPIR 模型复现",
               "status": "done"
             },
             {
@@ -102,7 +102,7 @@
               "status": "done"
             },
             {
-              "title": "转测邮件",
+              "title": "转测邮件发送",
               "status": "done"
             },
             {
@@ -121,7 +121,7 @@
                   "status": "doing"
                 },
                 {
-                  "title": "磨皮加强版本",
+                  "title": "磨皮加强版本训练+自测+转测",
                   "status": "doing"
                 }
               ]
@@ -139,19 +139,19 @@
               "title": "论文调研与探索",
               "children": [
                 {
-                  "title": "复现EVA-Gaussian",
+                  "title": "复现 EVA-Gaussian",
                   "status": "done"
                 },
                 {
-                  "title": "复现Deformable-Gaussian",
+                  "title": "复现 Deformable-Gaussian",
                   "status": "done"
                 },
                 {
-                  "title": "复现MiniMaxH3",
+                  "title": "复现 MiniMaxH3",
                   "status": "doing"
                 },
                 {
-                  "title": "复现PDF-Gaussian",
+                  "title": "复现 PDF-Gaussian",
                   "children": [
                     {
                       "title": "白色背景产生放射线",
@@ -160,7 +160,7 @@
                   ]
                 },
                 {
-                  "title": "复现VGGT-Omega",
+                  "title": "复现 VGGT-Omega",
                   "status": "doing"
                 }
               ]
@@ -173,24 +173,24 @@
               "title": "视频生成方案测试",
               "children": [
                 {
-                  "title": "SAM2人物分割",
+                  "title": "SAM2 人物分割",
                   "status": "done"
                 },
                 {
-                  "title": "Wan22视频生成",
+                  "title": "Wan22 视频生成",
                   "status": "done"
                 },
                 {
-                  "title": "2DGS重建",
-                  "status": "doing"
-                },
-                {
-                  "title": "GOF三维重建",
-                  "status": "doing"
-                },
-                {
-                  "title": "SeeDacne2.5调研",
+                  "title": "2DGS 重建",
                   "status": "todo"
+                },
+                {
+                  "title": "GOF 三维重建",
+                  "status": "todo"
+                },
+                {
+                  "title": "SeeDacne2.5 白模运动参考",
+                  "status": "doing"
                 }
               ]
             },
@@ -198,7 +198,7 @@
               "title": "图像生成方案测试",
               "children": [
                 {
-                  "title": "SAM3DBody姿态估计",
+                  "title": "SAM3DBody 姿态估计",
                   "status": "doing"
                 },
                 {
@@ -213,7 +213,44 @@
             },
             {
               "title": "复现云端重建全流程",
-              "status": "doing"
+              "children": [
+                {
+                  "title": "环境配置",
+                  "status": "done"
+                },
+                {
+                  "title": "HYPIR 前处理人脸增强",
+                  "status": "done"
+                },
+                {
+                  "title": "VGGT-Omega 前馈推理",
+                  "status": "done"
+                },
+                {
+                  "title": "COLMAP 转换",
+                  "status": "done"
+                },
+                {
+                  "title": "3DGS 训练 + 渲染",
+                  "status": "done"
+                },
+                {
+                  "title": "DiffBIR 新视角去噪",
+                  "status": "done"
+                },
+                {
+                  "title": "HYPIR 后处理人脸增强",
+                  "status": "done"
+                },
+                {
+                  "title": "3DGS 增强训练",
+                  "status": "done"
+                },
+                {
+                  "title": "PDF-GS对比实验",
+                  "status": "todo"
+                }
+              ]
             }
           ]
         },
@@ -252,7 +289,7 @@
           ]
         },
         {
-          "title": "10月1级任职资格申请",
+          "title": "10月申请1级任职资格",
           "status": "todo"
         }
       ]

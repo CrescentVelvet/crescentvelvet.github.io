@@ -22,6 +22,7 @@ title: "待办清单"
             --done: #16a34a;
         }
         * { box-sizing: border-box; }
+        html, body { height: 100%; }
         body {
             margin: 0;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
@@ -29,11 +30,15 @@ title: "待办清单"
             color: var(--text);
             line-height: 1.5;
             -webkit-font-smoothing: antialiased;
+            overflow: hidden;
         }
         .wrap {
             max-width: 980px;
             margin: 0 auto;
-            padding: 20px 16px 40px;
+            padding: 14px 16px;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
         }
         h1 { font-size: 1.2em; margin: 0 0 2px; }
         .subtitle { color: var(--text-muted); font-size: 13px; margin: 0 0 14px; }
@@ -46,7 +51,16 @@ title: "待办清单"
         }
         a.home:hover { text-decoration: underline; }
 
-        svg.mindmap { display: block; width: 100%; height: auto; user-select: none; }
+        svg.mindmap {
+            display: block;
+            width: 100%;
+            flex: 1 1 auto;
+            min-height: 0;
+            user-select: none;
+            cursor: grab;
+            touch-action: none;
+        }
+        svg.mindmap.panning { cursor: grabbing; }
 
         /* connectors */
         .link {
@@ -195,7 +209,7 @@ title: "待办清单"
             </div>
         </div>
 
-        <p class="subtitle" style="margin:14px 0 0">单击节点折叠（父）并选中编辑 · Alt+↑/↓ 或「↑ 上移/↓ 下移」按钮交换同级顺序 · 改完点「导出 JSON」下载覆盖 <code>assets/data/todo_list.json</code></p>
+        <p class="subtitle" style="margin:14px 0 0">滚轮缩放 · 拖拽平移 · 双击空白复位 · 单击节点折叠（父）并选中编辑 · Alt+↑/↓ 或「↑ 上移/↓ 下移」按钮交换同级顺序 · 改完点「导出 JSON」下载覆盖 <code>assets/data/todo_list.json</code></p>
     </div>
 
     <script>
@@ -308,11 +322,6 @@ title: "待办清单"
                 rect.setAttribute("height", h.toFixed(1));
                 rect.setAttribute("rx", (h / 2).toFixed(1));
             }
-            var cb = svg.getBBox();
-            if (cb.width && cb.height) {
-                var pad = 30;
-                svg.setAttribute("viewBox", (cb.x - pad) + " " + (cb.y - pad) + " " + (cb.width + pad * 2) + " " + (cb.height + pad * 2));
-            }
         }
         function isRootOf(rect) { return rect.classList.contains("root"); }
 
@@ -334,15 +343,82 @@ title: "待办清单"
         }
         function isLeaf(n) { return !n.children || !n.children.length; }
 
+        // —— 视图：滚轮缩放、拖拽平移、双击复位 ——
+        var homeBox = null;      // 内容自适应视图（缩放下限/复位基准）
+        var interacted = false;  // 用户已缩放或平移则禁止字体就绪时覆盖
+        function getView() {
+            var v = (svg.getAttribute("viewBox") || "").split(" ");
+            if (v.length < 4) return null;
+            v = v.map(parseFloat);
+            if (v.some(isNaN)) return null;
+            return { x: v[0], y: v[1], w: v[2], h: v[3] };
+        }
+        function setView(v) { svg.setAttribute("viewBox", v.x + " " + v.y + " " + v.w + " " + v.h); }
+        function fitView() {
+            var cb = svg.getBBox();
+            if (!cb.width || !cb.height) return;
+            var pad = 30;
+            homeBox = { x: cb.x - pad, y: cb.y - pad, w: cb.width + pad * 2, h: cb.height + pad * 2 };
+            setView(homeBox);
+            interacted = false;
+        }
+        function clampView(v) {
+            if (!homeBox) return v;
+            var maxW = homeBox.w, maxH = homeBox.h;
+            var minW = maxW / 20, minH = maxH / 20;
+            v.w = Math.min(maxW, Math.max(minW, v.w));
+            v.h = Math.min(maxH, Math.max(minH, v.h));
+            // 平移不超出内容过远：保留半屏缓冲
+            var mx = v.w / 2, my = v.h / 2;
+            v.x = Math.min(homeBox.x + homeBox.w - mx, Math.max(homeBox.x - mx, v.x));
+            v.y = Math.min(homeBox.y + homeBox.h - my, Math.max(homeBox.y - my, v.y));
+            return v;
+        }
+        svg.addEventListener("wheel", function (e) {
+            e.preventDefault();
+            var v = getView(); if (!v || !homeBox) return;
+            interacted = true;
+            var rect = svg.getBoundingClientRect();
+            var mx = v.x + (e.clientX - rect.left) / rect.width * v.w;
+            var my = v.y + (e.clientY - rect.top) / rect.height * v.h;
+            var s = e.deltaY < 0 ? 0.88 : 1.14;
+            var nv = clampView({ x: mx - (mx - v.x) * s, y: my - (my - v.y) * s, w: v.w * s, h: v.h * s });
+            setView(nv);
+        }, { passive: false });
+
+        var pan = { active: false, moved: false, x: 0, y: 0, vx: 0, vy: 0, w: 0, h: 0 };
+        svg.addEventListener("mousedown", function (e) {
+            var v = getView(); if (!v) return;
+            pan.active = true; pan.moved = false;
+            pan.x = e.clientX; pan.y = e.clientY;
+            pan.vx = v.x; pan.vy = v.y; pan.w = v.w; pan.h = v.h;
+        });
+        window.addEventListener("mousemove", function (e) {
+            if (!pan.active) return;
+            var rect = svg.getBoundingClientRect();
+            var dx = e.clientX - pan.x, dy = e.clientY - pan.y;
+            if (!pan.moved && Math.hypot(dx, dy) > 4) { pan.moved = true; svg.classList.add("panning"); interacted = true; }
+            if (!pan.moved) return;
+            var nv = clampView({ x: pan.vx - dx / rect.width * pan.w, y: pan.vy - dy / rect.height * pan.h, w: pan.w, h: pan.h });
+            setView(nv);
+        });
+        window.addEventListener("mouseup", function () { pan.active = false; svg.classList.remove("panning"); });
+        svg.addEventListener("dblclick", function (e) {
+            if (e.target.closest(".bubble")) return;
+            fitView();
+        });
+
         function render(rootNode) {
             cursor.y = TOP;
             maxDepth = 0;
             layout(rootNode, 0);
-            var width = LEFT + maxDepth * LEVEL_X + 240;
-            var height = cursor.y + 40;
-            svg.setAttribute("viewBox", "0 0 " + width + " " + height);
             svg.innerHTML = renderNode(rootNode, 0, 0);
             sizePills();
+            if (!svg.getAttribute("viewBox")) {
+                var width = LEFT + maxDepth * LEVEL_X + 240;
+                var height = cursor.y + 40;
+                svg.setAttribute("viewBox", "0 0 " + width + " " + height);
+            }
             requestAnimationFrame(function () { sizePills(); svg.classList.add("ready"); });
             if (document.fonts && document.fonts.ready) document.fonts.ready.then(sizePills);
             applyState();
@@ -478,6 +554,7 @@ title: "待办清单"
             if (g) g.classList.toggle("collapsed");
         }
         svg.addEventListener("click", function (e) {
+            if (pan.moved) return;  // 本次为拖拽平移，不触发选择
             var bubble = e.target.closest(".bubble");
             if (!bubble) return;
             var node = bubble.closest(".node");
@@ -513,7 +590,10 @@ title: "待办清单"
                     nextId = 1;
                     assignIds(root, null);
                     selectedId = root._id;
+                    interacted = false;
                     render(root);
+                    requestAnimationFrame(fitView);
+                    if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { if (!interacted) fitView(); });
                 })
                 .catch(function (e) {
                     svg.textContent = "加载待办数据失败：" + e.message;
