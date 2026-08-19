@@ -33,19 +33,27 @@ title: "待办清单"
             overflow: hidden;
         }
         .wrap {
-            margin: 0 auto;
-            padding: 14px 16px;
+            position: relative;
             height: 100vh;
-            display: flex;
-            flex-direction: column;
+            overflow: hidden;
         }
-        .wrap > .home, .wrap > h1, .wrap > .legend, .wrap > .toolbar, .wrap > .editor, .wrap > .subtitle {
-            align-self: center;
-            width: 100%;
-            max-width: 980px;
+        .panel {
+            position: absolute;
+            top: 14px;
+            right: 14px;
+            width: 340px;
+            max-width: calc(100vw - 28px);
+            max-height: calc(100vh - 28px);
+            overflow-y: auto;
+            background: #fff;
+            border: 1px solid #e3e6eb;
+            border-radius: 12px;
+            padding: 12px 14px;
+            box-shadow: 0 4px 18px rgba(0,0,0,.10);
+            z-index: 10;
         }
         h1 { font-size: 1.2em; margin: 0 0 2px; }
-        .subtitle { color: var(--text-muted); font-size: 13px; margin: 0 0 14px; }
+        .subtitle { color: var(--text-muted); font-size: 12px; margin: 12px 0 0; line-height: 1.5; }
         a.home {
             display: inline-block;
             margin-bottom: 12px;
@@ -56,10 +64,11 @@ title: "待办清单"
         a.home:hover { text-decoration: underline; }
 
         svg.mindmap {
-            display: block;
+            position: absolute;
+            top: 0; left: 0;
             width: 100%;
-            flex: 1 1 auto;
-            min-height: 0;
+            height: 100%;
+            display: block;
             user-select: none;
             cursor: grab;
             touch-action: none;
@@ -118,7 +127,7 @@ title: "待办清单"
         .legend {
             display: flex; gap: 16px; flex-wrap: wrap;
             font-size: 12px; color: var(--text-muted);
-            margin-top: 12px; padding: 0 6px;
+            margin-top: 12px;
         }
         .legend span { display: inline-flex; align-items: center; gap: 5px; }
         .legend i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
@@ -177,43 +186,41 @@ title: "待办清单"
 </head>
 <body>
     <div class="wrap">
-        <a href="/" class="home">&larr; 返回首页</a>
-        <h1>待办清单</h1>
-
         <svg class="mindmap" id="mindmap" xmlns="http://www.w3.org/2000/svg"></svg>
-        <div class="legend">
-            <span><i class="i-todo"></i>待办</span>
-            <span><i class="i-doing"></i>进行中</span>
-            <span><i class="i-done"></i>已完成</span>
-        </div>
-
-        <div class="toolbar">
-            <button id="btnExport" class="ed-btn primary" type="button">导出 JSON</button>
-            <button id="btnReset" class="ed-btn" type="button">重置（重载文件）</button>
-        </div>
-
-        <div class="editor" id="editor" style="display:none">
-            <div class="ed-row">
-                <span id="selInfo" class="sel-info"></span>
+        <div class="panel">
+            <a href="/" class="home">&larr; 返回首页</a>
+            <h1>待办清单</h1>
+            <div class="legend">
+                <span><i class="i-todo"></i>待办</span>
+                <span><i class="i-doing"></i>进行中</span>
+                <span><i class="i-done"></i>已完成</span>
             </div>
-            <div class="ed-row">
-                <input id="selTitle" type="text" class="ed-input" placeholder="标题">
-                <select id="selStatus" class="ed-select">
-                    <option value="todo">待办</option>
-                    <option value="doing">进行中</option>
-                    <option value="done">已完成</option>
-                </select>
+            <div class="toolbar">
+                <button id="btnExport" class="ed-btn primary" type="button">导出 JSON</button>
+                <button id="btnReset" class="ed-btn" type="button">重置（重载文件）</button>
             </div>
-            <div class="ed-row">
-                <button id="btnAddChild" class="ed-btn" type="button">+ 子节点</button>
-                <button id="btnMoveUp" class="ed-btn" type="button">↑ 上移</button>
-                <button id="btnMoveDown" class="ed-btn" type="button">↓ 下移</button>
-                <button id="btnCollapse" class="ed-btn" type="button">折叠/展开</button>
-                <button id="btnDelete" class="ed-btn danger" type="button">删除</button>
+            <div class="editor" id="editor" style="display:none">
+                <div class="ed-row">
+                    <span id="selInfo" class="sel-info"></span>
+                </div>
+                <div class="ed-row">
+                    <input id="selTitle" type="text" class="ed-input" placeholder="标题">
+                    <select id="selStatus" class="ed-select">
+                        <option value="todo">待办</option>
+                        <option value="doing">进行中</option>
+                        <option value="done">已完成</option>
+                    </select>
+                </div>
+                <div class="ed-row">
+                    <button id="btnAddChild" class="ed-btn" type="button">+ 子节点</button>
+                    <button id="btnMoveUp" class="ed-btn" type="button">↑ 上移</button>
+                    <button id="btnMoveDown" class="ed-btn" type="button">↓ 下移</button>
+                    <button id="btnCollapse" class="ed-btn" type="button">折叠/展开</button>
+                    <button id="btnDelete" class="ed-btn danger" type="button">删除</button>
+                </div>
             </div>
+            <p class="subtitle">滚轮缩放 · 拖拽平移 · 双击空白复位 · 单击节点折叠（父）并选中编辑 · Alt+↑/↓ 或「↑ 上移/↓ 下移」按钮交换同级顺序 · 改完点「导出 JSON」下载覆盖 <code>assets/data/todo_list.json</code></p>
         </div>
-
-        <p class="subtitle" style="margin:14px 0 0">滚轮缩放 · 拖拽平移 · 双击空白复位 · 单击节点折叠（父）并选中编辑 · Alt+↑/↓ 或「↑ 上移/↓ 下移」按钮交换同级顺序 · 改完点「导出 JSON」下载覆盖 <code>assets/data/todo_list.json</code></p>
     </div>
 
     <script>
