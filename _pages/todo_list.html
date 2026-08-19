@@ -33,12 +33,16 @@ title: "待办清单"
             overflow: hidden;
         }
         .wrap {
-            max-width: 980px;
             margin: 0 auto;
             padding: 14px 16px;
             height: 100vh;
             display: flex;
             flex-direction: column;
+        }
+        .wrap > .home, .wrap > h1, .wrap > .legend, .wrap > .toolbar, .wrap > .editor, .wrap > .subtitle {
+            align-self: center;
+            width: 100%;
+            max-width: 980px;
         }
         h1 { font-size: 1.2em; margin: 0 0 2px; }
         .subtitle { color: var(--text-muted); font-size: 13px; margin: 0 0 14px; }
@@ -368,10 +372,9 @@ title: "待办清单"
             var minW = maxW / 20, minH = maxH / 20;
             v.w = Math.min(maxW, Math.max(minW, v.w));
             v.h = Math.min(maxH, Math.max(minH, v.h));
-            // 平移不超出内容过远：保留半屏缓冲
-            var mx = v.w / 2, my = v.h / 2;
-            v.x = Math.min(homeBox.x + homeBox.w - mx, Math.max(homeBox.x - mx, v.x));
-            v.y = Math.min(homeBox.y + homeBox.h - my, Math.max(homeBox.y - my, v.y));
+            // 平移缓冲：整屏余地，放大后内容也不易贴边消失
+            v.x = Math.min(homeBox.x + homeBox.w, Math.max(homeBox.x - v.w, v.x));
+            v.y = Math.min(homeBox.y + homeBox.h, Math.max(homeBox.y - v.h, v.y));
             return v;
         }
         svg.addEventListener("wheel", function (e) {
