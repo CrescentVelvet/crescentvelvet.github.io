@@ -59,6 +59,51 @@
 6. 打开浏览器，访问 [http://localhost:4000](http://localhost:4000) 查看网页
 7. 修改代码保存后，可以实时预览网页，无需重复运行上述命令
 
+## Git 配置与 SSH 密钥
+
+首次使用 Git 提交代码前，需要配置用户信息并设置 SSH 密钥，以便通过 SSH 协议与 GitHub 通信（免输密码、token）。
+
+1. 配置 Git 用户名和邮箱（提交记录会使用这些信息，需与 GitHub 账号邮箱一致以正确关联提交）：
+   ```powershell
+   git config --global user.name "你的GitHub用户名"
+   git config --global user.email "你的GitHub邮箱"
+   ```
+   1. 仅给当前仓库配置可去掉 `--global`，配置会写入 `.git/config` 而非 `~/.gitconfig`
+   2. 查看当前配置：`git config --list`
+2. 生成 SSH 密钥（推荐 Ed25519，更短更快更安全；老系统不支持时可用 RSA）：
+   ```powershell
+   ssh-keygen -t ed25519 -C "你的GitHub邮箱"
+   ```
+   1. 提示输入保存路径时直接回车，使用默认路径：Windows 为 `C:\Users\你的用户名\.ssh\id_ed25519`，Linux/Mac 为 `~/.ssh/id_ed25519`
+   2. 提示输入 passphrase 时可留空回车（方便免密），也可设置密码增加安全性
+   3. 生成后会得到两个文件：私钥 `id_ed25519`（不可泄露）和公钥 `id_ed25519.pub`
+3. 启动 ssh-agent 并将私钥加入管理器，避免每次连接重复输入密码：
+   1. Windows（需以管理员身份运行 PowerShell，因为 ssh-agent 是服务）：
+      ```powershell
+      Get-Service ssh-agent | Set-Service -StartupType Automatic
+      Start-Service ssh-agent
+      ssh-add $env:USERPROFILE\.ssh\id_ed25519
+      ```
+   2. Linux/Mac：
+      ```bash
+      eval "$(ssh-agent -s)"
+      ssh-add ~/.ssh/id_ed25519
+      ```
+4. 将公钥添加到 GitHub 账号
+   1. 复制公钥内容：Windows 运行 `Get-Content $env:USERPROFILE\.ssh\id_ed25519.pub | Set-Clipboard`；Linux/Mac 运行 `cat ~/.ssh/id_ed25519.pub` 后手动复制
+   2. 打开 GitHub → 右上角头像 → Settings → SSH and GPG keys → New SSH key
+   3. Title 填一个便于区分的名称（如 "Windows 笔记本"），Key 粘贴公钥内容，保存
+5. 测试 SSH 连接，首次连接会提示是否信任主机指纹，输入 `yes`：
+   ```powershell
+   ssh -T git@github.com
+   ```
+   成功会返回：`Hi 你的用户名! You've successfully authenticated, but GitHub does not provide shell access.`
+6. 将仓库远程地址切换为 SSH（本仓库已默认 SSH，可跳过；若是从 HTTPS 克隆的需要切换）：
+   ```powershell
+   git remote set-url origin git@github.com:CrescentVelvet/crescentvelvet.github.io.git
+   ```
+   查看当前远程地址确认已切换：`git remote -v`
+
 ## 错误记录
 - 在GitHub Pages上部署的静态网页没有后端服务器，无法直接保存数据，需要保存在浏览器的localStorage中，在Console面板查看报错信息
 - 在localhost或127.0.0.1上部署的本地网页，会遇到浏览器的CORS限制，无法通过URL和API调用大模型
