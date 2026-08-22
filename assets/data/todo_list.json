@@ -121,10 +121,18 @@
                   "status": "doing"
                 },
                 {
-                  "title": "磨皮加强版本训练+自测+转测",
+                  "title": "云端代码拉取与编译",
+                  "status": "done"
+                },
+                {
+                  "title": "云端代码运行与调试",
                   "status": "doing"
                 }
               ]
+            },
+            {
+              "title": "磨皮加强版本训练+自测+转测",
+              "status": "doing"
             },
             {
               "title": "10月提交技术秘密ideaPPT",
@@ -148,13 +156,30 @@
                 },
                 {
                   "title": "复现 MiniMaxH3",
-                  "status": "doing"
+                  "children": [
+                    {
+                      "title": "双卡分片推理",
+                      "status": "todo"
+                    },
+                    {
+                      "title": "int8 量化降显存",
+                      "status": "todo"
+                    },
+                    {
+                      "title": "turbo 蒸馏加速",
+                      "status": "todo"
+                    }
+                  ]
                 },
                 {
                   "title": "复现 PDF-Gaussian",
                   "children": [
                     {
                       "title": "白色背景产生放射线",
+                      "status": "todo"
+                    },
+                    {
+                      "title": "真实背景重建叠层",
                       "status": "todo"
                     }
                   ]
