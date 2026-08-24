@@ -1,3 +1,5 @@
 ---
 BUNDLE_MIRROR__HTTPS://RUBYGEMS__ORG/: "https://mirrors.ustc.edu.cn/rubygems"
 BUNDLE_MIRROR__HTTPS://INDEX__RUBYGEMS__ORG/: "https://mirrors.ustc.edu.cn/rubygems"
+BUNDLE_TIMEOUT: "30"
+BUNDLE_FULL_INDEX: "true"
