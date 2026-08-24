@@ -2,7 +2,7 @@
 
 ## 云端运行
 
-1. 修改网站设置_config.yaml，页面设置_data\navigation.yml
+1. 修改网站设置_config.yml，页面设置_data\navigation.yml
 2. 在_pages\about.md中撰写Markdown格式的网页内容
 3. 打开浏览器，访问 [crescentvelvet.github.io](crescentvelvet.github.io) 查看网页
 
@@ -23,15 +23,20 @@
 3. 访问 [RubyInstaller 官方下载页面](https://rubyinstaller.org/downloads/) 下载并安装 Ruby 3.4.x + Devkit，安装时勾选 “Run ridk install”（本仓库在 Ruby 3.4.10 上验证通过）
 4. 打开命令提示符或 PowerShell，运行 `gem install bundler -v 2.6.8 --no-document` 安装与 Gemfile.lock 中 `BUNDLED WITH` 一致的 Bundler 版本
    1. Gemfile.lock 锁定了 Bundler 版本。若用 `gem install bundler`（不带 `-v`）安装的是最新版（如 4.x），运行 `bundle install` 时会触发 "Installing Bundler 2.6.8 and restarting" 的自动安装，在国内网络下容易卡住，因此推荐直接安装锁定版本
-5. 运行 `bundle install` 来安装 Ruby 依赖包
+5. 运行 `bundle install` 来安装 Ruby 依赖包。执行前先 `cd` 进入仓库根目录（如 `cd C:\code\crescentvelvet.github.io`），后续 `bundle config --local`、`bundle install`、`jekyll serve` 都依赖当前目录（`bundle config --local` 写入本目录 `.bundle/config`，`jekyll serve` 从当前目录查找 `_config.yml`）
    1. 国内访问 `rubygems.org` 及 compact index 主机 `index.rubygems.org` 常超时；`gems.ruby-china.com` 镜像存在 SSL 握手失败（alert 40）问题。推荐换用 USTC 镜像，不改 Gemfile，两条配置都加（compact index 在独立的 `index.rubygems.org` 主机上，只配 `rubygems.org` 的镜像不会覆盖它）：
       ```powershell
       bundle config set --local mirror.https://rubygems.org https://mirrors.ustc.edu.cn/rubygems
       bundle config set --local mirror.https://index.rubygems.org https://mirrors.ustc.edu.cn/rubygems
       ```
-   2. 若镜像仍不稳定，最可靠的方式是临时将 Gemfile 首行改为 `source "https://mirrors.ustc.edu.cn/rubygems"` 后再 `bundle install`，安装完成后改回即可（gem 已缓存在本地，后续 `bundle exec` 无需联网）
-   3. 如果仍报错，删除 `Gemfile.lock` 后重新安装：`Remove-Item Gemfile.lock; bundle install`
-   4. `wdm` gem（旧版 Jekyll 用于 Windows 文件监听）在 Ruby 3.x 上无法编译，报 `implicit declaration of function 'rb_thread_call_without_gvl'`，因其调用的 API 已被移除。现代 Jekyll 通过 `listen` gem 在 Windows 上即可监听文件变化，无需 `wdm`，当前 Gemfile 已将其注释掉，正常情况下不会触发编译。
+   2. 配好镜像后 `bundle install` 仍可能报 `Errno::ECONNREFUSED ... mirrors.ustc.edu.cn:443`。根因：USTC/TUNA 等镜像只直接代理静态文件（`/versions`、`/specs.4.8.gz`、`/quick/*.gemspec.rz`），却把动态接口 `/info/<gem>` 与 `/api/v1/dependencies` 302 重定向到 `rubygems.org`/`api.rubygems.org`，而这两个源在国内连不上（Ruby net/http 直接超时）。bundler 默认走 compact index（依赖 `/info/`）与依赖 API，于是连不上。解决：加 `--full-index` 强制使用镜像能直连的旧式 `specs.4.8.gz` 全量索引，绕开被重定向的接口：
+      ```powershell
+      bundle install --full-index
+      ```
+      可持久化以免每次都带：`bundle config set --local full_index true`
+   3. 若镜像仍不稳定，最可靠的方式是临时将 Gemfile 首行改为 `source "https://mirrors.ustc.edu.cn/rubygems"` 后再 `bundle install --full-index`，安装完成后改回即可（gem 已缓存在本地，后续 `bundle exec` 无需联网）。注意：仅换 Gemfile 源不能绕过上条的重定向问题，`--full-index` 仍需带上。
+   4. 如果仍报错，删除 `Gemfile.lock` 后重新安装：`Remove-Item Gemfile.lock; bundle install`
+   5. `wdm` gem（旧版 Jekyll 用于 Windows 文件监听）在 Ruby 3.x 上无法编译，报 `implicit declaration of function 'rb_thread_call_without_gvl'`，因其调用的 API 已被移除。现代 Jekyll 通过 `listen` gem 在 Windows 上即可监听文件变化，无需 `wdm`，当前 Gemfile 已将其注释掉，正常情况下不会触发编译。
 6. 运行启动命令
    ```powershell
    bundle exec jekyll serve
@@ -41,6 +46,7 @@
       ```powershell
       ruby -rbundler/setup "D:/Program Files/Ruby34-x64/lib/ruby/gems/3.4.0/gems/jekyll-3.10.0/exe/jekyll" serve --host 127.0.0.1 --port 4000
       ```
+   3. 启动后 stderr 可能输出几条无害告警，均可忽略：`To use retry middleware with Faraday v2.0+...`（缺 `faraday-retry` gem，不影响构建）、`GitHub Metadata: No GitHub API authentication could be found...`（未配 GitHub token，仅 `jekyll-github-metadata` 部分字段缺失，不影响本地预览）、`Please add 'gem "wdm"...'`（见 5.5，Ruby 3.x 下无需 wdm）
 7. 打开浏览器，访问 [http://127.0.0.1:4000](http://127.0.0.1:4000) 查看网页
    1. 修改代码保存后，可以实时预览网页，无需重复运行上述命令
    2. 如果需要停止本地服务，在 PowerShell 中查找并结束占用 4000 端口的进程：
