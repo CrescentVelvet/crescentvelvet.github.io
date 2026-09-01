@@ -5,531 +5,170 @@ title: 论文调研
 ---
 
 <style>
-        :root {
-            --primary-color: #4a90e2; /* 主色调：清新蓝色 */
-            --secondary-color: #6c757d; /* 次要色：灰色 */
-            --accent-color: #f0654b; /* 强调色：珊瑚红 */
-            --success-color: #66bb6a; /* 成功色：绿色 */
-            --light-bg: #f8f9fa; /* 浅色背景 */
-            --dark-bg: #2c3e50; /* 深色背景 */
-            --border-color: #e9ecef; /* 边框颜色 */
-            --text-primary: #2c3e50; /* 主要文本色 */
-            --text-secondary: #6c757d; /* 次要文本色 */
-            --text-light: #ffffff; /* 浅色文本 */
-            --shadow-light: rgba(0, 0, 0, 0.08); /* 浅阴影 */
-            --shadow-medium: rgba(0, 0, 0, 0.15); /* 中等阴影 */
-            --button-radius: 8px; /* 按钮圆角 */
-            --card-radius: 12px; /* 卡片圆角 */
-            --transition-speed: 0.3s; /* 过渡动画速度 */
-        }
-        
-        body {
-            font-family: 'Roboto', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; /* 更改字体 */
-            line-height: 1.6;
-            color: var(--text-primary);
-            background-color: var(--light-bg); /* 使用浅灰色背景 */
-            margin: 0;
-            padding: 0;
-        }
-        
-        /* 容器基础样式 */
-        .container {
-            background-color: var(--text-light);
-            border-radius: var(--card-radius);
-            box-shadow: 0 8px 30px var(--shadow-light);
-            transition: all var(--transition-speed) ease;
-        }
+  .pr-wrap {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 16px 16px 24px;
+  }
+  .pr-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .pr-title {
+    font-size: 1.15em;
+    font-weight: 700;
+    color: #2c3e50;
+  }
+  .pr-actions {
+    display: flex;
+    gap: 8px;
+  }
+  .pr-btn {
+    display: inline-block;
+    padding: 6px 14px;
+    font-size: 0.9em;
+    font-weight: 600;
+    color: #4a90e2;
+    background: #fff;
+    border: 1px solid #d9e2ec;
+    border-radius: 8px;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.2s ease;
+  }
+  .pr-btn:hover {
+    background: #4a90e2;
+    color: #fff;
+    border-color: #4a90e2;
+  }
+  .pr-status {
+    padding: 8px 12px;
+    margin-bottom: 10px;
+    font-size: 0.9em;
+    color: #6c757d;
+    background: #f8f9fa;
+    border-radius: 8px;
+  }
+  .pr-status.is-error {
+    color: #c0392b;
+    background: #fdeeec;
+  }
+  .pr-frame {
+    display: block;
+    width: 100%;
+    height: calc(100vh - 190px);
+    min-height: 560px;
+    border: 1px solid #e9ecef;
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  }
+  @media (max-width: 640px) {
+    .pr-frame { height: calc(100vh - 230px); min-height: 420px; }
+  }
+</style>
 
-        .search-container {
-            composes: container;
-            max-width: 1100px;
-            margin: 40px auto;
-            padding: 35px;
-        }
-        
-        h1 {
-            color: var(--primary-color);
-            text-align: center;
-            margin-bottom: 35px;
-            font-weight: 700; /* 加粗标题 */
-            font-size: 2.5em; /* 增大标题字体 */
-        }
-        
-        h3 {
-            font-size: 1.1em; /* 调整字体大小 */
-            margin-bottom: 12px;
-            color: var(--text-secondary); /* 调整颜色 */
-            font-weight: 600;
-            border-bottom: 2px solid var(--border-color); /* 添加下划线 */
-            padding-bottom: 8px;
-        }
-        
-        .filter-container {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); /* 调整列宽 */
-            gap: 25px; /* 增加间距 */
-            margin-bottom: 40px; /* 增加外边距 */
-            padding-bottom: 25px;
-            border-bottom: 1px solid var(--border-color);
-        }
-        
-        .filter-card {
-            composes: container;
-            padding: 22px;
-            border: 1px solid var(--border-color);
-            box-shadow: 0 4px 12px var(--shadow-light);
-        }
-
-        .conference-filter, .year-filter, .keyword-filter {
-            composes: filter-card;
-        }
-        
-        .conference-filter label {
-            display: inline-flex; /* 使用flex布局 */
-            align-items: center;
-            margin-right: 15px; /* 增加间距 */
-            margin-bottom: 10px; /* 增加下边距 */
-            cursor: pointer;
-            font-size: 0.95em; /* 调整字体大小 */
-        }
-        
-        .conference-filter input[type="checkbox"] {
-            margin-right: 8px; /* 增加间距 */
-            transform: scale(1.1); /* 稍微放大复选框 */
-        }
-        
-        .conference-filter span {
-            padding: 6px 12px; /* 调整内边距 */
-            border-radius: 20px; /* 增加圆角 */
-            background: var(--border-color); /* 更改背景色 */
-            transition: all 0.3s ease; /* 调整过渡效果 */
-            display: inline-block;
-            color: var(--text-secondary);
-        }
-        
-        .conference-filter input:checked + span {
-            background: var(--primary-color); /* 保持主色 */
-            color: var(--text-light); /* 浅色文本 */
-            font-weight: 600; /* 调整字体粗细 */
-            box-shadow: 0 2px 5px rgba(0, 123, 255, 0.3); /* 添加阴影 */
-        }
-        
-        .year-range {
-            display: flex;
-            align-items: center;
-            gap: 15px; /* 增加间距 */
-        }
-        
-        /* 通用输入框样式 */
-        .input-control {
-            padding: 10px 15px;
-            border: 1.5px solid var(--border-color);
-            border-radius: var(--button-radius);
-            font-size: 15px;
-            transition: all var(--transition-speed) ease;
-            background-color: var(--text-light);
-            color: var(--text-primary);
-            box-shadow: inset 0 2px 4px var(--shadow-light);
-        }
-
-        .input-control:focus {
-            border-color: var(--primary-color);
-            box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.2);
-            outline: none;
-        }
-
-        .input-control::placeholder {
-            color: var(--text-secondary);
-            opacity: 0.7;
-        }
-
-        /* 年份输入框特殊样式 */
-        .year-input {
-            composes: input-control;
-            width: 90px;
-            text-align: center;
-        }
-        
-        .keyword-input-container {
-            display: flex;
-            margin-top: 15px; /* 增加外边距 */
-        }
-        
-        .keyword-input {
-            composes: input-control;
-            flex: 1;
-            border-radius: var(--button-radius) 0 0 var(--button-radius);
-            font-size: 15px;
-        }
-        
-        /* 通用按钮样式 */
-        .btn {
-            padding: 10px 20px;
-            background-color: var(--primary-color);
-            color: var(--text-light);
-            border: none;
-            border-radius: var(--button-radius);
-            cursor: pointer;
-            font-size: 15px;
-            font-weight: 600;
-            transition: all var(--transition-speed) ease;
-            box-shadow: 0 2px 4px var(--shadow-light);
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            text-decoration: none;
-            line-height: 1.5;
-        }
-
-        .btn:hover {
-            background-color: #357abd;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px var(--shadow-medium);
-        }
-
-        .btn:active {
-            transform: translateY(0);
-            box-shadow: 0 2px 4px var(--shadow-light);
-        }
-
-        .btn-secondary {
-            background-color: var(--secondary-color);
-        }
-
-        .btn-secondary:hover {
-            background-color: #5a6268;
-        }
-
-        .btn-accent {
-            background-color: var(--accent-color);
-        }
-
-        .btn-accent:hover {
-            background-color: #d84315;
-        }
-
-        .btn-success {
-            background-color: var(--success-color);
-        }
-
-        .btn-success:hover {
-            background-color: #4caf50;
-        }
-
-        /* 特殊按钮样式 */
-        .add-keyword-btn {
-            composes: btn;
-            border-radius: 0 var(--button-radius) var(--button-radius) 0;
-            padding: 12px 20px;
-            font-size: 16px;
-        }
-        
-        .saved-keywords {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            margin-top: 10px;
-            min-height: 30px;
-            padding-bottom: 5px;
-            border-bottom: 1px dashed var(--border-color); /* 添加虚线边框 */
-            padding-top: 5px;
-        }
-        
-        .keyword-tag {
-            display: inline-flex;
-            align-items: center;
-            padding: 8px 15px; /* 调整内边距 */
-            background-color: #e0f7fa; /* 浅蓝色背景 */
-            color: #00796b; /* 深绿色文本 */
-            border-radius: 25px; /* 增加圆角 */
-            font-size: 0.9em; /* 调整字体大小 */
-            font-weight: 500;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1); /* 添加阴影 */
-            transition: all 0.2s ease;
-        }
-        
-        .keyword-tag:hover {
-            background-color: #c8e6c9; /* 悬停背景色 */
-            color: #1b5e20; /* 悬停文本色 */
-            transform: translateY(-1px);
-        }
-        
-        .keyword-tag .remove {
-            margin-left: 8px; /* 增加间距 */
-            cursor: pointer;
-            font-weight: bold;
-            font-size: 1.1em; /* 调整字体大小 */
-            color: var(--accent-color); /* 红色 */
-        }
-        
-        .search-container-input {
-            margin-bottom: 30px; /* 增加外边距 */
-        }
-        
-        .search-box {
-            composes: input-control;
-            width: 100%;
-            padding: 15px 20px;
-            font-size: 17px;
-            margin-bottom: 15px;
-            border-width: 2px;
-        }
-        
-        .search-stats {
-            color: var(--text-secondary);
-            font-size: 15px; /* 调整字体大小 */
-            margin-bottom: 20px; /* 增加外边距 */
-            text-align: right; /* 右对齐 */
-        }
-        
-        .paper-list {
-            list-style: none;
-            padding: 0;
-        }
-        
-        .paper-item {
-            composes: container;
-            padding: 20px;
-            margin-bottom: 15px;
-            border: 1px solid var(--border-color);
-            max-width: 650px;
-            margin-left: auto;
-            margin-right: auto;
-            transition: transform var(--transition-speed) ease,
-                        box-shadow var(--transition-speed) ease;
-        }
-        
-        .paper-item:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 12px 30px var(--shadow-medium);
-        }
-        
-        .paper-item.highlight {
-            border-left: 5px solid var(--accent-color); /* 调整高亮边框 */
-        }
-        
-        .paper-title {
-            font-size: 1.1em; /* 进一步缩小字体大小 */
-            font-weight: 600;
-            margin-bottom: 8px;
-        }
-        
-        .paper-title a {
-            color: var(--primary-color);
-            text-decoration: none;
-            transition: color 0.3s ease; /* 调整过渡效果 */
-        }
-        
-        .paper-title a:hover {
-            color: #0056b3; /* 悬停颜色 */
-            text-decoration: underline;
-        }
-        
-        .paper-authors {
-            color: var(--text-secondary);
-            margin-bottom: 6px;
-            font-size: 0.85em; /* 进一步缩小字体大小 */
-        }
-        
-        .paper-conference {
-            display: inline-block;
-            color: var(--text-light);
-            font-size: 0.85em; /* 调整字体大小 */
-            padding: 5px 10px; /* 调整内边距 */
-            border-radius: 5px; /* 增加圆角 */
-            background-color: var(--secondary-color); /* 使用次要颜色 */
-            margin-bottom: 15px; /* 增加外边距 */
-            font-weight: 500;
-        }
-        
-        .paper-abstract {
-            color: var(--text-secondary);
-            font-size: 0.85em; /* 进一步缩小字体大小 */
-            line-height: 1.5;
-            margin: 10px 0; /* 缩小外边距 */
-            max-height: 100px; /* 缩小最大高度 */
-            overflow: hidden;
-            transition: max-height 0.4s ease; /* 调整过渡效果 */
-            position: relative;
-        }
-        
-        .paper-abstract.expanded {
-            max-height: 1000px;
-        }
-        
-        .paper-abstract::after {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            height: 40px; /* 增加渐变高度 */
-            background: linear-gradient(transparent, white); /* 保持白色渐变 */
-            pointer-events: none;
-            transition: opacity 0.3s;
-        }
-        
-        .paper-abstract.expanded::after {
-            opacity: 0;
-        }
-        
-        .paper-keywords {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px; /* 增加间距 */
-            margin-top: 15px; /* 增加外边距 */
-            padding-top: 10px;
-            border-top: 1px dashed var(--border-color); /* 添加虚线边框 */
-        }
-        
-        .paper-keyword {
-            background-color: var(--light-bg); /* 浅色背景 */
-            color: var(--text-secondary);
-            padding: 4px 10px; /* 进一步缩小内边距 */
-            border-radius: 15px; /* 进一步缩小圆角 */
-            font-size: 0.75em; /* 进一步缩小字体大小 */
-            cursor: pointer;
-            transition: background-color 0.3s, color 0.3s; /* 调整过渡效果 */
-            border: 1px solid var(--border-color);
-        }
-        
-        .paper-keyword:hover {
-            background-color: #e9ecef; /* 悬停背景色 */
-            color: var(--primary-color); /* 悬停文本色 */
-        }
-        
-        .keyword-toast {
-            position: fixed;
-            bottom: 30px; /* 调整位置 */
-            left: 50%;
-            transform: translateX(-50%);
-            background-color: var(--dark-bg); /* 深色背景 */
-            color: var(--text-light);
-            padding: 12px 25px; /* 调整内边距 */
-            border-radius: 8px; /* 增加圆角 */
-            z-index: 1000;
-            transition: opacity 0.5s, transform 0.3s ease; /* 添加过渡效果 */
-            box-shadow: 0 5px 15px rgba(0,0,0,0.2); /* 添加阴影 */
-        }
-        
-        .toggle-abstract {
-            color: var(--primary-color);
-            cursor: pointer;
-            font-size: 0.9em; /* 调整字体大小 */
-            display: inline-block;
-            margin-top: 8px; /* 调整外边距 */
-            user-select: none;
-            font-weight: 500;
-        }
-        
-        .toggle-abstract:hover {
-            text-decoration: underline;
-        }
-        
-        /* 响应式设计 */
-        @media (max-width: 768px) {
-            .filter-container {
-                grid-template-columns: 1fr;
-                gap: 20px;
-            }
-            
-            .search-container {
-                padding: 20px;
-                margin: 15px;
-            }
-            
-            .paper-item {
-                padding: 15px;
-                margin-bottom: 12px;
-            }
-
-            .input-group {
-                flex-direction: column;
-            }
-
-            .select-wrapper {
-                width: 100%;
-                min-width: unset;
-            }
-
-            .btn {
-                width: 100%;
-                margin-top: 10px;
-            }
-
-            .year-range {
-                flex-wrap: wrap;
-            }
-
-            .year-input {
-                flex: 1;
-                min-width: 120px;
-            }
-
-            .paper-conference {
-                display: inline-block;
-                margin-bottom: 8px;
-            }
-
-            .paper-keywords {
-                gap: 6px;
-            }
-        }
-
-        @media (max-width: 480px) {
-            .search-container {
-                padding: 15px;
-                margin: 10px;
-            }
-
-            h1 {
-                font-size: 2em;
-                margin-bottom: 25px;
-            }
-
-            .paper-title {
-                font-size: 1em;
-            }
-
-            .paper-abstract {
-                font-size: 0.8em;
-            }
-        }
-    </style>
-
-    <div class="search-container">
-        <h1>论文调研</h1>
-
-        <div class="filter-container">
-            <div class="conference-filter">
-                <h3>分类筛选</h3>
-            </div>
-            
-            <div class="year-filter">
-                <h3>年份筛选</h3>
-                <div class="year-range">
-                    <input type="number" id="yearFrom" class="year-input" placeholder="从" min="2000" max="2030">
-                    <span>至</span>
-                    <input type="number" id="yearTo" class="year-input" placeholder="至" min="2000" max="2030">
-                </div>
-            </div>
-            
-            <div class="keyword-filter">
-                <h3>关键词收藏</h3>
-                <div class="saved-keywords" id="savedKeywords"></div>
-                <div class="keyword-input-container">
-                    <input type="text" id="keywordInput" class="keyword-input" placeholder="添加关键词...">
-                    <button id="addKeywordBtn" class="add-keyword-btn">添加</button>
-                </div>
-            </div>
-        </div>
-        
-        <div class="search-container-input">
-            <input type="text" class="search-box" placeholder="输入关键词搜索论文..." id="searchInput">
-            <div id="searchStats" class="search-stats"></div>
-        </div>
-        
-        <ul class="paper-list" id="paperList"></ul>
+<div class="pr-wrap">
+  <div class="pr-toolbar">
+    <div class="pr-title">📄 论文调研 · media_paper 知识库</div>
+    <div class="pr-actions">
+      <button id="prBack" class="pr-btn" hidden>← 返回索引</button>
+      <button id="prReload" class="pr-btn">刷新</button>
+      <a id="prOpen" class="pr-btn" target="_blank" rel="noopener">新窗口打开 ↗</a>
     </div>
+  </div>
+  <div id="prStatus" class="pr-status">正在加载知识库索引…</div>
+  <iframe id="prFrame" class="pr-frame" title="media_paper 知识库"></iframe>
+</div>
 
-    <script src="/assets/js/paper_retrieval.js"></script>
+<script>
+(function () {
+  // media_paper 仓库（raw 支持 CORS，图片等资源按正确类型返回）
+  var RAW = 'https://raw.githubusercontent.com/CrescentVelvet/media_paper/main/';
+
+  var frame   = document.getElementById('prFrame');
+  var status  = document.getElementById('prStatus');
+  var backBtn = document.getElementById('prBack');
+  var reloadBtn = document.getElementById('prReload');
+  var openLink  = document.getElementById('prOpen');
+
+  // 导航历史：stack 保存上一页，便于"返回索引"
+  var stack = [];      // [{ url, html }]
+  var current = null;  // { url, html }
+
+  // 注入 base（让相对图片/资源指向 raw）和点击拦截脚本（站内 .html 跳转交给外层接管）
+  var INJECT =
+    '<base href="' + RAW + '">' +
+    '<script>' +
+    'document.addEventListener("click", function (e) {' +
+    '  var a = e.target.closest && e.target.closest("a[href]");' +
+    '  if (!a) return;' +
+    '  var href = a.getAttribute("href");' +
+    '  if (!href || /^(https?:|mailto:|#)/i.test(href)) return;' +
+    '  if (/\\.html?$/i.test(href.split("#")[0])) {' +
+    '    e.preventDefault();' +
+    '    parent.postMessage({ type: "pr-navigate", href: a.href }, "*");' +
+    '  }' +
+    '}, true);' +
+    '<\/script>';
+
+  function setStatus(text, isError) {
+    status.textContent = text;
+    status.classList.toggle('is-error', !!isError);
+  }
+
+  function render(doc) {
+    current = doc;
+    frame.srcdoc = doc.html;
+    backBtn.hidden = stack.length === 0;
+    openLink.href = 'https://htmlpreview.github.io/?' + doc.url;
+  }
+
+  function fetchDoc(url) {
+    setStatus('正在加载：' + url.replace(RAW, ''));
+    return fetch(url, { cache: 'no-cache' }).then(function (res) {
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res.text().then(function (text) {
+        // 在 <head> 后注入 base 与拦截脚本
+        var html = /<head[^>]*>/i.test(text)
+          ? text.replace(/<head[^>]*>/i, function (m) { return m + INJECT; })
+          : INJECT + text;
+        return { url: url, html: html };
+      });
+    });
+  }
+
+  function navigate(url, push) {
+    fetchDoc(url).then(function (doc) {
+      if (push && current) stack.push(current);
+      render(doc);
+      setStatus('共 ' + (stack.length + 1) + ' 页浏览记录 · 当前：' +
+        decodeURIComponent(url.replace(RAW, '')));
+    }).catch(function (err) {
+      setStatus('加载失败（' + err.message + '），请检查网络或点击"刷新"重试。', true);
+    });
+  }
+
+  // 接收 iframe 内的站内跳转请求
+  window.addEventListener('message', function (e) {
+    if (e.data && e.data.type === 'pr-navigate') navigate(e.data.href, true);
+  });
+
+  backBtn.addEventListener('click', function () {
+    var prev = stack.pop();
+    if (prev) render(prev);
+  });
+
+  reloadBtn.addEventListener('click', function () {
+    stack = [];
+    navigate(RAW + 'index.html', false);
+  });
+
+  // 初始加载索引页
+  navigate(RAW + 'index.html', false);
+})();
+</script>
