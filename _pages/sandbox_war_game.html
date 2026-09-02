@@ -249,7 +249,8 @@ permalink: /sandbox_war_game.html
         .tank-turret,
         .tank-barrel,
         .soldier-body,
-        .soldier-head {
+        .soldier-head,
+        .soldier-rifle {
             position: absolute;
         }
 
@@ -297,22 +298,42 @@ permalink: /sandbox_war_game.html
             --scale: 0.636;
         }
 
+        /* Soldier speaks the vehicle body language: chamfered hull, dark/core/light values, one breaking weapon. */
         .soldier-body {
             width: 12px;
-            height: 13px;
+            height: 12.6px;
             left: 5px;
-            top: 6px;
-            background: var(--color);
-            box-shadow: inset 0 0 0 2px var(--color-dark), 0 2px 0 rgba(0,0,0,0.45);
+            top: 7.4px;
+            background: var(--soldier-hull, var(--color-dark));
+            clip-path: polygon(25% 0, 75% 0, 100% 24%, 88% 100%, 12% 100%, 0 24%);
+            box-shadow: inset 0 0 0 2px var(--soldier-core, var(--color));
         }
 
         .soldier-head {
             width: 9px;
-            height: 8px;
-            left: 6px;
-            top: 1px;
-            background: var(--color-light);
-            box-shadow: inset 0 0 0 2px var(--color);
+            height: 7.2px;
+            left: 6.2px;
+            top: 0.6px;
+            background: var(--soldier-hi, var(--color-light));
+            clip-path: polygon(24% 0, 76% 0, 100% 34%, 100% 100%, 0 100%, 0 34%);
+            box-shadow: inset 0 0 0 1.5px var(--soldier-core, var(--color));
+        }
+
+        .soldier-rifle {
+            width: 3px;
+            height: 10px;
+            left: 15.2px;
+            top: 0.5px;
+            background: linear-gradient(90deg, #1b2225, #34495e, #1b2225);
+        }
+        .soldier-rifle::after {
+            content: '';
+            position: absolute;
+            width: 3px;
+            height: 3px;
+            left: 0;
+            bottom: 0;
+            background: #6b4a2a;
         }
 
         .unit.ally { --color: #3498db; --color-dark: #2980b9; --color-light: #5dade2; }
@@ -529,8 +550,7 @@ permalink: /sandbox_war_game.html
             --body-size: 22px;
             --scale: 0.636;
         }
-        .unit.engineer .soldier-body { background: var(--color); }
-        .unit.engineer .soldier-head { background: #f5cba7; box-shadow: inset 1px 1px #fce8d0, inset -2px -2px #d68910; }
+        .unit.engineer .soldier-head { --soldier-hi: #f5cba7; --soldier-core: #d68910; }
         .engineer-tool {
             position: absolute;
             width: 3px; height: 4px;
@@ -544,12 +564,11 @@ permalink: /sandbox_war_game.html
             --body-size: 22px;
             --scale: 0.636;
         }
-        .unit.medic .soldier-body { background: var(--color); }
-        .unit.medic .soldier-head { background: #fadbd8; box-shadow: inset 1px 1px #fef0ee, inset -2px -2px #bdc3c7; }
+        .unit.medic .soldier-head { --soldier-hi: #fadbd8; --soldier-core: #bdc3c7; }
         .medic-cross {
             position: absolute;
             width: 3px; height: 3px;
-            left: 5px; top: 6px;
+            left: 6px; top: 10px;
             background: #e74c3c;
         }
 
@@ -559,8 +578,6 @@ permalink: /sandbox_war_game.html
             --body-size: 22px;
             --scale: 0.636;
         }
-        .unit.antitank .soldier-body { background: var(--color); }
-        .unit.antitank .soldier-head { background: var(--color-light); box-shadow: inset 1px 1px rgba(255,255,255,.3), inset -2px -2px var(--color); }
         .antitank-tube {
             position: absolute;
             width: 3px; height: 8px;
@@ -689,8 +706,6 @@ permalink: /sandbox_war_game.html
             --body-size: 22px;
             --scale: 0.636;
         }
-        .unit.melee .soldier-body { background: var(--color); }
-        .unit.melee .soldier-head { background: #bdc3c7; box-shadow: inset 0 0 0 2px #7f8c8d; }
         .melee-spear {
             position: absolute;
             width: 2px; height: 12px;
@@ -704,8 +719,6 @@ permalink: /sandbox_war_game.html
             --body-size: 22px;
             --scale: 0.636;
         }
-        .unit.archer .soldier-body { background: var(--color); }
-        .unit.archer .soldier-head { background: #d4a373; box-shadow: inset 0 0 0 2px #8a5a3c; }
         .archer-bow {
             position: absolute;
             width: 4px; height: 8px;
@@ -794,8 +807,6 @@ permalink: /sandbox_war_game.html
             --body-size: 22px;
             --scale: 0.636;
         }
-        .unit.crossbow .soldier-body { background: var(--color); }
-        .unit.crossbow .soldier-head { background: #d4a373; box-shadow: inset 0 0 0 2px #8a5a3c; }
         .crossbow-div {
             position: absolute;
             width: 6px; height: 5px;
@@ -817,8 +828,7 @@ permalink: /sandbox_war_game.html
             --body-size: 22px;
             --scale: 0.636;
         }
-        .unit.firearm .soldier-body { background: var(--color); }
-        .unit.firearm .soldier-head { background: #d4a373; box-shadow: inset 1px 1px #f4c38a, inset -2px -2px #8a5a3c; }
+        .unit.firearm .soldier-head { --soldier-hi: #d4a373; --soldier-core: #8a5a3c; }
         .firearm-gun {
             position: absolute;
             width: 3px; height: 10px;
@@ -832,8 +842,7 @@ permalink: /sandbox_war_game.html
             --body-size: 22px;
             --scale: 0.636;
         }
-        .unit.grenadier .soldier-body { background: var(--color); }
-        .unit.grenadier .soldier-head { background: #d4a373; box-shadow: inset 1px 1px #f4c38a, inset -2px -2px #8a5a3c; }
+        .unit.grenadier .soldier-head { --soldier-hi: #d4a373; --soldier-core: #8a5a3c; }
         .grenadier-bomb {
             position: absolute;
             width: 4px; height: 4px;
@@ -1084,18 +1093,16 @@ permalink: /sandbox_war_game.html
         .td-mark { position: absolute; width: 4px; height: 4px; left: 16px; top: 23px; background: #f4cf55; }
 
         /* Ancient units: body language and weapons stay legible even at strategy-map scale. */
-        .soldier-shadow { position: absolute; width: 14px; height: 6px; left: 4px; top: 17px; background: rgba(0,0,0,.38); }
+        .soldier-shadow { position: absolute; width: 13.2px; height: 4.4px; left: 4.4px; top: 17.8px; background: rgba(0,0,0,.30); border-radius: 50%; }
         .vehicle-shadow { position: absolute; width: 22px; height: 7px; left: 3px; top: 20px; background: rgba(0,0,0,.3); border-radius: 50%; }
         .warship-shadow { position: absolute; width: 24px; height: 5px; left: 2px; top: 21px; background: rgba(0,0,0,.25); border-radius: 50%; }
-        .soldier-body { clip-path: polygon(25% 0, 75% 0, 100% 24%, 88% 100%, 12% 100%, 0 24%); box-shadow: inset 2px 2px rgba(255,255,255,.18), inset -2px -2px var(--color-dark), 0 2px 0 rgba(0,0,0,.4); }
-        .soldier-head { border-radius: 2px 2px 1px 1px; box-shadow: inset 1px 1px rgba(255,255,255,.22), inset -2px -2px var(--color); }
-        .unit.melee .soldier-head { background: #b9c5c8; box-shadow: inset 0 2px #e7f0ef, inset -2px -2px #607177; }
+        .unit.melee .soldier-head { --soldier-hi: #b9c5c8; --soldier-core: #607177; }
         .unit.melee .soldier-head::before { content: ''; position: absolute; width: 11px; height: 3px; left: -1px; top: 1px; background: #66777b; }
         .melee-spear { width: 2px; height: 16px; left: 15px; top: -2px; background: #8e6940; box-shadow: 1px 0 #d3d6d0; }
         .melee-spear::before { content: ''; position: absolute; left: -2px; top: -3px; width: 6px; height: 6px; background: #e9f0ed; clip-path: polygon(50% 0, 100% 100%, 50% 78%, 0 100%); }
         .melee-shield { position: absolute; width: 6px; height: 9px; left: 2px; top: 8px; background: var(--color-dark); border: 1px solid #e3c75c; clip-path: polygon(0 0, 100% 0, 100% 72%, 50% 100%, 0 72%); }
-        .unit.archer .soldier-body, .unit.crossbow .soldier-body { background: #567a57; box-shadow: inset 2px 2px #89a66c, inset -2px -2px #2e5137; }
-        .unit.archer .soldier-head, .unit.crossbow .soldier-head { background: #d99a64; box-shadow: inset 1px 1px #f4c38a, inset -2px -2px #8d5034; }
+        .unit.archer .soldier-body, .unit.crossbow .soldier-body { --soldier-hull: #2e5137; --soldier-core: #567a57; }
+        .unit.archer .soldier-head, .unit.crossbow .soldier-head { --soldier-hi: #d99a64; --soldier-core: #8d5034; }
         .archer-bow { width: 6px; height: 12px; left: 14px; top: 4px; border: 2px solid #7b4e28; border-left: 0; border-radius: 0 8px 8px 0; }
         .archer-bow::after { content: ''; position: absolute; width: 1px; height: 13px; left: 1px; top: -2px; background: #ead6a0; }
         .archer-arrow { position: absolute; width: 2px; height: 13px; left: 13px; top: 2px; background: #c49a62; }
@@ -2503,7 +2510,7 @@ permalink: /sandbox_war_game.html
                     for (let i = 0; i < this.maxAmmo; i++) cells += `<div class="cruise-cell${i < this.ammo ? ' loaded' : ''}"><div class="cruise-missile"></div></div>`;
                     body = '<div class="vehicle-shadow"></div><div class="cruise-chassis"></div><div class="cruise-rack">' + cells + '</div>';
                 } else {
-                    body = '<div class="soldier-shadow"></div><div class="soldier-head"></div><div class="soldier-body"></div>';
+                    body = '<div class="soldier-shadow"></div><div class="soldier-head"></div><div class="soldier-body"></div><div class="soldier-rifle"></div>';
                 }
 
                 return `<div class="unit-body">${body}</div><div class="hp-bar"><div class="hp-fill" style="width: ${this.getHealthPercent()}%"></div></div>${this.ammo !== undefined && this.type !== 'ballistic' && this.type !== 'cruise' ? `<div class="unit-ammo">${Math.max(0, this.ammo)}</div>` : ''}`;
