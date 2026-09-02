@@ -1004,6 +1004,26 @@ permalink: /sandbox_war_game.html
             box-shadow: inset 2px 1px var(--color), inset -2px -1px rgba(0,0,0,.45), 0 2px 0 rgba(0,0,0,.5);
         }
         .ballistic-chassis::before { content: ''; position: absolute; width: 24px; height: 2px; left: 3px; top: 3px; background: rgba(255,255,255,.12); }
+        /* 导弹车共性: 后部驾驶室 + 底盘轮组, 与其他载具的"车"语言对齐 (前朝上, 驾驶室在车尾) */
+        .missile-cab {
+            position: absolute;
+            width: 10px; height: 5px;
+            left: 13px; top: 26px;
+            clip-path: polygon(8% 0, 92% 0, 100% 100%, 0 100%);
+            background: var(--color);
+            box-shadow: inset 0 1px var(--color-light), inset 0 -1px var(--color-dark);
+        }
+        .missile-cab::before { content: ''; position: absolute; width: 6px; height: 2px; left: 2px; top: 1px; background: #bfe3f2; box-shadow: 0 0 0 1px rgba(0,0,0,.35); }
+        .missile-wheel {
+            position: absolute;
+            width: 4px; height: 4px;
+            top: 27px;
+            background: #14171a;
+            border-radius: 1px;
+            box-shadow: inset 1px 1px rgba(255,255,255,.16), 0 1px 0 rgba(0,0,0,.5);
+        }
+        .missile-wheel.w1 { left: 5px; }
+        .missile-wheel.w2 { left: 27px; }
         /* 多联发射筒: 前置(顶部)立于底盘, 每筒一枚垂直导弹, .loaded 有弹露出弹头, 发射一枚空一筒 */
         .ballistic-rack {
             position: absolute;
@@ -1064,6 +1084,37 @@ permalink: /sandbox_war_game.html
         }
         .cruise-missile::before { content: ''; position: absolute; width: 6px; height: 2px; left: 50%; top: 38%; margin-left: -3px; background: #4a4a4a; box-shadow: 0 0 0 1px #2a2a2a; }
         .cruise-missile::after { content: ''; position: absolute; width: 4px; height: 2px; left: 50%; bottom: 0; margin-left: -2px; background: #4a4a4a; }
+
+        /* 导弹车发射特效: 筒口喷焰 + 烟圈 + 离筒弹剪影 (挂 .unit-body, 随朝向旋转, 一次性动画) */
+        .launch-flash { position: absolute; left: 50%; top: 3px; width: 0; height: 0; pointer-events: none; z-index: 6; }
+        .launch-flash::before {
+            content: ''; position: absolute; left: -4px; top: -2px; width: 8px; height: 15px;
+            background: linear-gradient(to bottom, #fff3b0 0%, #ffb33a 45%, rgba(230,126,34,0) 100%);
+            clip-path: polygon(30% 0, 70% 0, 100% 100%, 50% 78%, 0 100%);
+            animation: launchFlame .45s ease-out forwards;
+        }
+        .launch-flash::after {
+            content: ''; position: absolute; left: -13px; top: -10px; width: 26px; height: 16px;
+            border-radius: 50%; border: 2px solid rgba(225,225,215,.7);
+            animation: launchSmoke .55s ease-out forwards;
+        }
+        .launch-missile {
+            position: absolute; left: 50%; top: 1px;
+            width: 3px; height: 11px; margin-left: -1.5px;
+            background: linear-gradient(to bottom, #d64545 0 18%, #f3f3f3 18% 70%, #c8c8c8 70% 100%);
+            clip-path: polygon(50% 0, 100% 22%, 100% 100%, 0 100%, 0 22%);
+            pointer-events: none; z-index: 6;
+            animation: launchLift .5s ease-out forwards;
+        }
+        .launch-missile.cruise {
+            width: 4px; margin-left: -2px;
+            background: linear-gradient(to bottom, #9aa2a8 0 25%, #6b7276 25% 100%);
+            border-radius: 50% 50% 1px 1px;
+            box-shadow: 0 0 0 1px #2e2e2e;
+        }
+        @keyframes launchFlame { 0% { transform: scale(.3); opacity: 1; } 60% { transform: scale(1); opacity: .95; } 100% { transform: scale(1.2); opacity: 0; } }
+        @keyframes launchSmoke { 0% { transform: scale(.4); opacity: .85; } 100% { transform: scale(1.7); opacity: 0; } }
+        @keyframes launchLift  { 0% { transform: translateY(0); opacity: 1; } 70% { opacity: 1; } 100% { transform: translateY(-15px); opacity: 0; } }
 
         /* ===== Unit artwork: command-and-conquer silhouettes + age-of-empires equipment ===== */
         .unit-body { filter: drop-shadow(2px 3px 0 rgba(8, 15, 13, 0.52)); }
@@ -1583,13 +1634,15 @@ permalink: /sandbox_war_game.html
         .codex-stats {
             flex: 1;
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 2px 10px;
-            font-size: 14px;
-            color: #bdc3c7;
-            line-height: 1.5;
+            grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+            gap: 1px 8px;
+            font-size: 12.5px;
+            color: #95a5a6;
+            line-height: 1.55;
+            align-content: start;
         }
         .codex-stats b { color: var(--pixel-text); font-weight: normal; }
+        .codex-stats i { font-style: normal; color: #f1c40f; }
         .codex-stats .dim { color: #7f8c8d; }
 
         .codex-chips {
@@ -2673,20 +2726,33 @@ permalink: /sandbox_war_game.html
                 } else if (this.type === 'ballistic') {
                     let tubes = '';
                     for (let i = 0; i < this.maxAmmo; i++) tubes += `<div class="ballistic-tube${i < this.ammo ? ' loaded' : ''}"></div>`;
-                    body = '<div class="vehicle-shadow"></div><div class="ballistic-chassis"></div><div class="ballistic-rack">' + tubes + '</div>';
+                    body = '<div class="vehicle-shadow"></div><div class="ballistic-chassis"></div><div class="missile-cab"></div><div class="missile-wheel w1"></div><div class="missile-wheel w2"></div><div class="ballistic-rack">' + tubes + '</div>';
                 } else if (this.type === 'cruise') {
                     let cells = '';
                     for (let i = 0; i < this.maxAmmo; i++) cells += `<div class="cruise-cell${i < this.ammo ? ' loaded' : ''}"><div class="cruise-missile"></div></div>`;
-                    body = '<div class="vehicle-shadow"></div><div class="cruise-chassis"></div><div class="cruise-rack">' + cells + '</div>';
+                    body = '<div class="vehicle-shadow"></div><div class="cruise-chassis"></div><div class="missile-cab"></div><div class="missile-wheel w1"></div><div class="missile-wheel w2"></div><div class="cruise-rack">' + cells + '</div>';
                 } else {
                     body = '<div class="soldier-shadow"></div><div class="soldier-head"></div><div class="soldier-body"></div><div class="soldier-rifle"></div>';
                 }
 
-                return `<div class="unit-body">${body}</div><div class="hp-bar"><div class="hp-fill" style="width: ${this.getHealthPercent()}%"></div></div>${this.ammo !== undefined && this.type !== 'ballistic' && this.type !== 'cruise' ? `<div class="unit-ammo">${Math.max(0, this.ammo)}</div>` : ''}`;
+                return `<div class="unit-body">${body}</div><div class="hp-bar"><div class="hp-fill" style="width: ${this.getHealthPercent()}%"></div></div>${this.ammo !== undefined ? `<div class="unit-ammo">${Math.max(0, this.ammo)}</div>` : ''}`;
             }
 
             getHealthPercent() {
                 return Math.max(0, Math.min(100, (this.health / this.maxHealth) * 100));
+            }
+
+            // 导弹车发射特效: 筒口喷焰 + 烟圈 + 离筒弹剪影 (挂 .unit-body 内, 随车体朝向旋转)
+            playLaunchEffect() {
+                const body = this.element && this.element.querySelector('.unit-body');
+                if (!body) return;
+                const flash = document.createElement('div');
+                flash.className = 'launch-flash';
+                const missile = document.createElement('div');
+                missile.className = 'launch-missile' + (this.type === 'cruise' ? ' cruise' : '');
+                body.appendChild(flash);
+                body.appendChild(missile);
+                setTimeout(() => { flash.remove(); missile.remove(); }, 700);
             }
 
             updateVisual() {
@@ -2707,23 +2773,28 @@ permalink: /sandbox_war_game.html
 
                 // 导弹车: 实时刷新载弹量徽章 (打出一发少一发)
                 if (this.ammo !== undefined) {
-                    if (this.type === 'ballistic') {
-                        // 弹道导弹车: 每筒一枚, 前 ammo 筒 .loaded(露出弹头), 其余空筒
-                        const tubes = this.element.querySelectorAll('.ballistic-tube');
-                        const loaded = Math.max(0, this.ammo);
-                        tubes.forEach((tube, i) => tube.classList.toggle('loaded', i < loaded));
-                    } else if (this.type === 'cruise') {
-                        // 巡航导弹车: 每挂一枚, 前 ammo 挂 .loaded(挂巡航导弹), 其余空挂
-                        const cells = this.element.querySelectorAll('.cruise-cell');
-                        const loaded = Math.max(0, this.ammo);
-                        cells.forEach((cell, i) => cell.classList.toggle('loaded', i < loaded));
-                    } else {
+                    const refreshAmmoBadge = () => {
                         const ammoEl = this.element.querySelector('.unit-ammo');
                         if (ammoEl) {
                             const a = Math.max(0, this.ammo);
                             ammoEl.textContent = a;
                             ammoEl.classList.toggle('empty', a === 0);
                         }
+                    };
+                    if (this.type === 'ballistic') {
+                        // 弹道导弹车: 每筒一枚, 前 ammo 筒 .loaded(露出弹头), 其余空筒
+                        const tubes = this.element.querySelectorAll('.ballistic-tube');
+                        const loaded = Math.max(0, this.ammo);
+                        tubes.forEach((tube, i) => tube.classList.toggle('loaded', i < loaded));
+                        refreshAmmoBadge();
+                    } else if (this.type === 'cruise') {
+                        // 巡航导弹车: 每挂一枚, 前 ammo 挂 .loaded(挂巡航导弹), 其余空挂
+                        const cells = this.element.querySelectorAll('.cruise-cell');
+                        const loaded = Math.max(0, this.ammo);
+                        cells.forEach((cell, i) => cell.classList.toggle('loaded', i < loaded));
+                        refreshAmmoBadge();
+                    } else {
+                        refreshAmmoBadge();
                     }
                 }
 
@@ -4658,6 +4729,7 @@ permalink: /sandbox_war_game.html
                         proj.endX = targetX;
                         proj.endY = targetY;
                     }
+                    this.playLaunchEffect();
                 }
             }
         }
@@ -4751,6 +4823,7 @@ permalink: /sandbox_war_game.html
                             proj.element.appendChild(flame);
                         }
                     }
+                    this.playLaunchEffect();
                 }
             }
         }
@@ -7258,29 +7331,32 @@ permalink: /sandbox_war_game.html
             }
             main.appendChild(fig);
 
-            // 数值: 全部读实例字段, 与代码同步
+            // 数值: 全部读实例字段, 与代码同步 (紧凑小字列表)
             const stats = document.createElement('div');
             stats.className = 'codex-stats';
-            const rows = [];
-            rows.push(`<span>生命 <b>${preset.health}</b></span><span>造价 <b>${preset.pointCost}</b> 点</span>`);
+            const cells = [`<span>生命 <b>${preset.health}</b></span>`, `<span>造价 <b>${preset.pointCost}</b></span>`];
             if (u) {
                 const atk = u.attackPower || 0;
                 const cd = u.attackCooldown || 0;
                 const volley = u.volleySize || 1;
                 const dps = (atk && cd) ? (atk * volley / (cd / 1000)) : 0;
                 if (atk) {
-                    rows.push(`<span>攻击 <b>${atk}</b>${volley > 1 ? `<span class="dim">×${volley}齐射</span>` : ''}</span><span>冷却 <b>${(cd / 1000).toFixed(1)}s</b></span>`);
-                    rows.push(`<span>射程 <b>${u.minRange ? Math.round(u.minRange) + '-' : ''}${Math.round(u.attackRange || 0)}</b></span><span>秒伤 <b>${dps.toFixed(1)}</b></span>`);
+                    cells.push(`<span>攻击 <b>${atk}</b>${volley > 1 ? `<i>×${volley}</i>` : ''}</span>`);
+                    cells.push(`<span>冷却 <b>${(cd / 1000).toFixed(1)}s</b></span>`);
+                    cells.push(`<span>射程 <b>${u.minRange ? Math.round(u.minRange) + '-' : ''}${Math.round(u.attackRange || 0)}</b></span>`);
+                    cells.push(`<span>秒伤 <b>${dps.toFixed(1)}</b></span>`);
                 } else if (u.supportRate) {
-                    rows.push(`<span>支援恢复 <b>${u.supportRate}</b> HP/s</span><span>支援半径 <b>${Math.round(u.supportRange || 0)}</b></span>`);
+                    cells.push(`<span>恢复 <b>${u.supportRate}</b>/s</span>`);
+                    cells.push(`<span>半径 <b>${Math.round(u.supportRange || 0)}</b></span>`);
                 } else {
-                    rows.push('<span>攻击 <b class="dim">—</b></span><span class="dim">非战斗单位</span>');
+                    cells.push('<span class="dim">非战斗单位</span>');
                 }
-                if (u.maxSpeed) rows.push(`<span>速度 <b>${Math.round(u.maxSpeed)}</b></span><span>护甲 <b>${CODEX_ARMOR_NAME[u.armorType] || u.armorType || '—'}</b></span>`);
-                if (u.deployDuration) rows.push(`<span>架设 <b>${(u.deployDuration / 1000).toFixed(0)}s</b></span>`);
-                if (u.maxAmmo) rows.push(`<span>载弹 <b>${u.maxAmmo}</b></span>`);
+                if (u.maxSpeed) cells.push(`<span>速度 <b>${Math.round(u.maxSpeed)}</b></span>`);
+                if (u.armorType) cells.push(`<span>护甲 <b>${CODEX_ARMOR_NAME[u.armorType] || u.armorType}</b></span>`);
+                if (u.deployDuration) cells.push(`<span>架设 <b>${(u.deployDuration / 1000).toFixed(0)}s</b></span>`);
+                if (u.maxAmmo) cells.push(`<span>载弹 <b>${u.maxAmmo}</b></span>`);
             }
-            stats.innerHTML = rows.join('');
+            stats.innerHTML = cells.join('');
             main.appendChild(stats);
             card.appendChild(main);
 
