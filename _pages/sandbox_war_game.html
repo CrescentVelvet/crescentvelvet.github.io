@@ -1459,6 +1459,165 @@ permalink: /sandbox_war_game.html
                 font-size: 14px;
             }
         }
+
+        /* ---------- 单位图鉴抽屉 ---------- */
+        #codexDrawer {
+            position: fixed;
+            top: 0;
+            right: 0;
+            width: 400px;
+            max-width: 92vw;
+            height: 100%;
+            background: #000;
+            border-left: 4px solid var(--pixel-text);
+            box-shadow: -8px 0 0 rgba(0,0,0,0.5);
+            transform: translateX(102%);
+            transition: transform 0.22s steps(6);
+            z-index: 300;
+            display: flex;
+            flex-direction: column;
+        }
+        #codexDrawer.open { transform: translateX(0); }
+
+        .codex-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            border-bottom: 4px solid var(--pixel-text);
+        }
+        .codex-title {
+            font-size: 24px;
+            color: var(--pixel-accent);
+            text-shadow: 3px 3px 0 #000;
+        }
+        .codex-close {
+            background: transparent;
+            border: 3px solid var(--pixel-secondary);
+            color: var(--pixel-secondary);
+            font: inherit;
+            font-size: 18px;
+            padding: 2px 10px;
+            cursor: pointer;
+        }
+
+        .codex-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            padding: 10px 12px;
+            border-bottom: 4px solid var(--pixel-text);
+        }
+        .codex-tabs button {
+            font: inherit;
+            font-size: 15px;
+            padding: 4px 10px;
+            background: transparent;
+            border: 3px solid #7f8c8d;
+            color: #bdc3c7;
+            cursor: pointer;
+        }
+        .codex-tabs button.active {
+            border-color: var(--pixel-accent);
+            color: var(--pixel-accent);
+        }
+        .codex-tabs button:hover { color: var(--pixel-text); border-color: var(--pixel-text); }
+
+        .codex-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+        .codex-list::-webkit-scrollbar { width: 10px; }
+        .codex-list::-webkit-scrollbar-thumb { background: #4a6070; border: 2px solid #000; }
+
+        .codex-card {
+            border: 4px solid var(--pixel-text);
+            padding: 10px 12px;
+            background: #101d29;
+        }
+        .codex-card.target { border-color: var(--pixel-accent); }
+
+        .codex-card-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+        .codex-card-head .codex-name { font-size: 20px; color: var(--pixel-text); }
+        .codex-era-tag {
+            font-size: 13px;
+            padding: 1px 8px;
+            border: 2px solid #7f8c8d;
+            color: #95a5a6;
+            white-space: nowrap;
+        }
+
+        .codex-card-main {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 8px;
+        }
+        .codex-fig {
+            width: 92px;
+            height: 92px;
+            flex: 0 0 92px;
+            position: relative;
+            background: #22303d;
+            border: 2px solid #3d5568;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .codex-fig .codex-unit-scale {
+            position: relative;
+            transform: scale(var(--fig-scale, 2.4));
+            transform-origin: center;
+        }
+
+        .codex-stats {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2px 10px;
+            font-size: 14px;
+            color: #bdc3c7;
+            line-height: 1.5;
+        }
+        .codex-stats b { color: var(--pixel-text); font-weight: normal; }
+        .codex-stats .dim { color: #7f8c8d; }
+
+        .codex-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-top: 8px;
+        }
+        .codex-chips span {
+            font-size: 13px;
+            padding: 1px 7px;
+            border: 2px solid #3d5568;
+            color: #bdc3c7;
+        }
+        .codex-chips span.strong { border-color: #2ecc71; color: #2ecc71; }
+        .codex-chips span.weak { border-color: #e74c3c; color: #e74c3c; }
+
+        .codex-tactic {
+            margin-top: 8px;
+            font-size: 15px;
+            line-height: 1.55;
+            color: #d8c98b;
+        }
+        .codex-tactic::before { content: "▍"; color: var(--pixel-accent); }
+
+        @media (max-width: 700px) {
+            #codexDrawer { width: 100vw; border-left-width: 2px; }
+        }
     </style>
 </head>
 <body>
@@ -1489,6 +1648,7 @@ permalink: /sandbox_war_game.html
                     <button onclick="clearBattlefield()" class="pixel-btn btn-danger">清空</button>
                     <button onclick="battlefieldManager.toggleDebugPaths()" class="pixel-btn btn-unit">调试路线</button>
                     <button onclick="battlefieldManager.toggleSynergy()" class="pixel-btn btn-unit">协同链</button>
+                    <button onclick="toggleCodex()" id="codexBtn" class="pixel-btn btn-action">图鉴</button>
                 </div>
 
                 <div class="control-row">
@@ -1577,6 +1737,15 @@ permalink: /sandbox_war_game.html
     </div>
 
     <div class="unit-info" id="unitInfo"></div>
+
+    <div id="codexDrawer">
+        <div class="codex-header">
+            <span class="codex-title">单位图鉴</span>
+            <button onclick="toggleCodex(false)" class="codex-close">✕</button>
+        </div>
+        <div class="codex-tabs" id="codexTabs"></div>
+        <div class="codex-list" id="codexList"></div>
+    </div>
 
     <script>
         /*
@@ -2616,6 +2785,8 @@ permalink: /sandbox_war_game.html
                 
                 this.selected = true;
                 this.element.classList.add('selected');
+                // 图鉴开着时, 顺带跳到该单位条目
+                if (typeof focusCodexEntry === 'function') focusCodexEntry(this.type);
             }
 
             showInfo(event) {
@@ -4584,6 +4755,20 @@ permalink: /sandbox_war_game.html
             }
         }
 
+        // type → 单位类 统一映射 (投放工厂与图鉴共用)
+        const UNIT_CLASSES = {
+            tank: Tank, artillery: Artillery, rocket: RocketLauncher,
+            command: CommandVehicle, supply: SupplyTruck, engineer: Engineer,
+            medic: Medic, antitank: RocketSoldier, lightTank: LightTank,
+            tankDestroyer: TankDestroyer, scout: ScoutCar, apc: APC,
+            mortar: Mortar, melee: MeleeInfantry, archer: Archer,
+            cavalry: Cavalry, catapult: Catapult, crossbow: Crossbowman,
+            firearm: Firearm, grenadier: Grenadier, nestOfBees: NestOfBees,
+            hongyipao: Hongyipao, warship: Warship, fireship: Fireship,
+            ballistic: BallisticMissile, cruise: CruiseMissile,
+            soldier: Soldier
+        };
+
         class Projectile {
             constructor(source, target, damage) {
                 this.source = source;
@@ -6275,34 +6460,7 @@ permalink: /sandbox_war_game.html
                         }
                     }
                 }
-                let unit;
-                if (type === 'tank') unit = new Tank(x, y, team, health);
-                else if (type === 'artillery') unit = new Artillery(x, y, team, health);
-                else if (type === 'rocket') unit = new RocketLauncher(x, y, team, health);
-                else if (type === 'command') unit = new CommandVehicle(x, y, team, health);
-                else if (type === 'supply') unit = new SupplyTruck(x, y, team, health);
-                else if (type === 'engineer') unit = new Engineer(x, y, team, health);
-                else if (type === 'medic') unit = new Medic(x, y, team, health);
-                else if (type === 'antitank') unit = new RocketSoldier(x, y, team, health);
-                else if (type === 'lightTank') unit = new LightTank(x, y, team, health);
-                else if (type === 'tankDestroyer') unit = new TankDestroyer(x, y, team, health);
-                else if (type === 'scout') unit = new ScoutCar(x, y, team, health);
-                else if (type === 'apc') unit = new APC(x, y, team, health);
-                else if (type === 'mortar') unit = new Mortar(x, y, team, health);
-                else if (type === 'melee') unit = new MeleeInfantry(x, y, team, health);
-                else if (type === 'archer') unit = new Archer(x, y, team, health);
-                else if (type === 'cavalry') unit = new Cavalry(x, y, team, health);
-                else if (type === 'catapult') unit = new Catapult(x, y, team, health);
-                else if (type === 'crossbow') unit = new Crossbowman(x, y, team, health);
-                else if (type === 'firearm') unit = new Firearm(x, y, team, health);
-                else if (type === 'grenadier') unit = new Grenadier(x, y, team, health);
-                else if (type === 'nestOfBees') unit = new NestOfBees(x, y, team, health);
-                else if (type === 'hongyipao') unit = new Hongyipao(x, y, team, health);
-                else if (type === 'warship') unit = new Warship(x, y, team, health);
-                else if (type === 'fireship') unit = new Fireship(x, y, team, health);
-                else if (type === 'ballistic') unit = new BallisticMissile(x, y, team, health);
-                else if (type === 'cruise') unit = new CruiseMissile(x, y, team, health);
-                else unit = new Soldier(x, y, team, health);
+                const unit = new (UNIT_CLASSES[type] || Soldier)(x, y, team, health);
                 unit.angle = angle;
                 unit.desiredAngle = angle;
                 this.addUnit(unit);
@@ -6988,6 +7146,179 @@ permalink: /sandbox_war_game.html
             return '步兵';
         }
 
+        // ==================== 单位图鉴 ====================
+        const CODEX_ERAS = [
+            { key: 'ww2', label: '二战', types: ['tank', 'lightTank', 'tankDestroyer', 'antitank', 'soldier', 'artillery', 'rocket', 'mortar', 'ballistic', 'cruise', 'command', 'supply', 'engineer', 'medic', 'scout', 'apc'] },
+            { key: 'ancient', label: '古代陆战', types: ['melee', 'archer', 'crossbow', 'cavalry', 'catapult'] },
+            { key: 'gunpowder', label: '火药', types: ['firearm', 'grenadier', 'nestOfBees', 'hongyipao'] },
+            { key: 'naval', label: '古代水战', types: ['warship', 'fireship'] }
+        ];
+
+        const CODEX_TACTICS = {
+            tank: '编队核心。正面扛线推进，优先点掉敌方步兵群；注意脱离己方步兵掩护时会被反坦克兵与歼击车伏击。',
+            lightTank: '便宜快速的万金油。开局抢要点、骚扰敌方炮兵与支援车，避免和主战坦克对轰。',
+            tankDestroyer: '伏击型坦克杀手。架在掩体或侧翼等敌方装甲送上门，机动差，别拿来当先锋。',
+            antitank: '最廉价的反装甲手段。混在步兵群里专咬坦克，但血薄，怕任何溅射与碾压。',
+            soldier: '最便宜的血量与人数。用来填线、吸引火力、掩护炮兵，输了数量就输了。',
+            artillery: '超远程压制，专拆掩体后的密集步兵。有最小射程，贴脸就废，必须摆在二线。',
+            rocket: '齐射覆盖大面积目标，专治人海与固定阵地。装填与架设都慢，被骑兵和侦察车摸到就是死。',
+            mortar: '曲射越过掩体，中距离消耗敌方步兵与工事。射程中庸，注意保持前后层级。',
+            ballistic: '战略级超远程打击，一发重创一片。点数昂贵，适合开局换掉敌方关键炮兵阵地。',
+            cruise: '精确制导绕过掩体，专点高价值单个目标（指挥车、歼击车）。会被密集防空环境浪费，量力购买。',
+            command: '给周围友军提供协同增益的移动光环。自己几乎没有战斗力，永远躲在战线后方。',
+            supply: '给周围友军回血补弹的后勤核心。敌方优先集火目标，别让它跟第一梯队走太前。',
+            engineer: '修建掩体改变地形，还能排障。战斗价值低，但好的掩体位置胜过半个坦克排。',
+            medic: '跟随步兵群持续恢复生命。被溅射一锅端是常见死法，注意与前排拉开距离。',
+            scout: '视野就是射程。在开阔图先出侦察车点亮敌方炮兵，让己方火炮隔墙点名。',
+            apc: '快速把步兵送到关键点。空的运兵车毫无威胁，卸载后可以当肉盾用。',
+            melee: '古代战线的前排肉盾，靠数量扛住箭雨掩护后排。克制骑兵冲脸，怕投石溅射。',
+            archer: '古代远程输出主力，射速快。怕骑兵贴近，永远站在近战步兵身后。',
+            crossbow: '单发伤害高但装填慢，专点重甲与敌方精英单位。密集使用时注意轮射节奏。',
+            cavalry: '全场机动之王。绕后切弓手、炮兵与支援单位，撞上长枪阵和近战集群要立刻撤。',
+            catapult: '攻城溅射武器，砸密集阵型与掩体后的目标。命中慢，最怕骑兵贴脸。',
+            firearm: '火药时代的主力远程，穿甲能力优于弓箭。和古代兵种混编时注意射程层级。',
+            grenadier: '范围爆炸专治密集步兵，还能拆掩体。投掷距离短，扔完就要撤。',
+            nestOfBees: '六发齐射的箭雨覆盖，对人海是毁灭性的。单发伤害低，别拿来啃重甲。',
+            hongyipao: '火药时代的重炮，远距离单发重创。机动极差，架好后别再挪。',
+            warship: '水战主力，火力与血量兼备。只能在赤壁想定使用，注意浅滩与火船。',
+            fireship: '自杀式冲撞，换掉敌方一艘主力船就是赚。速度是唯一护甲，别在半路被打沉。'
+        };
+
+        const CODEX_ARMOR_NAME = { infantry: '步兵甲', vehicle: '轻甲', tank: '重甲', cavalry: '骑兵' };
+        const CODEX_DMG_NAME = { infantry: '对步兵', vehicle: '对轻甲', tank: '对重甲', cavalry: '对骑兵' };
+
+        let codexOpen = false;
+        let codexEra = 'ww2';
+        let codexBuilt = false;
+
+        function toggleCodex(force) {
+            const drawer = document.getElementById('codexDrawer');
+            codexOpen = (force !== undefined) ? force : !codexOpen;
+            drawer.classList.toggle('open', codexOpen);
+            if (codexOpen && !codexBuilt) {
+                buildCodex();
+                codexBuilt = true;
+            }
+        }
+
+        function buildCodex() {
+            const tabs = document.getElementById('codexTabs');
+            tabs.innerHTML = '';
+            CODEX_ERAS.forEach(era => {
+                const b = document.createElement('button');
+                b.textContent = era.label;
+                b.dataset.era = era.key;
+                b.className = era.key === codexEra ? 'active' : '';
+                b.onclick = () => { codexEra = era.key; buildCodex(); };
+                tabs.appendChild(b);
+            });
+            const list = document.getElementById('codexList');
+            list.innerHTML = '';
+            const era = CODEX_ERAS.find(e => e.key === codexEra);
+            era.types.forEach(t => list.appendChild(buildCodexCard(t)));
+        }
+
+        function buildCodexCard(type) {
+            const preset = UNIT_PRESETS[type] || { health: 100, pointCost: 10 };
+            let u = null;
+            try { u = new (UNIT_CLASSES[type] || Soldier)(0, 0, 'ally', preset.health); } catch (e) { /* 图鉴容错 */ }
+
+            const card = document.createElement('div');
+            card.className = 'codex-card';
+            card.dataset.unitType = type;
+
+            const head = document.createElement('div');
+            head.className = 'codex-card-head';
+            head.innerHTML = `<span class="codex-name">${unitTypeName(type)}</span><span class="codex-era-tag">${(CODEX_ERAS.find(e => e.types.includes(type)) || {}).label || ''}</span>`;
+            card.appendChild(head);
+
+            const main = document.createElement('div');
+            main.className = 'codex-card-main';
+
+            // 放大立绘: 实例化取真实 markup, 与战场同源
+            const fig = document.createElement('div');
+            fig.className = 'codex-fig';
+            if (u) {
+                try {
+                    const el = document.createElement('div');
+                    el.className = `unit ${type} ally`;
+                    const s = u.getSize();
+                    el.style.width = s + 'px';
+                    el.style.height = s + 'px';
+                    el.style.position = 'relative';   // 覆盖 absolute, 便于居中
+                    el.innerHTML = u.getDisplayMarkup();
+                    const hp = el.querySelector('.hp-bar'); if (hp) hp.remove();
+                    const badge = el.querySelector('.unit-ammo'); if (badge) badge.remove();
+                    const wrap = document.createElement('div');
+                    wrap.className = 'codex-unit-scale';
+                    wrap.style.setProperty('--fig-scale', (62 / s).toFixed(2));
+                    wrap.appendChild(el);
+                    fig.appendChild(wrap);
+                } catch (e) { /* 立绘失败不阻塞数值 */ }
+            }
+            main.appendChild(fig);
+
+            // 数值: 全部读实例字段, 与代码同步
+            const stats = document.createElement('div');
+            stats.className = 'codex-stats';
+            const rows = [];
+            rows.push(`<span>生命 <b>${preset.health}</b></span><span>造价 <b>${preset.pointCost}</b> 点</span>`);
+            if (u) {
+                const atk = u.attackPower || 0;
+                const cd = u.attackCooldown || 0;
+                const volley = u.volleySize || 1;
+                const dps = (atk && cd) ? (atk * volley / (cd / 1000)) : 0;
+                if (atk) {
+                    rows.push(`<span>攻击 <b>${atk}</b>${volley > 1 ? `<span class="dim">×${volley}齐射</span>` : ''}</span><span>冷却 <b>${(cd / 1000).toFixed(1)}s</b></span>`);
+                    rows.push(`<span>射程 <b>${u.minRange ? Math.round(u.minRange) + '-' : ''}${Math.round(u.attackRange || 0)}</b></span><span>秒伤 <b>${dps.toFixed(1)}</b></span>`);
+                } else if (u.supportRate) {
+                    rows.push(`<span>支援恢复 <b>${u.supportRate}</b> HP/s</span><span>支援半径 <b>${Math.round(u.supportRange || 0)}</b></span>`);
+                } else {
+                    rows.push('<span>攻击 <b class="dim">—</b></span><span class="dim">非战斗单位</span>');
+                }
+                if (u.maxSpeed) rows.push(`<span>速度 <b>${Math.round(u.maxSpeed)}</b></span><span>护甲 <b>${CODEX_ARMOR_NAME[u.armorType] || u.armorType || '—'}</b></span>`);
+                if (u.deployDuration) rows.push(`<span>架设 <b>${(u.deployDuration / 1000).toFixed(0)}s</b></span>`);
+                if (u.maxAmmo) rows.push(`<span>载弹 <b>${u.maxAmmo}</b></span>`);
+            }
+            stats.innerHTML = rows.join('');
+            main.appendChild(stats);
+            card.appendChild(main);
+
+            // 克制关系: 从 damageTable 生成
+            if (u && u.damageTable) {
+                const chips = document.createElement('div');
+                chips.className = 'codex-chips';
+                Object.entries(u.damageTable).forEach(([k, v]) => {
+                    const cls = v >= 1.5 ? 'strong' : (v > 0 && v < 0.7 ? 'weak' : '');
+                    chips.innerHTML += `<span class="${cls}">${CODEX_DMG_NAME[k] || k} ×${v}</span>`;
+                });
+                if (chips.children.length) card.appendChild(chips);
+            }
+
+            const tac = document.createElement('div');
+            tac.className = 'codex-tactic';
+            tac.textContent = CODEX_TACTICS[type] || '';
+            card.appendChild(tac);
+            return card;
+        }
+
+        // 战斗中点选单位 → 图鉴若开着则跳到对应条目
+        function focusCodexEntry(type) {
+            if (!codexOpen) return;
+            const era = CODEX_ERAS.find(e => e.types.includes(type));
+            if (!era) return;
+            if (era.key !== codexEra) { codexEra = era.key; buildCodex(); }
+            const card = document.querySelector(`.codex-card[data-unit-type="${type}"]`);
+            if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            document.querySelectorAll('.codex-card.target').forEach(c => c.classList.remove('target'));
+            card && card.classList.add('target');
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && codexOpen) toggleCodex(false);
+        });
+
+
         function logBattle(message, type = 'info') {
             const logContent = document.getElementById('battleLog'); // 修改了ID
             const logEntry = document.createElement('div');
@@ -7065,62 +7396,7 @@ permalink: /sandbox_war_game.html
                 return;
             }
 
-            let unit;
-            if (type === 'tank') {
-                unit = new Tank(x, y, team, health);
-            } else if (type === 'artillery') {
-                unit = new Artillery(x, y, team, health);
-            } else if (type === 'rocket') {
-                unit = new RocketLauncher(x, y, team, health);
-            } else if (type === 'command') {
-                unit = new CommandVehicle(x, y, team, health);
-            } else if (type === 'supply') {
-                unit = new SupplyTruck(x, y, team, health);
-            } else if (type === 'engineer') {
-                unit = new Engineer(x, y, team, health);
-            } else if (type === 'medic') {
-                unit = new Medic(x, y, team, health);
-            } else if (type === 'antitank') {
-                unit = new RocketSoldier(x, y, team, health);
-            } else if (type === 'lightTank') {
-                unit = new LightTank(x, y, team, health);
-            } else if (type === 'tankDestroyer') {
-                unit = new TankDestroyer(x, y, team, health);
-            } else if (type === 'scout') {
-                unit = new ScoutCar(x, y, team, health);
-            } else if (type === 'apc') {
-                unit = new APC(x, y, team, health);
-            } else if (type === 'mortar') {
-                unit = new Mortar(x, y, team, health);
-            } else if (type === 'melee') {
-                unit = new MeleeInfantry(x, y, team, health);
-            } else if (type === 'archer') {
-                unit = new Archer(x, y, team, health);
-            } else if (type === 'cavalry') {
-                unit = new Cavalry(x, y, team, health);
-            } else if (type === 'catapult') {
-                unit = new Catapult(x, y, team, health);
-            } else if (type === 'crossbow') {
-                unit = new Crossbowman(x, y, team, health);
-            } else if (type === 'firearm') {
-                unit = new Firearm(x, y, team, health);
-            } else if (type === 'grenadier') {
-                unit = new Grenadier(x, y, team, health);
-            } else if (type === 'nestOfBees') {
-                unit = new NestOfBees(x, y, team, health);
-            } else if (type === 'hongyipao') {
-                unit = new Hongyipao(x, y, team, health);
-            } else if (type === 'warship') {
-                unit = new Warship(x, y, team, health);
-            } else if (type === 'fireship') {
-                unit = new Fireship(x, y, team, health);
-            } else if (type === 'ballistic') {
-                unit = new BallisticMissile(x, y, team, health);
-            } else if (type === 'cruise') {
-                unit = new CruiseMissile(x, y, team, health);
-            } else {
-                unit = new Soldier(x, y, team, health);
-            }
+            const unit = new (UNIT_CLASSES[type] || Soldier)(x, y, team, health);
 
             // 初始朝向: 朝向敌方方向 (横屏 玩家东/敌西; 竖屏 玩家南/敌北)
             const initAngle = portrait
