@@ -339,7 +339,7 @@ title: "模型对比"
                 requestAnimationFrame(() => { syncLock = false; });
             });
 
-            // 加载场景
+            // 加载场景（先用默认 transform，加载后再调整）
             await viewer.addSplatScene(url, {
                 splatAlphaRemovalThreshold: 1,
                 showLoadingUI: false,
@@ -349,21 +349,21 @@ title: "模型对比"
                 progressiveLoad: false
             });
 
-            // 计算包围盒并归一化
+            // 通过 splatMesh.getScene(0) 拿到 SplatScene 和 SplatBuffer
+            // SplatScene 继承自 THREE.Object3D，直接设 position/scale 即可归一化
             const splatMesh = viewer.getSplatMesh();
-            const bbox = splatMesh.getBoundingBox();
-            panel.bbox = bbox;
-            const size = new THREE.Vector3();
-            bbox.getSize(size);
-            const maxDim = Math.max(size.x, size.y, size.z);
-            const targetSize = 4; // 统一虚拟尺寸
-            panel.scale = maxDim > 0 ? targetSize / maxDim : 1;
+            const scene0 = splatMesh.getScene(0);
+            const splatBuffer = scene0.splatBuffer;
+            const sceneCenter = splatBuffer.sceneCenter.clone(); // 模型原始中心
 
-            // 应用缩放
-            viewer.splatMesh.setScaleAndOffset(
-                new THREE.Vector3(panel.scale, panel.scale, panel.scale),
-                new THREE.Vector3(0, 0, 0)
-            );
+            // 把模型中心移到原点：position = -sceneCenter
+            // 这样所有模型的中心都对齐到原点，相机 target 统一用 (0,0,0)
+            scene0.position.copy(sceneCenter).multiplyScalar(-1);
+            scene0.scale.set(1, 1, 1);
+            scene0.updateMatrix();
+
+            panel.sceneCenter = sceneCenter;
+            panel.scale = 1; // 暂不强行归一化尺寸，3DGS 消融模型通常尺寸接近
 
             // 移除 loading
             loadingEl.remove();
@@ -422,20 +422,19 @@ title: "模型对比"
     }
 
     // ============ 相机联动 ============
-    // 主视角状态：相对轨道中心的球面坐标
-    let mainCameraState = null; // {azimuth, elevation, distance, targetX, targetY, targetZ}
+    // 所有模型加载后中心都被移到原点，target 统一为 (0,0,0)
+    // 联动只同步相对原点的球面坐标：azimuth/elevation/distance
+    let mainCameraState = null; // {azimuth, elevation, distance}
 
     function computeCameraState(panel) {
-        if (!panel.controls || !panel.bbox) return null;
-        const controls = panel.controls;
-        const target = controls.target.clone();
+        if (!panel.controls) return null;
+        const target = panel.controls.target.clone();
         const offset = new THREE.Vector3().subVectors(panel.camera.position, target);
         const spherical = new THREE.Spherical().setFromVector3(offset);
         return {
             azimuth: spherical.theta,
             elevation: spherical.phi,
-            distance: spherical.radius,
-            targetX: target.x, targetY: target.y, targetZ: target.z
+            distance: spherical.radius
         };
     }
 
@@ -451,20 +450,10 @@ title: "模型对比"
     }
 
     function applyCameraState(panel, state) {
-        if (!panel.controls || !panel.bbox) return;
-        // 目标点：用各 panel 自己的 bbox 中心（已归一化后中心接近原点）
-        const center = panel.bbox.getCenter(new THREE.Vector3()).multiplyScalar(panel.scale);
-        const target = new THREE.Vector3(center.x, center.y, center.z);
-
-        // 距离：按相对比例，各 panel 用自己的 scale
-        const mySize = new THREE.Vector3();
-        panel.bbox.getSize(mySize);
-        const myMaxDim = Math.max(mySize.x, mySize.y, mySize.z) * panel.scale;
-        const sourceMaxDim = 4; // 统一虚拟尺寸
-        const distanceRatio = state.distance / sourceMaxDim;
-        const distance = distanceRatio * myMaxDim;
-
-        const spherical = new THREE.Spherical(distance, state.elevation, state.azimuth);
+        if (!panel.controls) return;
+        // target 统一用原点（所有模型加载时已居中）
+        const target = new THREE.Vector3(0, 0, 0);
+        const spherical = new THREE.Spherical(state.distance, state.elevation, state.azimuth);
         const offset = new THREE.Vector3().setFromSpherical(spherical);
         const newPos = new THREE.Vector3().addVectors(target, offset);
 
@@ -480,6 +469,22 @@ title: "模型对比"
     }
 
     function fitAllToFirst(firstPanel) {
+        // 给第一个 panel 设一个合理的初始视角（模型已居中到原点）
+        // 距离 3，俯角 60°（phi），方位角 45°（theta）
+        const initialDist = 3;
+        const initialPhi = Math.PI * 0.33;   // ~60° from up axis
+        const initialTheta = Math.PI * 0.25; // 45°
+        const target = new THREE.Vector3(0, 0, 0);
+        const spherical = new THREE.Spherical(initialDist, initialPhi, initialTheta);
+        const offset = new THREE.Vector3().setFromSpherical(spherical);
+        const newPos = new THREE.Vector3().addVectors(target, offset);
+
+        firstPanel.controls.target.copy(target);
+        firstPanel.camera.position.copy(newPos);
+        firstPanel.camera.up.set(0, -1, -0.6).normalize();
+        firstPanel.camera.lookAt(target);
+        firstPanel.controls.update();
+
         const state = computeCameraState(firstPanel);
         if (!state) return;
         mainCameraState = state;
