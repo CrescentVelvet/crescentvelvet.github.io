@@ -143,7 +143,7 @@ title: "模型对比"
 
     <script type="module">
     import * as THREE from 'three';
-    import { Viewer, OrbitControls } from '@mkkellogg/gaussian-splats-3d';
+    import { Viewer, OrbitControls, SceneFormat } from '@mkkellogg/gaussian-splats-3d';
 
     // ============ 全局状态 ============
     const MAX_PANELS = 4;
@@ -340,9 +340,11 @@ title: "模型对比"
             });
 
             // 加载场景（先用默认 transform，加载后再调整）
+            // blob URL 无扩展名，必须显式传 format，否则 sceneFormatFromPath 推断失败
             await viewer.addSplatScene(url, {
                 splatAlphaRemovalThreshold: 1,
                 showLoadingUI: false,
+                format: SceneFormat.Ply,
                 position: [0, 0, 0],
                 rotation: [0, 0, 0, 1],
                 scale: [1, 1, 1],
