@@ -1,0 +1,565 @@
+---
+permalink: /splat-compare/
+layout: null
+title: "模型对比"
+---
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>模型对比 - Gaussian Splat PLY Viewer</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { width: 100%; height: 100%; overflow: hidden; background: #1a1a1a; color: #e0e0e0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+
+        /* 顶部工具栏 */
+        #toolbar {
+            position: fixed; top: 0; left: 0; right: 0; height: 48px; z-index: 100;
+            background: #252525; border-bottom: 1px solid #3a3a3a;
+            display: flex; align-items: center; padding: 0 16px; gap: 12px;
+        }
+        #toolbar h1 { font-size: 16px; font-weight: 500; color: #f0f0f0; margin-right: auto; }
+        #toolbar button, #toolbar label.btn {
+            background: #3a3a3a; color: #e0e0e0; border: 1px solid #4a4a4a;
+            padding: 6px 14px; border-radius: 4px; cursor: pointer; font-size: 13px;
+            transition: all 0.15s; user-select: none;
+        }
+        #toolbar button:hover, #toolbar label.btn:hover { background: #4a4a4a; border-color: #5a5a5a; }
+        #toolbar button:disabled { opacity: 0.4; cursor: not-allowed; }
+        #toolbar .hint { font-size: 12px; color: #888; }
+
+        /* 窗口网格容器 */
+        #grid {
+            position: fixed; top: 48px; left: 0; right: 0; bottom: 0;
+            display: grid; gap: 2px; background: #0a0a0a;
+            padding: 2px;
+        }
+        #grid.count-1 { grid-template-columns: 1fr; grid-template-rows: 1fr; }
+        #grid.count-2 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr; }
+        #grid.count-3 { grid-template-columns: 1fr 1fr 1fr; grid-template-rows: 1fr; }
+        #grid.count-4 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
+
+        /* 单个窗口 */
+        .panel {
+            position: relative; background: #111; overflow: hidden;
+            display: flex; flex-direction: column;
+        }
+        .panel-header {
+            height: 28px; background: #2a2a2a; border-bottom: 1px solid #3a3a3a;
+            display: flex; align-items: center; padding: 0 8px; gap: 6px; flex-shrink: 0;
+        }
+        .panel-title {
+            flex: 1; font-size: 12px; color: #ccc; cursor: text;
+            padding: 2px 6px; border-radius: 3px; overflow: hidden;
+            text-overflow: ellipsis; white-space: nowrap;
+        }
+        .panel-title:hover { background: #3a3a3a; }
+        .panel-title.editing { background: #1a1a1a; outline: 1px solid #5a9; }
+        .panel-close {
+            width: 18px; height: 18px; display: flex; align-items: center; justify-content: center;
+            color: #888; cursor: pointer; font-size: 14px; border-radius: 3px;
+            user-select: none;
+        }
+        .panel-close:hover { background: #4a2a2a; color: #e88; }
+        .panel-canvas-wrap { flex: 1; position: relative; }
+        .panel-canvas-wrap canvas { display: block; width: 100%; height: 100%; }
+
+        /* 空状态/拖拽提示 */
+        .panel-empty {
+            position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+            color: #555; font-size: 13px; pointer-events: none; text-align: center;
+        }
+        .panel-loading {
+            position: absolute; inset: 0; background: rgba(20,20,20,0.85);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: 12px; z-index: 10;
+        }
+        .spinner {
+            width: 32px; height: 32px; border: 3px solid #3a3a3a;
+            border-top-color: #5a9; border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .progress-bar {
+            width: 180px; height: 4px; background: #2a2a2a; border-radius: 2px; overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%; background: #5a9; width: 0%; transition: width 0.2s;
+        }
+        .loading-text { font-size: 12px; color: #aaa; }
+        .panel-error {
+            position: absolute; inset: 0; background: rgba(40,20,20,0.9);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: 8px; z-index: 10; padding: 20px; text-align: center;
+        }
+        .panel-error .err-icon { font-size: 24px; color: #e88; }
+        .panel-error .err-msg { font-size: 12px; color: #c88; max-width: 240px; word-break: break-word; }
+
+        /* 整页空状态 */
+        #empty-state {
+            position: fixed; top: 48px; left: 0; right: 0; bottom: 0;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            color: #555; gap: 16px; z-index: 5;
+            border: 2px dashed #2a2a2a; margin: 2px; background: #111;
+        }
+        #empty-state .big-hint { font-size: 18px; color: #888; }
+        #empty-state .small-hint { font-size: 13px; color: #555; }
+        #empty-state.dragover { border-color: #5a9; background: #1a2a2a; }
+        #empty-state.dragover .big-hint { color: #7c9; }
+
+        /* 拖拽高亮 */
+        body.drag-active #grid { outline: 2px dashed #5a9; outline-offset: -4px; }
+    </style>
+</head>
+<body>
+    <div id="toolbar">
+        <h1>模型对比</h1>
+        <span class="hint">拖入 .ply 文件或点击添加 · 最多 4 个</span>
+        <label class="btn" id="add-btn-label">+ 添加模型
+            <input type="file" id="file-input" accept=".ply" multiple style="display:none">
+        </label>
+        <button id="fit-btn" disabled>对齐视角 (Fit All)</button>
+        <button id="reset-btn" disabled>重置</button>
+    </div>
+
+    <div id="empty-state">
+        <div class="big-hint">拖入 .ply 文件开始对比</div>
+        <div class="small-hint">支持同时对比 2-4 个高斯泼溅模型 · 鼠标联动控制</div>
+        <div class="small-hint">左键拖拽=旋转 · 右键拖拽=平移 · 滚轮=缩放</div>
+    </div>
+
+    <div id="grid" style="display:none"></div>
+
+    <!-- import map: 让浏览器解析 bare import -->
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "/assets/splat-vendor/three.module.js",
+            "@mkkellogg/gaussian-splats-3d": "/assets/splat-vendor/gaussian-splats-3d.module.js"
+        }
+    }
+    </script>
+
+    <script type="module">
+    import * as THREE from 'three';
+    import { Viewer, OrbitControls } from '@mkkellogg/gaussian-splats-3d';
+
+    // ============ 全局状态 ============
+    const MAX_PANELS = 4;
+    const panels = []; // {el, canvasWrap, viewer, renderer, camera, controls, title, state, bbox}
+    let grid = document.getElementById('grid');
+    let emptyState = document.getElementById('empty-state');
+    let fitBtn = document.getElementById('fit-btn');
+    let resetBtn = document.getElementById('reset-btn');
+    let fileInput = document.getElementById('file-input');
+
+    // 联动锁，防止循环广播
+    let syncLock = false;
+
+    // ============ 布局管理 ============
+    function getGridClass(count) {
+        return 'count-' + Math.max(1, Math.min(4, count));
+    }
+
+    function relayout() {
+        const count = panels.length;
+        if (count === 0) {
+            grid.style.display = 'none';
+            emptyState.style.display = 'flex';
+            fitBtn.disabled = true;
+            resetBtn.disabled = true;
+            return;
+        }
+        emptyState.style.display = 'none';
+        grid.style.display = 'grid';
+        grid.className = getGridClass(count);
+        fitBtn.disabled = false;
+        resetBtn.disabled = false;
+        // 通知每个 renderer 重新计算尺寸
+        for (const p of panels) {
+            if (p.renderer) {
+                const w = p.canvasWrap.clientWidth;
+                const h = p.canvasWrap.clientHeight;
+                p.renderer.setSize(w, h, false);
+                p.camera.aspect = w / h;
+                p.camera.updateProjectionMatrix();
+            }
+        }
+    }
+
+    // ============ 创建空面板 ============
+    function createPanel() {
+        const el = document.createElement('div');
+        el.className = 'panel';
+        el.innerHTML = `
+            <div class="panel-header">
+                <span class="panel-title" contenteditable="false">未加载</span>
+                <span class="panel-close" title="关闭">×</span>
+            </div>
+            <div class="panel-canvas-wrap">
+                <div class="panel-empty">拖入 .ply 或点击添加</div>
+            </div>
+        `;
+        grid.appendChild(el);
+
+        const titleEl = el.querySelector('.panel-title');
+        const closeEl = el.querySelector('.panel-close');
+        const canvasWrap = el.querySelector('.panel-canvas-wrap');
+
+        // 标题编辑
+        titleEl.addEventListener('click', () => {
+            titleEl.contentEditable = 'true';
+            titleEl.classList.add('editing');
+            titleEl.focus();
+            document.execCommand('selectAll', false, null);
+        });
+        titleEl.addEventListener('blur', () => {
+            titleEl.contentEditable = 'false';
+            titleEl.classList.remove('editing');
+            const p = panels.find(x => x.el === el);
+            if (p) p.title = titleEl.textContent.trim() || '未命名';
+        });
+        titleEl.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); titleEl.blur(); }
+        });
+
+        // 关闭
+        closeEl.addEventListener('click', () => {
+            const idx = panels.findIndex(x => x.el === el);
+            if (idx >= 0) removePanel(idx);
+        });
+
+        const panel = {
+            el, titleEl, closeEl, canvasWrap,
+            title: '未加载',
+            viewer: null, renderer: null, camera: null, controls: null,
+            scene: null,
+            state: 'empty', // empty | loading | ready | error
+            bbox: null,
+            scale: 1, // 归一化缩放
+        };
+        panels.push(panel);
+        relayout();
+        return panel;
+    }
+
+    function removePanel(idx) {
+        const p = panels[idx];
+        if (!p) return;
+        if (p.viewer) { try { p.viewer.dispose(); } catch(e){} }
+        if (p.renderer) { p.renderer.dispose(); }
+        p.el.remove();
+        panels.splice(idx, 1);
+        relayout();
+    }
+
+    // ============ 加载 PLY 到面板 ============
+    async function loadPlyToPanel(panel, file) {
+        // 清理旧状态
+        if (panel.viewer) {
+            try { panel.viewer.dispose(); } catch(e){}
+            panel.viewer = null;
+        }
+        if (panel.renderer) {
+            panel.renderer.dispose();
+            panel.canvasWrap.innerHTML = '';
+        }
+
+        // 显示 loading
+        panel.state = 'loading';
+        const loadingEl = document.createElement('div');
+        loadingEl.className = 'panel-loading';
+        loadingEl.innerHTML = `
+            <div class="spinner"></div>
+            <div class="progress-bar"><div class="progress-fill"></div></div>
+            <div class="loading-text">解析中...</div>
+        `;
+        panel.canvasWrap.appendChild(loadingEl);
+        const progressFill = loadingEl.querySelector('.progress-fill');
+        const loadingText = loadingEl.querySelector('.loading-text');
+
+        // 设置标题
+        const fileName = file.name.replace(/\.ply$/i, '');
+        panel.title = fileName;
+        panel.titleEl.textContent = fileName;
+
+        try {
+            const url = URL.createObjectURL(file);
+
+            // 创建 renderer
+            const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+            const w = panel.canvasWrap.clientWidth || 400;
+            const h = panel.canvasWrap.clientHeight || 300;
+            renderer.setSize(w, h, false);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            panel.canvasWrap.appendChild(renderer.domElement);
+
+            // 创建 camera
+            const camera = new THREE.PerspectiveCamera(65, w / h, 0.1, 500);
+            camera.position.set(-1, -4, 6);
+            camera.up = new THREE.Vector3(0, -1, -0.6).normalize();
+            camera.lookAt(0, 0, 0);
+
+            // 创建 OrbitControls
+            const controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.15;
+            controls.rotateSpeed = 0.5;
+            controls.mouseButtons = {
+                LEFT: THREE.MOUSE.ROTATE,
+                MIDDLE: THREE.MOUSE.DOLLY,
+                RIGHT: THREE.MOUSE.PAN
+            };
+
+            // 创建 Viewer（selfDrivenMode=false，用自定义 renderer/camera/controls）
+            const viewer = new Viewer({
+                selfDrivenMode: false,
+                renderer: renderer,
+                camera: camera,
+                useBuiltInControls: false,
+                gpuAcceleratedSort: true,
+                halfPrecisionCovariancesOnGPU: true,
+                sharedMemoryForWorkers: true,
+                integerBasedSort: true,
+                dynamicScene: false,
+                webXRMode: 0 // None
+            });
+
+            panel.renderer = renderer;
+            panel.camera = camera;
+            panel.controls = controls;
+            panel.viewer = viewer;
+
+            // 绑定 controls change → 联动广播
+            controls.addEventListener('change', () => {
+                if (syncLock) return;
+                syncLock = true;
+                broadcastCameraState(panel);
+                requestAnimationFrame(() => { syncLock = false; });
+            });
+
+            // 加载场景
+            await viewer.addSplatScene(url, {
+                splatAlphaRemovalThreshold: 1,
+                showLoadingUI: false,
+                position: [0, 0, 0],
+                rotation: [0, 0, 0, 1],
+                scale: [1, 1, 1],
+                progressiveLoad: false
+            });
+
+            // 计算包围盒并归一化
+            const splatMesh = viewer.getSplatMesh();
+            const bbox = splatMesh.getBoundingBox();
+            panel.bbox = bbox;
+            const size = new THREE.Vector3();
+            bbox.getSize(size);
+            const maxDim = Math.max(size.x, size.y, size.z);
+            const targetSize = 4; // 统一虚拟尺寸
+            panel.scale = maxDim > 0 ? targetSize / maxDim : 1;
+
+            // 应用缩放
+            viewer.splatMesh.setScaleAndOffset(
+                new THREE.Vector3(panel.scale, panel.scale, panel.scale),
+                new THREE.Vector3(0, 0, 0)
+            );
+
+            // 移除 loading
+            loadingEl.remove();
+            panel.state = 'ready';
+
+            // 启动渲染循环
+            startRenderLoop();
+
+            // 如果是第一个加载完成的，触发 fit all
+            const readyCount = panels.filter(p => p.state === 'ready').length;
+            if (readyCount === 1) {
+                fitAllToFirst(panel);
+            } else {
+                // 后续加载的，同步到当前主视角
+                syncPanelToMain(panel);
+            }
+
+            URL.revokeObjectURL(url);
+        } catch (err) {
+            console.error('加载失败:', err);
+            loadingEl.remove();
+            panel.state = 'error';
+            const errEl = document.createElement('div');
+            errEl.className = 'panel-error';
+            errEl.innerHTML = `
+                <div class="err-icon">!</div>
+                <div class="err-msg">加载失败: ${String(err.message || err).slice(0, 200)}</div>
+                <div class="small-hint" style="color:#777;font-size:11px">可重新拖入文件</div>
+            `;
+            panel.canvasWrap.appendChild(errEl);
+        }
+    }
+
+    // ============ 渲染循环 ============
+    let renderLoopRunning = false;
+    function startRenderLoop() {
+        if (renderLoopRunning) return;
+        renderLoopRunning = true;
+        function tick() {
+            let hasActive = false;
+            for (const p of panels) {
+                if (p.state === 'ready' && p.viewer && p.renderer) {
+                    hasActive = true;
+                    p.controls.update();
+                    p.viewer.update();
+                    p.viewer.render();
+                }
+            }
+            if (hasActive) {
+                requestAnimationFrame(tick);
+            } else {
+                renderLoopRunning = false;
+            }
+        }
+        requestAnimationFrame(tick);
+    }
+
+    // ============ 相机联动 ============
+    // 主视角状态：相对轨道中心的球面坐标
+    let mainCameraState = null; // {azimuth, elevation, distance, targetX, targetY, targetZ}
+
+    function computeCameraState(panel) {
+        if (!panel.controls || !panel.bbox) return null;
+        const controls = panel.controls;
+        const target = controls.target.clone();
+        const offset = new THREE.Vector3().subVectors(panel.camera.position, target);
+        const spherical = new THREE.Spherical().setFromVector3(offset);
+        return {
+            azimuth: spherical.theta,
+            elevation: spherical.phi,
+            distance: spherical.radius,
+            targetX: target.x, targetY: target.y, targetZ: target.z
+        };
+    }
+
+    function broadcastCameraState(sourcePanel) {
+        const state = computeCameraState(sourcePanel);
+        if (!state) return;
+        mainCameraState = state;
+        for (const p of panels) {
+            if (p === sourcePanel) continue;
+            if (p.state !== 'ready' || !p.controls) continue;
+            applyCameraState(p, state);
+        }
+    }
+
+    function applyCameraState(panel, state) {
+        if (!panel.controls || !panel.bbox) return;
+        // 目标点：用各 panel 自己的 bbox 中心（已归一化后中心接近原点）
+        const center = panel.bbox.getCenter(new THREE.Vector3()).multiplyScalar(panel.scale);
+        const target = new THREE.Vector3(center.x, center.y, center.z);
+
+        // 距离：按相对比例，各 panel 用自己的 scale
+        const mySize = new THREE.Vector3();
+        panel.bbox.getSize(mySize);
+        const myMaxDim = Math.max(mySize.x, mySize.y, mySize.z) * panel.scale;
+        const sourceMaxDim = 4; // 统一虚拟尺寸
+        const distanceRatio = state.distance / sourceMaxDim;
+        const distance = distanceRatio * myMaxDim;
+
+        const spherical = new THREE.Spherical(distance, state.elevation, state.azimuth);
+        const offset = new THREE.Vector3().setFromSpherical(spherical);
+        const newPos = new THREE.Vector3().addVectors(target, offset);
+
+        panel.controls.target.copy(target);
+        panel.camera.position.copy(newPos);
+        panel.camera.up.set(0, -1, -0.6).normalize();
+        panel.camera.lookAt(target);
+        panel.controls.update();
+    }
+
+    function syncPanelToMain(panel) {
+        if (mainCameraState) applyCameraState(panel, mainCameraState);
+    }
+
+    function fitAllToFirst(firstPanel) {
+        const state = computeCameraState(firstPanel);
+        if (!state) return;
+        mainCameraState = state;
+        for (const p of panels) {
+            if (p === firstPanel) continue;
+            if (p.state !== 'ready') continue;
+            applyCameraState(p, state);
+        }
+    }
+
+    // ============ 按钮事件 ============
+    fitBtn.addEventListener('click', () => {
+        const first = panels.find(p => p.state === 'ready');
+        if (first) fitAllToFirst(first);
+    });
+
+    resetBtn.addEventListener('click', () => {
+        while (panels.length > 0) removePanel(0);
+        mainCameraState = null;
+    });
+
+    // 文件选择
+    fileInput.addEventListener('change', (e) => {
+        const files = Array.from(e.target.files).filter(f => /\.ply$/i.test(f.name));
+        for (const f of files) {
+            if (panels.length >= MAX_PANELS) break;
+            const p = createPanel();
+            loadPlyToPanel(p, f);
+        }
+        fileInput.value = '';
+    });
+
+    document.getElementById('add-btn-label').addEventListener('click', (e) => {
+        if (panels.length >= MAX_PANELS) {
+            e.preventDefault();
+            alert('已达到最大窗口数 4');
+        }
+    });
+
+    // ============ 拖拽 ============
+    let dragCounter = 0;
+
+    window.addEventListener('dragenter', (e) => {
+        e.preventDefault();
+        dragCounter++;
+        document.body.classList.add('drag-active');
+        emptyState.classList.add('dragover');
+    });
+    window.addEventListener('dragleave', (e) => {
+        e.preventDefault();
+        dragCounter--;
+        if (dragCounter <= 0) {
+            dragCounter = 0;
+            document.body.classList.remove('drag-active');
+            emptyState.classList.remove('dragover');
+        }
+    });
+    window.addEventListener('dragover', (e) => { e.preventDefault(); });
+    window.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dragCounter = 0;
+        document.body.classList.remove('drag-active');
+        emptyState.classList.remove('dragover');
+        const files = Array.from(e.dataTransfer.files).filter(f => /\.ply$/i.test(f.name));
+        for (const f of files) {
+            if (panels.length >= MAX_PANELS) break;
+            const p = createPanel();
+            loadPlyToPanel(p, f);
+        }
+    });
+
+    // ============ 窗口尺寸变化 ============
+    let resizeTimer = null;
+    window.addEventListener('resize', () => {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(relayout, 100);
+    });
+
+    // ============ 初始化 ============
+    relayout();
+    </script>
+</body>
+</html>
