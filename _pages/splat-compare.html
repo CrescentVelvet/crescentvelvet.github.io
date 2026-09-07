@@ -143,7 +143,7 @@ title: "模型对比"
 
     <script type="module">
     import * as THREE from 'three';
-    import { Viewer, OrbitControls, SceneFormat } from '@mkkellogg/gaussian-splats-3d';
+    import { DropInViewer, OrbitControls, SceneFormat } from '@mkkellogg/gaussian-splats-3d';
 
     // ============ 全局状态 ============
     const MAX_PANELS = 4;
@@ -257,14 +257,16 @@ title: "模型对比"
     // ============ 加载 PLY 到面板 ============
     async function loadPlyToPanel(panel, file) {
         // 清理旧状态
-        if (panel.viewer) {
-            try { panel.viewer.dispose(); } catch(e){}
+        if (panel.splatGroup) {
+            try { await panel.splatGroup.dispose(); } catch(e){}
+            panel.splatGroup = null;
             panel.viewer = null;
         }
         if (panel.renderer) {
             panel.renderer.dispose();
-            panel.canvasWrap.innerHTML = '';
         }
+        // 无条件清空容器（移除 .panel-empty / 旧 canvas / 旧 loading / 旧 error）
+        panel.canvasWrap.innerHTML = '';
 
         // 显示 loading
         panel.state = 'loading';
@@ -289,16 +291,17 @@ title: "模型对比"
 
             // 创建 renderer
             const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+            renderer.setClearColor(0x222233, 1); // 深蓝灰背景，用于确认 renderer 在画
             const w = panel.canvasWrap.clientWidth || 400;
             const h = panel.canvasWrap.clientHeight || 300;
             renderer.setSize(w, h, false);
             renderer.setPixelRatio(window.devicePixelRatio);
             panel.canvasWrap.appendChild(renderer.domElement);
 
-            // 创建 camera
+            // 创建 camera（标准 three.js Y-up 坐标系）
             const camera = new THREE.PerspectiveCamera(65, w / h, 0.1, 500);
-            camera.position.set(-1, -4, 6);
-            camera.up = new THREE.Vector3(0, -1, -0.6).normalize();
+            camera.position.set(2, 2, 3);
+            camera.up.set(0, 1, 0);
             camera.lookAt(0, 0, 0);
 
             // 创建 OrbitControls
@@ -312,14 +315,18 @@ title: "模型对比"
                 RIGHT: THREE.MOUSE.PAN
             };
 
-            // 创建 Viewer（selfDrivenMode=false，用自定义 renderer/camera/controls）
+            // 创建 DropInViewer（继承自 THREE.Group，直接加到 scene 里）
+            // 每帧通过 callbackMesh.onBeforeRender 自动调用 viewer.update(renderer, camera)
             // sharedMemoryForWorkers=false：避免 SharedArrayBuffer 需要 crossOriginIsolated 的问题
-            const viewer = new Viewer({
-                selfDrivenMode: false,
-                renderer: renderer,
-                camera: camera,
-                useBuiltInControls: false,
-                gpuAcceleratedSort: true,
+            // gpuAcceleratedSort 必须为 false！
+            // 库 v0.4.7 的 bug：开启后主线程不向排序 worker 发送 centers 数据
+            // （addSplatBuffers 中 if (!this.gpuAcceleratedSort) 才 push centers 消息），
+            // 而 worker 内 renderCount = min(splatRenderCount, uploadedSplatCount)，
+            // uploadedSplatCount 只随 centers 消息更新 → 恒为 0 → 回信 splatRenderCount=0
+            // → geometry.instanceCount=0 → 一个 splat 都不画 → 黑屏。
+            // CPU 排序（integerBasedSort）对百万级 splat 也是毫秒级，性能无感知差异。
+            const splatGroup = new DropInViewer({
+                gpuAcceleratedSort: false,
                 halfPrecisionCovariancesOnGPU: true,
                 sharedMemoryForWorkers: false,
                 integerBasedSort: true,
@@ -327,10 +334,17 @@ title: "模型对比"
                 webXRMode: 0 // None
             });
 
+            // 创建 three.js scene 并把 splatGroup 加进去
+            const scene = new THREE.Scene();
+            scene.add(splatGroup);
+
             panel.renderer = renderer;
             panel.camera = camera;
             panel.controls = controls;
-            panel.viewer = viewer;
+            panel.scene = scene;
+            panel.splatGroup = splatGroup;
+            // 保留 panel.viewer 引用用于 dispose 和状态查询
+            panel.viewer = splatGroup.viewer;
 
             // 绑定 controls change → 联动广播
             controls.addEventListener('change', () => {
@@ -340,9 +354,10 @@ title: "模型对比"
                 requestAnimationFrame(() => { syncLock = false; });
             });
 
-            // 加载场景（先用默认 transform，加载后再调整）
+            // 加载场景
             // blob URL 无扩展名，必须显式传 format，否则 sceneFormatFromPath 推断失败
-            await viewer.addSplatScene(url, {
+            console.log('[splat-compare] 开始 addSplatScene, url=', url);
+            const loadPromise = splatGroup.addSplatScene(url, {
                 splatAlphaRemovalThreshold: 1,
                 showLoadingUI: false,
                 format: SceneFormat.Ply,
@@ -351,13 +366,18 @@ title: "模型对比"
                 scale: [1, 1, 1],
                 progressiveLoad: false
             });
+            console.log('[splat-compare] addSplatScene 返回:', loadPromise, '类型:', typeof loadPromise);
+            await loadPromise;
+            console.log('[splat-compare] addSplatScene 完成');
 
-            // 通过 splatMesh.getScene(0) 拿到 SplatScene 和 SplatBuffer
-            // SplatScene 继承自 THREE.Object3D，直接设 position/scale 即可归一化
-            const splatMesh = viewer.getSplatMesh();
+            // 通过 splatGroup.viewer.getSplatMesh() 拿到 SplatMesh
+            const splatMesh = splatGroup.viewer.getSplatMesh();
+            console.log('[splat-compare] splatMesh:', splatMesh, 'scenes:', splatMesh.scenes);
             const scene0 = splatMesh.getScene(0);
+            console.log('[splat-compare] scene0:', scene0);
             const splatBuffer = scene0.splatBuffer;
             const sceneCenter = splatBuffer.sceneCenter.clone(); // 模型原始中心
+            console.log('[splat-compare] sceneCenter:', sceneCenter);
 
             // 把模型中心移到原点：position = -sceneCenter
             // 这样所有模型的中心都对齐到原点，相机 target 统一用 (0,0,0)
@@ -371,6 +391,7 @@ title: "模型对比"
             // 移除 loading
             loadingEl.remove();
             panel.state = 'ready';
+            console.log('[splat-compare] 加载完成，panel.state=ready');
 
             // 启动渲染循环
             startRenderLoop();
@@ -402,17 +423,32 @@ title: "模型对比"
 
     // ============ 渲染循环 ============
     let renderLoopRunning = false;
+    let renderDebugLogged = false;
     function startRenderLoop() {
         if (renderLoopRunning) return;
         renderLoopRunning = true;
         function tick() {
             let hasActive = false;
             for (const p of panels) {
-                if (p.state === 'ready' && p.viewer && p.renderer) {
+                if (p.state === 'ready' && p.viewer && p.renderer && p.scene) {
                     hasActive = true;
                     p.controls.update();
-                    p.viewer.update();
-                    p.viewer.render();
+                    // DropInViewer 模式：splatGroup 加在 scene 里，
+                    // renderer.render(scene, camera) 时 splatGroup.callbackMesh.onBeforeRender
+                    // 会自动调用 viewer.update(renderer, camera)，内部完成排序和 uniform 更新
+                    p.renderer.render(p.scene, p.camera);
+                    // 诊断：首次渲染时打印状态
+                    if (!renderDebugLogged) {
+                        const sm = p.viewer.splatMesh;
+                        console.log('[splat-compare] render tick: initialized=', p.viewer.initialized,
+                                    'splatRenderReady=', p.viewer.splatRenderReady,
+                                    'splatMesh.visible=', sm.visible,
+                                    'getSplatCount=', sm.getSplatCount ? sm.getSplatCount() : 'no method',
+                                    'splatGroup.children=', p.splatGroup.children.length,
+                                    'camera.pos=', p.camera.position,
+                                    'camera.target=', p.controls.target);
+                        renderDebugLogged = true;
+                    }
                 }
             }
             if (hasActive) {
@@ -462,7 +498,7 @@ title: "模型对比"
 
         panel.controls.target.copy(target);
         panel.camera.position.copy(newPos);
-        panel.camera.up.set(0, -1, -0.6).normalize();
+        panel.camera.up.set(0, 1, 0);
         panel.camera.lookAt(target);
         panel.controls.update();
     }
@@ -473,9 +509,10 @@ title: "模型对比"
 
     function fitAllToFirst(firstPanel) {
         // 给第一个 panel 设一个合理的初始视角（模型已居中到原点）
-        // 距离 3，俯角 60°（phi），方位角 45°（theta）
-        const initialDist = 3;
-        const initialPhi = Math.PI * 0.33;   // ~60° from up axis
+        // 标准 three.js 坐标系：Y-up
+        // 距离 4，俯角 45°（phi 从 Y 轴量起），方位角 45°（theta 绕 Y 轴）
+        const initialDist = 4;
+        const initialPhi = Math.PI * 0.4;    // ~72° from Y axis（略俯视）
         const initialTheta = Math.PI * 0.25; // 45°
         const target = new THREE.Vector3(0, 0, 0);
         const spherical = new THREE.Spherical(initialDist, initialPhi, initialTheta);
@@ -484,7 +521,7 @@ title: "模型对比"
 
         firstPanel.controls.target.copy(target);
         firstPanel.camera.position.copy(newPos);
-        firstPanel.camera.up.set(0, -1, -0.6).normalize();
+        firstPanel.camera.up.set(0, 1, 0);
         firstPanel.camera.lookAt(target);
         firstPanel.controls.update();
 

@@ -113,7 +113,7 @@
               "title": "测试劣化样例分析",
               "children": [
                 {
-                  "title": "白点问题检查高斯球",
+                  "title": "白边问题检查高斯球",
                   "status": "done"
                 },
                 {
@@ -127,12 +127,84 @@
                 {
                   "title": "云端代码运行与调试",
                   "status": "doing"
+                },
+                {
+                  "title": "融合失败问题是人脸检测框没清空",
+                  "status": "done"
+                },
+                {
+                  "title": "红脸问题在2.0版本解决",
+                  "children": [
+                    {
+                      "title": "二次磨皮没能解决",
+                      "status": "done"
+                    },
+                    {
+                      "title": "关闭色调对齐没能解决",
+                      "status": "done"
+                    },
+                    {
+                      "title": "关闭美颜附加模型没能解决",
+                      "status": "done"
+                    },
+                    {
+                      "title": "前处理和后处理分段磨皮",
+                      "status": "todo"
+                    }
+                  ]
+                },
+                {
+                  "title": "白点问题用外插视角增强解决",
+                  "children": [
+                    {
+                      "title": "warping 计算中心生成新视角",
+                      "status": "todo"
+                    },
+                    {
+                      "title": "faceenhance 渲染图像人脸增强",
+                      "status": "todo"
+                    }
+                  ]
                 }
               ]
             },
             {
-              "title": "磨皮加强版本训练+自测+转测",
-              "status": "doing"
+              "title": "磨皮2.0版本：二次美颜",
+              "children": [
+                {
+                  "title": "构建数据集+训练1000轮+自测",
+                  "status": "done"
+                },
+                {
+                  "title": "转换pt+提交MR+发转测邮件",
+                  "status": "todo"
+                },
+                {
+                  "title": "git mm不切换分支直接提交",
+                  "status": "todo"
+                },
+                {
+                  "title": "git lfs track还要add大文件",
+                  "status": "todo"
+                },
+                {
+                  "title": "gitattribute和大文件同一个commit",
+                  "status": "todo"
+                },
+                {
+                  "title": "主仓和子仓分支名保持一致",
+                  "status": "todo"
+                }
+              ]
+            },
+            {
+              "title": "磨皮2.1版本：高频DC去红",
+              "children": [
+                {
+                  "title": "效果不明显",
+                  "status": "done"
+                }
+              ]
             },
             {
               "title": "10月提交技术秘密ideaPPT",
@@ -168,6 +240,10 @@
                     {
                       "title": "turbo 蒸馏加速",
                       "status": "todo"
+                    },
+                    {
+                      "title": "单卡3090跑通推理",
+                      "status": "todo"
                     }
                   ]
                 },
@@ -187,6 +263,10 @@
                 {
                   "title": "复现 VGGT-Omega",
                   "status": "doing"
+                },
+                {
+                  "title": "复现4DAnyone",
+                  "status": "todo"
                 }
               ]
             },

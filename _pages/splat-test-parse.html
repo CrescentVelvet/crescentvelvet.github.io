@@ -1,0 +1,65 @@
+---
+permalink: /splat-test/parse/
+layout: null
+---
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>parse probe</title>
+<script>
+const im = document.createElement('script');
+im.type = 'importmap';
+im.textContent = JSON.stringify({
+    imports: {
+        'three': '/assets/splat-vendor/three.module.js',
+        '@mkkellogg/gaussian-splats-3d': '/assets/splat-vendor/gaussian-splats-3d.module.js'
+    }
+});
+document.head.appendChild(im);
+</script>
+</head>
+<body>
+<pre id="out">running...</pre>
+<script type="module">
+import * as GS from '@mkkellogg/gaussian-splats-3d';
+
+const out = [];
+function log(s) { out.push(s); document.getElementById('out').textContent = out.join('\n'); }
+
+try {
+    const src = new URLSearchParams(location.search).get('src') || '/assets/splat-test/synth.ply';
+    log('loading ' + src);
+    const resp = await fetch(src);
+    const buf = await resp.arrayBuffer();
+    const splatArray = await GS.PlyParser.parseToUncompressedSplatArray(buf, 0);
+    log('parsed. splatCount=' + splatArray.splatCount);
+    const n = Math.min(3, splatArray.splatCount);
+    for (let i = 0; i < n; i++) {
+        const s = splatArray.splats[i];
+        // 布局: [x,y,z, s0,s1,s2, r0,r1,r2,r3, r,g,b, opacity, ...]
+        log('splat[' + i + '] pos=[' + [s[0],s[1],s[2]].map(v=>Number(v).toFixed(3)).join(',') +
+            '] scale=[' + [s[3],s[4],s[5]].map(v=>Number(v).toFixed(4)).join(',') +
+            '] rgba=[' + [s[10],s[11],s[12],s[13]].map(v=>Number(v).toFixed(2)).join(',') + ']');
+    }
+    let aSum = 0, minX = 1e9, maxX = -1e9, minY = 1e9, maxY = -1e9, minZ = 1e9, maxZ = -1e9;
+    const total = splatArray.splatCount;
+    for (let i = 0; i < total; i++) {
+        const s = splatArray.splats[i];
+        aSum += s[13];
+        minX = Math.min(minX, s[0]); maxX = Math.max(maxX, s[0]);
+        minY = Math.min(minY, s[1]); maxY = Math.max(maxY, s[1]);
+        minZ = Math.min(minZ, s[2]); maxZ = Math.max(maxZ, s[2]);
+    }
+    log('STATS: alphaAvg=' + (aSum/total).toFixed(2) +
+        ' x=[' + minX.toFixed(2) + ',' + maxX.toFixed(2) + ']' +
+        ' y=[' + minY.toFixed(2) + ',' + maxY.toFixed(2) + ']' +
+        ' z=[' + minZ.toFixed(2) + ',' + maxZ.toFixed(2) + ']');
+    window.__done = true;
+} catch (e) {
+    log('ERROR: ' + (e && e.stack || String(e)));
+    window.__done = true;
+}
+</script>
+</body>
+</html>

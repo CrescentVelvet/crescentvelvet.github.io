@@ -18,3 +18,20 @@
 坦克已确立"**带倒角的立体小棋子**"语言：八边形倒角车体 + 三级明度
 （暗车体 `--color-dark` / 主色 `--color` / 亮炮塔 `--color-light`）+ 伸出包围盒的炮管 +
 椭圆柔影。步兵改版按此同一套语法对齐，不做符号化、不做具象小人。
+
+## 3DGS 对比查看器（_pages/splat-compare.html）
+
+### gaussian-splats-3d v0.4.7 的 gpuAcceleratedSort 黑屏 bug（2026-09-07 定案）
+- **必须保持 `gpuAcceleratedSort: false`**（产品页 L321 有长注释，勿改回）。
+- 根因：开启后主线程 `addSplatBuffers` 不向排序 worker 发 centers 消息（库 L13338），
+  而 worker 端 `renderCount = min(splatRenderCount, uploadedSplatCount)`、
+  `uploadedSplatCount` 只随 centers 消息更新（库 L11580/11578）→ 恒 0
+  → 回信 splatRenderCount=0 → `instanceCount=0` → 黑屏。
+- DropInViewer 模式无关此 bug 的表现，任何模式开启都黑屏。
+- `halfPrecisionCovariancesOnGPU: true` 无害（矩阵已验证），可保留。
+
+### 调试资产（都还在仓库里）
+- `_pages/splat-test-matrix.html`：变体矩阵测试页（URL 参数 gpusort/halfprec/manual/nooffset/forceall）。
+- `_pages/splat-test-inner.html` 标准 Viewer / `splat-test-dropin.html` DropInViewer 1:1 复刻探针页。
+- `.workbuddy/tmp/`：pxstat.py（截图非背景像素统计）、matrix_probe.js、e2e_compare_probe.js（DataTransfer 模拟拖放注入 File 到产品页）、8896/8897 Range 文件服务器。
+- 无头验证方法：Playwright `channel:'msedge'` + `--enable-unsafe-swiftshader`，PIL 像素统计代替看图。
