@@ -164,6 +164,7 @@ redirect_from:
         <a href="/game_plane.html" class="link-button">飞机大战</a>
         <a href="/sandbox_war_game.html" class="link-button">沙盘战争</a>
         <a href="/tower_defense.html" class="link-button">塔防战争</a>
+        <a href="/splat-compare/" class="link-button">模型对比</a>
     </div>
     <hr>
     <p>强调一下<strong>几个单词</strong></p>
