@@ -30,6 +30,13 @@
 - DropInViewer 模式无关此 bug 的表现，任何模式开启都黑屏。
 - `halfPrecisionCovariancesOnGPU: true` 无害（矩阵已验证），可保留。
 
+### scene 级变换被烘焙（2026-09-07 定案）
+- **必须把翻转/居中变换放在 splatGroup（THREE.Group）级，改 scene0 无效**。
+- 原因：`dynamicScene=false` 时 `fillSplatDataArrays` 的 `applySceneTransform=true`，
+  scene 变换在 build 时烘焙进数据纹理；build 后 scene0 的 position/rotation 不参与渲染
+  （截图像素 diff=0 实证）。splatMesh.matrixWorld 含 group 变换，排序+渲染都吃。
+- 相机同步必须全量含 target（右键平移改 controls.target），只同步球面坐标会丢平移。
+
 ### 调试资产（都还在仓库里）
 - `_pages/splat-test-matrix.html`：变体矩阵测试页（URL 参数 gpusort/halfprec/manual/nooffset/forceall）。
 - `_pages/splat-test-inner.html` 标准 Viewer / `splat-test-dropin.html` DropInViewer 1:1 复刻探针页。

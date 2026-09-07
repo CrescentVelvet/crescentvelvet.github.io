@@ -379,11 +379,19 @@ title: "模型对比"
             const sceneCenter = splatBuffer.sceneCenter.clone(); // 模型原始中心
             console.log('[splat-compare] sceneCenter:', sceneCenter);
 
-            // 把模型中心移到原点：position = -sceneCenter
-            // 这样所有模型的中心都对齐到原点，相机 target 统一用 (0,0,0)
-            scene0.position.copy(sceneCenter).multiplyScalar(-1);
-            scene0.scale.set(1, 1, 1);
-            scene0.updateMatrix();
+            // Y 轴翻转 + 居中：必须应用到 splatGroup（THREE.Group）级别！
+            // 库 v0.4.7 在 dynamicScene=false 时把 scene 变换烘焙进数据纹理，
+            // 事后改 scene0.position/rotation 不参与渲染（已用截图对比证实无效）。
+            // 而 splatMesh 的 matrixWorld 包含 splatGroup 的变换，
+            // 排序（mvpMatrix × splatMesh.matrixWorld）和渲染（场景图）都吃这套。
+            //
+            // 3DGS 数据沿用 COLMAP 约定（Y 轴朝下），在标准 three.js Y-up 视图里
+            // 上下颠倒。绕 X 轴转 180° 摆正；再把模型中心移到原点（多模型对齐）：
+            // world = R*p + t，center c 映射到 0 需要 t = -R*c。
+            splatGroup.rotation.set(Math.PI, 0, 0);
+            splatGroup.position.copy(sceneCenter).applyEuler(splatGroup.rotation).multiplyScalar(-1);
+            splatGroup.scale.set(1, 1, 1);
+            splatGroup.updateMatrix();
 
             panel.sceneCenter = sceneCenter;
             panel.scale = 1; // 暂不强行归一化尺寸，3DGS 消融模型通常尺寸接近
@@ -461,9 +469,10 @@ title: "模型对比"
     }
 
     // ============ 相机联动 ============
-    // 所有模型加载后中心都被移到原点，target 统一为 (0,0,0)
-    // 联动只同步相对原点的球面坐标：azimuth/elevation/distance
-    let mainCameraState = null; // {azimuth, elevation, distance}
+    // 同步完整相机状态：target（含右键平移）+ 相对 target 的球面偏移
+    // （azimuth/elevation/distance）。各模型已各自居中到原点，平移量
+    // 直接共享 target 即可保持所有窗口同步。
+    let mainCameraState = null; // {target, azimuth, elevation, distance}
 
     function computeCameraState(panel) {
         if (!panel.controls) return null;
@@ -471,6 +480,7 @@ title: "模型对比"
         const offset = new THREE.Vector3().subVectors(panel.camera.position, target);
         const spherical = new THREE.Spherical().setFromVector3(offset);
         return {
+            target,
             azimuth: spherical.theta,
             elevation: spherical.phi,
             distance: spherical.radius
@@ -490,8 +500,7 @@ title: "模型对比"
 
     function applyCameraState(panel, state) {
         if (!panel.controls) return;
-        // target 统一用原点（所有模型加载时已居中）
-        const target = new THREE.Vector3(0, 0, 0);
+        const target = state.target ? state.target.clone() : new THREE.Vector3(0, 0, 0);
         const spherical = new THREE.Spherical(state.distance, state.elevation, state.azimuth);
         const offset = new THREE.Vector3().setFromSpherical(spherical);
         const newPos = new THREE.Vector3().addVectors(target, offset);
@@ -527,6 +536,8 @@ title: "模型对比"
 
         const state = computeCameraState(firstPanel);
         if (!state) return;
+        // 初始视角以模型中心（原点）为注视点
+        state.target = new THREE.Vector3(0, 0, 0);
         mainCameraState = state;
         for (const p of panels) {
             if (p === firstPanel) continue;
@@ -605,6 +616,23 @@ title: "模型对比"
 
     // ============ 初始化 ============
     relayout();
+
+    // 调试钩子（Playwright/控制台用）：读取各面板相机状态
+    window.__debugCameras = () => panels.map(p => ({
+        state: p.state,
+        target: p.controls ? p.controls.target.toArray().map(v => +v.toFixed(3)) : null,
+        pos: p.camera ? p.camera.position.toArray().map(v => +v.toFixed(3)) : null,
+    }));
+    // 调试钩子：读取各面板 scene0 变换（验证翻转/居中）
+    window.__debugSceneXform = () => panels.map(p => {
+        if (!p.splatGroup || p.state !== 'ready') return null;
+        const s0 = p.splatGroup.viewer.getSplatMesh().getScene(0);
+        return {
+            rotation: [s0.rotation.x, s0.rotation.y, s0.rotation.z].map(v => +v.toFixed(3)),
+            position: s0.position.toArray().map(v => +v.toFixed(3)),
+            sceneCenter: p.sceneCenter ? p.sceneCenter.toArray().map(v => +v.toFixed(3)) : null,
+        };
+    });
     </script>
 </body>
 </html>
