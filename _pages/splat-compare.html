@@ -313,6 +313,7 @@ title: "模型对比"
             };
 
             // 创建 Viewer（selfDrivenMode=false，用自定义 renderer/camera/controls）
+            // sharedMemoryForWorkers=false：避免 SharedArrayBuffer 需要 crossOriginIsolated 的问题
             const viewer = new Viewer({
                 selfDrivenMode: false,
                 renderer: renderer,
@@ -320,7 +321,7 @@ title: "模型对比"
                 useBuiltInControls: false,
                 gpuAcceleratedSort: true,
                 halfPrecisionCovariancesOnGPU: true,
-                sharedMemoryForWorkers: true,
+                sharedMemoryForWorkers: false,
                 integerBasedSort: true,
                 dynamicScene: false,
                 webXRMode: 0 // None
