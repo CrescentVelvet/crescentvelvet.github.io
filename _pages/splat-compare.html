@@ -4,10 +4,10 @@ layout: null
 title: "模型对比"
 ---
 <!DOCTYPE html>
-<html lang="zh-CN" data-page-node-id="nrB7BH7ti5SEVxnbBHf2ID">
-<head data-page-node-id="b16BO9cnLmBsciFKZVun7c">
-    <meta charset="UTF-8" data-page-node-id="Z7t2vo2coqGCgxjJUjoLV3">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" data-page-node-id="l3NJPaca3sPRZbIN1OMVVz">
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>模型对比 - Gaussian Splat PLY Viewer</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -113,25 +113,25 @@ title: "模型对比"
         body.drag-active #grid { outline: 2px dashed #5a9; outline-offset: -4px; }
     </style>
 </head>
-<body data-page-node-id="cNdYkmmjnt8njGBF4mVmeM">
-    <div id="toolbar" data-page-node-id="X2AysP3rMl0GpBKQDqdt2Y">
-        <h1 data-page-node-id="iNdHSA2xhDop7RXPuTtC9P">模型对比</h1>
-        <span class="hint" data-page-node-id="VOwGgmO4jrEjX7g7UEtRhi">拖入 .ply 文件或点击添加 · 最多 4 个</span>
-        <label class="btn" id="add-btn-label" data-page-node-id="qTjiUG2zrgdROEcEW3JsNz">+ 添加模型
-            <input type="file" id="file-input" accept=".ply" multiple style="display:none" data-page-node-id="QQQIbQcRj4V9pk8bahmPPN">
+<body>
+    <div id="toolbar">
+        <h1>模型对比</h1>
+        <span class="hint">拖入 .ply 文件或点击添加 · 最多 4 个</span>
+        <label class="btn" id="add-btn-label">+ 添加模型
+            <input type="file" id="file-input" accept=".ply" multiple style="display:none">
         </label>
-        <button id="fit-btn" disabled data-page-node-id="m7CVgjFqC4tL79vvxBtyuF">对齐视角 (Fit All)</button>
-        <button id="flip-btn" disabled title="所有模型统一上下翻转（绕 X 轴 180°）" data-page-node-id="ECACTUZDMjDJOEJA6lSS8H">上下翻转</button>
-        <button id="reset-btn" disabled data-page-node-id="go8Ka4KQAJEw78nPxY4TwL">重置</button>
+        <button id="fit-btn" disabled>对齐视角 (Fit All)</button>
+        <button id="flip-btn" disabled title="所有模型统一上下翻转（绕 X 轴 180°）">上下翻转</button>
+        <button id="reset-btn" disabled>重置</button>
     </div>
 
-    <div id="empty-state" data-page-node-id="9w0zLv6I7eNWv1Uc0kvfmo">
-        <div class="big-hint" data-page-node-id="nFWs9GSTjavM1vyECMda3g">拖入 .ply 文件开始对比</div>
-        <div class="small-hint" data-page-node-id="qnnOegPo0A3OL9YByaic9R">支持同时对比 2-4 个高斯泼溅模型 · 鼠标联动控制</div>
-        <div class="small-hint" data-page-node-id="7UOK8ul687qO5LzMK4th9Z">左键拖拽=旋转 · 右键拖拽=平移 · 滚轮=缩放</div>
+    <div id="empty-state">
+        <div class="big-hint">拖入 .ply 文件开始对比</div>
+        <div class="small-hint">支持同时对比 2-4 个高斯泼溅模型 · 鼠标联动控制</div>
+        <div class="small-hint">左键拖拽=旋转 · 右键拖拽=平移 · 滚轮=缩放</div>
     </div>
 
-    <div id="grid" style="display:none" data-page-node-id="HiBO2sjc4m6JpoRjGk14Tl"></div>
+    <div id="grid" style="display:none"></div>
 
     <!-- import map: 让浏览器解析 bare import -->
     <script type="importmap">
