@@ -4,10 +4,10 @@ layout: null
 title: "模型对比"
 ---
 <!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<html lang="zh-CN" data-page-node-id="nrB7BH7ti5SEVxnbBHf2ID">
+<head data-page-node-id="b16BO9cnLmBsciFKZVun7c">
+    <meta charset="UTF-8" data-page-node-id="Z7t2vo2coqGCgxjJUjoLV3">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" data-page-node-id="l3NJPaca3sPRZbIN1OMVVz">
     <title>模型对比 - Gaussian Splat PLY Viewer</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -27,6 +27,7 @@ title: "模型对比"
         }
         #toolbar button:hover, #toolbar label.btn:hover { background: #4a4a4a; border-color: #5a5a5a; }
         #toolbar button:disabled { opacity: 0.4; cursor: not-allowed; }
+        #toolbar button.active { background: #2f4f3f; border-color: #5a9; color: #cfe; }
         #toolbar .hint { font-size: 12px; color: #888; }
 
         /* 窗口网格容器 */
@@ -112,24 +113,25 @@ title: "模型对比"
         body.drag-active #grid { outline: 2px dashed #5a9; outline-offset: -4px; }
     </style>
 </head>
-<body>
-    <div id="toolbar">
-        <h1>模型对比</h1>
-        <span class="hint">拖入 .ply 文件或点击添加 · 最多 4 个</span>
-        <label class="btn" id="add-btn-label">+ 添加模型
-            <input type="file" id="file-input" accept=".ply" multiple style="display:none">
+<body data-page-node-id="cNdYkmmjnt8njGBF4mVmeM">
+    <div id="toolbar" data-page-node-id="X2AysP3rMl0GpBKQDqdt2Y">
+        <h1 data-page-node-id="iNdHSA2xhDop7RXPuTtC9P">模型对比</h1>
+        <span class="hint" data-page-node-id="VOwGgmO4jrEjX7g7UEtRhi">拖入 .ply 文件或点击添加 · 最多 4 个</span>
+        <label class="btn" id="add-btn-label" data-page-node-id="qTjiUG2zrgdROEcEW3JsNz">+ 添加模型
+            <input type="file" id="file-input" accept=".ply" multiple style="display:none" data-page-node-id="QQQIbQcRj4V9pk8bahmPPN">
         </label>
-        <button id="fit-btn" disabled>对齐视角 (Fit All)</button>
-        <button id="reset-btn" disabled>重置</button>
+        <button id="fit-btn" disabled data-page-node-id="m7CVgjFqC4tL79vvxBtyuF">对齐视角 (Fit All)</button>
+        <button id="flip-btn" disabled title="所有模型统一上下翻转（绕 X 轴 180°）" data-page-node-id="ECACTUZDMjDJOEJA6lSS8H">上下翻转</button>
+        <button id="reset-btn" disabled data-page-node-id="go8Ka4KQAJEw78nPxY4TwL">重置</button>
     </div>
 
-    <div id="empty-state">
-        <div class="big-hint">拖入 .ply 文件开始对比</div>
-        <div class="small-hint">支持同时对比 2-4 个高斯泼溅模型 · 鼠标联动控制</div>
-        <div class="small-hint">左键拖拽=旋转 · 右键拖拽=平移 · 滚轮=缩放</div>
+    <div id="empty-state" data-page-node-id="9w0zLv6I7eNWv1Uc0kvfmo">
+        <div class="big-hint" data-page-node-id="nFWs9GSTjavM1vyECMda3g">拖入 .ply 文件开始对比</div>
+        <div class="small-hint" data-page-node-id="qnnOegPo0A3OL9YByaic9R">支持同时对比 2-4 个高斯泼溅模型 · 鼠标联动控制</div>
+        <div class="small-hint" data-page-node-id="7UOK8ul687qO5LzMK4th9Z">左键拖拽=旋转 · 右键拖拽=平移 · 滚轮=缩放</div>
     </div>
 
-    <div id="grid" style="display:none"></div>
+    <div id="grid" style="display:none" data-page-node-id="HiBO2sjc4m6JpoRjGk14Tl"></div>
 
     <!-- import map: 让浏览器解析 bare import -->
     <script type="importmap">
@@ -152,10 +154,15 @@ title: "模型对比"
     let emptyState = document.getElementById('empty-state');
     let fitBtn = document.getElementById('fit-btn');
     let resetBtn = document.getElementById('reset-btn');
+    let flipBtn = document.getElementById('flip-btn');
     let fileInput = document.getElementById('file-input');
 
     // 联动锁，防止循环广播
     let syncLock = false;
+
+    // 全局翻转开关：true = 所有模型绕 X 轴再转 180°（上下颠倒）
+    // 默认 false = 已摆正状态（3DGS COLMAP Y-down 数据预转 180°）
+    let allFlipped = false;
 
     // ============ 布局管理 ============
     function getGridClass(count) {
@@ -169,6 +176,7 @@ title: "模型对比"
             emptyState.style.display = 'flex';
             fitBtn.disabled = true;
             resetBtn.disabled = true;
+            flipBtn.disabled = true;
             return;
         }
         emptyState.style.display = 'none';
@@ -176,6 +184,7 @@ title: "模型对比"
         grid.className = getGridClass(count);
         fitBtn.disabled = false;
         resetBtn.disabled = false;
+        flipBtn.disabled = false;
         // 通知每个 renderer 重新计算尺寸
         for (const p of panels) {
             if (p.renderer) {
@@ -252,6 +261,33 @@ title: "模型对比"
         p.el.remove();
         panels.splice(idx, 1);
         relayout();
+    }
+
+    // ============ splatGroup 变换（翻转 + 居中） ============
+    // 统一入口：按 allFlipped 状态把变换应用到 splatGroup 级。
+    // 必须放 group 级 —— v0.4.7 static 模式 scene0 变换被烘焙进数据纹理，
+    // 事后改无效；splatMesh.matrixWorld 含 group 变换，排序+渲染都吃。
+    // world = R*p + t，center c 映射到原点需要 t = -R*c（R 变了 t 必须重算）。
+    function applyGroupTransform(panel, sceneCenter) {
+        const g = panel.splatGroup;
+        if (!g) return;
+        // 预置 180°（COLMAP Y-down → Y-up 摆正），allFlipped 时再转 180° = 回到原始朝向
+        const extra = allFlipped ? Math.PI : 0;
+        g.rotation.set(Math.PI + extra, 0, 0);
+        g.position.copy(sceneCenter).applyEuler(g.rotation).multiplyScalar(-1);
+        g.scale.set(1, 1, 1);
+        g.updateMatrix();
+    }
+
+    // 所有已就绪面板统一切换翻转，相机不动（模型仍绕原点翻转，画面居中不变）
+    function setAllFlipped(flipped) {
+        allFlipped = flipped;
+        flipBtn.classList.toggle('active', flipped);
+        for (const p of panels) {
+            if (p.state === 'ready' && p.sceneCenter) {
+                applyGroupTransform(p, p.sceneCenter);
+            }
+        }
     }
 
     // ============ 加载 PLY 到面板 ============
@@ -388,10 +424,7 @@ title: "模型对比"
             // 3DGS 数据沿用 COLMAP 约定（Y 轴朝下），在标准 three.js Y-up 视图里
             // 上下颠倒。绕 X 轴转 180° 摆正；再把模型中心移到原点（多模型对齐）：
             // world = R*p + t，center c 映射到 0 需要 t = -R*c。
-            splatGroup.rotation.set(Math.PI, 0, 0);
-            splatGroup.position.copy(sceneCenter).applyEuler(splatGroup.rotation).multiplyScalar(-1);
-            splatGroup.scale.set(1, 1, 1);
-            splatGroup.updateMatrix();
+            applyGroupTransform(panel, sceneCenter);
 
             panel.sceneCenter = sceneCenter;
             panel.scale = 1; // 暂不强行归一化尺寸，3DGS 消融模型通常尺寸接近
@@ -552,9 +585,13 @@ title: "模型对比"
         if (first) fitAllToFirst(first);
     });
 
+    // 统一翻转开关
+    flipBtn.addEventListener('click', () => setAllFlipped(!allFlipped));
+
     resetBtn.addEventListener('click', () => {
         while (panels.length > 0) removePanel(0);
         mainCameraState = null;
+        setAllFlipped(false);
     });
 
     // 文件选择
@@ -623,14 +660,14 @@ title: "模型对比"
         target: p.controls ? p.controls.target.toArray().map(v => +v.toFixed(3)) : null,
         pos: p.camera ? p.camera.position.toArray().map(v => +v.toFixed(3)) : null,
     }));
-    // 调试钩子：读取各面板 scene0 变换（验证翻转/居中）
-    window.__debugSceneXform = () => panels.map(p => {
+    // 调试钩子：读取各面板 splatGroup 变换（验证翻转/居中）
+    window.__debugGroupXform = () => panels.map(p => {
         if (!p.splatGroup || p.state !== 'ready') return null;
-        const s0 = p.splatGroup.viewer.getSplatMesh().getScene(0);
         return {
-            rotation: [s0.rotation.x, s0.rotation.y, s0.rotation.z].map(v => +v.toFixed(3)),
-            position: s0.position.toArray().map(v => +v.toFixed(3)),
+            rotationX: +p.splatGroup.rotation.x.toFixed(3),
+            position: p.splatGroup.position.toArray().map(v => +v.toFixed(3)),
             sceneCenter: p.sceneCenter ? p.sceneCenter.toArray().map(v => +v.toFixed(3)) : null,
+            allFlipped,
         };
     });
     </script>
