@@ -160,8 +160,8 @@ title: "模型对比"
     // 联动锁，防止循环广播
     let syncLock = false;
 
-    // 全局翻转开关：true = 所有模型绕 X 轴再转 180°（上下颠倒）
-    // 默认 false = 已摆正状态（3DGS COLMAP Y-down 数据预转 180°）
+    // 全局翻转开关：true = 所有模型绕 X 轴转 180°（上下颠倒）
+    // 默认 false = 模型原始数据朝向，无预置摆正
     let allFlipped = false;
 
     // ============ 布局管理 ============
@@ -271,9 +271,8 @@ title: "模型对比"
     function applyGroupTransform(panel, sceneCenter) {
         const g = panel.splatGroup;
         if (!g) return;
-        // 预置 180°（COLMAP Y-down → Y-up 摆正），allFlipped 时再转 180° = 回到原始朝向
-        const extra = allFlipped ? Math.PI : 0;
-        g.rotation.set(Math.PI + extra, 0, 0);
+        // allFlipped 时绕 X 轴转 180°（上下颠倒），默认保持模型原始朝向
+        g.rotation.set(allFlipped ? Math.PI : 0, 0, 0);
         g.position.copy(sceneCenter).applyEuler(g.rotation).multiplyScalar(-1);
         g.scale.set(1, 1, 1);
         g.updateMatrix();
@@ -415,15 +414,15 @@ title: "模型对比"
             const sceneCenter = splatBuffer.sceneCenter.clone(); // 模型原始中心
             console.log('[splat-compare] sceneCenter:', sceneCenter);
 
-            // Y 轴翻转 + 居中：必须应用到 splatGroup（THREE.Group）级别！
+            // 居中：必须应用到 splatGroup（THREE.Group）级别！
             // 库 v0.4.7 在 dynamicScene=false 时把 scene 变换烘焙进数据纹理，
             // 事后改 scene0.position/rotation 不参与渲染（已用截图对比证实无效）。
             // 而 splatMesh 的 matrixWorld 包含 splatGroup 的变换，
             // 排序（mvpMatrix × splatMesh.matrixWorld）和渲染（场景图）都吃这套。
             //
-            // 3DGS 数据沿用 COLMAP 约定（Y 轴朝下），在标准 three.js Y-up 视图里
-            // 上下颠倒。绕 X 轴转 180° 摆正；再把模型中心移到原点（多模型对齐）：
-            // world = R*p + t，center c 映射到 0 需要 t = -R*c。
+            // 保持模型原始朝向加载（不做预置摆正，需要时用「上下翻转」按钮统一调）；
+            // 把模型中心移到原点（多模型对齐）：world = R*p + t，center c 映射到 0
+            // 需要 t = -R*c。R 变了 t 必须重算，统一走 applyGroupTransform。
             applyGroupTransform(panel, sceneCenter);
 
             panel.sceneCenter = sceneCenter;
