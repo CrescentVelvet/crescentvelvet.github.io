@@ -186,15 +186,21 @@ title: "模型对比"
         resetBtn.disabled = false;
         flipBtn.disabled = false;
         // 通知每个 renderer 重新计算尺寸
+        let sizeChanged = false;
         for (const p of panels) {
             if (p.renderer) {
                 const w = p.canvasWrap.clientWidth;
                 const h = p.canvasWrap.clientHeight;
-                p.renderer.setSize(w, h, false);
-                p.camera.aspect = w / h;
-                p.camera.updateProjectionMatrix();
+                if (w > 0 && h > 0) {
+                    p.renderer.setSize(w, h, false);
+                    p.camera.aspect = w / h;
+                    p.camera.updateProjectionMatrix();
+                    sizeChanged = true;
+                }
             }
         }
+        // 尺寸变了需要重画（resize 不会触发 controls change）
+        if (sizeChanged) wakeRenderLoop();
     }
 
     // ============ 创建空面板 ============
@@ -287,6 +293,8 @@ title: "模型对比"
                 applyGroupTransform(p, p.sceneCenter);
             }
         }
+        // 模型变换不触发 controls change，必须手动唤醒渲染
+        wakeRenderLoop();
     }
 
     // ============ 加载 PLY 到面板 ============
@@ -325,12 +333,16 @@ title: "模型对比"
             const url = URL.createObjectURL(file);
 
             // 创建 renderer
-            const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+            // antialias:false —— MSAA 只对几何边缘有效，splat 是软 alpha 椭球，
+            //   开 MSAA 纯浪费显存和带宽（回调 mesh 不写颜色，场景里没有别的几何）
+            // setPixelRatio(1) —— HiDPI 屏（dpr=2）下片元量是 1x 的 4 倍；
+            //   纯查看场景 cap 到 1，GPU 压力直接除以 dpr²。要更锐可改 1.5
+            const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
             renderer.setClearColor(0x222233, 1); // 深蓝灰背景，用于确认 renderer 在画
             const w = panel.canvasWrap.clientWidth || 400;
             const h = panel.canvasWrap.clientHeight || 300;
             renderer.setSize(w, h, false);
-            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setPixelRatio(1);
             panel.canvasWrap.appendChild(renderer.domElement);
 
             // 创建 camera（标准 three.js Y-up 坐标系）
@@ -366,7 +378,12 @@ title: "模型对比"
                 sharedMemoryForWorkers: false,
                 integerBasedSort: true,
                 dynamicScene: false,
-                webXRMode: 0 // None
+                webXRMode: 0, // None
+                // 纯查看模式：显式固定 SH degree=0（v0.4.7 默认也是 0）。
+                // PLY 里的 45 个 SH 视角依赖颜色系数在解析阶段直接丢弃，
+                // 只保留 f_dc 基础色。对比消融模型时视觉差异可忽略，
+                // 解析更快、显存/带宽更省。注意：必须构造时传，之后改无效。
+                sphericalHarmonicsDegree: 0
             });
 
             // 创建 three.js scene 并把 splatGroup 加进去
@@ -381,8 +398,9 @@ title: "模型对比"
             // 保留 panel.viewer 引用用于 dispose 和状态查询
             panel.viewer = splatGroup.viewer;
 
-            // 绑定 controls change → 联动广播
+            // 绑定 controls change → 唤醒按需渲染 + 联动广播
             controls.addEventListener('change', () => {
+                wakeRenderLoop();
                 if (syncLock) return;
                 syncLock = true;
                 broadcastCameraState(panel);
@@ -433,8 +451,8 @@ title: "模型对比"
             panel.state = 'ready';
             console.log('[splat-compare] 加载完成，panel.state=ready');
 
-            // 启动渲染循环
-            startRenderLoop();
+            // 唤醒渲染循环（fit/sync 改了相机，change 事件也会触发，双保险）
+            wakeRenderLoop();
 
             // 如果是第一个加载完成的，触发 fit all
             const readyCount = panels.filter(p => p.state === 'ready').length;
@@ -461,42 +479,77 @@ title: "模型对比"
         }
     }
 
-    // ============ 渲染循环 ============
+    // ============ 渲染循环（按需渲染） ============
+    // 纯查看模式：相机静止时排序很快收尾（排序是相机变化触发的，静止即无新排序），
+    // 渲染循环继续空转纯属浪费 CPU/GPU（百万 splat 每帧都是重活）。
+    // 策略：相机静止超过 idleFramesAfterStill 帧后挂起 rAF，改为事件驱动：
+    //   - controls 'change'（旋转/平移/缩放/联动）
+    //   - renderer size 变化（relayout）
+    //   - 面板加载完成
+    // 唤醒后先连续渲染若干帧，等 damping 惯性和异步排序（worker 回信后库会
+    // forceRenderNextFrame，但那只是库内部标志，DropIn 模式下要靠我们继续画）
+    // 都收敛，再次静止时重新挂起。
+    const STILL_IDLE_FRAMES = 20; // 静止 ~333ms（60fps）后挂起，覆盖排序收尾
     let renderLoopRunning = false;
+    let stillFrameCount = 0;
     let renderDebugLogged = false;
-    function startRenderLoop() {
-        if (renderLoopRunning) return;
-        renderLoopRunning = true;
-        function tick() {
-            let hasActive = false;
-            for (const p of panels) {
-                if (p.state === 'ready' && p.viewer && p.renderer && p.scene) {
-                    hasActive = true;
-                    p.controls.update();
-                    // DropInViewer 模式：splatGroup 加在 scene 里，
-                    // renderer.render(scene, camera) 时 splatGroup.callbackMesh.onBeforeRender
-                    // 会自动调用 viewer.update(renderer, camera)，内部完成排序和 uniform 更新
-                    p.renderer.render(p.scene, p.camera);
-                    // 诊断：首次渲染时打印状态
-                    if (!renderDebugLogged) {
-                        const sm = p.viewer.splatMesh;
-                        console.log('[splat-compare] render tick: initialized=', p.viewer.initialized,
-                                    'splatRenderReady=', p.viewer.splatRenderReady,
-                                    'splatMesh.visible=', sm.visible,
-                                    'getSplatCount=', sm.getSplatCount ? sm.getSplatCount() : 'no method',
-                                    'splatGroup.children=', p.splatGroup.children.length,
-                                    'camera.pos=', p.camera.position,
-                                    'camera.target=', p.controls.target);
-                        renderDebugLogged = true;
-                    }
+
+    function cameraMoved(p) {
+        // OrbitControls.update() 返回 bool：position/rotation/target 是否变化
+        return p.controls.update();
+    }
+
+    function tick() {
+        let hasActive = false;
+        let anyMoving = false;
+        for (const p of panels) {
+            if (p.state === 'ready' && p.viewer && p.renderer && p.scene) {
+                hasActive = true;
+                if (cameraMoved(p)) anyMoving = true;
+                // DropInViewer 模式：splatGroup 加在 scene 里，
+                // renderer.render(scene, camera) 时 splatGroup.callbackMesh.onBeforeRender
+                // 会自动调用 viewer.update(renderer, camera)，内部完成排序和 uniform 更新
+                p.renderer.render(p.scene, p.camera);
+                if (!renderDebugLogged) {
+                    const sm = p.viewer.splatMesh;
+                    console.log('[splat-compare] render tick: initialized=', p.viewer.initialized,
+                                'splatRenderReady=', p.viewer.splatRenderReady,
+                                'splatMesh.visible=', sm.visible,
+                                'getSplatCount=', sm.getSplatCount ? sm.getSplatCount() : 'no method',
+                                'splatGroup.children=', p.splatGroup.children.length,
+                                'camera.pos=', p.camera.position,
+                                'camera.target=', p.controls.target);
+                    renderDebugLogged = true;
                 }
             }
-            if (hasActive) {
-                requestAnimationFrame(tick);
-            } else {
-                renderLoopRunning = false;
+        }
+        if (!hasActive) {
+            renderLoopRunning = false;
+            stillFrameCount = 0;
+            return;
+        }
+        // 静止计数：所有相机都连续 STILL_IDLE_FRAMES 帧没动 → 挂起循环
+        if (anyMoving) {
+            stillFrameCount = 0;
+        } else {
+            stillFrameCount++;
+            if (stillFrameCount > STILL_IDLE_FRAMES) {
+                // 排序在 worker 里异步跑，结果要等回信后画出来；
+                // 还有面板在排序时不挂起，防止挂起在"旧排序结果"上
+                const sorting = panels.some(p => p.state === 'ready' && p.viewer && p.viewer.sortRunning);
+                if (!sorting) {
+                    renderLoopRunning = false;
+                    return; // 挂起，等事件唤醒
+                }
             }
         }
+        requestAnimationFrame(tick);
+    }
+
+    function wakeRenderLoop() {
+        stillFrameCount = 0;
+        if (renderLoopRunning) return;
+        renderLoopRunning = true;
         requestAnimationFrame(tick);
     }
 
@@ -653,6 +706,13 @@ title: "模型对比"
     // ============ 初始化 ============
     relayout();
 
+    // 调试钩子：渲染循环状态（验证按需渲染挂起/唤醒）
+    window.__perfState = () => ({
+        running: renderLoopRunning,
+        suspended: !renderLoopRunning,
+        stillFrames: stillFrameCount,
+        readyPanels: panels.filter(p => p.state === 'ready').length
+    });
     // 调试钩子（Playwright/控制台用）：读取各面板相机状态
     window.__debugCameras = () => panels.map(p => ({
         state: p.state,
