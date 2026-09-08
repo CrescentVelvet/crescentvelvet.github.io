@@ -3,12 +3,12 @@ layout: null
 permalink: /sandbox_war_game.html
 ---
 <!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<html lang="zh-CN" data-page-node-id="ubr6qTCnHCerViInEnaecx">
+<head data-page-node-id="S1w2oBmEaYUk6raWFkam9B">
+    <meta charset="UTF-8" data-page-node-id="A6QCkqEIstIbQ9mLKsPgaz">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" data-page-node-id="m9HaRdnXIMBeTFtXqh2EPu">
     <title>沙盘战争 - 像素战场</title>
-    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=DotGothic16&family=ZCOOL+QingKe+HuangYou&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=DotGothic16&family=ZCOOL+QingKe+HuangYou&display=swap" rel="stylesheet" data-page-node-id="y8CcSIBHY8P50HBeOZxADy">
     <style>
         :root {
             --pixel-bg: #2c3e50;
@@ -1024,24 +1024,27 @@ permalink: /sandbox_war_game.html
         }
         .missile-wheel.w1 { left: 5px; }
         .missile-wheel.w2 { left: 27px; }
-        /* 多联发射筒: 前置(顶部)立于底盘, 每筒一枚垂直导弹, .loaded 有弹露出弹头, 发射一枚空一筒 */
-        .ballistic-rack {
+        /* 导弹直接立甲板: 打一发少一发, 没有空筒占位 (剩余弹数 = 甲板上导弹的根数) */
+        .ballistic-rack, .cruise-rack {
             position: absolute;
-            left: 8px; top: 14px;
+            left: 3px; width: 30px;
+            top: 7px; height: 14px;
             display: flex;
+            justify-content: center;   /* 打空后剩余导弹自动居中, 不会偏向一侧 */
+            align-items: flex-end;     /* 弹底坐在甲板 y=21 上 */
             gap: 2px;
         }
-        .ballistic-tube {
+        .ballistic-rack { gap: 4px; }  /* 只有 3 发, 间距拉开避免尾翼相撞 */
+        /* 弹道导弹: 亮红尖头 + 白弹体 + 红环带 + 尾翼 */
+        .ballistic-missile {
             position: relative;
-            width: 5px; height: 7px;
-            background: linear-gradient(90deg, #1f2326 0 18%, #4a5258 18% 50%, #363b40 50% 82%, #1b1f22 82%);
-            border-radius: 1px;
-            box-shadow: inset 1px 0 rgba(255,255,255,.14), inset -1px 0 rgba(0,0,0,.55);
+            flex: 0 0 auto;
+            width: 4px; height: 14px;
+            border-radius: 50% 50% 1px 1px;
+            background: linear-gradient(to bottom, #ff5c4d 0 16%, #fbfbfb 16% 30%, #e74c3c 30% 38%, #eeeeee 38% 74%, #b4b4b4 74% 100%);
+            box-shadow: 0 0 0 1px #3f3f3f, 0 0 4px rgba(255,92,77,.35);
         }
-        /* 空筒: 明显凹陷的黑洞 (与有弹的高耸导弹形成强反差) */
-        .ballistic-tube::after { content: ''; position: absolute; width: 3px; height: 3px; left: 1px; top: 1px; background: radial-gradient(circle at 50% 30%, #000 0 55%, #2a2f33 100%); border-radius: 50% 50% 2px 2px; box-shadow: inset 0 1px 2px #000; }
-        /* 有弹筒: 高耸导弹探出筒口(亮红尖头+白弹体+尾翼), 空筒只剩矮黑洞, 高差一目了然 */
-        .ballistic-tube.loaded::before { content: ''; position: absolute; width: 3px; height: 13px; left: 1px; top: -10px; background: linear-gradient(to bottom, #ff5c4d 0 16%, #fbfbfb 16% 30%, #e74c3c 30% 38%, #eeeeee 38% 74%, #b4b4b4 74% 100%); clip-path: polygon(50% 0, 100% 20%, 100% 100%, 0 100%, 0 20%); box-shadow: 0 0 0 1px #5a3a3a, 0 0 5px rgba(255,92,77,.5); }
+        .ballistic-missile::before { content: ''; position: absolute; width: 7px; height: 3px; left: 50%; bottom: 0; margin-left: -3.5px; background: #8f8f8f; clip-path: polygon(0 100%, 22% 0, 78% 0, 100% 100%, 50% 52%); box-shadow: 0 0 0 1px #3f3f3f; }
 
         /* 巡航导弹车 (坦克2倍体积 44px, 宽扁车体 + 前置多联挂架, 每挂一枚巡航导弹, 前朝上) */
         .unit.cruise {
@@ -1058,37 +1061,20 @@ permalink: /sandbox_war_game.html
             box-shadow: inset 2px 1px var(--color), inset -2px -1px rgba(0,0,0,.45), 0 2px 0 rgba(0,0,0,.5);
         }
         .cruise-chassis::before { content: ''; position: absolute; width: 24px; height: 2px; left: 3px; top: 3px; background: rgba(255,255,255,.12); }
-        /* 多联挂架: 前置(顶部)立于底盘, 每挂一枚巡航导弹, .loaded 有弹, 发射一枚空一挂 */
-        .cruise-rack {
-            position: absolute;
-            left: 4px; top: 14px;
-            display: flex;
-            gap: 2px;
-        }
-        .cruise-cell {
-            position: relative;
-            width: 4px; height: 7px;
-            background: linear-gradient(90deg, #1f2326 0 18%, #4a5258 18% 50%, #363b40 50% 82%, #1b1f22 82%);
-            border-radius: 1px;
-            box-shadow: inset 1px 0 rgba(255,255,255,.14), inset -1px 0 rgba(0,0,0,.55);
-        }
-        /* 空挂架: 明显凹陷的黑洞 */
-        .cruise-cell::after { content: ''; position: absolute; width: 2px; height: 3px; left: 1px; top: 1px; background: radial-gradient(circle at 50% 30%, #000 0 55%, #2a2f33 100%); border-radius: 50% 50% 2px 2px; box-shadow: inset 0 1px 2px #000; }
-        .cruise-cell:not(.loaded) .cruise-missile { display: none; }
-        /* 巡航导弹: 银白弹体 + 后掠主翼 + 尾翼 + 阵营色导引头 (朝上高耸, 与空挂架黑洞强反差) */
+        /* 巡航导弹: 银白弹体 + 后掠主翼 + 尾翼, 直接立在甲板上 (打一发少一发) */
         .cruise-missile {
-            position: absolute;
-            width: 3px; height: 13px;
-            left: 0.5px; top: -10px;
-            background: linear-gradient(to bottom, #f2f5f7 0%, #ccd3d8 34%, #8b9398 74%, #4d5357 100%);
+            position: relative;
+            flex: 0 0 auto;
+            width: 4px; height: 14px;
             border-radius: 50% 50% 1px 1px;
+            background: linear-gradient(to bottom, #f2f5f7 0%, #ccd3d8 34%, #8b9398 74%, #4d5357 100%);
             box-shadow: 0 0 0 1px #23282b;
         }
-        .cruise-missile::before { content: ''; position: absolute; width: 8px; height: 2px; left: 50%; top: 40%; margin-left: -4px; background: linear-gradient(to right, #3f4448, #aeb6bb 50%, #3f4448); clip-path: polygon(0 100%, 12% 0, 88% 0, 100% 100%, 50% 55%); box-shadow: 0 0 0 1px #23282b; }
+        .cruise-missile::before { content: ''; position: absolute; width: 6px; height: 2px; left: 50%; top: 42%; margin-left: -3px; background: linear-gradient(to right, #3f4448, #aeb6bb 50%, #3f4448); clip-path: polygon(0 100%, 12% 0, 88% 0, 100% 100%, 50% 55%); box-shadow: 0 0 0 1px #23282b; }
         .cruise-missile::after { content: ''; position: absolute; width: 5px; height: 2px; left: 50%; bottom: 0; margin-left: -2.5px; background: #565c60; clip-path: polygon(0 100%, 25% 0, 75% 0, 100% 100%, 50% 50%); box-shadow: 0 0 0 1px #23282b; }
 
         /* 导弹车发射特效: 筒口喷焰 + 烟圈 + 离筒弹剪影 (挂 .unit-body, 随朝向旋转, 一次性动画) */
-        .launch-flash { position: absolute; left: 50%; top: 3px; width: 0; height: 0; pointer-events: none; z-index: 6; }
+        .launch-flash { position: absolute; left: 50%; top: 6px; width: 0; height: 0; pointer-events: none; z-index: 6; }
         .launch-flash::before {
             content: ''; position: absolute; left: -4px; top: -2px; width: 8px; height: 15px;
             background: linear-gradient(to bottom, #fff3b0 0%, #ffb33a 45%, rgba(230,126,34,0) 100%);
@@ -1101,7 +1087,7 @@ permalink: /sandbox_war_game.html
             animation: launchSmoke .55s ease-out forwards;
         }
         .launch-missile {
-            position: absolute; left: 50%; top: 1px;
+            position: absolute; left: 50%; top: 4px;
             width: 3px; height: 11px; margin-left: -1.5px;
             background: linear-gradient(to bottom, #d64545 0 18%, #f3f3f3 18% 70%, #c8c8c8 70% 100%);
             clip-path: polygon(50% 0, 100% 22%, 100% 100%, 0 100%, 0 22%);
@@ -1716,131 +1702,131 @@ permalink: /sandbox_war_game.html
         }
     </style>
 </head>
-<body>
-    <div class="container">
-        <h1>👾 像素战争 👾</h1>
+<body data-page-node-id="lUWm88cm0CTmEsM95lHf0f">
+    <div class="container" data-page-node-id="s5FcKauB0GVGzL70ymxmUR">
+        <h1 data-page-node-id="HCjDAt5FgT5XR6nKRfJBMq">👾 像素战争 👾</h1>
         
-        <div class="game-ui">
-            <div class="controls-panel">
-                <div class="control-row">
-                    <label>战役:</label>
-                    <select id="scenarioSelect" class="pixel-select" onchange="switchScenario()">
-                        <option value="stalingrad">斯大林格勒保卫战 (PVE)</option>
-                        <option value="prokhorovka">普罗霍罗夫卡 (PVE)</option>
-                        <option value="normandy">诺曼底滩头 (PVE)</option>
-                        <option value="alamain">阿拉曼沙漠 (PVE)</option>
-                        <option value="bulge">阿登突出部 (PVE)</option>
-                        <option value="cannae">坎尼会战 (古代 PVE)</option>
-                        <option value="changping">长平之战 (古代 PVE)</option>
-                        <option value="mobeibei">漠北之战 (古代 PVE)</option>
-                        <option value="saelhu">萨尔浒之战 (火药 PVE)</option>
-                        <option value="ningyuan">宁远之战 (火药 PVE)</option>
-                        <option value="chibi">赤壁之战 (古代 PVE)</option>
-                        <option value="desert_storm">沙漠风暴 (现代 PVE)</option>
-                        <option value="custom_pvp">自定义战役 (PVP)</option>
+        <div class="game-ui" data-page-node-id="KbsRFpe6CdDTwLWNwRM9gf">
+            <div class="controls-panel" data-page-node-id="FbJuNYGNk5YIHrDdFFKdIW">
+                <div class="control-row" data-page-node-id="RPj3xx0VqRVx0yqGVtKMTO">
+                    <label data-page-node-id="HywHBvhEGIgm8EC8D0MI5Q">战役:</label>
+                    <select id="scenarioSelect" class="pixel-select" onchange="switchScenario()" data-page-node-id="Vrt9DypBfOZSK5ATmx0tMG">
+                        <option value="stalingrad" data-page-node-id="Szhmp5HzGxnhywWpbYI8rD">斯大林格勒保卫战 (PVE)</option>
+                        <option value="prokhorovka" data-page-node-id="Ud8L6HjP5totBb6dArUz2w">普罗霍罗夫卡 (PVE)</option>
+                        <option value="normandy" data-page-node-id="ANa7mDDRWMaXjjT5IVgMQr">诺曼底滩头 (PVE)</option>
+                        <option value="alamain" data-page-node-id="oF7faEiSZODx8iBcSQQWSF">阿拉曼沙漠 (PVE)</option>
+                        <option value="bulge" data-page-node-id="rYrm26QIh60OPvfGOjIbeh">阿登突出部 (PVE)</option>
+                        <option value="cannae" data-page-node-id="tmLOHkm9Rc9WSL5QBkvyDG">坎尼会战 (古代 PVE)</option>
+                        <option value="changping" data-page-node-id="h0ylqhoYHkHPBv4cJ7ntbB">长平之战 (古代 PVE)</option>
+                        <option value="mobeibei" data-page-node-id="sVsZys5HW3CShpC9WqtMro">漠北之战 (古代 PVE)</option>
+                        <option value="saelhu" data-page-node-id="S2aFGKQuA9i2LxqCTMTs6L">萨尔浒之战 (火药 PVE)</option>
+                        <option value="ningyuan" data-page-node-id="aDVJOv1c0l5Hd8Q4Qn3fQW">宁远之战 (火药 PVE)</option>
+                        <option value="chibi" data-page-node-id="WLk4b1fYDUFh1eXExG0Amx">赤壁之战 (古代 PVE)</option>
+                        <option value="desert_storm" data-page-node-id="O2yhZV0uByVGf8PWuOiSLV">沙漠风暴 (现代 PVE)</option>
+                        <option value="custom_pvp" data-page-node-id="ncPyQcd8y6QHbqGKe7sDRk">自定义战役 (PVP)</option>
                     </select>
-                    <button onclick="addObstacle()" class="pixel-btn btn-obstacle">+掩体</button>
-                    <button onclick="toggleBattle()" id="battleBtn" class="pixel-btn btn-action">开战</button>
-                    <button onclick="clearBattlefield()" class="pixel-btn btn-danger">清空</button>
-                    <button onclick="battlefieldManager.toggleDebugPaths()" class="pixel-btn btn-unit">调试路线</button>
-                    <button onclick="battlefieldManager.toggleSynergy()" class="pixel-btn btn-unit">协同链</button>
-                    <button onclick="toggleCodex()" id="codexBtn" class="pixel-btn btn-action">图鉴</button>
+                    <button onclick="addObstacle()" class="pixel-btn btn-obstacle" data-page-node-id="VVr1fmbAD3loeYdGFRpFbZ">+掩体</button>
+                    <button onclick="toggleBattle()" id="battleBtn" class="pixel-btn btn-action" data-page-node-id="PAOSGYpFOq1qbDYtKaYcGw">开战</button>
+                    <button onclick="clearBattlefield()" class="pixel-btn btn-danger" data-page-node-id="YEchHW9M3D7l1q91OxUGiR">清空</button>
+                    <button onclick="battlefieldManager.toggleDebugPaths()" class="pixel-btn btn-unit" data-page-node-id="WZV2fZRdvUELCAU1wDKw79">调试路线</button>
+                    <button onclick="battlefieldManager.toggleSynergy()" class="pixel-btn btn-unit" data-page-node-id="WMEhNGHMpXX76i6g9wFGRj">协同链</button>
+                    <button onclick="toggleCodex()" id="codexBtn" class="pixel-btn btn-action" data-page-node-id="UTnnXCrwspRgWOErIqp0cR">图鉴</button>
                 </div>
 
-                <div class="control-row">
-                    <button onclick="addUnit('ally','tank')" class="pixel-btn btn-ally btn-era-ww2">坦克</button>
-                    <button onclick="addUnit('ally','soldier')" class="pixel-btn btn-ally btn-era-ww2">步兵</button>
-                    <button onclick="addUnit('ally','artillery')" class="pixel-btn btn-ally btn-era-ww2">火炮</button>
-                    <button onclick="addUnit('ally','rocket')" class="pixel-btn btn-ally btn-era-ww2">火箭炮</button>
-                    <button onclick="addUnit('ally','command')" class="pixel-btn btn-ally btn-era-ww2">指挥</button>
-                    <button onclick="addUnit('ally','supply')" class="pixel-btn btn-ally btn-era-ww2">补给</button>
-                    <button onclick="addUnit('ally','engineer')" class="pixel-btn btn-ally btn-era-ww2">工兵</button>
-                    <button onclick="addUnit('ally','medic')" class="pixel-btn btn-ally btn-era-ww2">医疗</button>
-                    <button onclick="addUnit('ally','antitank')" class="pixel-btn btn-ally btn-era-ww2">反坦</button>
-                    <button onclick="addUnit('ally','lightTank')" class="pixel-btn btn-ally btn-era-ww2">轻坦</button>
-                    <button onclick="addUnit('ally','tankDestroyer')" class="pixel-btn btn-ally btn-era-ww2">歼击</button>
-                    <button onclick="addUnit('ally','scout')" class="pixel-btn btn-ally btn-era-ww2">侦察</button>
-                    <button onclick="addUnit('ally','apc')" class="pixel-btn btn-ally btn-era-ww2">运兵</button>
-                    <button onclick="addUnit('ally','mortar')" class="pixel-btn btn-ally btn-era-ww2">迫击</button>
-                    <button onclick="addUnit('ally','ballistic')" class="pixel-btn btn-ally btn-era-ww2">弹道</button>
-                    <button onclick="addUnit('ally','cruise')" class="pixel-btn btn-ally btn-era-ww2">巡航</button>
-                    <button onclick="addUnit('ally','melee')" class="pixel-btn btn-ally btn-era-ancient-land">近战</button>
-                    <button onclick="addUnit('ally','archer')" class="pixel-btn btn-ally btn-era-ancient-land">弓箭</button>
-                    <button onclick="addUnit('ally','cavalry')" class="pixel-btn btn-ally btn-era-ancient-land">骑兵</button>
-                    <button onclick="addUnit('ally','catapult')" class="pixel-btn btn-ally btn-era-ancient-land">投石</button>
-                    <button onclick="addUnit('ally','crossbow')" class="pixel-btn btn-ally btn-era-ancient-land">连弩</button>
-                    <button onclick="addUnit('ally','firearm')" class="pixel-btn btn-ally btn-era-gunpowder">火铳</button>
-                    <button onclick="addUnit('ally','grenadier')" class="pixel-btn btn-ally btn-era-gunpowder">掷弹</button>
-                    <button onclick="addUnit('ally','nestOfBees')" class="pixel-btn btn-ally btn-era-gunpowder">蜂巢</button>
-                    <button onclick="addUnit('ally','hongyipao')" class="pixel-btn btn-ally btn-era-gunpowder">红炮</button>
-                    <button onclick="addUnit('ally','warship')" class="pixel-btn btn-ally btn-era-ancient-land-naval">战船</button>
-                    <button onclick="addUnit('ally','fireship')" class="pixel-btn btn-ally btn-era-ancient-land-naval">火船</button>
+                <div class="control-row" data-page-node-id="NTeTJSJ6oIvMCrNahj9SbK">
+                    <button onclick="addUnit('ally','tank')" class="pixel-btn btn-ally btn-era-ww2" data-page-node-id="CNbXkucnooNz8qaz9QnaOg">坦克</button>
+                    <button onclick="addUnit('ally','soldier')" class="pixel-btn btn-ally btn-era-ww2" data-page-node-id="Ghhr8voCfHBt10UJay9zrd">步兵</button>
+                    <button onclick="addUnit('ally','artillery')" class="pixel-btn btn-ally btn-era-ww2" data-page-node-id="1f2vGLcu4yDevyX6JsYWvc">火炮</button>
+                    <button onclick="addUnit('ally','rocket')" class="pixel-btn btn-ally btn-era-ww2" data-page-node-id="KyeZIUbCK0k62vIcm7zDKi">火箭炮</button>
+                    <button onclick="addUnit('ally','command')" class="pixel-btn btn-ally btn-era-ww2" data-page-node-id="ZSXZlxGbxePiUyT6KX9GhE">指挥</button>
+                    <button onclick="addUnit('ally','supply')" class="pixel-btn btn-ally btn-era-ww2" data-page-node-id="G7PAvDDRkNblpmrUQrtGIe">补给</button>
+                    <button onclick="addUnit('ally','engineer')" class="pixel-btn btn-ally btn-era-ww2" data-page-node-id="Z18vpD8cbzz9XGNoaRkgf2">工兵</button>
+                    <button onclick="addUnit('ally','medic')" class="pixel-btn btn-ally btn-era-ww2" data-page-node-id="J0lEx0UMU0xtPLNTJvFNK8">医疗</button>
+                    <button onclick="addUnit('ally','antitank')" class="pixel-btn btn-ally btn-era-ww2" data-page-node-id="3UjWlRJogYANNii38YYWHj">反坦</button>
+                    <button onclick="addUnit('ally','lightTank')" class="pixel-btn btn-ally btn-era-ww2" data-page-node-id="3lAIgToTHJM08aNo65fFVq">轻坦</button>
+                    <button onclick="addUnit('ally','tankDestroyer')" class="pixel-btn btn-ally btn-era-ww2" data-page-node-id="eVTHEmiTrghfQP66qC0z4L">歼击</button>
+                    <button onclick="addUnit('ally','scout')" class="pixel-btn btn-ally btn-era-ww2" data-page-node-id="v0M1RkFpCkkUh8kFHGXYON">侦察</button>
+                    <button onclick="addUnit('ally','apc')" class="pixel-btn btn-ally btn-era-ww2" data-page-node-id="PKc6Q9Nickw7JpfIGgiRz7">运兵</button>
+                    <button onclick="addUnit('ally','mortar')" class="pixel-btn btn-ally btn-era-ww2" data-page-node-id="bfvEQsmT9fPaaOYoR8s7zv">迫击</button>
+                    <button onclick="addUnit('ally','ballistic')" class="pixel-btn btn-ally btn-era-ww2" data-page-node-id="Rb6jAN8W4JhELqhecN46Yg">弹道</button>
+                    <button onclick="addUnit('ally','cruise')" class="pixel-btn btn-ally btn-era-ww2" data-page-node-id="9j0i9M2Q2P6TSQlJVC9r0q">巡航</button>
+                    <button onclick="addUnit('ally','melee')" class="pixel-btn btn-ally btn-era-ancient-land" data-page-node-id="OEaG6yaFHFl6Y2040JvisV">近战</button>
+                    <button onclick="addUnit('ally','archer')" class="pixel-btn btn-ally btn-era-ancient-land" data-page-node-id="1Fo3LH7RVgbAk5wopZ5aoe">弓箭</button>
+                    <button onclick="addUnit('ally','cavalry')" class="pixel-btn btn-ally btn-era-ancient-land" data-page-node-id="3Dmk7QdA2qXlYgLIHd0N8j">骑兵</button>
+                    <button onclick="addUnit('ally','catapult')" class="pixel-btn btn-ally btn-era-ancient-land" data-page-node-id="hc3nlbXHUGQrh7rlruKFPu">投石</button>
+                    <button onclick="addUnit('ally','crossbow')" class="pixel-btn btn-ally btn-era-ancient-land" data-page-node-id="xHivBHjTKexutv60296CBd">连弩</button>
+                    <button onclick="addUnit('ally','firearm')" class="pixel-btn btn-ally btn-era-gunpowder" data-page-node-id="re1RdmSrGjFLG53MZYzgOt">火铳</button>
+                    <button onclick="addUnit('ally','grenadier')" class="pixel-btn btn-ally btn-era-gunpowder" data-page-node-id="sAEWAx2G1L8ecyZs8DuGI2">掷弹</button>
+                    <button onclick="addUnit('ally','nestOfBees')" class="pixel-btn btn-ally btn-era-gunpowder" data-page-node-id="8AiFhiqcMKSobHuORApJpM">蜂巢</button>
+                    <button onclick="addUnit('ally','hongyipao')" class="pixel-btn btn-ally btn-era-gunpowder" data-page-node-id="urkTLxQhTs1Wyi4Cj2EHgn">红炮</button>
+                    <button onclick="addUnit('ally','warship')" class="pixel-btn btn-ally btn-era-ancient-land-naval" data-page-node-id="C3fJOzDqAiquXPd5wGLLfl">战船</button>
+                    <button onclick="addUnit('ally','fireship')" class="pixel-btn btn-ally btn-era-ancient-land-naval" data-page-node-id="TEkEXKR6D3WKLAfhnAH5cm">火船</button>
                 </div>
 
-                <div class="control-row" id="enemyControlRow">
-                    <button onclick="addUnit('enemy','tank')" class="pixel-btn btn-enemy btn-era-ww2">坦克</button>
-                    <button onclick="addUnit('enemy','soldier')" class="pixel-btn btn-enemy btn-era-ww2">步兵</button>
-                    <button onclick="addUnit('enemy','artillery')" class="pixel-btn btn-enemy btn-era-ww2">火炮</button>
-                    <button onclick="addUnit('enemy','rocket')" class="pixel-btn btn-enemy btn-era-ww2">火箭炮</button>
-                    <button onclick="addUnit('enemy','command')" class="pixel-btn btn-enemy btn-era-ww2">指挥</button>
-                    <button onclick="addUnit('enemy','supply')" class="pixel-btn btn-enemy btn-era-ww2">补给</button>
-                    <button onclick="addUnit('enemy','engineer')" class="pixel-btn btn-enemy btn-era-ww2">工兵</button>
-                    <button onclick="addUnit('enemy','medic')" class="pixel-btn btn-enemy btn-era-ww2">医疗</button>
-                    <button onclick="addUnit('enemy','antitank')" class="pixel-btn btn-enemy btn-era-ww2">反坦</button>
-                    <button onclick="addUnit('enemy','lightTank')" class="pixel-btn btn-enemy btn-era-ww2">轻坦</button>
-                    <button onclick="addUnit('enemy','tankDestroyer')" class="pixel-btn btn-enemy btn-era-ww2">歼击</button>
-                    <button onclick="addUnit('enemy','scout')" class="pixel-btn btn-enemy btn-era-ww2">侦察</button>
-                    <button onclick="addUnit('enemy','apc')" class="pixel-btn btn-enemy btn-era-ww2">运兵</button>
-                    <button onclick="addUnit('enemy','mortar')" class="pixel-btn btn-enemy btn-era-ww2">迫击</button>
-                    <button onclick="addUnit('enemy','ballistic')" class="pixel-btn btn-enemy btn-era-ww2">弹道</button>
-                    <button onclick="addUnit('enemy','cruise')" class="pixel-btn btn-enemy btn-era-ww2">巡航</button>
-                    <button onclick="addUnit('enemy','melee')" class="pixel-btn btn-enemy btn-era-ancient-land">近战</button>
-                    <button onclick="addUnit('enemy','archer')" class="pixel-btn btn-enemy btn-era-ancient-land">弓箭</button>
-                    <button onclick="addUnit('enemy','cavalry')" class="pixel-btn btn-enemy btn-era-ancient-land">骑兵</button>
-                    <button onclick="addUnit('enemy','catapult')" class="pixel-btn btn-enemy btn-era-ancient-land">投石</button>
-                    <button onclick="addUnit('enemy','crossbow')" class="pixel-btn btn-enemy btn-era-ancient-land">连弩</button>
-                    <button onclick="addUnit('enemy','firearm')" class="pixel-btn btn-enemy btn-era-gunpowder">火铳</button>
-                    <button onclick="addUnit('enemy','grenadier')" class="pixel-btn btn-enemy btn-era-gunpowder">掷弹</button>
-                    <button onclick="addUnit('enemy','nestOfBees')" class="pixel-btn btn-enemy btn-era-gunpowder">蜂巢</button>
-                    <button onclick="addUnit('enemy','hongyipao')" class="pixel-btn btn-enemy btn-era-gunpowder">红炮</button>
-                    <button onclick="addUnit('enemy','warship')" class="pixel-btn btn-enemy btn-era-ancient-land-naval">战船</button>
-                    <button onclick="addUnit('enemy','fireship')" class="pixel-btn btn-enemy btn-era-ancient-land-naval">火船</button>
-                </div>
-            </div>
-        </div>
-
-        <div class="battlefield-viewport" id="bfViewport">
-            <div class="battlefield" id="battlefield">
-                <canvas class="terrain-canvas" id="terrainCanvas"></canvas>
-                <canvas class="decor-canvas" id="decorCanvas"></canvas>
-                <svg id="debugPathLayer" xmlns="http://www.w3.org/2000/svg"></svg>
-                <svg id="synergyLayer" xmlns="http://www.w3.org/2000/svg"></svg>
-                <div class="empty-state" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; opacity: 0.5; pointer-events: none; z-index: 2;">
-                    <p>投放兵力开始战斗</p>
-                    <p style="font-size: 0.8em; margin-top: 10px;">点击按钮添加兵力</p>
+                <div class="control-row" id="enemyControlRow" data-page-node-id="XJHd1A8otdO5ithXr2O8a9">
+                    <button onclick="addUnit('enemy','tank')" class="pixel-btn btn-enemy btn-era-ww2" data-page-node-id="83hgO2ZKQ5J8GfoyCFig5l">坦克</button>
+                    <button onclick="addUnit('enemy','soldier')" class="pixel-btn btn-enemy btn-era-ww2" data-page-node-id="REW75k020PuJKnOsPs00oB">步兵</button>
+                    <button onclick="addUnit('enemy','artillery')" class="pixel-btn btn-enemy btn-era-ww2" data-page-node-id="yuo8Fo3mhPCgNHQF8U1Wbj">火炮</button>
+                    <button onclick="addUnit('enemy','rocket')" class="pixel-btn btn-enemy btn-era-ww2" data-page-node-id="u1wdVBWBUAftvZPsUfeyRl">火箭炮</button>
+                    <button onclick="addUnit('enemy','command')" class="pixel-btn btn-enemy btn-era-ww2" data-page-node-id="yvPjdAQUsE6wXrZqyjvg1y">指挥</button>
+                    <button onclick="addUnit('enemy','supply')" class="pixel-btn btn-enemy btn-era-ww2" data-page-node-id="38oCpUkScTObGUwZm6GPIp">补给</button>
+                    <button onclick="addUnit('enemy','engineer')" class="pixel-btn btn-enemy btn-era-ww2" data-page-node-id="vONH9Z0xJHDlDMSUPgRofs">工兵</button>
+                    <button onclick="addUnit('enemy','medic')" class="pixel-btn btn-enemy btn-era-ww2" data-page-node-id="EnbHTrX83uAdP4LWXqnnIw">医疗</button>
+                    <button onclick="addUnit('enemy','antitank')" class="pixel-btn btn-enemy btn-era-ww2" data-page-node-id="f6lREX7wrzDpqlrQ3EjmaQ">反坦</button>
+                    <button onclick="addUnit('enemy','lightTank')" class="pixel-btn btn-enemy btn-era-ww2" data-page-node-id="YzEVdcywX1b89YcnoCg5jU">轻坦</button>
+                    <button onclick="addUnit('enemy','tankDestroyer')" class="pixel-btn btn-enemy btn-era-ww2" data-page-node-id="oLJCGHcWIDQhjWV6pnCbPx">歼击</button>
+                    <button onclick="addUnit('enemy','scout')" class="pixel-btn btn-enemy btn-era-ww2" data-page-node-id="pZuRWYxAA6dpm7PIdPPclz">侦察</button>
+                    <button onclick="addUnit('enemy','apc')" class="pixel-btn btn-enemy btn-era-ww2" data-page-node-id="Mk31415rhIGiOb7amFQ7tj">运兵</button>
+                    <button onclick="addUnit('enemy','mortar')" class="pixel-btn btn-enemy btn-era-ww2" data-page-node-id="CzsdWcOc95XHszHdcJWyW9">迫击</button>
+                    <button onclick="addUnit('enemy','ballistic')" class="pixel-btn btn-enemy btn-era-ww2" data-page-node-id="EYEqfOxHpJA8sFRwPcEvkY">弹道</button>
+                    <button onclick="addUnit('enemy','cruise')" class="pixel-btn btn-enemy btn-era-ww2" data-page-node-id="AgrU4WHCeJ5h9HKb5kHhhO">巡航</button>
+                    <button onclick="addUnit('enemy','melee')" class="pixel-btn btn-enemy btn-era-ancient-land" data-page-node-id="guda82FbFESQmgCrTITNh3">近战</button>
+                    <button onclick="addUnit('enemy','archer')" class="pixel-btn btn-enemy btn-era-ancient-land" data-page-node-id="FvWNY9hfm6uJdEXv5D1xVA">弓箭</button>
+                    <button onclick="addUnit('enemy','cavalry')" class="pixel-btn btn-enemy btn-era-ancient-land" data-page-node-id="rjtcygBMb9B9exd6HSjlvq">骑兵</button>
+                    <button onclick="addUnit('enemy','catapult')" class="pixel-btn btn-enemy btn-era-ancient-land" data-page-node-id="Zo9FzG1sFMTGaiygOjTskD">投石</button>
+                    <button onclick="addUnit('enemy','crossbow')" class="pixel-btn btn-enemy btn-era-ancient-land" data-page-node-id="PbX8YtV2wXkC4na8eM21rf">连弩</button>
+                    <button onclick="addUnit('enemy','firearm')" class="pixel-btn btn-enemy btn-era-gunpowder" data-page-node-id="qx8N7Be0R07YGa8p3E7Ckf">火铳</button>
+                    <button onclick="addUnit('enemy','grenadier')" class="pixel-btn btn-enemy btn-era-gunpowder" data-page-node-id="DfwfOPMYzEAySZshNikxWI">掷弹</button>
+                    <button onclick="addUnit('enemy','nestOfBees')" class="pixel-btn btn-enemy btn-era-gunpowder" data-page-node-id="NuCuqFYxwCUdv2iLuUKmeD">蜂巢</button>
+                    <button onclick="addUnit('enemy','hongyipao')" class="pixel-btn btn-enemy btn-era-gunpowder" data-page-node-id="tDJcvWGXX6fgNrslZrdFqc">红炮</button>
+                    <button onclick="addUnit('enemy','warship')" class="pixel-btn btn-enemy btn-era-ancient-land-naval" data-page-node-id="Wfzfp0CBMo6JHGGPetpm9W">战船</button>
+                    <button onclick="addUnit('enemy','fireship')" class="pixel-btn btn-enemy btn-era-ancient-land-naval" data-page-node-id="zE4PNZx5mQIDIMRDxXXFWg">火船</button>
                 </div>
             </div>
         </div>
 
-        <div class="status-bar">
-            <span>帧率: <span id="fpsValue">0</span></span>
-            <span>场上总兵力: <span id="unitCount">0</span></span>
-            <span>友军点值: <span id="allyPoints">0</span> / 敌军点值: <span id="enemyPoints">0</span></span>
-            <span>最后更新: <span id="lastModified"></span></span>
+        <div class="battlefield-viewport" id="bfViewport" data-page-node-id="tUnfFKvW3U3NSL2FurUMG0">
+            <div class="battlefield" id="battlefield" data-page-node-id="GcpMvhRgdoB99I1DIXdWgn">
+                <canvas class="terrain-canvas" id="terrainCanvas" data-page-node-id="0bHiukAUAHOuKU8OgHqVFf"></canvas>
+                <canvas class="decor-canvas" id="decorCanvas" data-page-node-id="G6ROSAvzC2c5b3sW268Gwf"></canvas>
+                <svg id="debugPathLayer" xmlns="http://www.w3.org/2000/svg" data-page-node-id="9iR8mDb39xuA9D0Yc8ZoZU"></svg>
+                <svg id="synergyLayer" xmlns="http://www.w3.org/2000/svg" data-page-node-id="Wt1CGqkDM1fUCD0CGVJ0Cg"></svg>
+                <div class="empty-state" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; opacity: 0.5; pointer-events: none; z-index: 2;" data-page-node-id="qrjSBRUg77UhwAKIsho7vE">
+                    <p data-page-node-id="JRZQ7MTI12kF1yMHA4EE5y">投放兵力开始战斗</p>
+                    <p style="font-size: 0.8em; margin-top: 10px;" data-page-node-id="uNJQmxFgjol6EhV5bnXvAP">点击按钮添加兵力</p>
+                </div>
+            </div>
         </div>
 
-        <div class="battle-log" id="battleLog"></div>
+        <div class="status-bar" data-page-node-id="IOM3GHzqJmlm9Dp73MwyBe">
+            <span data-page-node-id="9AfxjjlOoDujNDHhu133B3">帧率: <span id="fpsValue" data-page-node-id="n6F1J2OucQSoSw1wqE7T4h">0</span></span>
+            <span data-page-node-id="nXVeEfDo9qs8Fmc10TiHS3">场上总兵力: <span id="unitCount" data-page-node-id="Yt9dCBkCBgG2znO1VEd6pz">0</span></span>
+            <span data-page-node-id="IGfUmcQvZAwb0tH5Q5bBCa">友军点值: <span id="allyPoints" data-page-node-id="lf8jrLBv3X8K6Tw2qVTl8Q">0</span> / 敌军点值: <span id="enemyPoints" data-page-node-id="ROvImHqAEn7LNMGZh4PPGC">0</span></span>
+            <span data-page-node-id="WlmyT7LW12KS2Dhj9srLE6">最后更新: <span id="lastModified" data-page-node-id="GzOb5JKeVFYqYVgYfTTRVk"></span></span>
+        </div>
+
+        <div class="battle-log" id="battleLog" data-page-node-id="fnALS7oD1R3GXdJsekpIBJ"></div>
     </div>
 
-    <div class="unit-info" id="unitInfo"></div>
+    <div class="unit-info" id="unitInfo" data-page-node-id="ATS5rdqaPSKQu8G7xMCFGl"></div>
 
-    <div id="codexDrawer">
-        <div class="codex-header">
-            <span class="codex-title">单位图鉴</span>
-            <button onclick="toggleCodex(false)" class="codex-close">✕</button>
+    <div id="codexDrawer" data-page-node-id="PNIVgmqJAW40VmrZX5ygKA">
+        <div class="codex-header" data-page-node-id="D4QnGudZdyoMYVmK5s6hBV">
+            <span class="codex-title" data-page-node-id="In3PWhXwl77vjWjObjDEPM">单位图鉴</span>
+            <button onclick="toggleCodex(false)" class="codex-close" data-page-node-id="zxdM97Ekdvw5HhKlgdb9Mn">✕</button>
         </div>
-        <div class="codex-tabs" id="codexTabs"></div>
-        <div class="codex-list" id="codexList"></div>
+        <div class="codex-tabs" id="codexTabs" data-page-node-id="QaZ90LGV0fcFUEUFa2XA9e"></div>
+        <div class="codex-list" id="codexList" data-page-node-id="o7xToftd7Uc9psF4nFENGQ"></div>
     </div>
 
     <script>
@@ -2767,13 +2753,10 @@ permalink: /sandbox_war_game.html
                 } else if (this.type === 'fireship') {
                     body = '<div class="warship-shadow"></div><div class="fireship-hull"></div><div class="fireship-mast"></div><div class="fireship-flame"></div>';
                 } else if (this.type === 'ballistic') {
-                    let tubes = '';
-                    for (let i = 0; i < this.maxAmmo; i++) tubes += `<div class="ballistic-tube${i < this.ammo ? ' loaded' : ''}"></div>`;
-                    body = '<div class="vehicle-shadow"></div><div class="ballistic-chassis"></div><div class="missile-cab"></div><div class="missile-wheel w1"></div><div class="missile-wheel w2"></div><div class="ballistic-rack">' + tubes + '</div>';
+                    // 甲板上直接立弹: 只渲染剩余弹药数, 打一发少一发 (无空筒占位)
+                    body = '<div class="vehicle-shadow"></div><div class="ballistic-chassis"></div><div class="missile-cab"></div><div class="missile-wheel w1"></div><div class="missile-wheel w2"></div><div class="ballistic-rack">' + this.buildMissileRack() + '</div>';
                 } else if (this.type === 'cruise') {
-                    let cells = '';
-                    for (let i = 0; i < this.maxAmmo; i++) cells += `<div class="cruise-cell${i < this.ammo ? ' loaded' : ''}"><div class="cruise-missile"></div></div>`;
-                    body = '<div class="vehicle-shadow"></div><div class="cruise-chassis"></div><div class="missile-cab"></div><div class="missile-wheel w1"></div><div class="missile-wheel w2"></div><div class="cruise-rack">' + cells + '</div>';
+                    body = '<div class="vehicle-shadow"></div><div class="cruise-chassis"></div><div class="missile-cab"></div><div class="missile-wheel w1"></div><div class="missile-wheel w2"></div><div class="cruise-rack">' + this.buildMissileRack() + '</div>';
                 } else {
                     body = '<div class="soldier-shadow"></div><div class="soldier-head"></div><div class="soldier-body"></div><div class="soldier-rifle"></div>';
                 }
@@ -2783,6 +2766,14 @@ permalink: /sandbox_war_game.html
 
             getHealthPercent() {
                 return Math.max(0, Math.min(100, (this.health / this.maxHealth) * 100));
+            }
+
+            // 导弹车甲板: 按剩余弹数生成导弹 (无空筒占位, 打一发少一发)
+            buildMissileRack() {
+                const cls = this.type === 'ballistic' ? 'ballistic-missile' : 'cruise-missile';
+                let html = '';
+                for (let i = 0; i < Math.max(0, this.ammo || 0); i++) html += `<div class="${cls}"></div>`;
+                return html;
             }
 
             // 导弹车发射特效: 筒口喷焰 + 烟圈 + 离筒弹剪影 (挂 .unit-body 内, 随车体朝向旋转)
@@ -2814,7 +2805,7 @@ permalink: /sandbox_war_game.html
                     hpFill.style.background = this.getHealthPercent() < 35 ? '#e74c3c' : '#2ecc71';
                 }
 
-                // 导弹车: 实时刷新载弹量徽章 (打出一发少一发)
+                // 导弹车: 实时刷新载弹量 (打出一发, 甲板上就少一根导弹)
                 if (this.ammo !== undefined) {
                     const refreshAmmoBadge = () => {
                         const ammoEl = this.element.querySelector('.unit-ammo');
@@ -2824,17 +2815,14 @@ permalink: /sandbox_war_game.html
                             ammoEl.classList.toggle('empty', a === 0);
                         }
                     };
-                    if (this.type === 'ballistic') {
-                        // 弹道导弹车: 每筒一枚, 前 ammo 筒 .loaded(露出弹头), 其余空筒
-                        const tubes = this.element.querySelectorAll('.ballistic-tube');
-                        const loaded = Math.max(0, this.ammo);
-                        tubes.forEach((tube, i) => tube.classList.toggle('loaded', i < loaded));
-                        refreshAmmoBadge();
-                    } else if (this.type === 'cruise') {
-                        // 巡航导弹车: 每挂一枚, 前 ammo 挂 .loaded(挂巡航导弹), 其余空挂
-                        const cells = this.element.querySelectorAll('.cruise-cell');
-                        const loaded = Math.max(0, this.ammo);
-                        cells.forEach((cell, i) => cell.classList.toggle('loaded', i < loaded));
+                    if (this.type === 'ballistic' || this.type === 'cruise') {
+                        const rack = this.element.querySelector('.ballistic-rack, .cruise-rack');
+                        if (rack) {
+                            // 数量变化才重建, 避免每帧刷 innerHTML
+                            if (rack.childElementCount !== Math.max(0, this.ammo)) {
+                                rack.innerHTML = this.buildMissileRack();
+                            }
+                        }
                         refreshAmmoBadge();
                     } else {
                         refreshAmmoBadge();
