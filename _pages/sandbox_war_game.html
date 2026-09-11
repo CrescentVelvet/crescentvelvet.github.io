@@ -2704,6 +2704,9 @@ permalink: /sandbox_war_game.html
                 // 履带车辆（坦克/火炮）：只能沿车体朝向前进/后退，
                 // 改变方向需先原地旋转对准再行驶；步兵可自由平移
                 this.isTracked = false;
+                // 无朝向载具（导弹发射车）：车体不随朝向旋转，也无需对准即可任意平移。
+                // 导弹垂直立于甲板，若跟着车体转，朝南时弹头会指向地面，语义崩坏。
+                this.fixedHeading = false;
                 this.alignTolerance = 12;
                 // 侧向绕行：视线被障碍物遮挡时，沿垂直方向移动寻找清晰射线
                 this.flankDir = Math.random() > 0.5 ? 1 : -1;
@@ -2833,7 +2836,9 @@ permalink: /sandbox_war_game.html
                 this.element.style.top = this.y + 'px';
 
                 if (this.bodyElement) {
-                    this.bodyElement.style.setProperty('--angle', `${this.angle}deg`);
+                    // 无朝向载具恒定朝上：甲板导弹永远竖直, 发射特效也恒向上
+                    const bodyAngle = this.fixedHeading ? 0 : this.angle;
+                    this.bodyElement.style.setProperty('--angle', `${bodyAngle}deg`);
                 }
 
                 const hpFill = this.element.querySelector('.hp-fill');
@@ -3603,7 +3608,8 @@ permalink: /sandbox_war_game.html
 
                 // 履带车辆（坦克/火炮）：只能沿车体朝向前进或后退，
                 // 侧向偏移过大时先原地旋转对准再行驶
-                if (this.isTracked) {
+                // 无朝向载具（导弹车）跳过对准：车体不转，对准停顿会变成无故卡住
+                if (this.isTracked && !this.fixedHeading) {
                     const moveAngle = this.angleToPoint(moveTarget.x, moveTarget.y);
                     const angleDelta = this.shortestAngleDelta(this.angle, moveAngle);
 
@@ -3737,7 +3743,8 @@ permalink: /sandbox_war_game.html
                     pushY = pushY / pushMag * maxPush;
                 }
                 // 履带车: 推斥只沿车体朝向 (前后), 不侧移 (符合履带行驶逻辑)
-                if (this.isTracked) {
+                // 无朝向载具不受此限: 它本来就任意方向平移
+                if (this.isTracked && !this.fixedHeading) {
                     const forward = this.forwardVector();
                     const proj = pushX * forward.x + pushY * forward.y;
                     pushX = forward.x * proj;
@@ -4760,6 +4767,7 @@ permalink: /sandbox_war_game.html
                 this.damageTable = { infantry: 1.2, cavalry: 1.0, vehicle: 1.0, tank: 0.9 };
                 this.maxAmmo = 3;     // 载弹量 3 发
                 this.ammo = 3;
+                this.fixedHeading = true;  // 车体不转向, 只平移 (甲板导弹恒竖直)
             }
 
             // 弹道导弹: 抛物线散布弹道 + 100px 大溅射 (载弹量限制)
@@ -4817,6 +4825,7 @@ permalink: /sandbox_war_game.html
                 this.damageTable = { infantry: 1.2, cavalry: 1.0, vehicle: 1.0, tank: 0.9 };
                 this.maxAmmo = 5;     // 载弹量 5 发
                 this.ammo = 5;
+                this.fixedHeading = true;  // 车体不转向, 只平移 (甲板导弹恒竖直)
             }
 
             // 巡航导弹雷达导引头: 视线始终视为清晰 (可越障打击, 不会触发"绕掩体"机动)

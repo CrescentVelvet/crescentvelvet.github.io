@@ -32,6 +32,16 @@
   废墟 `#6b6660`、水面 `#2c5f7c`）。移动物一律要有**暗色轮廓**，
   禁止用纯浅色/白色镶边——在雪地和沙地上会直接糊掉。
 
+### 无朝向载具（2026-09-11 定）
+- **载具是否需要转向，取决于它的主体是不是"贴地物体"**：坦克炮管贴地、细线，随车体转是对的；
+  甲板导弹是**立在车上的垂直物体**，车体朝南时弹头指着地面，语义就崩了。
+- 这类单位用 `this.fixedHeading = true` 标记（基类默认 `false`）。生效 3 处：
+  `updateVisual()` 把 `--angle` 锁死 `0deg`、`moveTowardTarget()` 跳过 `isTracked` 的对准分支、
+  `handleSeparation()` 跳过轴向推斥投影。
+- **必须保留 `isTracked = true`**——它同时承载"停车开火、不做步兵式走位"的行为；
+  光关视觉旋转会让"先对准再走"退化成看不见的原地停顿，看起来像卡住。
+- 目前仅 `BallisticMissile` / `CruiseMissile` 享有。它们的 `tryAttack` 无 `isFacing` 门禁，开火不受影响。
+
 ### 沙盘视觉改动的验证方法（2026-09-11 定）
 **本机没有可用的无头截图**：Edge CLI `--headless --screenshot` 静默退出且不产文件，
 playwright / agent-browser 均未安装（装 Chromium 约 500MB，别为单次验证装）。
@@ -41,8 +51,21 @@ playwright / agent-browser 均未安装（装 Chromium 约 500MB，别为单次�
    解析修饰规则（如 `.boosting`）必须**与基类做层叠合并、且取最后一次声明**。
 2. **类驱动**：抽出 `Projectile` / 单位类 + DOM stub，按 `source.type` 走真实 specs 分支，
    驱动 `updateVisual` / `emitTrail` / `getDisplayMarkup`，断言生成的类名与内联样式值。
-脚本在 `.workbuddy/tmp/`：`missile_geometry.js`、`trail_harness.js`、`build_missile_preview.js`。
+脚本在 `.workbuddy/tmp/`：`missile_geometry.js`、`trail_harness.js`、`heading_harness.js`、
+`build_missile_preview.js`。
 回归清单：CSS 括号平衡 + `node --check` + 27 个单位类实例化。
+**改动单位渲染/行为时，`heading_harness.js` 的全类 `--angle` 断言必须跑**——
+它按 `fixedHeading` 分支双向校验（无朝向载具恒 `0deg`，其余跟随 `angle`），漏改和误伤都能抓到。
+
+### 仓库提交约定（2026-09-11 峰哥明确）
+- commit message 带**子网页名前缀**：`沙盘战争: <简短描述>`（中英文冒号+空格，与全局的项目名前缀约定同源）。
+- commit **必须带上对应日期的 memory 日志**，与代码同一提交，不拆开。
+- `assets/data/todo_list.json` 长期有未提交改动，**不属于本项目**，别顺手带上；
+  提交只写明确路径，禁止 `git add -A`。
+
+### 工具坑
+**同一文件禁止在同一条消息里并发多个 Edit**：read-modify-write 会互相覆盖，
+静默丢改动（曾 5 处丢 3 处）。改同一文件必须串行，改完立即 grep 确认。
 
 ### 环境
 - 托管 Node 路径：`C:/Users/wangyufeng/.workbuddy/binaries/node/versions/22.22.2-3/node.exe`
