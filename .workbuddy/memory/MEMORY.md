@@ -19,6 +19,35 @@
 （暗车体 `--color-dark` / 主色 `--color` / 亮炮塔 `--color-light`）+ 伸出包围盒的炮管 +
 椭圆柔影。步兵改版按此同一套语法对齐，不做符号化、不做具象小人。
 
+### 弹丸视觉（2026-09-11 定）
+- 弹丸是 `.projectile`（`box-sizing:border-box`），尺寸按 `visual` 分：
+  missile `6×14`、drone `4×12`、bullet `3×(size+4)`、其余 `size×size`。
+  配件坐标全部相对 **padding box**（要减掉 1px 边框）——反算像素框时别按 border box 算。
+- **弹道导弹 = 火箭语汇**：橙红双层焰（`.missile-plume` 外层羽流 + `::after` 内焰）+
+  白心灰边浓密烟团尾迹（`.smoke-puff.dense`）+ 抛物线顶点缩到 72% 做纵深。
+- **巡航导弹 = 喷气语汇**：蓝白涡扇尾焰 + 细长冷凝尾迹线（`.contrail`，`--tr = angle-90`）+
+  红绿翼尖航行灯（`.drone-wl.left/.right`，注意 `left:50%` + `margin-left` 定位）。
+  两者刻意用不同颜色与不同尾迹形态区分，别合并。
+- **地形配色跨度很大**（草地 `#7a8a3a`、沙地 `#c4a46a`、雪地 `#e8e8e8`、
+  废墟 `#6b6660`、水面 `#2c5f7c`）。移动物一律要有**暗色轮廓**，
+  禁止用纯浅色/白色镶边——在雪地和沙地上会直接糊掉。
+
+### 沙盘视觉改动的验证方法（2026-09-11 定）
+**本机没有可用的无头截图**：Edge CLI `--headless --screenshot` 静默退出且不产文件，
+playwright / agent-browser 均未安装（装 Chromium 约 500MB，别为单次验证装）。
+改用两步静态验证，都能真正抓出错误：
+1. **几何断言**：从 CSS 文本解析声明，按 padding box 反算页面坐标像素框，
+   断言"居中 / 与弹尾衔接无断缝 / 配件层级尺寸关系"。
+   解析修饰规则（如 `.boosting`）必须**与基类做层叠合并、且取最后一次声明**。
+2. **类驱动**：抽出 `Projectile` / 单位类 + DOM stub，按 `source.type` 走真实 specs 分支，
+   驱动 `updateVisual` / `emitTrail` / `getDisplayMarkup`，断言生成的类名与内联样式值。
+脚本在 `.workbuddy/tmp/`：`missile_geometry.js`、`trail_harness.js`、`build_missile_preview.js`。
+回归清单：CSS 括号平衡 + `node --check` + 27 个单位类实例化。
+
+### 环境
+- 托管 Node 路径：`C:/Users/wangyufeng/.workbuddy/binaries/node/versions/22.22.2-3/node.exe`
+  （早期记录里的 `22.22.2-2` 已删除，调用会直接 127）。
+
 ## 3DGS 对比查看器（_pages/splat-compare.html）
 
 ### gaussian-splats-3d v0.4.7 的 gpuAcceleratedSort 黑屏 bug（2026-09-07 定案）

@@ -1237,59 +1237,96 @@ permalink: /sandbox_war_game.html
         .projectile-arrow::after { content: ''; position: absolute; width: 5px; height: 4px; left: -2px; bottom: -3px; background: #9d6a3a; clip-path: polygon(0 0, 100% 50%, 0 100%); }
         .projectile-stone { border-radius: 50%; background: #8a8173; border-color: #403b34; box-shadow: 0 0 0 1px #201e1a; }
         .projectile-melee { border-radius: 0; background: #dfe8e5; border-color: #637070; box-shadow: 0 0 2px #eef9f7; }
-        /* 弹道导弹: 火箭 (红色尖锥弹头 + 白弹体 + 红环带 + 尾翼 + 持续喷焰, 末端加速时喷焰拉长变亮) */
-        .projectile-missile { border-radius: 50% 50% 2px 2px; background: linear-gradient(to bottom, #e74c3c 0 17%, #fbfbfb 17% 33%, #e74c3c 33% 41%, #f2f2f2 41% 74%, #b4b4b4 74% 100%); border: 1px solid #6f6f6f; box-shadow: 0 0 0 1px #2b2b2b, 0 0 10px #ff8c3a; }
-        .projectile-missile::before { content: ''; position: absolute; width: 11px; height: 7px; left: -3px; bottom: -3px; background: #8f8f8f; clip-path: polygon(12% 0, 88% 0, 100% 100%, 58% 100%, 50% 46%, 42% 100%, 0 100%); box-shadow: 0 0 0 1px #3f3f3f; }
-        .projectile-missile::after { content: ''; position: absolute; width: 5px; height: 10px; left: 50%; bottom: -13px; margin-left: -2.5px; background: linear-gradient(to bottom, #fff3b0 0%, #ffd166 22%, #ff9f43 52%, #e74c3c 80%, rgba(231,76,60,0) 100%); clip-path: polygon(28% 0, 72% 0, 100% 100%, 0 100%); box-shadow: 0 0 8px #e67e22; transform-origin: 50% 0; animation: missileFlame .1s steps(2, end) infinite alternate; }
-        /* 末端加速: 喷焰拉长、外发光加强 */
-        .projectile-missile.boosting::after { width: 7px; height: 22px; bottom: -25px; margin-left: -3.5px; box-shadow: 0 0 12px #ffb33a, 0 0 22px rgba(231,76,60,.75); animation-duration: .06s; }
+        /* 弹道导弹: 火箭 (红尖锥弹头 + 金属白弹体 + 红环带 + 尾翼 + 双层喷焰, 末端加速体积翻倍) */
+        .projectile-missile {
+            border-radius: 50% 50% 2px 2px;
+            background:
+                linear-gradient(90deg, rgba(0,0,0,.3) 0 20%, rgba(255,255,255,.5) 30% 46%, rgba(0,0,0,.22) 74% 100%),
+                linear-gradient(to bottom, #ff7a63 0 13%, #e74c3c 13% 21%, #fdfdfd 21% 33%, #e74c3c 33% 41%, #f6f6f6 41% 74%, #b0b0b0 74% 100%);
+            border: 1px solid #2b2b2b;
+            box-shadow: 0 0 0 1px rgba(0,0,0,.5), 0 0 9px rgba(255,124,42,.7);
+        }
+        .projectile-missile::before { content: ''; position: absolute; width: 11px; height: 8px; left: -3.5px; bottom: -4px; background: linear-gradient(to right, #6d6d6d, #b2b2b2 50%, #6d6d6d); clip-path: polygon(12% 0, 88% 0, 100% 100%, 58% 100%, 50% 42%, 42% 100%, 0 100%); box-shadow: 0 0 0 1px #333; }
+        .projectile-missile::after { content: ''; position: absolute; width: 4px; height: 11px; left: 50%; bottom: -13px; margin-left: -2px; background: linear-gradient(to bottom, #fffbe0 0%, #ffd166 22%, #ff9f43 54%, #e74c3c 80%, rgba(231,76,60,0) 100%); clip-path: polygon(30% 0, 70% 0, 100% 100%, 0 100%); box-shadow: 0 0 8px #e67e22; transform-origin: 50% 0; animation: missileFlame .1s steps(2, end) infinite alternate; }
+        /* 外层羽流: 比内焰更宽、更柔和的橙红光锥, 让火箭喷焰有体积感 */
+        .projectile-missile .missile-plume { position: absolute; left: 50%; top: 100%; width: 9px; height: 17px; margin-left: -4.5px; margin-top: 2px; background: radial-gradient(ellipse 50% 62% at 50% 0%, rgba(255,198,90,.95) 0%, rgba(255,120,40,.72) 40%, rgba(231,76,60,.3) 70%, rgba(231,76,60,0) 100%); transform-origin: 50% 0; animation: plumePulse .12s steps(2, end) infinite alternate; }
+        /* 末端加速: 弹体再入辉光 + 内外焰同步拉长 */
+        .projectile-missile.boosting { box-shadow: 0 0 0 1px rgba(0,0,0,.5), 0 0 14px rgba(255,140,50,.95), 0 0 26px rgba(231,76,60,.6); }
+        .projectile-missile.boosting::after { width: 6px; height: 24px; bottom: -26px; margin-left: -3px; box-shadow: 0 0 14px #ffb33a, 0 0 26px rgba(231,76,60,.8); animation-duration: .06s; }
+        .projectile-missile.boosting .missile-plume { width: 13px; height: 31px; margin-left: -6.5px; }
         @keyframes missileFlame { from { transform: scaleY(.76); opacity: .85; } to { transform: scaleY(1.14); opacity: 1; } }
-        /* 巡航导弹: 无人机 (细长银白机身 + 大后掠主翼 + 尾翼 + 阵营色导引头 + 闪烁航行灯) */
-        .projectile-drone { border-radius: 50% 50% 2px 2px; background: linear-gradient(to bottom, #f2f5f7 0%, #ccd3d8 30%, #8b9398 72%, #4d5357 100%); border: 1px solid #23282b; box-shadow: 0 0 0 1px rgba(255,255,255,0.2), 0 0 8px var(--shot-edge, rgba(180,200,220,0.55)); }
-        .projectile-drone::before { content: ''; position: absolute; width: 20px; height: 6px; left: 50%; top: 52%; margin-left: -10px; margin-top: -3px; background: linear-gradient(to right, #3f4448, #aeb6bb 50%, #3f4448); clip-path: polygon(0 100%, 10% 12%, 90% 12%, 100% 100%, 50% 62%); box-shadow: 0 0 0 1px #23282b; }
-        .projectile-drone::after { content: ''; position: absolute; width: 5px; height: 4px; left: 50%; top: -1px; margin-left: -2.5px; background: var(--shot-edge, #8a9296); border-radius: 50% 50% 2px 2px; box-shadow: 0 0 5px var(--shot-edge, #8a9296); }
+        @keyframes plumePulse { from { transform: scaleY(.86); opacity: .82; } to { transform: scaleY(1.12); opacity: 1; } }
+        /* 巡航导弹: 无人机 (金属机身 + 上亮下暗大后掠翼 + 尾翼 + 阵营色导引头 + 红绿翼尖航行灯) */
+        .projectile-drone { border-radius: 50% 50% 2px 2px; background: linear-gradient(to bottom, #e9eef1 0%, #bcc5cb 30%, #798186 70%, #3c4145 100%); border: 1px solid #1b2023; box-shadow: 0 0 0 1px rgba(0,0,0,.4), 0 0 8px var(--shot-edge, rgba(180,200,220,0.55)); }
+        /* 主翼: 前缘高光 + 暗色翼面, 在雪地/沙地等浅色地面上仍读得出完整翼展 */
+        .projectile-drone::before { content: ''; position: absolute; width: 21px; height: 6px; left: 50%; top: 50%; margin-left: -10.5px; margin-top: -3px; background: linear-gradient(to bottom, #e4ebef 0 20%, #98a1a6 20% 52%, #454b4f 52% 100%); clip-path: polygon(0 100%, 12% 0, 88% 0, 100% 100%, 50% 58%); box-shadow: 0 0 0 1px #171b1e; }
+        .projectile-drone::after { content: ''; position: absolute; width: 5px; height: 4px; left: 50%; top: -1px; margin-left: -2.5px; background: var(--shot-edge, #8a9296); border-radius: 50% 50% 2px 2px; box-shadow: 0 0 0 1px #171b1e, 0 0 5px var(--shot-edge, #8a9296); }
         /* 尾翼 (十字翼, 与弹体同向旋转) */
-        .projectile-drone .drone-tail { position: absolute; left: 50%; bottom: -2px; margin-left: -4px; width: 8px; height: 4px; background: #565c60; clip-path: polygon(0 100%, 22% 0, 78% 0, 100% 100%, 50% 55%); box-shadow: 0 0 0 1px #23282b; z-index: 1; }
-        /* 航行灯: 闪烁红灯, 缓慢巡航时也能一眼看见导弹在哪 */
-        .projectile-drone .drone-beacon { position: absolute; left: 50%; top: 4px; margin-left: -1px; width: 2px; height: 2px; border-radius: 50%; background: #ff5b4a; box-shadow: 0 0 5px #ff5b4a; z-index: 3; animation: beaconBlink .5s steps(2, end) infinite alternate; }
-        @keyframes beaconBlink { from { opacity: .2; } to { opacity: 1; } }
+        .projectile-drone .drone-tail { position: absolute; left: 50%; bottom: -2px; margin-left: -4px; width: 8px; height: 4px; background: #4c5256; clip-path: polygon(0 100%, 22% 0, 78% 0, 100% 100%, 50% 55%); box-shadow: 0 0 0 1px #171b1e; z-index: 1; }
+        /* 翼尖航行灯: 左红右绿交替闪, 既是真机语汇, 也顺带标出翼展两端 */
+        .projectile-drone .drone-wl { position: absolute; width: 2px; height: 2px; top: 50%; margin-top: -1px; border-radius: 50%; z-index: 3; animation: beaconBlink .5s steps(2, end) infinite alternate; }
+        .projectile-drone .drone-wl.left  { left: 50%; margin-left: -11px; background: #ff5b4a; box-shadow: 0 0 4px #ff5b4a; }
+        .projectile-drone .drone-wl.right { left: 50%; margin-left: 9px; background: #5ee89b; box-shadow: 0 0 4px #5ee89b; animation-delay: .25s; }
+        @keyframes beaconBlink { from { opacity: .22; } to { opacity: 1; } }
 
-        /* 巡航段小推力尾焰 (常显, 让玩家看到导弹在飞) */
+        /* 巡航段小推力尾焰: 蓝白色涡扇焰, 与弹道导弹的橙红火箭焰一眼区分 */
         .projectile-drone .drone-flame {
             position: absolute;
             left: 50%;
             top: 100%;
-            margin-left: -2.5px;
-            width: 5px;
-            height: 6px;
-            background: linear-gradient(to bottom, #fff3b0 0%, #ffd166 25%, #ff9f43 55%, #e74c3c 82%, rgba(231,76,60,0) 100%);
+            margin-left: -2px;
+            width: 4px;
+            height: 5px;
+            background: linear-gradient(to bottom, #f2f9ff 0%, #a9d4f5 32%, #5f95cf 66%, rgba(80,130,190,0) 100%);
             border-radius: 0 0 50% 50%;
-            box-shadow: 0 0 5px #e67e22;
-            animation: droneFlame 0.09s steps(2, end) infinite alternate;
+            box-shadow: 0 0 4px rgba(130,185,240,.85);
+            transform-origin: 50% 0;
+            animation: droneFlame 0.1s steps(2, end) infinite alternate;
             z-index: 2;
         }
-        /* 末端俯冲: 尾焰拉长加亮 */
-        .projectile-drone.diving .drone-flame { width: 6px; height: 15px; margin-left: -3px; box-shadow: 0 0 8px #e67e22, 0 0 16px rgba(231,76,60,.6); animation-duration: .06s; }
+        /* 末端俯冲: 转橙红并拉长 (开加力扎向目标) */
+        .projectile-drone.diving .drone-flame { width: 5px; height: 14px; margin-left: -2.5px; background: linear-gradient(to bottom, #fff3b0 0%, #ffd166 26%, #ff9f43 58%, rgba(231,76,60,0) 100%); box-shadow: 0 0 8px #e67e22, 0 0 16px rgba(231,76,60,.6); animation-duration: .06s; }
         @keyframes droneFlame {
-            from { height: 7px; opacity: 0.8; }
-            to { height: 13px; opacity: 1; }
+            from { transform: scaleY(.7); opacity: 0.8; }
+            to { transform: scaleY(1.18); opacity: 1; }
         }
 
-        /* 导弹尾迹: 飞行途中持续冒出的烟团 (弹道/巡航共用) */
+        /* 弹道导弹尾迹: 白心灰边的浓密烟团, 在雪地/沙地等浅色地面上也看得见 */
         .smoke-puff {
             position: absolute;
-            width: 5px; height: 5px;
-            margin-left: -2.5px; margin-top: -2.5px;
+            width: 6px; height: 6px;
+            margin-left: -3px; margin-top: -3px;
             border-radius: 50%;
-            background: rgba(228,228,222,.5);
-            box-shadow: 0 0 4px rgba(200,200,200,.32);
+            background: radial-gradient(circle at 38% 36%, rgba(255,255,255,.9) 0 34%, rgba(206,208,204,.65) 68%, rgba(150,152,148,.32) 86%, rgba(140,142,138,0) 100%);
+            box-shadow: 0 0 5px rgba(120,122,118,.4);
             pointer-events: none;
             z-index: 15;
-            animation: smokeFade .6s ease-out forwards;
+            animation: smokeFade .62s ease-out forwards;
         }
+        .smoke-puff.dense { animation-name: smokeFadeDense; animation-duration: .72s; }
         @keyframes smokeFade {
-            from { transform: scale(.45); opacity: .55; }
-            to { transform: scale(2.3); opacity: 0; }
+            from { transform: scale(.45); opacity: .6; }
+            to { transform: scale(2.4); opacity: 0; }
+        }
+        @keyframes smokeFadeDense {
+            from { transform: scale(.5); opacity: .85; }
+            to { transform: scale(2.9); opacity: 0; }
+        }
+
+        /* 巡航导弹尾迹: 细长冷凝尾迹线 (喷气式), 与弹道导弹的浓烟团明确区分 */
+        .contrail {
+            position: absolute;
+            width: 7px; height: 2px;
+            margin-left: -3.5px; margin-top: -1px;
+            border-radius: 1px;
+            background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(244,248,252,.78) 48%, rgba(255,255,255,0) 100%);
+            pointer-events: none;
+            z-index: 15;
+            animation: contrailFade .82s ease-out forwards;
+        }
+        @keyframes contrailFade {
+            from { opacity: .78; transform: rotate(var(--tr, 0deg)) scaleX(.4) scaleY(1); }
+            to { opacity: 0; transform: rotate(var(--tr, 0deg)) scaleX(1.6) scaleY(.4); }
         }
 
         /* 巡航导弹末端锁定标记: 红圈咬住目标闪烁, 提示正在跟踪 */
@@ -4956,9 +4993,11 @@ permalink: /sandbox_war_game.html
                 this.boxW = box.w; this.boxH = box.h;
                 this.element.style.width = box.w + 'px';
                 this.element.style.height = box.h + 'px';
-                // 巡航导弹: 尾翼 + 尾焰 + 航行灯 (随弹体一起旋转)
+                // 巡航导弹: 尾翼 + 尾焰 + 左右翼尖航行灯; 弹道导弹: 外层羽流 (随弹体一起旋转)
                 if (this.visual === 'drone') {
-                    this.element.innerHTML = '<i class="drone-tail"></i><i class="drone-flame"></i><i class="drone-beacon"></i>';
+                    this.element.innerHTML = '<i class="drone-tail"></i><i class="drone-flame"></i><i class="drone-wl left"></i><i class="drone-wl right"></i>';
+                } else if (this.visual === 'missile') {
+                    this.element.innerHTML = '<i class="missile-plume"></i>';
                 }
                 this.updateVisual();
             }
@@ -5096,6 +5135,7 @@ permalink: /sandbox_war_game.html
                 this.element.style.left = (this.x - this.boxW / 2) + 'px';
                 let top = this.y - this.boxH / 2;
                 let lift = 0;   // 视觉抬升量 (抛物线弧高 / 巡航高度), 用于尾迹定位
+                let depth = 1;  // 抛物线顶点缩小比例, 强化"飞远后再砸下"的纵深
                 // 抛物线弹道 (弹道导弹): 视觉 y 加弧形偏移, 不影响实际碰撞位置
                 if (this.ballistic) {
                     const tdx = this.endX - this.startX;
@@ -5108,6 +5148,7 @@ permalink: /sandbox_war_game.html
                     const arcHeight = 80 + totalDist * 0.15; // 抛物线高度 (距离越远越高)
                     lift = -arcHeight * 4 * t * (1 - t);     // 抛物线 y 偏移 (向上为负)
                     top += lift;
+                    depth = 1 - 0.28 * 4 * t * (1 - t);      // 顶点最小 (约为 72%), 两端恢复原尺寸
                 }
                 // 巡航弹道 (巡航导弹): 贴地巡航有视觉高度, 末端俯冲时高度收敛到0, 同步地面投影阴影 + 尾部喷火
                 if (this.fliesOver && this.waypoints) {
@@ -5136,25 +5177,29 @@ permalink: /sandbox_war_game.html
                 this.dirX = Math.cos(rad);
                 this.dirY = Math.sin(rad);
                 this.element.style.top = top + 'px';
-                this.element.style.transform = `rotate(${this.angle}deg)`;
+                this.element.style.transform = `rotate(${this.angle}deg)` + (depth !== 1 ? ` scale(${depth.toFixed(3)})` : '');
             }
 
-            // 尾迹: 飞行途中在弹尾持续冒出烟团 (弹道导弹浓密, 巡航导弹淡薄)
+            // 尾迹: 弹道导弹冒浓密烟团(火箭), 巡航导弹拖细长冷凝尾迹(喷气)
             emitTrail(deltaTime) {
                 if (this.visual !== 'missile' && this.visual !== 'drone') return;
-                const interval = this.visual === 'drone' ? 0.09 : 0.05;
+                const isDrone = this.visual === 'drone';
+                // 加速段喷得更密, 尾迹更连贯
+                const interval = isDrone ? 0.05 : (this.boosting ? 0.032 : 0.055);
                 this.trailTimer += deltaTime;
                 if (this.trailTimer < interval) return;
                 this.trailTimer = 0;
                 const host = this.element.parentNode;
                 if (!host) return;
-                const back = this.boxH / 2 + (this.visual === 'drone' ? 7 : (this.boosting ? 18 : 11));
+                const back = this.boxH / 2 + (isDrone ? 6 : (this.boosting ? 20 : 12));
                 const puff = document.createElement('div');
-                puff.className = 'smoke-puff';
+                puff.className = isDrone ? 'contrail' : 'smoke-puff dense';
                 puff.style.left = (this.renderX - this.dirX * back) + 'px';
                 puff.style.top = (this.renderY - this.dirY * back) + 'px';
+                // 冷凝尾迹沿飞行方向拉长 (弹体局部 -90° 为航向)
+                if (isDrone) puff.style.setProperty('--tr', (this.angle - 90) + 'deg');
                 host.appendChild(puff);
-                setTimeout(() => puff.remove(), 620);
+                setTimeout(() => puff.remove(), isDrone ? 820 : (this.boosting ? 700 : 620));
             }
 
             // 巡航导弹末端锁定标记: 红圈咬住目标闪烁, 与 .drone-lock 动画配合提示"正在跟踪"
