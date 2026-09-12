@@ -141,16 +141,30 @@
   残差 4.72%（均值 2.98/255，集中边缘）来自 `splatMesh.matrixWorld` 变化引起的深度排序次序微变。
   **本轮同机位强制重排对照 = 0%**（渲染是确定性的），所以不能用 no-op 当基线，
   只能拿**同一等价类的另一种表示**来比。
-- **`__adjust` 钩子（当前）**：`toggle / rotate(i,dx) / axis / translate / zoom / commit /
+- **`__adjust` 钩子（当前）**：`toggle / rotate(i,dx) / axis / translate / commit /
   quat / cursor / restoreCamera / reset / resetCommit / forceResort(i) / broadcast(i) /
-  dolly(i,factor)`。
+  dolly(i,factor) / zoomFactor(i,f) / zoomDrag(i,px) / zoomWheel(i,deltaY)`。
   `rotate` 现在只吃 `dx`（绕 Y），与 UI 左键水平拖同一套。
-- **验证（全绿）**：`check_splat_compare.js` **66 OK**；
+  （旧 `zoom(i,dy)` 已删 —— 它吃"像素"且换算错误，改用 factor/px/deltaY 三个明确入口。）
+- **验证（全绿）**：`check_splat_compare.js` **75 OK**；
   `adjust_isolation.js` **25 OK**（含 10 项**真实鼠标事件路径**：CDP 注入左/中/右键+滚轮，
   断言另一面板相机与模型全程不动）；
   `adjust_freeze.js` 定格 **60.5% → 4.72%**（均值 2.98）；
-  `link_sync.js` **11 OK**；`turn_sync_verify.js` **10 OK**；
+  `link_sync.js` **11 OK**；`turn_sync_verify.js` **10 OK**；`zoom_calibration.js` **10 OK**；
   `eye_predict.mjs` 相机会数值吻合；`roll_check.mjs` 复现 Y=0°/X=10.5°/Z=14.0°。
+
+#### 第八轮（2026-09-12）—— 调正缩放量级（**当前生效**）
+- **滚轮必须挂【捕获阶段】**：canvas 是 canvasWrap 的子节点，OrbitControls 的 wheel 监听在
+  canvas 上；冒泡监听器排在 canvas 之后 ⇒ 事件被原生消费，调正滚轮**静默失效**
+  （改相机不改模型，探针只看 userScale 就假绿）。`installAdjustWheel` 用
+  `{passive:false, capture:true}` + `stopPropagation()`，在 `createPanel` 里挂。
+- **量级抄 OrbitControls `getZoomScale() = pow(0.95, zoomSpeed=1)`**：
+  滚轮 `ZOOM_NOTCH^dir`（只看符号、一格一档）⇒ scale ×1/0.95 = +5.26%/格；
+  中键拖按像素 `ZOOM_DRAG_PX_PER_NOTCH=40`（40px/档）⇒ 200px = ×1.2924，
+  与查看模式实测逐位吻合。统一入口 `applyModelScaleFactor(panel, factor)`。
+- **⚠️ 断言教训**：交互量级 bug 必须拿**对照实现（OrbitControls 原生推拉）的实测数值**
+  当期望值，且**每条事件通道独立断言**（滚轮/中键/左键）；
+  "非零即过"（`!== 旧值`）的断言等于没有断言，静默劫持永远查不出来。
 
 #### 第六/七轮（2026-09-12）—— 相机联动模型最终定案（**当前生效语义**）
 **调正只改「私有偏差」，共同基准 `mainCameraState` 一个字节都不动。**
