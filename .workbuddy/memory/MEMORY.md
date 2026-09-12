@@ -90,18 +90,16 @@
   （截图像素 diff=0 实证）。splatMesh.matrixWorld 含 group 变换，排序+渲染都吃。
 - 相机同步必须全量含 target（右键平移改 controls.target），只同步球面坐标会丢平移。
 
-### 单模型「调正」（每模型独立朝向，2026-09-12 定）
+### 单模型「调正」（每模型独立朝向，2026-09-12 定；同日三轮迭代）
 - 场景：不同模型坐标系不同（COLMAP Y-down vs Y-up），必须**先各自转到同一角度**再开相机联动比对。
 - 数据模型：每面板 `panel.userQuat`（**世界空间**累积旋转），最终朝向 **`R = flip · userQuat`**。
   `flip` 在**左**（世界空间）⇒ 点「上下翻转」时所有模型整体一起翻，**相对朝向不被打乱**。
-- 居中不变式：`t = -R·c`（模型中心 c 必须落到原点）。**R 变了 t 必须重算**，统一走 `applyGroupTransform`。
-  模型恒居中 ⇒ 绕世界原点转 == 绕模型自身中心转，构图不漂。
-- **必守：`toUserSpace` 共轭。** 拖动/快捷键给的是"世界空间增量 D"，但左乘对象是内层 `userQuat`，
-  必须 `userQuat ← (flip⁻¹·D·flip)·userQuat`。不换算的话**翻转开启时水平拖动方向会反**
-  （`flip = Rx(180°)` 只与绕 X 的旋转可交换：`f·Ry(a)·f = Ry(-a)`）。轴向快捷键同理。
-- 调正时 `controls.enabled = false`（输入冻结，拖动改为转模型），但**仍参与相机联动**——
-  各面板同机位才能边调边跟对面比对；换机位去拖**未调正**的面板。
-  已核对 `OrbitControls.update()` **无 `enabled` 早退**（库 L4922 起），故 `applyCameraState` 照常生效。
+- 居中不变式：`t = -R·(c·S) + userOffset`（含缩放与平移）。**任一项变了 t 必须重算**，
+  统一走 `applyGroupTransform`。模型恒居中 ⇒ 绕世界原点转 == 绕模型自身中心转，构图不漂。
+- **必守：世界增量 → 内层 `userQuat` 的共轭换算**，统一走 `applyWorldDelta(panel, D)`：
+  `R0 = flip·userQuat; userQuat ← userQuat·(R0⁻¹·D·R0)`。
+  不要"直接右乘裸轴向四元数"——只在 D 与当前 R 共轴时才对，flip 下必错（曾 179° 误差）。
+  旧的 `toUserSpace` 已无人使用（`applyWorldDelta` 是等价且更明确的写法）。
 - **朝向变化必须强制重排**（否则复用旧 view-space 深度 → 串色）：
   `applyGroupTransform` 里补 `g.updateMatrixWorld(true)`（排序读 `splatMesh.matrixWorld`，库 L14102，
   不刷会读到上一帧旧矩阵）；`runSplatSort(force, forceSortAll)` 在排序中直接 `return true`
@@ -109,6 +107,27 @@
   （此时 camera/splatMesh 的 matrixWorld 才都是本帧最新）。`tick()` 里
   `anyPending = sortDirty || viewer.sortRunning`，有它就不挂起循环，防止停在旧排序上。
 - 用户已明确：调正结果**不按文件名记住**。
+
+#### 第三轮语义修正：调正=「环绕视角」，退出时固化（2026-09-12，峰哥要求）
+峰哥原话：「调正模式下的旋转会改变相机坐标系朝向，我觉得这个没有必要，**和查看模型保持一致**吧」。
+- **恒等式**：正交视图下「绕世界轴 a 把模型转 θ」⟺「相机绕 a 转 −θ」，画面逐像素相同。
+  于是调正期间**只动相机**（OrbitControls 原生左键环绕 + 滚轮推拉），**只冻结右键**改作模型平移；
+  朝向只在**退出调正时提交一次**，然后相机回正 → 画面定格。
+- **固化公式：`Δworld = R_cam⁻¹`**，`R_cam = rot(B)·rot(A)⁻¹`，A=进入调正时机位、B=退出时机位。
+  推导：要求 `rot(A)⁻¹·R1 = rot(B)⁻¹·R0` ⟹ `R1 = rot(A)·rot(B)⁻¹·R0`。
+  **不要对 A 做共轭**（第一版写成 `A·R_cam⁻¹·A⁻¹`，harness 直接报 136°）。
+  理由：相机旋转本身就表达在世界系，"参考系"就是世界系。
+- **禁止在 `R_cam⁻¹` 之后再补 `Ry(−az)` 自旋**：相机马上要被 `applyCameraState` 拉回 A，
+  附加转动不再被抵销 → 等于对最终画面做一次纯旋转。实测：加自旋 → 视图矩阵差 1.35e-01、
+  像素差 30.32%；去掉 → 视图矩阵差 **2.50e-05**、像素差 **4.8%**。静态检查器已加"禁止自旋"守卫。
+- **不要冻结 `controls.enabled`**：改为 `controls.mouseButtons.RIGHT = null`（让出右键），
+  左键/中键保持原生；`wheel` 监听整体删除。这才是"与查看模型完全一致"。
+- **像素残差是等价表示的固有属性**：固化后 `splatMesh.matrixWorld` 变了 → 深度排序顺序变 →
+  半透明叠加次序不同 → 少量像素必然不同。**判据必须用「同机位往返+固化」测出的排序地板**，
+  不能拿 no-op 连拍当基线（那是 0%，渲染是确定性的）。
+- `__adjust` 钩子：`toggle / orbit / axis / translate / commit / quat / cursor / reset / restoreCamera`。
+  `restoreCamera({target,pos})` 仅调试用（重置/固化本身**不搬相机**）；它自己反推球坐标，
+  别把它的入参直接喂给 `applyCameraState`（后者要 `THREE.Vector3` 的 target）。
 
 ### 调试资产
 - **已入库（在 Git 里）**：`_pages/splat-test-matrix.html`（变体矩阵测试页，URL 参数
@@ -135,4 +154,9 @@
 - `.workbuddy/tmp/pngstat.js`：**纯 `zlib` 手写 PNG 解码** + 逐像素差异 + 16×16 粗格签名（不装 PIL）。
 - **像素基线必须先等渲染收敛**：刚 ready 时 `splatRenderCount` 未达全量，此时取的"基线"是残缺渲染
   （曾导致误判"重置没回到基线"）。**任何像素级断言前先断言 `splatRenderCount == getSplatCount()`**。
+- **`freeze_probe.js`（定格根因探针，2026-09-12 新增）**：不只截图，还从
+  `__debugGroupXform` / `__debugCameras` 取 `quat`/`position`/`camPos`/`target`，
+  本地重组 **视图矩阵 `camera⁻¹·splatMesh`** 逐元素比对 —— 这是把"朝向对不对"
+  和"像素差多少"分开判定的关键手段（前者数值，后者视觉）。
+  同机位往返+固化作为**排序地板**对照组。
   滚动校验和不适合判"有没有变"（排序顺序微调就整体翻转），要用 PNG 变化像素占比/粗格签名。
