@@ -88,8 +88,9 @@ title: "高斯对比"
         }
         .panel-adjust-bar button:hover { background: #3f4f46; }
         .panel-adjust-bar button.adj-reset { border-color: #5a4a4a; color: #ebc; }
+        /* 调正时光标由 JS 按当前动作动态设置（rotate=grab / translate=move / zoom=ns-resize），
+           这里只给一个兜底，避免样式表规则覆盖 JS 的 inline 值之外的场景。 */
         .panel-canvas-wrap.adjusting { cursor: grab; }
-        .panel-canvas-wrap.adjusting.dragging { cursor: grabbing; }
 
         .panel-canvas-wrap { flex: 1; position: relative; }
         .panel-canvas-wrap canvas { display: block; width: 100%; height: 100%; }
@@ -196,20 +197,26 @@ title: "高斯对比"
     // 有些模型的坐标系和其他模型不一致（例如 COLMAP Y-down vs Y-up），
     // 直接对比看不出差异，必须先各自转到同一朝向。
     //
-    // 注意「转模型」和「转相机」在正交视图下**视觉等价**：
-    //   绕世界轴 a 转模型角度 θ  ⟺  相机绕 a 转 −θ
-    //   （模型多转 θ 则它每个点在相机空间也多转 θ，等同相机反向转 θ 把画面补偿回来）
-    // 所以调正这里不做任何旋转动作了：旋转完全交给 OrbitControls 的相机环绕，
-    // 观感与「查看模型」**逐像素一致**，也不再有"相机坐标系被换掉"的副作用。
-    // 真正的朝向修正在退出调正时落到 panel.userQuat 上（见 setPanelAdjusting 的提交逻辑）。
+    // 语义：**调正按键只作用于被调正的那一个模型**（回到最初设计）。
+    // 进入调正时冻结本面板 OrbitControls，左键/中键/右键/滚轮直接操作这一个模型的
+    // 旋转/缩放/平移，**不广播**、其他面板纹丝不动；退出时把模型上累积的变换
+    // 折算进本面板相机修正（相机吸收、模型归位），画面逐点不变。
+    //
+    // 折算是可证的：模型绕世界轴转 R ⟺ 相机绕世界轴转 R⁻¹；模型缩放 S ⟺ 相机距离 ÷S；
+    // 模型平移 T ⟺ 相机平移 −T。数值验证见 .workbuddy/tmp/adjust_commit_math.mjs
+    // （最大屏幕偏差 1.76e-10）。
     const AXIS_X = new THREE.Vector3(1, 0, 0);
     const AXIS_Y = new THREE.Vector3(0, 1, 0);
     const AXIS_Z = new THREE.Vector3(0, 0, 1);
 
-    // 说明：调正模式下旋转/滚轮都交给 OrbitControls，原来的模型自转与
-    // 模型缩放（含这条从库内抄来的滚轮阻尼曲线）已不再需要，故移除。
-    // 若将来需要恢复，注意别把曲线函数命名成 zf：vendor 模块在模块级声明了
-    // `let zf`，我们内联模块脚本与它同处一个全局词法环境，重名会让库的 zf 被 raise 成
+    // 调正时"操作模型"的手感参数（与查看模型同一套量级）
+    const DRAG_ROT_STEP = 0.007;      // 每像素对应的模型旋转弧度
+    const ZOOM_DRAG_STEP = 0.0035;    // 每像素对应的缩放指数
+    const USER_SCALE_MIN = 0.05;
+    const USER_SCALE_MAX = 20;
+
+    // 注意：别把任何顶层标识符命名成 zf：vendor 模块在模块级声明了 `let zf`，
+    // 我们内联模块脚本与它同处一个全局词法环境，重名会让库的 zf 被 raise 成
     // TDZ（"Cannot access 'zf' before initialization"），OrbitControls 直接失效。
 
     // ============ 布局管理 ============
@@ -265,14 +272,9 @@ title: "高斯对比"
                 <div class="panel-empty">拖入 .ply 或点击添加</div>
             </div>
             <div class="panel-adjust-bar">
-                <span class="adj-hint">旋转/缩放=环绕视角（同查看） · 右键=平移模型</span>
-                <button data-axis="x" data-dir="-1">X−90°</button>
-                <button data-axis="x" data-dir="1">X+90°</button>
-                <button data-axis="y" data-dir="-1">Y−90°</button>
-                <button data-axis="y" data-dir="1">Y+90°</button>
-                <button data-axis="z" data-dir="-1">Z−90°</button>
-                <button data-axis="z" data-dir="1">Z+90°</button>
-                <button class="adj-commit" title="把当前朝向固化为模型姿态（相机回正视角）">固化朝向</button>
+                <span class="adj-hint">左键←→=绕垂直轴转该模型 · 中键/滚轮=缩放 · 右键=平移</span>
+                <button data-axis="y" data-dir="-1" title="绕垂直轴逆时针 90°">Y−90°</button>
+                <button data-axis="y" data-dir="1" title="绕垂直轴顺时针 90°">Y+90°</button>
                 <button class="adj-scale-reset" title="缩放倍数回到 1">复原尺寸</button>
                 <button class="adj-reset" title="朝向/平移/缩放全部复原">重置</button>
             </div>
@@ -315,7 +317,7 @@ title: "高斯对比"
             setPanelAdjusting(p, !p.adjusting);
         });
 
-        // 调正工具条：轴向 ±90° 快捷键 + 重置
+        // 调正工具条：轴向 ±90° 快捷键 + 复原尺寸 + 重置
         adjustBar.addEventListener('click', (e) => {
             const btn = e.target.closest('button');
             if (!btn) return;
@@ -327,26 +329,25 @@ title: "高斯对比"
                 p.userOffset.set(0, 0, 0);
             } else if (btn.classList.contains('adj-scale-reset')) {
                 p.userScale = 1;
-            } else if (btn.classList.contains('adj-commit')) {
-                commitAdjustRotation(p);   // 把当前视角的朝向差固化进 userQuat，相机回正
-                return;                    // commitAdjustRotation 内部已处理渲染唤醒
             } else {
-                // 轴向 ±90°：与「旋转=环绕视角」同一套语义——改的是**相机方位**，
-                // 不是模型朝向。OrbitControls 无 API 直接转世界轴，这里按
-                // 相机系轴 → 世界轴的映射反推（up / 视线 / 二者叉积）。
+                // 轴向 ±90°：直接绕**世界轴**旋转该模型（与左键拖动同一套 userQuat 语义）。
                 const deg = (parseFloat(btn.dataset.dir) || 1) * 90;
-                orbitCameraByWorldAxis(p, axisVector(btn.dataset.axis), deg);
+                const axis = axisVector(btn.dataset.axis);
+                applyWorldDelta(p, new THREE.Quaternion().setFromAxisAngle(axis, deg * Math.PI / 180));
             }
             applyGroupTransform(p, p.sceneCenter);
             forceResort(p);
             wakeRenderLoop();
         });
 
-        // 调正模式下：
-        //   左键拖 = 环绕视角（与查看模型完全一致，OrbitControls 原生）
-        //   滚轮   = 拉近/拉远（同上）
-        //   右键拖 = 平移模型（唯一与查看不同的地方：平移作用在模型上而非 target）
-        // 左键 / 滚轮不拦截，直接交给下面的 OrbitControls（指针事件会落到 canvas）。
+        // 调正模式下：**只操作被调正的那一个模型**，其他面板纹丝不动。
+        //   左键水平拖 = 绕世界 Y 转该模型（对齐多个模型的水平朝向差异）
+        //   中键拖     = 缩放该模型（与查看模型推拉同一套方向）
+        //   滚轮       = 缩放该模型
+        //   右键拖     = 平移该模型
+        // 该面板的 OrbitControls 在进入调正时已被冻结（controls.enabled=false），
+        // 所以这些指针事件不会被 OrbitControls 抢走，也不会广播给其他面板。
+        // 退出调正时这三类变换会精确折算进本面板相机（见 commitAdjustToCamera）。
         canvasWrap.addEventListener('contextmenu', (e) => {
             const p = panels.find(x => x.el === el);
             if (p && p.adjusting) e.preventDefault(); // 调正时右键用于平移，屏蔽菜单
@@ -354,13 +355,13 @@ title: "高斯对比"
         canvasWrap.addEventListener('pointerdown', (e) => {
             const p = panels.find(x => x.el === el);
             if (!p || !p.adjusting || p.state !== 'ready') return;
-            // 右键 = 平移模型；中键/左键不接管，让 OrbitControls 处理左键环绕、中键推拉
-            if (e.button !== 2) return;
+            const mode = e.button === 0 ? 'rotate' : e.button === 1 ? 'zoom' : e.button === 2 ? 'translate' : null;
+            if (!mode) return;
             e.preventDefault();
-            e.stopPropagation(); // 别让 OrbitControls 也收到这次右键
-            p.adjustDrag = { x: e.clientX, y: e.clientY, mode: 'translate' };
+            e.stopPropagation(); // 不让事件继续冒泡（即使 controls 已冻结也不留隐患）
+            p.adjustDrag = { x: e.clientX, y: e.clientY, mode };
             canvasWrap.classList.add('dragging');
-            setAdjustCursor(p, 'translate', true);
+            setAdjustCursor(p, mode, true);
             try { canvasWrap.setPointerCapture(e.pointerId); } catch (_) {}
         });
         canvasWrap.addEventListener('pointermove', (e) => {
@@ -369,8 +370,11 @@ title: "高斯对比"
             if (!p.adjustDrag) { updateAdjustHoverCursor(p, e); return; }
             const dx = e.clientX - p.adjustDrag.x;
             const dy = e.clientY - p.adjustDrag.y;
-            p.adjustDrag = { x: e.clientX, y: e.clientY };
-            translateModelByDrag(p, dx, dy);
+            p.adjustDrag.x = e.clientX;
+            p.adjustDrag.y = e.clientY;
+            if (p.adjustDrag.mode === 'translate') translateModelByDrag(p, dx, dy);
+            else if (p.adjustDrag.mode === 'zoom') zoomModelByDrag(p, dy);
+            else rotateModelByDrag(p, dx);
         });
         const endAdjustDrag = (e) => {
             const p = panels.find(x => x.el === el);
@@ -382,9 +386,13 @@ title: "高斯对比"
         };
         canvasWrap.addEventListener('pointerup', endAdjustDrag);
         canvasWrap.addEventListener('pointercancel', endAdjustDrag);
-        // 滚轮交给 OrbitControls 做推拉（与查看模型同一手感），此处不再拦截。
-        // 仅做一件小事：调正中不阻止默认行为可能导致页面滚动，但画布本身不可滚动，
-        // 所以保持默认即可。
+        // 滚轮 = 缩放该模型（与中键拖同一套）。必须非 passive 才能 preventDefault 掉页面滚动。
+        canvasWrap.addEventListener('wheel', (e) => {
+            const p = panels.find(x => x.el === el);
+            if (!p || !p.adjusting || p.state !== 'ready') return;
+            e.preventDefault();
+            zoomModelByDrag(p, e.deltaY > 0 ? 60 : -60);
+        }, { passive: false });
 
         const panel = {
             el, titleEl, closeEl, canvasWrap, adjustEl, adjustBar,
@@ -394,10 +402,12 @@ title: "高斯对比"
             state: 'empty', // empty | loading | ready | error
             bbox: null,
             scale: 1, // 归一化缩放
-            userQuat: new THREE.Quaternion(), // 单模型调正累积旋转（世界空间），退出调正时按视角差固化
-            userScale: 1,                     // 单模型调正缩放倍数（退出时已折算回 userQuat）
-            userOffset: new THREE.Vector3(),  // 单模型调正平移（世界坐标）
-            adjusting: false,                 // 调正中：本面板 OrbitControls 输入冻结，改为直接操作模型
+            userQuat: new THREE.Quaternion(), // 单模型调正累积旋转（世界空间）；退出调正时折算进相机
+            userScale: 1,                     // 单模型调正缩放倍数；退出调正时折算进相机
+            userOffset: new THREE.Vector3(),  // 单模型调正平移（世界坐标）；退出调正时折算进相机
+            adjusting: false,                 // 调正中：本面板 OrbitControls 冻结，指针直接操作模型
+            adjustEnterState: null,           // 进入调正时的相机态（退出时作为折算基准）
+            suppressBroadcast: false,         // 折算回写相机期间禁止广播（只改本面板）
             adjustDrag: null,                 // {x, y, mode:'rotate'|'translate'|'zoom'}
             sortDirty: false,                 // 朝向/缩放变了待重排（排序进行中时补跑）
         };
@@ -494,55 +504,94 @@ title: "高斯对比"
         wakeRenderLoop();
     }
 
-    // ============ 单模型调正：进入 / 退出 / 平移 / 光标 ============
-    // 进入调正：OrbitControls **不冻结**，左键环绕 + 滚轮推拉完全保持查看模型时的手感。
-    // 只是把右键接管为"平移模型"（也参与相机联动，各面板机位始终一致，
-    // 方便一边转视角一边和对面模型比对）。
+    // ============ 单模型调正：进入 / 退出 / 旋转 / 平移 / 缩放 ============
+    // 语义（回到最初设计）：**调正按键只作用于被调正的那一个模型**。
+    //   进入调正 → 冻结本面板 OrbitControls（enabled=false），相机彻底不动；
+    //              左键/中键/右键/滚轮改为直接操作这一个模型的旋转/缩放/平移；
+    //              期间**不广播**任何相机状态，其他面板纹丝不动。
+    //   退出调正 → 把模型上累积的 R/S/T **折算进本面板的相机修正**
+    //              （相机吸收这段变换、模型归位），画面逐点不变。
     //
-    // 「转模型」和「转相机」在正交视图下视觉等价（见文件上方常量区注释），
-    // 所以调正期间对朝向**不做任何动作**：转完视角退出调正时，
-    // 把「当前视角 − 进入调正时的视角」这个朝向差一次性固化进 userQuat，
-    // 并把相机拉回进入时的机位 —— 于是画面定格成你刚才调好的样子，
-    // 而模型自身姿态被改掉了，这就是"调正"的结果。
+    // 折算公式（已用 .workbuddy/tmp/adjust_commit_math.mjs 数值证明到 1.76e-10）：
+    //   C'   = R⁻¹ · C                  ← 注意是 R⁻¹，不是 R
+    //   eye' = (eye − T) · R⁻¹ / S
+    //   模型归位：userQuat←I、userScale←1、userOffset←0
+    // 直觉：「模型绕世界轴转 R」要由相机绕世界轴转 R⁻¹ 来等价抵消；
+    //       「模型放大 S 倍」等价于「相机距离缩到 1/S」；「模型平移 T」等价于「相机反向平移 T」。
+    // 这与查看模型的语义完全对齐：查看时相机绕世界轴转 −θ ⟺ 模型绕 +θ（见文件上方注释）。
     function setPanelAdjusting(panel, on) {
         if (on && panel.state !== 'ready') return;
         panel.adjusting = on;
         panel.adjustEl.classList.toggle('active', on);
         panel.adjustBar.classList.toggle('show', on);
         panel.canvasWrap.classList.toggle('adjusting', on);
+        if (panel.controls) panel.controls.enabled = !on;   // 调正期间本面板相机完全冻结
         if (on) {
-            // 进入：记下当前相机方位（退出时按差值固化朝向）；右键此刻起平移模型
-            if (panel.controls) { panel.controls.mouseButtons.RIGHT = null; }
             panel.adjustEnterState = computeCameraState(panel);
+            panel.adjustDrag = null;
             setAdjustCursor(panel, null, false);
         } else {
-            // 退出：把视角变化固化进模型朝向，相机回正到进入时的机位
-            if (panel.controls) { panel.controls.mouseButtons.RIGHT = THREE.MOUSE.PAN; }
             panel.adjustDrag = null;
             panel.canvasWrap.classList.remove('dragging');
             setAdjustCursor(panel, null, false);
-            commitAdjustRotation(panel);
+            commitAdjustToCamera(panel);   // 把模型上的累积变换折算进相机修正
         }
         wakeRenderLoop();
     }
 
-    // 「当前视角」相对「进入调正时的视角」多转了多少 —— 即相机从 A 到 B 的世界旋转差。
-    // 直接按定义算就行：把两个相机态各自还原成旋转矩阵（position + lookAt(target)，
-    // up 固定世界 Y），再取 R_cam = rot(B) · rot(A)⁻¹。
-    // 之所以不需要"投影/拟合"那套：相机旋转本身就是在世界系里表达的，
-    // 两个旋转右乘相除即为增量，无奇异性、无精度损失。
-    function cameraOrbitDelta(panel, inState, outState) {
-        if (!inState || !outState) return new THREE.Quaternion();
-        function camRot(state) {
-            const target = state.target ? state.target.clone() : new THREE.Vector3();
-            const sph = new THREE.Spherical(state.distance, state.elevation, state.azimuth);
-            const pos = new THREE.Vector3().addVectors(target, new THREE.Vector3().setFromSpherical(sph));
-            const m = new THREE.Matrix4().lookAt(pos, target, AXIS_Y);
-            return new THREE.Quaternion().setFromRotationMatrix(m).normalize();
+    // 退出调正：把模型累积的「绕世界 Y 的旋转 + 缩放 + 平移」折算到本面板相机上，
+    // 模型恢复纯单位变换，画面逐点不变。只动 **本面板** 的 cam/controls/target。
+    //
+    // 为什么只折算 Y 轴：渲染循环每帧 `controls.update()` 末行是 `camera.lookAt(target)`
+    // 且 `camera.up = 世界Y`，相机横滚恒为 0。把「绕 X/Z 的倾斜」折进相机要求相机带横滚
+    // （实测：X 轴 10.5°、Z 轴 14.0°），lookAt 无法表示 → 退出时画面必跳。
+    // 而绕 Y 的旋转折算后相机横滚恰为 0（实测 0.000°、重建偏差 0.000°），可精确定格。
+    // 调正的用途本就是「对齐多个模型的水平朝向差异」，故只保留 Y 轴旋转。
+    //   C'   = R_y⁻¹ · C
+    //   eye' = (eye − T) · R_y⁻¹ / S
+    function commitAdjustToCamera(panel) {
+        if (!panel.controls || panel.state !== 'ready' || !panel.camera) return;
+        // 整个折算过程禁止广播：只改本面板相机，其他面板必须纹丝不动。
+        panel.suppressBroadcast = true;
+        try {
+            const R = currentFlipQuat().multiply(panel.userQuat).normalize();
+            const S = panel.userScale || 1;
+            const T = panel.userOffset.clone();
+            const Rinv = R.clone().invert();
+
+            // 相机当前世界旋转（由 pos + target + up=世界Y 决定）
+            const eye = panel.camera.position.clone();
+            const target = panel.controls.target.clone();
+            const C = new THREE.Quaternion().setFromRotationMatrix(
+                new THREE.Matrix4().lookAt(eye, target, AXIS_Y)).normalize();
+
+            const newEye = eye.clone().sub(T).applyQuaternion(Rinv).multiplyScalar(1 / S);
+            const newTarget = target.clone().sub(T).applyQuaternion(Rinv).multiplyScalar(1 / S);
+            const C2 = Rinv.clone().multiply(C).normalize();
+
+            // 写回相机
+            panel.camera.position.copy(newEye);
+            panel.camera.quaternion.copy(C2);
+            panel.camera.up.set(0, 1, 0);
+
+            // controls.target 取「相机朝向射线上、与原目标深度一致」的点，
+            // 这样 OrbitControls 的球坐标与当前朝向自洽（后续环绕手感正确）。
+            const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(C2);
+            const depth = newEye.distanceTo(newTarget);
+            panel.controls.target.copy(newEye).addScaledVector(fwd, depth);
+            panel.controls.update();
+
+            // 模型完全归位（只折 Y 轴 ⇒ 无残余倾斜，可真正回到单位变换）
+            panel.userQuat.identity();
+            panel.userScale = 1;
+            panel.userOffset.set(0, 0, 0);
+            applyGroupTransform(panel, panel.sceneCenter);
+            forceResort(panel);
+        } finally {
+            panel.adjustEnterState = null;
+            panel.suppressBroadcast = false;
         }
-        const rotA = camRot(inState);
-        const rotB = camRot(outState);
-        return rotB.multiply(rotA.clone().invert()).normalize();
+        wakeRenderLoop();
     }
 
     // 把「世界空间的旋转增量 D」施加到面板当前姿态上。
@@ -555,38 +604,17 @@ title: "高斯对比"
         panel.userQuat.multiply(local).normalize();
     }
 
-    // 退出调正时调用：把「调正期间的视角变化」折算成模型朝向修正并落地。
-    //   R_cam = rot(B) · rot(A)⁻¹   （相机在 A 基础上多转的量，**世界系**表达）
-    // 退出时要求「回到 A 机位看到的画面」== 「退出前 B 机位看到的画面」：
-    //   rot(A)⁻¹ · R1 = rot(B)⁻¹ · R0
-    //   ⟹ R1 = rot(A) · rot(B)⁻¹ · R0 = R_cam⁻¹ · R0
-    // 即 Δworld = R_cam⁻¹（**不需要对 A 做共轭** —— 相机旋转本身就是在世界系里
-    // 表达的，"参考系"就是世界系；共轭只在我们往内层变量 userQuat 里塞数据时才需要，
-    // 由 applyWorldDelta 统一处理）。
-    //
-    // 注意：这里**只做 R_cam⁻¹ 这一步**。不要额外再乘一次 Ry(−azimuth) 的"自旋"——
-    // 相机随后会被 applyCameraState 拉回 A 机位，此时任何附加转动都等于是
-    // 对最终画面做一次纯旋转（不再被相机抵销），会直接把定格好的画面转掉。
-    // 实测：加上那次自旋后视图矩阵差 1.35e-1、像素差 30.3%；
-    // 去掉后视图矩阵差 2.5e-5（数值等价）、像素差降到 4.8%（纯排序残差）。
-    // 方位角归一化没有必要：全套面板共用同一个 mainCameraState，
-    // 各面板的朝向信息已经完整存在各自的 userQuat 里了。
-    function commitAdjustRotation(panel) {
-        const inState = panel.adjustEnterState;
-        panel.adjustEnterState = null;
-        if (!panel.controls || panel.state !== 'ready') return;
-        if (inState) {
-            const Rcam = cameraOrbitDelta(panel, inState, computeCameraState(panel));
-            applyWorldDelta(panel, Rcam.clone().invert().normalize());   // Δworld = R_cam⁻¹
-
-            applyGroupTransform(panel, panel.sceneCenter);
-            forceResort(panel);
-
-            // 相机回正到进入调正时的机位：画面定格在刚调好的样子
-            applyCameraState(panel, inState);
-            mainCameraState = computeCameraState(panel);
-            if (panel.controls) panel.controls.update();
-        }
+    // 拖动旋转该模型：**只绕世界 Y 轴偏航**（水平拖）。
+    // 这是调正的核心用途 —— 对齐多个模型之间的水平朝向差异。
+    // 竖直拖不参与旋转（见 commitAdjustToCamera 注释：绕 X/Z 的倾斜折不进相机，
+    // 会造成退出调正时画面跳动，故不提供）。
+    // 模型已居中到原点，绕世界原点转 == 绕自身竖直轴转，构图不漂。
+    function rotateModelByDrag(panel, dx) {
+        if (!dx) return;
+        // 屏幕水平拖 → 世界 Y 偏航：向左拖（dx<0）模型逆时针转，与"转动一个物体"的直觉一致。
+        applyWorldDelta(panel, new THREE.Quaternion().setFromAxisAngle(AXIS_Y, dx * DRAG_ROT_STEP));
+        applyGroupTransform(panel, panel.sceneCenter);
+        forceResort(panel);
         wakeRenderLoop();
     }
 
@@ -604,47 +632,15 @@ title: "高斯对比"
         wakeRenderLoop();
     }
 
-    // 轴向快捷键在调正语义下改的是**相机方位**：OrbitControls 没有"绕世界轴转相机"
-    // 的公开 API，这里把世界轴换算成相机当前方位球坐标的增量（θ=方位角, φ=极角）：
-    //   · 世界 Y（竖直轴）：直接加在方位角上
-    //   · 相机右轴（屏幕水平）：只动极角（绕 Y 转任意角度都改不了俯仰，只有俯仰轴能）
-    //   · 相机上轴（屏幕竖直）：同时改方位角与极角，仰角越大方位变化越快
-    function orbitCameraByWorldAxis(panel, axisVec, deg) {
-        if (!panel.controls) return;
-        const rad = deg * Math.PI / 180;
-        const cam = panel.camera;
-        const target = panel.controls.target;
-        const sph = new THREE.Spherical().setFromVector3(
-            new THREE.Vector3().subVectors(cam.position, target));
-        const right = new THREE.Vector3(1, 0, 0).applyQuaternion(cam.quaternion).normalize();
-        const up = new THREE.Vector3(0, 1, 0).applyQuaternion(cam.quaternion).normalize();
-
-        if (Math.abs(axisVec.dot(AXIS_Y)) > 0.999) {
-            sph.theta -= rad * Math.sign(axisVec.y);
-        } else if (Math.abs(axisVec.dot(right)) > 0.999) {
-            sph.phi -= rad * Math.sign(axisVec.dot(right));
-        } else if (Math.abs(axisVec.dot(up)) > 0.999) {
-            // 绕相机上轴转：方位角变化率 = 1/cos(仰角)（俯仰到极点时发散，做钳制），
-            // 同时按当前俯仰角把极角也带动一点，手感才连续。
-            const elev = Math.PI / 2 - sph.phi;                       // 仰角（水平以上为正）
-            const s = Math.sign(axisVec.dot(up));
-            const cosE = Math.max(0.08, Math.cos(elev));               // 远离奇异
-            sph.theta -= rad * s / cosE;
-            sph.phi   += rad * s * Math.sign(Math.sin(elev)) * 0.35;   // 轻微联动，避免"纯水平转"
-        } else {
-            return; // 非正交轴不处理（按钮只会传 X/Y/Z）
-        }
-        sph.phi = Math.min(Math.PI - 0.001, Math.max(0.001, sph.phi));
-        const offset = new THREE.Vector3().setFromSpherical(sph);
-        cam.position.copy(new THREE.Vector3().addVectors(target, offset));
-        cam.lookAt(target);
-        panel.controls.update();
-        // 相机方位变了 → 广播给其他面板（调正期间机位仍保持联动）
-        if (!syncLock) {
-            syncLock = true;
-            broadcastCameraState(panel);
-            requestAnimationFrame(() => { syncLock = false; });
-        }
+    // 缩放该模型：与查看模型滚轮推拉同一套方向 ——
+    // 向前滚（deltaY<0，屏幕上是"推近"）→ 模型变大。
+    // dy 为正表示"拉远"，乘 exp(-dy*STEP) 得到 <1 的因子。
+    function zoomModelByDrag(panel, dy) {
+        if (!dy) return;
+        panel.userScale = Math.min(USER_SCALE_MAX, Math.max(USER_SCALE_MIN,
+            panel.userScale * Math.exp(-dy * ZOOM_DRAG_STEP)));
+        applyGroupTransform(panel, panel.sceneCenter);
+        forceResort(panel);
         wakeRenderLoop();
     }
 
@@ -654,21 +650,21 @@ title: "高斯对比"
         return AXIS_Z;
     }
 
-    // 调正光标：右键（平移模型）给 move，其余（左键环绕 / 滚轮推拉）与查看模型一致
+    // 调正光标：按当前正在操作的动作给提示
     function setAdjustCursor(panel, mode, dragging) {
         const w = panel.canvasWrap;
         if (!panel.adjusting) { w.style.cursor = ''; return; }
-        if (mode === 'translate') {
-            w.style.cursor = dragging ? 'move' : 'move';
-        } else {
-            w.style.cursor = dragging ? 'grabbing' : 'grab';
-        }
+        if (mode === 'translate') w.style.cursor = 'move';
+        else if (mode === 'zoom') w.style.cursor = 'ns-resize';
+        else if (mode === 'rotate') w.style.cursor = dragging ? 'grabbing' : 'grab';
+        else w.style.cursor = 'grab';
     }
 
     // 未按下时根据按键实时切换光标（不触发任何变换）
     function updateAdjustHoverCursor(panel, e) {
         if (!panel.adjusting) return;
-        setAdjustCursor(panel, (e.buttons & 2) ? 'translate' : 'rotate', false);
+        const b = e.buttons;
+        setAdjustCursor(panel, (b & 2) ? 'translate' : (b & 4) ? 'zoom' : 'rotate', false);
     }
 
     // ============ 加载 PLY 到面板 ============
@@ -790,6 +786,9 @@ title: "高斯对比"
             // 绑定 controls change → 唤醒按需渲染 + 联动广播
             controls.addEventListener('change', () => {
                 wakeRenderLoop();
+                // 调正期间以及折算回写相机时，本面板的相机变化**绝不允许广播**：
+                // 调正的语义是"只操作这一个模型"，其他面板必须纹丝不动。
+                if (panel.adjusting || panel.suppressBroadcast) return;
                 if (syncLock) return;
                 syncLock = true;
                 broadcastCameraState(panel);
@@ -1172,19 +1171,22 @@ title: "高斯对比"
             setPanelAdjusting(p, on === undefined ? !p.adjusting : !!on);
             return p.adjusting;
         },
-        // 环绕视角：与「查看模型」左键拖动同一路径（OrbitControls 原生）
-        orbit: (i, dTheta, dPhi) => {
+        // 旋转该模型（屏幕像素增量，与左键拖动同一套；仅 dx 生效 = 绕世界 Y）
+        rotate: (i, dx) => {
             const p = panels[i];
-            if (!p || !p.controls) return null;
-            rotateOrbit(p, dTheta || 0, dPhi || 0);
-            return computeCameraState(p);
+            if (!p) return null;
+            rotateModelByDrag(p, dx || 0);
+            return p.userQuat.toArray().map(v => +v.toFixed(4));
         },
-        // 轴向 ±90°：与工具条按钮同一条实现（改相机方位）
+        // 绕世界轴 ★旋转该模型★（与工具条按钮同一条实现）
         axis: (i, axis, deg) => {
             const p = panels[i];
             if (!p) return null;
-            orbitCameraByWorldAxis(p, axisVector(axis), deg);
-            return computeCameraState(p);
+            applyWorldDelta(p, new THREE.Quaternion().setFromAxisAngle(axisVector(axis), (deg || 0) * Math.PI / 180));
+            applyGroupTransform(p, p.sceneCenter);
+            forceResort(p);
+            wakeRenderLoop();
+            return p.userQuat.toArray().map(v => +v.toFixed(4));
         },
         // 平移模型（屏幕像素增量，方向与右键平移一致）
         translate: (i, dx, dy) => {
@@ -1193,18 +1195,25 @@ title: "高斯对比"
             translateModelByDrag(p, dx, dy);
             return p.userOffset.toArray().map(v => +v.toFixed(4));
         },
-        // 把当前视角的朝向差固化进 userQuat（等价于退出调正）
+        // 缩放模型（与滚轮/中键同一套）
+        zoom: (i, dy) => {
+            const p = panels[i];
+            if (!p) return null;
+            zoomModelByDrag(p, dy || 0);
+            return +p.userScale.toFixed(5);
+        },
+        // 折算进相机（等价于退出调正）
         commit: (i) => {
             const p = panels[i];
             if (!p) return null;
-            commitAdjustRotation(p);
+            commitAdjustToCamera(p);
             return p.userQuat.toArray().map(v => +v.toFixed(4));
         },
         // 当前累积朝向（世界空间）
         quat: (i) => (panels[i] ? panels[i].userQuat.toArray().map(v => +v.toFixed(4)) : null),
         // 当前画布光标（验证按键与光标对应）
         cursor: (i) => (panels[i] ? panels[i].canvasWrap.style.cursor : null),
-        // 把相机搬到指定机位（仅调试用；重置/固化本身不负责搬相机）
+        // 把相机搬到指定机位（仅调试用；重置/折算本身不负责搬相机）
         // 入参可给 {target, pos}（__debugCameras 的输出），由页面反推球坐标。
         restoreCamera: (state) => {
             const p = panels[0];
@@ -1223,6 +1232,7 @@ title: "高斯对比"
             wakeRenderLoop();
             return true;
         },
+        // 只复原模型（不碰相机）
         reset: (i) => {
             const p = panels[i];
             if (!p) return null;
@@ -1233,28 +1243,24 @@ title: "高斯对比"
             forceResort(p);
             wakeRenderLoop();
             return true;
+        },
+        // 复原模型 + 把这部分折算进相机（等价于"重置 + 退出"的完整语义）
+        // 强制重排（调试用：量出"排序噪声地板"）
+        forceResort: (i) => {
+            const p = panels[i];
+            if (!p) return null;
+            forceResort(p);
+            wakeRenderLoop();
+            return true;
+        },
+        resetCommit: (i) => {
+            const p = panels[i];
+            if (!p) return null;
+            commitAdjustToCamera(p);
+            wakeRenderLoop();
+            return true;
         }
     };
-    // 环绕视角的共用实现（左键拖动 / 调试钩子 / 轴向快捷键都走它）
-    function rotateOrbit(panel, dTheta, dPhi) {
-        if (!panel.controls) return;
-        const cam = panel.camera;
-        const target = panel.controls.target;
-        const sph = new THREE.Spherical().setFromVector3(
-            new THREE.Vector3().subVectors(cam.position, target));
-        sph.theta += dTheta;
-        sph.phi = Math.min(Math.PI - 0.001, Math.max(0.001, sph.phi + dPhi));
-        const offset = new THREE.Vector3().setFromSpherical(sph);
-        cam.position.copy(new THREE.Vector3().addVectors(target, offset));
-        cam.lookAt(target);
-        panel.controls.update();
-        if (!syncLock) {
-            syncLock = true;
-            broadcastCameraState(panel);
-            requestAnimationFrame(() => { syncLock = false; });
-        }
-        wakeRenderLoop();
-    }
     </script>
 </body>
 </html>

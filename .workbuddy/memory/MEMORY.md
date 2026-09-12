@@ -108,26 +108,47 @@
   `anyPending = sortDirty || viewer.sortRunning`，有它就不挂起循环，防止停在旧排序上。
 - 用户已明确：调正结果**不按文件名记住**。
 
-#### 第三轮语义修正：调正=「环绕视角」，退出时固化（2026-09-12，峰哥要求）
-峰哥原话：「调正模式下的旋转会改变相机坐标系朝向，我觉得这个没有必要，**和查看模型保持一致**吧」。
-- **恒等式**：正交视图下「绕世界轴 a 把模型转 θ」⟺「相机绕 a 转 −θ」，画面逐像素相同。
-  于是调正期间**只动相机**（OrbitControls 原生左键环绕 + 滚轮推拉），**只冻结右键**改作模型平移；
-  朝向只在**退出调正时提交一次**，然后相机回正 → 画面定格。
-- **固化公式：`Δworld = R_cam⁻¹`**，`R_cam = rot(B)·rot(A)⁻¹`，A=进入调正时机位、B=退出时机位。
-  推导：要求 `rot(A)⁻¹·R1 = rot(B)⁻¹·R0` ⟹ `R1 = rot(A)·rot(B)⁻¹·R0`。
-  **不要对 A 做共轭**（第一版写成 `A·R_cam⁻¹·A⁻¹`，harness 直接报 136°）。
-  理由：相机旋转本身就表达在世界系，"参考系"就是世界系。
-- **禁止在 `R_cam⁻¹` 之后再补 `Ry(−az)` 自旋**：相机马上要被 `applyCameraState` 拉回 A，
-  附加转动不再被抵销 → 等于对最终画面做一次纯旋转。实测：加自旋 → 视图矩阵差 1.35e-01、
-  像素差 30.32%；去掉 → 视图矩阵差 **2.50e-05**、像素差 **4.8%**。静态检查器已加"禁止自旋"守卫。
-- **不要冻结 `controls.enabled`**：改为 `controls.mouseButtons.RIGHT = null`（让出右键），
-  左键/中键保持原生；`wheel` 监听整体删除。这才是"与查看模型完全一致"。
-- **像素残差是等价表示的固有属性**：固化后 `splatMesh.matrixWorld` 变了 → 深度排序顺序变 →
-  半透明叠加次序不同 → 少量像素必然不同。**判据必须用「同机位往返+固化」测出的排序地板**，
-  不能拿 no-op 连拍当基线（那是 0%，渲染是确定性的）。
-- `__adjust` 钩子：`toggle / orbit / axis / translate / commit / quat / cursor / reset / restoreCamera`。
-  `restoreCamera({target,pos})` 仅调试用（重置/固化本身**不搬相机**）；它自己反推球坐标，
-  别把它的入参直接喂给 `applyCameraState`（后者要 `THREE.Vector3` 的 target）。
+#### 第四轮（2026-09-12，峰哥报回归后定案 —— **当前生效语义**）
+峰哥报的 bug：「按调正按键时，左键会让**所有**模型一起旋转，中键会让**所有**模型一起缩放，
+右键只移动当前模型；**退出调正时，所有模型的缩放与视角都会变**。」
+澄清本意：调正**只控制当前这一个模型**；方式与查看模型一致（可共用函数）；
+**退出时把控制加到相机修正里**；**不要联动（各面板独立机位）**。
+
+- **根因**：第三轮删掉了 `controls.enabled=false`，改用原生 OrbitControls 环绕 ⇒
+  调正面板自己发 `change` → `broadcastCameraState` → 所有面板一起动；
+  `commitAdjustRotation` 还调 `applyCameraState(panel, inState)` + 写 `mainCameraState`，
+  退出时污染全局相机。
+- **硬约束（决定方案）**：渲染循环每帧 `controls.update()` 末行是 `camera.lookAt(target)`（库 L5018），
+  且 `camera.up=(0,1,0)` ⇒ **相机横滚恒为 0、无法自由设定**。
+  把模型旋转折算进相机要求相机转 `R⁻¹`，只有**绕世界 Y** 时横滚仍为 0：
+  纯 Y = **0.000°**（精确）；X = 10.5°、Z = 14.0°、Y+X = 5.1°（lookAt 无法表示 → 退出必跳）。
+  ⇒ 峰哥拍板：**「如果 XZ 旋转有问题那就只改 Y 轴吧」**。
+- **当前语义**：
+  - 调正中 `controls.enabled = false`（本面板相机完全冻结）+ `pointerdown` 按 `e.button` 分派
+    **模型侧**操作：左键**水平**拖 = 绕世界 Y 转模型；中键/滚轮 = 缩放模型；右键 = 平移模型。
+  - **只提供 Y 轴旋转**（X/Z 的 ±90° 按钮与图纸俯仰已全部删除），只留 `Y−90° / Y+90° / 复原尺寸 / 重置`。
+  - 退出 ⇒ `commitAdjustToCamera`：`C' = R_y⁻¹·C`、`eye' = (eye−T)·R_y⁻¹/S`，
+    模型回到**纯单位变换**（`userQuat=I / userScale=1 / userOffset=0`）。
+  - **禁止广播**：`commitAdjustToCamera` 全程 `panel.suppressBroadcast = true`（try/finally），
+    且 `change` 处理器加 `if (panel.adjusting || panel.suppressBroadcast) return;`。
+    注意 `setPanelAdjusting(panel,false)` 会**先**把 `panel.adjusting=false` **再**调 commit，
+    所以单靠 `panel.adjusting` 挡不住 —— 这个显式标志是必需的。
+- **⚠️ 任何对 `camera.quaternion` 的直接写入都是临时的**：每帧 `controls.update()` 都会用
+  `pos + target + up` 重算（`lookAt`），横滚被抹平。`applyCameraState` 能生效只是因为它写的是
+  这套参数。别指望写 `camera.quaternion` 能持久。
+- **像素残差的正确认识（第四轮更新）**：折算前后是「模型带 R/S/T」与「相机带 R_y/S/T」
+  两种**等价表示**，几何完全一致（`eye_predict.mjs` 实测位置差 1.1e-4、朝向差 0.0039°），
+  残差 4.72%（均值 2.98/255，集中边缘）来自 `splatMesh.matrixWorld` 变化引起的深度排序次序微变。
+  **本轮同机位强制重排对照 = 0%**（渲染是确定性的），所以不能用 no-op 当基线，
+  只能拿**同一等价类的另一种表示**来比。
+- **`__adjust` 钩子（当前）**：`toggle / rotate(i,dx) / axis / translate / zoom / commit /
+  quat / cursor / restoreCamera / reset / resetCommit / forceResort(i)`。
+  `rotate` 现在只吃 `dx`（绕 Y），与 UI 左键水平拖同一套。
+- **验证（全绿）**：`check_splat_compare.js` **61 OK**；
+  `adjust_isolation.js` **25 OK**（含 10 项**真实鼠标事件路径**：CDP 注入左/中/右键+滚轮，
+  断言另一面板相机与模型全程不动）；
+  `adjust_freeze.js` 定格 **60.5% → 4.72%**（均值 2.98）；
+  `eye_predict.mjs` 相机会数值吻合；`roll_check.mjs` 复现 Y=0°/X=10.5°/Z=14.0°。
 
 ### 调试资产
 - **已入库（在 Git 里）**：`_pages/splat-test-matrix.html`（变体矩阵测试页，URL 参数
@@ -150,7 +171,15 @@
   （284MB 走这条路 0.5s，比 base64 稳得多）。
 - 页面错误收集：`Runtime.exceptionThrown` + `Log.entryAdded`；**favicon.ico 的 404 要白名单掉**。
 - 产品页新增诊断钩子：`__pixelStats(i)`（render 后**同一任务内** `gl.readPixels`，
-  否则默认帧缓冲已被合成清空）、`__splatCounts(i)`、`__adjust{toggle,rotate,axis,reset}`。
+  否则默认帧缓冲已被合成清空）、`__splatCounts(i)`、
+  `__adjust{toggle,rotate,axis,translate,zoom,commit,quat,cursor,restoreCamera,reset,resetCommit,forceResort}`。
+- **调正专用探针（2026-09-12 第四轮）**：
+  `adjust_isolation.js`（多面板隔离性，含**真实 CDP 鼠标事件路径**——
+  这是唯一能覆盖 `pointerdown` 按键分派与指针捕获的层，别只用 `__adjust` 钩子自证）、
+  `adjust_freeze.js`（退出折算定格，用 PNG 差异判定）、
+  `eye_predict.mjs`（把实测相机与 `C'=R⁻¹C / eye'=(eye−T)R⁻¹/S` 逐项对齐）、
+  `roll_check.mjs`（证明只有纯 Y 轴折算的横滚为 0）、
+  `adjust_commit_math.mjs`（自由相机的折算恒等式）、`swing_twist.mjs`（分解方案对比）。
 - `.workbuddy/tmp/pngstat.js`：**纯 `zlib` 手写 PNG 解码** + 逐像素差异 + 16×16 粗格签名（不装 PIL）。
 - **像素基线必须先等渲染收敛**：刚 ready 时 `splatRenderCount` 未达全量，此时取的"基线"是残缺渲染
   （曾导致误判"重置没回到基线"）。**任何像素级断言前先断言 `splatRenderCount == getSplatCount()`**。
