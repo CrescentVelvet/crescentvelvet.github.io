@@ -201,6 +201,12 @@ title: "高斯对比"
     const AXIS_Z = new THREE.Vector3(0, 0, 1);
     const DRAG_ROT_STEP = 0.01; // 弧度/像素 ≈ 0.57°，400px 拖动约 229°
 
+    // 与 OrbitControls 内部同源的滚轮阻尼曲线（库内用 `zf(x)=exp(-x)` 计算缩放增量）。
+    // 注意不能把这个函数命名成 zf：vendor 模块在模块级声明了 `let zf`，
+    // 我们的内联模块脚本与它同处一个全局词法环境，重名会让库的 zf 被 raise 成
+    // TDZ（"Cannot access 'zf' before initialization"），OrbitControls 的旋转/缩放直接失效。
+    function zoomDeltaCurve(x) { return Math.exp(-x); }
+
     // ============ 布局管理 ============
     function getGridClass(count) {
         return 'count-' + Math.max(1, Math.min(4, count));
@@ -254,14 +260,15 @@ title: "高斯对比"
                 <div class="panel-empty">拖入 .ply 或点击添加</div>
             </div>
             <div class="panel-adjust-bar">
-                <span class="adj-hint">拖动旋转该模型</span>
+                <span class="adj-hint">左键旋转 · 右键平移 · 滚轮缩放</span>
                 <button data-axis="x" data-dir="-1">X−90°</button>
                 <button data-axis="x" data-dir="1">X+90°</button>
                 <button data-axis="y" data-dir="-1">Y−90°</button>
                 <button data-axis="y" data-dir="1">Y+90°</button>
                 <button data-axis="z" data-dir="-1">Z−90°</button>
                 <button data-axis="z" data-dir="1">Z+90°</button>
-                <button class="adj-reset">重置</button>
+                <button class="adj-scale-reset" title="缩放倍数回到 1">复原尺寸</button>
+                <button class="adj-reset" title="朝向/平移/缩放全部复原">重置</button>
             </div>
         `;
         grid.appendChild(el);
@@ -310,11 +317,18 @@ title: "高斯对比"
             if (!p || !p.adjusting) return;
             if (btn.classList.contains('adj-reset')) {
                 p.userQuat.identity();
+                p.userScale = 1;
+                p.userOffset.set(0, 0, 0);
+            } else if (btn.classList.contains('adj-scale-reset')) {
+                p.userScale = 1;
             } else {
                 const axisVec = btn.dataset.axis === 'x' ? AXIS_X : (btn.dataset.axis === 'y' ? AXIS_Y : AXIS_Z);
                 const dir = parseFloat(btn.dataset.dir) || 1;
-                // 世界空间左乘：坐标系轴序差异就是绕世界轴转 90°
-                const delta = new THREE.Quaternion().setFromAxisAngle(axisVec, dir * Math.PI / 2);
+                // 世界空间左乘。符号取法与拖动一致：水平拖动绕世界 Y 正转，
+                // 竖直向下拖则绕世界 X **负**转（见 rotateModelByDrag 的 -dy），
+                // 所以 X+90°/-90° 分别对应"下拖一段"和"上拖一段"，形成同一套手感。
+                const sign = btn.dataset.axis === 'x' ? -1 : 1;
+                const delta = new THREE.Quaternion().setFromAxisAngle(axisVec, sign * dir * Math.PI / 2);
                 p.userQuat.premultiply(toUserSpace(delta)).normalize();
             }
             applyGroupTransform(p, p.sceneCenter);
@@ -322,30 +336,59 @@ title: "高斯对比"
             wakeRenderLoop();
         });
 
-        // 调正模式下拖动 = 旋转该模型（相机冻结，构图不变，可直接对着别的面板调）
+        // 调正模式下拖动 = 操作该模型（相机冻结，构图不变，可直接对着别的面板调）。
+        // 控制方式与查看模型时完全一致：
+        //   左键拖 = 旋转   右键拖 = 平移   滚轮 = 缩放
+        canvasWrap.addEventListener('contextmenu', (e) => {
+            const p = panels.find(x => x.el === el);
+            if (p && p.adjusting) e.preventDefault(); // 调正时右键用于平移，屏蔽菜单
+        });
         canvasWrap.addEventListener('pointerdown', (e) => {
             const p = panels.find(x => x.el === el);
-            if (!p || !p.adjusting || p.state !== 'ready' || e.button !== 0) return;
-            p.adjustDrag = { x: e.clientX, y: e.clientY };
+            if (!p || !p.adjusting || p.state !== 'ready') return;
+            let mode = null;
+            if (e.button === 0) mode = 'rotate';
+            else if (e.button === 2) mode = 'translate';
+            else if (e.button === 1) mode = 'zoom';
+            if (!mode) return;
+            e.preventDefault();
+            p.adjustDrag = { x: e.clientX, y: e.clientY, mode };
             canvasWrap.classList.add('dragging');
+            setAdjustCursor(p, mode, true);
             try { canvasWrap.setPointerCapture(e.pointerId); } catch (_) {}
         });
         canvasWrap.addEventListener('pointermove', (e) => {
             const p = panels.find(x => x.el === el);
-            if (!p || !p.adjustDrag) return;
+            if (!p) return;
+            if (!p.adjustDrag) { updateAdjustHoverCursor(p, e); return; }
             const dx = e.clientX - p.adjustDrag.x;
             const dy = e.clientY - p.adjustDrag.y;
             p.adjustDrag = { x: e.clientX, y: e.clientY };
-            rotateModelByDrag(p, dx, dy);
+            if (p.adjustDrag.mode === 'rotate') rotateModelByDrag(p, dx, dy);
+            else if (p.adjustDrag.mode === 'translate') translateModelByDrag(p, dx, dy);
+            else if (p.adjustDrag.mode === 'zoom') zoomModelByDrag(p, dx + dy);
         });
         const endAdjustDrag = (e) => {
             const p = panels.find(x => x.el === el);
-            if (p) p.adjustDrag = null;
+            if (p) { p.adjustDrag = null; setAdjustCursor(p, null, false); }
             canvasWrap.classList.remove('dragging');
             try { canvasWrap.releasePointerCapture(e.pointerId); } catch (_) {}
         };
         canvasWrap.addEventListener('pointerup', endAdjustDrag);
         canvasWrap.addEventListener('pointercancel', endAdjustDrag);
+        // 滚轮 = 缩放该模型（阻止冒泡避免触发页面滚动）
+        canvasWrap.addEventListener('wheel', (e) => {
+            const p = panels.find(x => x.el === el);
+            if (!p || !p.adjusting || p.state !== 'ready') return;
+            e.preventDefault();
+            const dir = e.deltaY > 0 ? -1 : 1;
+            // 与 OrbitControls 的滚轮缩放同一个手感：每格 1.1 倍（0.05 ≈ 单次滚轮，
+            // 浏览器一格通常报 100 左右 deltaY）。方向一致：向上滚 = 放大。
+            const z = zoomDeltaCurve(1.1 * dir * 0.05);
+            let factor = z / (Math.exp(z) - 1.0);
+            factor = 1 + Math.min(Math.max(factor, 0.01), 1.0);
+            zoomModelByFactor(p, factor);
+        }, { passive: false });
 
         const panel = {
             el, titleEl, closeEl, canvasWrap, adjustEl, adjustBar,
@@ -356,9 +399,11 @@ title: "高斯对比"
             bbox: null,
             scale: 1, // 归一化缩放
             userQuat: new THREE.Quaternion(), // 单模型调正累积旋转（世界空间）
-            adjusting: false,                 // 调正中：本面板 OrbitControls 输入冻结，拖动改为转模型
-            adjustDrag: null,
-            sortDirty: false,                 // 朝向变了待重排（排序进行中时补跑）
+            userScale: 1,                     // 单模型调正缩放倍数
+            userOffset: new THREE.Vector3(),  // 单模型调正平移（世界坐标）
+            adjusting: false,                 // 调正中：本面板 OrbitControls 输入冻结，改为直接操作模型
+            adjustDrag: null,                 // {x, y, mode:'rotate'|'translate'|'zoom'}
+            sortDirty: false,                 // 朝向/缩放变了待重排（排序进行中时补跑）
         };
         panels.push(panel);
         relayout();
@@ -375,23 +420,28 @@ title: "高斯对比"
         relayout();
     }
 
-    // ============ splatGroup 变换（全局翻转 × 单模型调正 + 居中） ============
+    // ============ splatGroup 变换（全局翻转 × 单模型调正 + 摆位） ============
     // 统一入口：把变换应用到 splatGroup 级。
     // 必须放 group 级 —— v0.4.7 static 模式 scene0 变换被烘焙进数据纹理，
     // 事后改无效；splatMesh.matrixWorld 含 group 变换，排序+渲染都吃。
     //
-    // 最终朝向 R = flip · userQuat：
-    //   flip     在左（世界空间），全局上下翻转动的是这一层；
-    //   userQuat 在内层，是单模型自己的坐标系修正。
-    // 这样点「上下翻转」时所有模型整体一起翻，彼此相对朝向不被打乱。
-    // world = R*p + t，中心 c 必须落到原点 → t = -R*c（R 变了 t 必须重算）。
+    // 最终变换（与查看模型时的语义一致）：
+    //   R = flip · userQuat   朝向；  S = userScale  缩放；
+    //   t = -R·(c·S) + userOffset   位置（把模型中心搬到 userOffset）
+    //   · flip     在左（世界空间），全局上下翻转动的是这一层；
+    //   · userQuat 在内层，是单模型自己的坐标系修正。
+    //     这样点「上下翻转」时所有模型整体一起翻，彼此相对朝向不被打乱。
+    //   · 居中不变式：userOffset=0 时中心 c 必须落到原点 → t = -R·c（R 变了 t 必须重算）。
+    //     userOffset 就是「右键平移」的等价物，默认 0。
     function applyGroupTransform(panel, sceneCenter) {
         const g = panel.splatGroup;
         if (!g) return;
         const q = currentFlipQuat().multiply(panel.userQuat);
         g.quaternion.copy(q);
-        g.position.copy(sceneCenter).applyQuaternion(q).multiplyScalar(-1);
-        g.scale.set(1, 1, 1);
+        g.scale.setScalar(panel.userScale);
+        // 中心先随缩放移动（模型空间），再转到世界空间，最后加用户平移
+        g.position.copy(sceneCenter).multiplyScalar(panel.userScale)
+            .applyQuaternion(q).multiplyScalar(-1).add(panel.userOffset);
         g.updateMatrix();
         // 排序读 splatMesh.matrixWorld（库 L14102：mvpMatrix × splatMesh.matrixWorld），
         // 而这行代码可能在 render 之前执行（forceResort），必须立刻把 matrixWorld
@@ -411,6 +461,14 @@ title: "高斯对比"
     function toUserSpace(delta) {
         const f = currentFlipQuat();
         return f.clone().invert().multiply(delta).multiply(f);
+    }
+
+    // 一个屏幕像素在「过原点、垂直于视线」的平面上对应多少世界单位。
+    // 用来把鼠标位移换算成模型平移/缩放，使不同面板（不同距离/视锥）手感一致。
+    function worldPerPixel(panel) {
+        const cam = panel.camera;
+        const h = panel.canvasWrap.clientHeight || panel.renderer.domElement.clientHeight || 1;
+        return (2 * Math.tan(cam.fov * Math.PI / 360) * cam.position.distanceTo(panel.controls.target)) / h;
     }
 
     // 强制重排：模型朝向变了，view-space 深度全变，复用旧排序会串色。
@@ -449,8 +507,9 @@ title: "高斯对比"
         wakeRenderLoop();
     }
 
-    // ============ 单模型调正：进入 / 退出 / 拖动 / 轴向快捷键 ============
-    // 进入调正：冻结该面板的 OrbitControls 输入，拖动改为旋转模型本身。
+    // ============ 单模型调正：进入 / 退出 / 旋转 / 平移 / 缩放 / 光标 ============
+    // 进入调正：冻结该面板的 OrbitControls 输入，鼠标改为直接操作模型本身，
+    // 但控制方式与查看模型时**完全一致**（左键旋转 / 右键平移 / 滚轮缩放）。
     // 注意仍然参与相机联动——各面板保持同一机位，才能边调边和对面的模型对齐；
     // 想换机位就去拖其他（未调正）面板的画布。
     function setPanelAdjusting(panel, on) {
@@ -463,6 +522,9 @@ title: "高斯对比"
         if (!on) {
             panel.adjustDrag = null;
             panel.canvasWrap.classList.remove('dragging');
+            setAdjustCursor(panel, null, false);
+        } else {
+            setAdjustCursor(panel, null, false); // 先给个默认旋转光标，mousemove 会修正
         }
         wakeRenderLoop();
     }
@@ -477,6 +539,60 @@ title: "高斯对比"
         applyGroupTransform(panel, panel.sceneCenter);
         forceResort(panel);
         wakeRenderLoop();
+    }
+
+    // 平移该模型：与查看模型时的右键平移（OrbitControls pan）方向一致。
+    // 位移直接加在 userOffset 上（世界坐标，即模型的最终位置），
+    // 调用方已经在相机冻结时做过镜像补偿，所以这里按屏幕像素增量朴素累加即可。
+    function translateModelByDrag(panel, dx, dy) {
+        if (!dx && !dy) return;
+        const k = worldPerPixel(panel);
+        panel.userOffset.x += dx * k;
+        panel.userOffset.y -= dy * k;
+        applyGroupTransform(panel, panel.sceneCenter);
+        forceResort(panel);
+        wakeRenderLoop();
+    }
+
+    // 缩放该模型：滚轮向上 = 放大（与查看模型时滚轮拉近一致）。
+    // 注意：模型自己变大 ≠ 相机拉近，两者视觉相似但**与相机无关**，
+    // 所以各面板依然保持同一机位，只是模型尺寸不同 —— 正是调正对齐需要的。
+    function zoomModelByDrag(panel, deltaPx) {
+        if (!deltaPx) return;
+        // 用滚动距离换算一个连续的缩放系数；deltaPx>0（向下滚）= 缩小
+        const factor = Math.pow(1.0035, -deltaPx);
+        zoomModelByFactor(panel, factor, false);
+    }
+
+    // 把缩放倍数夹在合理范围内，避免滚成 0 或者大到看不清
+    const USER_SCALE_MIN = 0.05;
+    const USER_SCALE_MAX = 20;
+    function zoomModelByFactor(panel, factor, clampStrong = false) {
+        const next = panel.userScale * factor;
+        panel.userScale = Math.min(USER_SCALE_MAX, Math.max(USER_SCALE_MIN, next));
+        applyGroupTransform(panel, panel.sceneCenter);
+        forceResort(panel);
+        wakeRenderLoop();
+    }
+
+    // 调正光标：按当前按键给不同 cursor，让"左键/右键/滚轮"一眼可辨
+    function setAdjustCursor(panel, mode, dragging) {
+        const w = panel.canvasWrap;
+        if (!panel.adjusting) { w.style.cursor = ''; return; }
+        if (dragging) {
+            w.style.cursor = mode === 'translate' ? 'move'
+                : mode === 'zoom' ? 'ns-resize' : 'grabbing';
+        } else {
+            w.style.cursor = mode === 'translate' ? 'move'
+                : mode === 'zoom' ? 'ns-resize' : 'grab';
+        }
+    }
+
+    // 未按下时根据按键实时切换光标（不触发任何变换）
+    function updateAdjustHoverCursor(panel, e) {
+        if (!panel.adjusting) return;
+        setAdjustCursor(panel,
+            e.buttons === 2 ? 'translate' : e.buttons === 4 ? 'zoom' : 'rotate', false);
     }
 
     // ============ 加载 PLY 到面板 ============
@@ -495,10 +611,13 @@ title: "高斯对比"
         panel.adjustDrag = null;
         panel.sortDirty = false;
         panel.userQuat.identity();
+        panel.userScale = 1;
+        panel.userOffset.set(0, 0, 0);
         panel.adjustEl.classList.add('disabled');
         panel.adjustEl.classList.remove('active');
         panel.adjustBar.classList.remove('show');
         panel.canvasWrap.classList.remove('adjusting', 'dragging');
+        panel.canvasWrap.style.cursor = '';
         // 无条件清空容器（移除 .panel-empty / 旧 canvas / 旧 loading / 旧 error）
         panel.canvasWrap.innerHTML = '';
 
@@ -922,6 +1041,8 @@ title: "高斯对比"
             position: p.splatGroup.position.toArray().map(v => +v.toFixed(3)),
             sceneCenter: p.sceneCenter ? p.sceneCenter.toArray().map(v => +v.toFixed(3)) : null,
             userQuat: p.userQuat.toArray().map(v => +v.toFixed(4)),
+            userScale: +p.userScale.toFixed(5),
+            userOffset: p.userOffset.toArray().map(v => +v.toFixed(4)),
             adjusting: p.adjusting,
             controlsEnabled: p.controls ? p.controls.enabled : null,
             sortDirty: p.sortDirty,
@@ -981,17 +1102,43 @@ title: "高斯对比"
             const p = panels[i];
             if (!p) return null;
             const axisVec = axis === 'x' ? AXIS_X : (axis === 'y' ? AXIS_Y : AXIS_Z);
-            const delta = new THREE.Quaternion().setFromAxisAngle(axisVec, deg * Math.PI / 180);
+            const sign = axis === 'x' ? -1 : 1; // 与按钮/拖动同向
+            const delta = new THREE.Quaternion().setFromAxisAngle(axisVec, sign * deg * Math.PI / 180);
             p.userQuat.premultiply(toUserSpace(delta)).normalize();
             applyGroupTransform(p, p.sceneCenter);
             forceResort(p);
             wakeRenderLoop();
             return p.userQuat.toArray().map(v => +v.toFixed(4));
         },
+        // 平移（屏幕像素增量，方向与右键平移一致）
+        translate: (i, dx, dy) => {
+            const p = panels[i];
+            if (!p) return null;
+            translateModelByDrag(p, dx, dy);
+            return p.userOffset.toArray().map(v => +v.toFixed(4));
+        },
+        // 缩放：factor 直接乘（>1 放大）
+        scale: (i, factor) => {
+            const p = panels[i];
+            if (!p) return null;
+            zoomModelByFactor(p, factor);
+            return +p.userScale.toFixed(5);
+        },
+        // 模拟滚轮：deltaPx>0 = 向下滚 = 缩小
+        wheel: (i, deltaPx) => {
+            const p = panels[i];
+            if (!p) return null;
+            zoomModelByDrag(p, deltaPx);
+            return +p.userScale.toFixed(5);
+        },
+        // 当前画布光标（验证按键与光标对应）
+        cursor: (i) => (panels[i] ? panels[i].canvasWrap.style.cursor : null),
         reset: (i) => {
             const p = panels[i];
             if (!p) return null;
             p.userQuat.identity();
+            p.userScale = 1;
+            p.userOffset.set(0, 0, 0);
             applyGroupTransform(p, p.sceneCenter);
             forceResort(p);
             wakeRenderLoop();
