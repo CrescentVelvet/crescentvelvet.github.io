@@ -417,11 +417,14 @@ title: "高斯对比"
             adjustDrag: null,                 // {x, y, mode:'rotate'|'translate'|'zoom'}
             sortDirty: false,                 // 朝向/缩放变了待重排（排序进行中时补跑）
             // 调正折算给本面板相机引入的【私有偏差】（默认无偏差）。
-            // 广播联动时用它把"本面板的绝对机位"换算回"大家的共同基准机位"：
+            // 广播联动时用它把"本面板的绝对机位"换算回"大家的共同基准机位"，
+            // 接收方再按各自的偏差还原：
+            //   azimuth  = base.azimuth + yawDelta   （私有偏航增量）
             //   distance = baseDistance × distFactor
             //   target   = baseTarget   + targetDelta
             // 这样中键缩放/右键平移照样全体同步（改的是共同基准），
-            // 而调正折算出的私有距离/注视点不会被推给别人。
+            // 而调正折算出的私有朝向/距离/注视点不会被推给别人。
+            yawDelta: 0,
             distFactor: 1,
             targetDelta: new THREE.Vector3(),
         };
@@ -608,27 +611,36 @@ title: "高斯对比"
             panel.camera.up.set(0, 1, 0);
             panel.controls.update();          // 此时残量已空，仅做球坐标同步，不再产生位移
 
-            // 记录本次折算给本面板带来的【私有偏差】，供联动时反算基准。
-            // 折算后本面板的绝对机位变了，但"共同基准"没变：
-            //   新私有偏差 = 折算后的绝对机位 − 折算后的共同基准
-            // 朝向（azimuth/elevation）是全体共同量，折算把它改了就更新基准；
-            // 距离与注视点只更新本面板的私有偏差。
+            // 记录本次折算给本面板带来的【私有偏差】。
+            // ⚠️ 折算改的是本面板的**绝对**机位，共同基准 mainCameraState 必须
+            //    **原封不动** —— 调正的语义是「只修改这一个模型的私有偏差」。
+            //    尤其**不能**把折算后的 azimuth/elevation 写进基准：
+            //    旋转模型会让折算后的方位角整体转 R⁻¹（实测 23.5°），
+            //    写进基准就变成"改了所有人的朝向"，而别的面板并不会当场跟转，
+            //    下次它们一广播就把本面板拉回旧方位角 → 又跳一次。
+            //    朝向本就由 C' = R⁻¹·C 体现在本面板相机自身，无需广播。
             {
                 const after = computeCameraState(panel);
                 if (after) {
-                    // 朝向变化同步进基准（所有面板都会跟着转到新朝向）
-                    if (mainCameraState) {
-                        mainCameraState.azimuth = after.azimuth;
-                        mainCameraState.elevation = after.elevation;
-                    } else {
+                    // 懒初始化基准（正常情况下 fitAllToFirst 已建好，这里只是兜底）
+                    if (!mainCameraState) {
                         mainCameraState = {
                             target: new THREE.Vector3(0, 0, 0),
-                            azimuth: after.azimuth, elevation: after.elevation, distance: 4,
+                            azimuth: panel.adjustEnterState ? panel.adjustEnterState.azimuth : after.azimuth,
+                            elevation: panel.adjustEnterState ? panel.adjustEnterState.elevation : after.elevation,
+                            distance: panel.adjustEnterState ? panel.adjustEnterState.distance : after.distance,
                         };
                     }
                     const base = mainCameraState;
                     const baseTarget = base.target || ZERO3;
-                    // distFactor 用"比率"表达，避免与基准的绝对距离耦合
+                    // 折算带来的【全部】朝向/距离/注视点差异都记为本面板私有偏差，
+                    // 一个字节都不外泄。
+                    //   · 朝向：存成相对基准的偏航增量 yawDelta（绕世界 Y）；
+                    //     基准 azimuth 是"共同朝向"，本面板实际朝向 = 基准 + yawDelta。
+                    //   · 距离：比率 distFactor（不依赖基准的绝对值）
+                    //   · 注视点：世界坐标偏移 targetDelta
+                    const dAz = normalizeAngle(after.azimuth - base.azimuth);
+                    panel.yawDelta = (panel.yawDelta || 0) + dAz;
                     panel.distFactor = base.distance ? (after.distance / base.distance) : 1;
                     panel.targetDelta = after.target.clone().sub(baseTarget);
                 }
@@ -739,6 +751,9 @@ title: "高斯对比"
         panel.userQuat.identity();
         panel.userScale = 1;
         panel.userOffset.set(0, 0, 0);
+        panel.yawDelta = 0;
+        panel.distFactor = 1;
+        panel.targetDelta.set(0, 0, 0);
         // 右键要交还给 OrbitControls 平移（上一次可能在调正中途被换掉）
         if (panel.controls) panel.controls.mouseButtons.RIGHT = THREE.MOUSE.PAN;
         panel.adjustEl.classList.add('disabled');
@@ -1003,6 +1018,13 @@ title: "高斯对比"
     // 直接共享 target 即可保持所有窗口同步。
     let mainCameraState = null; // {target, azimuth, elevation, distance}
 
+    // 把角度归一化到 (−π, π]，用于"基准朝向 + 私有偏航增量"的加减（避免 theta 绕圈）。
+    function normalizeAngle(a) {
+        while (a <= -Math.PI) a += Math.PI * 2;
+        while (a > Math.PI) a -= Math.PI * 2;
+        return a;
+    }
+
     function computeCameraState(panel) {
         if (!panel.controls) return null;
         const target = panel.controls.target.clone();
@@ -1021,12 +1043,13 @@ title: "高斯对比"
         if (!state) return;
         // 把源面板的【绝对机位】换算回【共同基准机位】：
         //   源面板自身的私有偏差（调正折算引入）必须先扣掉，
-        //   否则它的 distance/target 会污染其他面板。
+        //   否则它的方位角/距离/注视点会污染其他面板。
+        //   azimuth_base  = azimuth − yawDelta
         //   distance_base = distance / distFactor
         //   target_base   = target − targetDelta
-        // 接收方再按各自的 distFactor / targetDelta 还原。
+        // 接收方再按各自的 yawDelta / distFactor / targetDelta 还原。
         const base = {
-            azimuth: state.azimuth,
+            azimuth: normalizeAngle(state.azimuth - (sourcePanel.yawDelta || 0)),
             elevation: state.elevation,
             distance: state.distance / (sourcePanel.distFactor || 1),
             target: state.target.clone().sub(sourcePanel.targetDelta || ZERO3),
@@ -1041,15 +1064,16 @@ title: "高斯对比"
 
     // 把「共同基准机位」落到某个面板：
     //   本面板的最终机位 = 基准叠加【自己的】私有偏差（调正折算引入）。
-    //   无偏差的面板（distFactor=1 / targetDelta=0）退化成整体同步 —— 即原有的
-    //   中键缩放、右键平移全体联动手感，完全保留。
+    //   无偏差的面板（yawDelta=0 / distFactor=1 / targetDelta=0）退化成整体同步 ——
+    //   即原有的中键缩放、右键平移全体联动手感，完全保留。
     function applyCameraState(panel, state) {
         if (!panel.controls) return;
         const f = panel.distFactor || 1;
         const d = panel.targetDelta || ZERO3;
+        const yaw = state.azimuth + (panel.yawDelta || 0);
         const baseTarget = state.target ? state.target.clone() : new THREE.Vector3(0, 0, 0);
         const target = baseTarget.add(d);
-        const spherical = new THREE.Spherical(state.distance * f, state.elevation, state.azimuth);
+        const spherical = new THREE.Spherical(state.distance * f, state.elevation, yaw);
         const offset = new THREE.Vector3().setFromSpherical(spherical);
         const newPos = new THREE.Vector3().addVectors(target, offset);
 
@@ -1089,6 +1113,7 @@ title: "高斯对比"
         mainCameraState = state;
         // 「适应」= 全体回到同一初始机位 ⇒ 清空各面板的调正私有偏差
         for (const p of panels) {
+            p.yawDelta = 0;
             p.distFactor = 1;
             p.targetDelta = new THREE.Vector3();
         }
@@ -1189,6 +1214,7 @@ title: "高斯对比"
         // 排查"某个面板转不动/滚不动"时最直接的两个状态
         enabled: p.controls ? p.controls.enabled : null,
         adjusting: p.adjusting,
+        yawDelta: +((p.yawDelta || 0) * 180 / Math.PI).toFixed(3),
         distFactor: +(p.distFactor || 1).toFixed(4),
     }));
     // 调试钩子：读取各面板 splatGroup 变换（验证翻转/居中/调正）
