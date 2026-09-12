@@ -211,9 +211,11 @@ title: "高斯对比"
 
     // 调正时"操作模型"的手感参数（与查看模型同一套量级）
     const DRAG_ROT_STEP = 0.007;      // 每像素对应的模型旋转弧度
-    const ZOOM_DRAG_STEP = 0.0035;    // 每像素对应的缩放指数
     const USER_SCALE_MIN = 0.05;
     const USER_SCALE_MAX = 20;
+    // 缩放：抄 OrbitControls 的 getZoomScale() = pow(0.95, zoomSpeed=1)
+    const ZOOM_NOTCH = 0.95;          // 一档滚轮/一次 dolly 的相机距离倍率
+    const ZOOM_DRAG_PX_PER_NOTCH = 40; // 中键拖多少像素等价一档滚轮（见 zoomFactorFromDrag 注释）
 
     // 相机联动语义：广播「共同基准机位」，各面板叠加自己的私有偏差
     // （调正折算引入的 distFactor / targetDelta）。
@@ -379,7 +381,7 @@ title: "高斯对比"
             p.adjustDrag.x = e.clientX;
             p.adjustDrag.y = e.clientY;
             if (p.adjustDrag.mode === 'translate') translateModelByDrag(p, dx, dy);
-            else if (p.adjustDrag.mode === 'zoom') zoomModelByDrag(p, dy);
+            else if (p.adjustDrag.mode === 'zoom') applyModelScaleFactor(p, zoomFactorFromDrag(dy));
             else rotateModelByDrag(p, dx);
         });
         const endAdjustDrag = (e) => {
@@ -392,13 +394,6 @@ title: "高斯对比"
         };
         canvasWrap.addEventListener('pointerup', endAdjustDrag);
         canvasWrap.addEventListener('pointercancel', endAdjustDrag);
-        // 滚轮 = 缩放该模型（与中键拖同一套）。必须非 passive 才能 preventDefault 掉页面滚动。
-        canvasWrap.addEventListener('wheel', (e) => {
-            const p = panels.find(x => x.el === el);
-            if (!p || !p.adjusting || p.state !== 'ready') return;
-            e.preventDefault();
-            zoomModelByDrag(p, e.deltaY > 0 ? 60 : -60);
-        }, { passive: false });
 
         const panel = {
             el, titleEl, closeEl, canvasWrap, adjustEl, adjustBar,
@@ -429,6 +424,8 @@ title: "高斯对比"
             targetDelta: new THREE.Vector3(),
         };
         panels.push(panel);
+        // 滚轮要在 panel 建好后挂（捕获阶段，见 installAdjustWheel 注释）
+        installAdjustWheel(panel);
         relayout();
         return panel;
     }
@@ -697,16 +694,59 @@ title: "高斯对比"
         wakeRenderLoop();
     }
 
-    // 缩放该模型：与查看模型滚轮推拉同一套方向 ——
-    // 向前滚（deltaY<0，屏幕上是"推近"）→ 模型变大。
-    // dy 为正表示"拉远"，乘 exp(-dy*STEP) 得到 <1 的因子。
-    function zoomModelByDrag(panel, dy) {
-        if (!dy) return;
+    // 缩放该模型 —— 与查看模型推拉**同一套量级**（设计目标：手感一致）。
+    //
+    // 查看模型时 OrbitControls 改的是「相机距离 d」，屏幕上模型大小 ∝ 1/d；
+    // 调正时改的是「模型自身 scale」，屏幕上大小 ∝ scale。
+    // 所以只要给 scale 乘上 **1/d 的那个倍率**，两种模式的观感就逐档相同。
+    //
+    // OrbitControls 的两个入口（vendor 实测）：
+    //   · 滚轮：`getZoomScale() = pow(0.95, zoomSpeed=1) = 0.95`，**每个 wheel 事件一档**，
+    //           与 deltaY 的大小无关（只看符号）。dollyIn ⇒ d ×0.95 ⇒ 观感 ×1/0.95 = +5.26%。
+    //   · 中键拖：`handleMouseMoveDolly` 同样是**每个 mousemove 事件一档** 0.95，
+    //           不是按像素！实测拖 200px（5 个 move 事件）⇒ d ×0.95^5 = ×0.7738 ⇒ 观感 +29.2%。
+    //
+    // 中键拖若照抄"每事件一档"会依赖浏览器派发 move 的频率（拖快拖慢结果不同），
+    // 不可复现。改为**按像素**、并令 `ZOOM_DRAG_PX_PER_NOTCH = 40px 等价一档滚轮`：
+    // 200px ⇒ 0.95^(-5) = ×1.2923，与上面实测的查看模式 +29.2% **逐位吻合**，且确定可复现。
+    function applyModelScaleFactor(panel, factor) {
+        if (!factor || factor === 1) return;
         panel.userScale = Math.min(USER_SCALE_MAX, Math.max(USER_SCALE_MIN,
-            panel.userScale * Math.exp(-dy * ZOOM_DRAG_STEP)));
+            panel.userScale * factor));
         applyGroupTransform(panel, panel.sceneCenter);
         forceResort(panel);
         wakeRenderLoop();
+    }
+
+    // 中键拖的屏幕像素增量 dy → 缩放因子。
+    // dy<0（向上拖）= 推近 = 模型变大，与查看模式同向。
+    function zoomFactorFromDrag(dy) {
+        if (!dy) return 1;
+        return Math.pow(ZOOM_NOTCH, dy / ZOOM_DRAG_PX_PER_NOTCH);
+    }
+
+    // 滚轮 deltaY → 缩放因子。抄 OrbitControls：**只看符号，一格一档**。
+    // deltaY<0（向前滚/推近）= 模型变大。
+    function zoomFactorFromWheel(deltaY) {
+        const dir = Math.sign(deltaY);
+        if (!dir) return 1;
+        return Math.pow(ZOOM_NOTCH, dir);
+    }
+
+    // ⚠️ 滚轮必须在**捕获阶段**挂到 canvasWrap 上。
+    // 原因：OrbitControls 把 wheel 挂在 `renderer.domElement`（canvas）上，而 canvas 是
+    // canvasWrap 的**子节点** —— 冒泡阶段 canvasWrap 的监听器排在 canvas 之后，
+    // 事件早被 OrbitControls 消费掉（走原生相机缩放），调正的滚轮分支根本轮不到。
+    // （历史坑：第三轮因此删掉了调正滚轮；第四轮补回来时用的是**冒泡**监听器，
+    //   于是"调正时滚轮"一直静默走 OrbitControls 改相机、不改模型 —— 直到第七轮才被抓出。）
+    // 捕获阶段自上而下、先于 target 上的监听器执行，这里 stopPropagation() 才挡得住。
+    function installAdjustWheel(panel) {
+        panel.canvasWrap.addEventListener('wheel', (e) => {
+            if (!panel.adjusting || panel.state !== 'ready') return;
+            e.preventDefault();
+            e.stopPropagation();
+            applyModelScaleFactor(panel, zoomFactorFromWheel(e.deltaY));
+        }, { passive: false, capture: true });
     }
 
     function axisVector(name) {
@@ -1306,7 +1346,28 @@ title: "高斯对比"
         zoom: (i, dy) => {
             const p = panels[i];
             if (!p) return null;
-            zoomModelByDrag(p, dy || 0);
+            applyModelScaleFactor(p, dy || 1);
+            return +p.userScale.toFixed(5);
+        },
+        // 调试：直接给缩放因子（与 UI 同一入口）
+        zoomFactor: (i, f) => {
+            const p = panels[i];
+            if (!p) return null;
+            applyModelScaleFactor(p, f || 1);
+            return +p.userScale.toFixed(5);
+        },
+        // 调试：按"屏幕像素拖拽"缩放（与 UI 中键拖同一套换算）
+        zoomDrag: (i, px) => {
+            const p = panels[i];
+            if (!p) return null;
+            applyModelScaleFactor(p, zoomFactorFromDrag(px || 0));
+            return +p.userScale.toFixed(5);
+        },
+        // 调试：按"滚轮一整格"缩放（与 UI 滚轮同一套换算）
+        zoomWheel: (i, deltaY) => {
+            const p = panels[i];
+            if (!p) return null;
+            applyModelScaleFactor(p, zoomFactorFromWheel(deltaY || 0));
             return +p.userScale.toFixed(5);
         },
         // 折算进相机（等价于退出调正）
