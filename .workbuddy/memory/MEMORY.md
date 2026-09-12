@@ -64,20 +64,21 @@ Node 内置 `WebSocket` 手写极简客户端（`Target.createTarget` → `attac
 - 缩放手感抄 OrbitControls `getZoomScale()=pow(0.95,zoomSpeed)`：滚轮一格 ×1/0.95=+5.26%；中键拖 40px/档。
 - TDZ 坑：顶层标识符**不要命名 `zf`**（vendor 里有 `let zf`）。
 
-### 调正（adjust）语义演进 —— 详见当日日志
-- 模型变换：`R = flip · userQuat`（flip 在左/世界空间 ⇒ 整体翻转不打乱相对朝向），
-  居中不变式 `t = -R·(c·S) + userOffset`，任一项变了必须走 `applyGroupTransform` 重算。
-- 世界增量 → 内层 `userQuat` 必须走共轭换算 `applyWorldDelta(panel, D)`：
-  `R0 = flip·userQuat; userQuat ← userQuat·(R0⁻¹·D·R0)`。直接右乘裸轴向四元数在 flip 下必错（曾 179° 误差）。
-- 把模型旋转折算进相机要求相机转 `R⁻¹`，**只有绕世界 Y 横滚仍为 0**（纯 Y=0.000°；X=10.5°、Z=14.0°）
-  ⇒ 峰哥拍板"只改 Y 轴"。
-- 调正结果**不按文件名记住**。
-- ⚠️ 已踩两次的坑：① 把"折算产生的私有量"与"用户主动缩放/平移"混为一谈 ⇒ 联动整体失灵
-  （区分标准是**谁发起的**）；② 把折算后的 `azimuth/elevation` 写进共同基准 `mainCameraState`
-  ⇒ 其他面板不当场跟转，下次任意面板一广播就二次跳转。
-- 像素残差正确认识：折算前后是两种**等价表示**（`eye_predict.mjs` 位置差 1.1e-4、朝向差 0.0039°），
-  残差 4.72%（均值 2.98/255，集中边缘）来自 `splatMesh.matrixWorld` 变化引起的深度排序次序微变。
-  **同机位强制重排对照 = 0%**（渲染确定性）⇒ 不能用 no-op 当基线。
+### 「单独调整」（原调正）语义 —— 2026-09-12 第九轮定案，**现行架构**
+- **共同基准 ⊕ 私有偏移**，全部状态只有两份：
+  `mainCameraState = {target, azimuth, elevation, distance}`（共同基准），
+  `panel.camOffset = {dTarget, dAz, dEl, distRatio}`（私有偏移）。
+  本面板实际机位 = 基准 ⊕ 偏移。
+- **查看模式**：变化量写基准并广播，其他面板 `applyBaseToPanel(新基准)` ⇒ 全体同步、各自偏移保留。
+  **单独调整模式**：变化量写偏移（`recordPrivateOffset` 每次从当前机位反算 `st ⊖ base`）、不广播 ⇒ 只动本面板。
+  两种模式三键语义完全一致（OrbitControls 原生左转/中缩/右平，操作**相机**）。
+- **退出单独调整 = 无操作**。偏移反算是幂等的 ⇒ 不可能重复累加/漂移（第六、七轮的账本 bug 在此架构下不存在）。
+- 偏移含 `dEl`（俯仰私有维，clampPhi 钳 (0,π)）⇒ **"只能绕 Y"限制已取消**（无折算即无横滚问题）。
+- 广播 = 同一个减法 `base = st ⊖ camOffset`；fitAllToFirst/换模型清偏移。
+- `applyGroupTransform` 只剩全局翻转 + 居中（`t = -R·c`），模型侧调正变换已全部删除（约 320 行）。
+- 历史：第 1–8 轮（模型侧变换 + 退出折算 R⁻¹·C + 账本 distFactor/yawDelta/targetDelta）已全部作废，
+  教训留在当日日志 2026-09-12.md。旧回归 link_sync/adjust_isolation/adjust_freeze 走旧钩子，一并作废；
+  现行回归 = `unify_semantics.js`（两模型真实 CDP 鼠标 25 项）+ 重写版 `check_splat_compare.js`（44 项，33 个旧标识符死名单）。
 
 ### 调试资产
 - **已入库**：`_pages/splat-test-matrix.html`（变体矩阵，URL 参数 gpusort/halfprec/manual/nooffset/forceall）、
