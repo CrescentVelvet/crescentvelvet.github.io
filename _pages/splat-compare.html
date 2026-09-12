@@ -63,6 +63,34 @@ title: "高斯对比"
             user-select: none;
         }
         .panel-close:hover { background: #4a2a2a; color: #e88; }
+
+        /* 单模型「调正」按钮 + 调正工具条 */
+        .panel-adjust {
+            font-size: 12px; color: #999; cursor: pointer; padding: 1px 7px;
+            border-radius: 3px; user-select: none; white-space: nowrap;
+            border: 1px solid transparent; line-height: 1.5;
+        }
+        .panel-adjust:hover { background: #3a4a3a; color: #9c9; }
+        .panel-adjust.active { background: #2f4f3f; border-color: #5a9; color: #cfe; }
+        .panel-adjust.disabled { opacity: 0.35; cursor: not-allowed; }
+        .panel-adjust.disabled:hover { background: transparent; color: #999; }
+        .panel-adjust-bar {
+            position: absolute; left: 8px; right: 8px; bottom: 8px; z-index: 8;
+            display: none; align-items: center; gap: 5px; flex-wrap: wrap;
+            background: rgba(18, 24, 21, 0.88); border: 1px solid #3a5a4a;
+            border-radius: 4px; padding: 6px 8px;
+        }
+        .panel-adjust-bar.show { display: flex; }
+        .panel-adjust-bar .adj-hint { font-size: 11px; color: #9cb; margin-right: auto; }
+        .panel-adjust-bar button {
+            background: #2f3a34; color: #cfe; border: 1px solid #4a5a52;
+            padding: 3px 7px; border-radius: 3px; cursor: pointer; font-size: 11px;
+        }
+        .panel-adjust-bar button:hover { background: #3f4f46; }
+        .panel-adjust-bar button.adj-reset { border-color: #5a4a4a; color: #ebc; }
+        .panel-canvas-wrap.adjusting { cursor: grab; }
+        .panel-canvas-wrap.adjusting.dragging { cursor: grabbing; }
+
         .panel-canvas-wrap { flex: 1; position: relative; }
         .panel-canvas-wrap canvas { display: block; width: 100%; height: 100%; }
 
@@ -164,6 +192,15 @@ title: "高斯对比"
     // 默认 false = 模型原始数据朝向，无预置摆正
     let allFlipped = false;
 
+    // ============ 单模型「调正」 ============
+    // 有些模型的坐标系和其他模型不一致（例如 COLMAP Y-down vs Y-up），
+    // 直接同步控制视角时看不出差异，必须先各自转到同一朝向再对比。
+    // 拖动 / 轴向快捷键产生的旋转全部以世界轴表示，累积在 panel.userQuat 上。
+    const AXIS_X = new THREE.Vector3(1, 0, 0);
+    const AXIS_Y = new THREE.Vector3(0, 1, 0);
+    const AXIS_Z = new THREE.Vector3(0, 0, 1);
+    const DRAG_ROT_STEP = 0.01; // 弧度/像素 ≈ 0.57°，400px 拖动约 229°
+
     // ============ 布局管理 ============
     function getGridClass(count) {
         return 'count-' + Math.max(1, Math.min(4, count));
@@ -210,10 +247,21 @@ title: "高斯对比"
         el.innerHTML = `
             <div class="panel-header">
                 <span class="panel-title" contenteditable="false">未加载</span>
+                <span class="panel-adjust disabled" title="单独调正该模型朝向">调正</span>
                 <span class="panel-close" title="关闭">×</span>
             </div>
             <div class="panel-canvas-wrap">
                 <div class="panel-empty">拖入 .ply 或点击添加</div>
+            </div>
+            <div class="panel-adjust-bar">
+                <span class="adj-hint">拖动旋转该模型</span>
+                <button data-axis="x" data-dir="-1">X−90°</button>
+                <button data-axis="x" data-dir="1">X+90°</button>
+                <button data-axis="y" data-dir="-1">Y−90°</button>
+                <button data-axis="y" data-dir="1">Y+90°</button>
+                <button data-axis="z" data-dir="-1">Z−90°</button>
+                <button data-axis="z" data-dir="1">Z+90°</button>
+                <button class="adj-reset">重置</button>
             </div>
         `;
         grid.appendChild(el);
@@ -221,6 +269,8 @@ title: "高斯对比"
         const titleEl = el.querySelector('.panel-title');
         const closeEl = el.querySelector('.panel-close');
         const canvasWrap = el.querySelector('.panel-canvas-wrap');
+        const adjustEl = el.querySelector('.panel-adjust');
+        const adjustBar = el.querySelector('.panel-adjust-bar');
 
         // 标题编辑
         titleEl.addEventListener('click', () => {
@@ -245,14 +295,70 @@ title: "高斯对比"
             if (idx >= 0) removePanel(idx);
         });
 
+        // 「调正」：进入/退出单模型朝向调整
+        adjustEl.addEventListener('click', () => {
+            const p = panels.find(x => x.el === el);
+            if (!p || p.state !== 'ready') return;
+            setPanelAdjusting(p, !p.adjusting);
+        });
+
+        // 调正工具条：轴向 ±90° 快捷键 + 重置
+        adjustBar.addEventListener('click', (e) => {
+            const btn = e.target.closest('button');
+            if (!btn) return;
+            const p = panels.find(x => x.el === el);
+            if (!p || !p.adjusting) return;
+            if (btn.classList.contains('adj-reset')) {
+                p.userQuat.identity();
+            } else {
+                const axisVec = btn.dataset.axis === 'x' ? AXIS_X : (btn.dataset.axis === 'y' ? AXIS_Y : AXIS_Z);
+                const dir = parseFloat(btn.dataset.dir) || 1;
+                // 世界空间左乘：坐标系轴序差异就是绕世界轴转 90°
+                const delta = new THREE.Quaternion().setFromAxisAngle(axisVec, dir * Math.PI / 2);
+                p.userQuat.premultiply(toUserSpace(delta)).normalize();
+            }
+            applyGroupTransform(p, p.sceneCenter);
+            forceResort(p);
+            wakeRenderLoop();
+        });
+
+        // 调正模式下拖动 = 旋转该模型（相机冻结，构图不变，可直接对着别的面板调）
+        canvasWrap.addEventListener('pointerdown', (e) => {
+            const p = panels.find(x => x.el === el);
+            if (!p || !p.adjusting || p.state !== 'ready' || e.button !== 0) return;
+            p.adjustDrag = { x: e.clientX, y: e.clientY };
+            canvasWrap.classList.add('dragging');
+            try { canvasWrap.setPointerCapture(e.pointerId); } catch (_) {}
+        });
+        canvasWrap.addEventListener('pointermove', (e) => {
+            const p = panels.find(x => x.el === el);
+            if (!p || !p.adjustDrag) return;
+            const dx = e.clientX - p.adjustDrag.x;
+            const dy = e.clientY - p.adjustDrag.y;
+            p.adjustDrag = { x: e.clientX, y: e.clientY };
+            rotateModelByDrag(p, dx, dy);
+        });
+        const endAdjustDrag = (e) => {
+            const p = panels.find(x => x.el === el);
+            if (p) p.adjustDrag = null;
+            canvasWrap.classList.remove('dragging');
+            try { canvasWrap.releasePointerCapture(e.pointerId); } catch (_) {}
+        };
+        canvasWrap.addEventListener('pointerup', endAdjustDrag);
+        canvasWrap.addEventListener('pointercancel', endAdjustDrag);
+
         const panel = {
-            el, titleEl, closeEl, canvasWrap,
+            el, titleEl, closeEl, canvasWrap, adjustEl, adjustBar,
             title: '未加载',
             viewer: null, renderer: null, camera: null, controls: null,
             scene: null,
             state: 'empty', // empty | loading | ready | error
             bbox: null,
             scale: 1, // 归一化缩放
+            userQuat: new THREE.Quaternion(), // 单模型调正累积旋转（世界空间）
+            adjusting: false,                 // 调正中：本面板 OrbitControls 输入冻结，拖动改为转模型
+            adjustDrag: null,
+            sortDirty: false,                 // 朝向变了待重排（排序进行中时补跑）
         };
         panels.push(panel);
         relayout();
@@ -269,19 +375,64 @@ title: "高斯对比"
         relayout();
     }
 
-    // ============ splatGroup 变换（翻转 + 居中） ============
-    // 统一入口：按 allFlipped 状态把变换应用到 splatGroup 级。
+    // ============ splatGroup 变换（全局翻转 × 单模型调正 + 居中） ============
+    // 统一入口：把变换应用到 splatGroup 级。
     // 必须放 group 级 —— v0.4.7 static 模式 scene0 变换被烘焙进数据纹理，
     // 事后改无效；splatMesh.matrixWorld 含 group 变换，排序+渲染都吃。
-    // world = R*p + t，center c 映射到原点需要 t = -R*c（R 变了 t 必须重算）。
+    //
+    // 最终朝向 R = flip · userQuat：
+    //   flip     在左（世界空间），全局上下翻转动的是这一层；
+    //   userQuat 在内层，是单模型自己的坐标系修正。
+    // 这样点「上下翻转」时所有模型整体一起翻，彼此相对朝向不被打乱。
+    // world = R*p + t，中心 c 必须落到原点 → t = -R*c（R 变了 t 必须重算）。
     function applyGroupTransform(panel, sceneCenter) {
         const g = panel.splatGroup;
         if (!g) return;
-        // allFlipped 时绕 X 轴转 180°（上下颠倒），默认保持模型原始朝向
-        g.rotation.set(allFlipped ? Math.PI : 0, 0, 0);
-        g.position.copy(sceneCenter).applyEuler(g.rotation).multiplyScalar(-1);
+        const q = currentFlipQuat().multiply(panel.userQuat);
+        g.quaternion.copy(q);
+        g.position.copy(sceneCenter).applyQuaternion(q).multiplyScalar(-1);
         g.scale.set(1, 1, 1);
         g.updateMatrix();
+        // 排序读 splatMesh.matrixWorld（库 L14102：mvpMatrix × splatMesh.matrixWorld），
+        // 而这行代码可能在 render 之前执行（forceResort），必须立刻把 matrixWorld
+        // 刷成新朝向，否则这一轮强排用的是上一帧的旧矩阵。
+        g.updateMatrixWorld(true);
+    }
+
+    // 全局翻转对应的四元数（绕 X 轴 180°）
+    function currentFlipQuat() {
+        return new THREE.Quaternion().setFromAxisAngle(AXIS_X, allFlipped ? Math.PI : 0);
+    }
+
+    // 把「世界空间的旋转增量」换算到 userQuat 所在的坐标系。
+    // 对最终朝向 R = flip·userQuat 左乘世界增量 D，需要
+    // userQuat ← (flip⁻¹·D·flip) · userQuat。
+    // 不换算的话，翻转开启时水平拖动方向会反（flip 只与绕 X 的旋转可交换）。
+    function toUserSpace(delta) {
+        const f = currentFlipQuat();
+        return f.clone().invert().multiply(delta).multiply(f);
+    }
+
+    // 强制重排：模型朝向变了，view-space 深度全变，复用旧排序会串色。
+    // runSplatSort(force, forceSortAll) 在排序进行中会直接 return true（库 L14071），
+    // 所以记一个 sortDirty，交给渲染循环在排序结束后补跑，保证最后一次改动落地。
+    function forceResort(panel) {
+        if (!panel.viewer) return;
+        panel.sortDirty = true;
+        tryResort(panel);
+    }
+
+    function tryResort(panel) {
+        const v = panel.viewer;
+        if (!v || !panel.sortDirty) return;
+        if (!v.initialized || v.sortRunning) return; // 排序中，等下一帧再试
+        panel.sortDirty = false;
+        try {
+            const r = v.runSplatSort(true, true);
+            if (r && typeof r.catch === 'function') r.catch(() => {});
+        } catch (e) {
+            panel.sortDirty = false;
+        }
     }
 
     // 所有已就绪面板统一切换翻转，相机不动（模型仍绕原点翻转，画面居中不变）
@@ -291,9 +442,40 @@ title: "高斯对比"
         for (const p of panels) {
             if (p.state === 'ready' && p.sceneCenter) {
                 applyGroupTransform(p, p.sceneCenter);
+                forceResort(p);
             }
         }
         // 模型变换不触发 controls change，必须手动唤醒渲染
+        wakeRenderLoop();
+    }
+
+    // ============ 单模型调正：进入 / 退出 / 拖动 / 轴向快捷键 ============
+    // 进入调正：冻结该面板的 OrbitControls 输入，拖动改为旋转模型本身。
+    // 注意仍然参与相机联动——各面板保持同一机位，才能边调边和对面的模型对齐；
+    // 想换机位就去拖其他（未调正）面板的画布。
+    function setPanelAdjusting(panel, on) {
+        if (on && panel.state !== 'ready') return;
+        panel.adjusting = on;
+        panel.adjustEl.classList.toggle('active', on);
+        panel.adjustBar.classList.toggle('show', on);
+        panel.canvasWrap.classList.toggle('adjusting', on);
+        if (panel.controls) panel.controls.enabled = !on;
+        if (!on) {
+            panel.adjustDrag = null;
+            panel.canvasWrap.classList.remove('dragging');
+        }
+        wakeRenderLoop();
+    }
+
+    // 拖动旋转该模型：水平拖动绕世界 Y（屏幕竖直轴）偏航，竖直拖动绕世界 X 俯仰。
+    // 模型已居中到原点，绕原点转 == 绕自身中心转，构图不漂。
+    function rotateModelByDrag(panel, dx, dy) {
+        if (!dx && !dy) return;
+        let delta = new THREE.Quaternion().setFromAxisAngle(AXIS_X, dy * DRAG_ROT_STEP);
+        delta.multiply(new THREE.Quaternion().setFromAxisAngle(AXIS_Y, dx * DRAG_ROT_STEP));
+        panel.userQuat.premultiply(toUserSpace(delta)).normalize();
+        applyGroupTransform(panel, panel.sceneCenter);
+        forceResort(panel);
         wakeRenderLoop();
     }
 
@@ -308,6 +490,15 @@ title: "高斯对比"
         if (panel.renderer) {
             panel.renderer.dispose();
         }
+        // 换模型 → 单模型调正状态作废（调正是针对当前模型调的，不跨模型沿用）
+        panel.adjusting = false;
+        panel.adjustDrag = null;
+        panel.sortDirty = false;
+        panel.userQuat.identity();
+        panel.adjustEl.classList.add('disabled');
+        panel.adjustEl.classList.remove('active');
+        panel.adjustBar.classList.remove('show');
+        panel.canvasWrap.classList.remove('adjusting', 'dragging');
         // 无条件清空容器（移除 .panel-empty / 旧 canvas / 旧 loading / 旧 error）
         panel.canvasWrap.innerHTML = '';
 
@@ -449,6 +640,7 @@ title: "高斯对比"
             // 移除 loading
             loadingEl.remove();
             panel.state = 'ready';
+            panel.adjustEl.classList.remove('disabled'); // 就绪后「调正」才可用
             console.log('[splat-compare] 加载完成，panel.state=ready');
 
             // 唤醒渲染循环（fit/sync 改了相机，change 事件也会触发，双保险）
@@ -502,6 +694,7 @@ title: "高斯对比"
     function tick() {
         let hasActive = false;
         let anyMoving = false;
+        let anyPending = false; // 有面板待重排/正在排序：不能挂起，否则停在旧排序上
         for (const p of panels) {
             if (p.state === 'ready' && p.viewer && p.renderer && p.scene) {
                 hasActive = true;
@@ -510,6 +703,10 @@ title: "高斯对比"
                 // renderer.render(scene, camera) 时 splatGroup.callbackMesh.onBeforeRender
                 // 会自动调用 viewer.update(renderer, camera)，内部完成排序和 uniform 更新
                 p.renderer.render(p.scene, p.camera);
+                // 排序放在 render 之后：此时 camera.matrixWorld 和 splatMesh.matrixWorld
+                // 都已是本帧最新值，强排用的是准确矩阵（朝向改动才置的 sortDirty）。
+                if (p.sortDirty) tryResort(p); // 若正撞上库自身在排序，留到下一帧补跑
+                if (p.sortDirty || p.viewer.sortRunning) anyPending = true;
                 if (!renderDebugLogged) {
                     const sm = p.viewer.splatMesh;
                     console.log('[splat-compare] render tick: initialized=', p.viewer.initialized,
@@ -528,19 +725,16 @@ title: "高斯对比"
             stillFrameCount = 0;
             return;
         }
-        // 静止计数：所有相机都连续 STILL_IDLE_FRAMES 帧没动 → 挂起循环
-        if (anyMoving) {
+        // 静止计数：所有相机都连续 STILL_IDLE_FRAMES 帧没动、且没有待落地的排序
+        // → 挂起循环。排序在 worker 里异步跑，结果要等回信后才画得出来，
+        // 有排序在跑或待补排时不挂起，防止停在"旧排序结果"上。
+        if (anyMoving || anyPending) {
             stillFrameCount = 0;
         } else {
             stillFrameCount++;
             if (stillFrameCount > STILL_IDLE_FRAMES) {
-                // 排序在 worker 里异步跑，结果要等回信后画出来；
-                // 还有面板在排序时不挂起，防止挂起在"旧排序结果"上
-                const sorting = panels.some(p => p.state === 'ready' && p.viewer && p.viewer.sortRunning);
-                if (!sorting) {
-                    renderLoopRunning = false;
-                    return; // 挂起，等事件唤醒
-                }
+                renderLoopRunning = false;
+                return; // 挂起，等事件唤醒
             }
         }
         requestAnimationFrame(tick);
@@ -719,16 +913,91 @@ title: "高斯对比"
         target: p.controls ? p.controls.target.toArray().map(v => +v.toFixed(3)) : null,
         pos: p.camera ? p.camera.position.toArray().map(v => +v.toFixed(3)) : null,
     }));
-    // 调试钩子：读取各面板 splatGroup 变换（验证翻转/居中）
+    // 调试钩子：读取各面板 splatGroup 变换（验证翻转/居中/调正）
     window.__debugGroupXform = () => panels.map(p => {
         if (!p.splatGroup || p.state !== 'ready') return null;
         return {
             rotationX: +p.splatGroup.rotation.x.toFixed(3),
+            quat: p.splatGroup.quaternion.toArray().map(v => +v.toFixed(4)),
             position: p.splatGroup.position.toArray().map(v => +v.toFixed(3)),
             sceneCenter: p.sceneCenter ? p.sceneCenter.toArray().map(v => +v.toFixed(3)) : null,
+            userQuat: p.userQuat.toArray().map(v => +v.toFixed(4)),
+            adjusting: p.adjusting,
+            controlsEnabled: p.controls ? p.controls.enabled : null,
+            sortDirty: p.sortDirty,
             allFlipped,
         };
     });
+    // 调试钩子：强制渲染一帧并直接读回像素（验证"确实画出来了 / 换朝向后画面变了"）。
+    // readPixels 必须和 render 在同一个任务内执行，否则默认帧缓冲已被合成清空。
+    // 返回非背景像素数（背景 0x222233）和一个滚动校验和，用来做像素级回归比对。
+    window.__pixelStats = (i = 0) => {
+        const p = panels[i];
+        if (!p || p.state !== 'ready' || !p.renderer || !p.scene || !p.camera) return null;
+        p.renderer.render(p.scene, p.camera);
+        const gl = p.renderer.getContext();
+        const w = gl.drawingBufferWidth;
+        const h = gl.drawingBufferHeight;
+        const buf = new Uint8Array(w * h * 4);
+        gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, buf);
+        let nonBg = 0;
+        let sum = 0;
+        for (let k = 0; k < buf.length; k += 4) {
+            const r = buf[k], g = buf[k + 1], b = buf[k + 2];
+            if (Math.abs(r - 0x22) > 8 || Math.abs(g - 0x22) > 8 || Math.abs(b - 0x33) > 8) nonBg++;
+            sum = (sum * 31 + r * 7 + g * 13 + b * 17) >>> 0;
+        }
+        return { w, h, nonBg, sum };
+    };
+    // 调试钩子：本面板 splat 渲染计数（区分"真的没画全"和"朝向变了"）
+    window.__splatCounts = (i = 0) => {
+        const p = panels[i];
+        if (!p || p.state !== 'ready' || !p.viewer) return null;
+        let total = null;
+        try { total = p.viewer.getSplatMesh().getSplatCount(); } catch (e) { total = null; }
+        return {
+            renderCount: p.viewer.splatRenderCount,
+            total,
+            sortRunning: !!p.viewer.sortRunning,
+            initialized: !!p.viewer.initialized,
+            ready: !!p.viewer.splatRenderReady,
+        };
+    };
+    // 调试钩子：脚本驱动单模型调正（Playwright / 控制台）
+    window.__adjust = {
+        toggle: (i, on) => {
+            const p = panels[i];
+            if (!p) return null;
+            setPanelAdjusting(p, on === undefined ? !p.adjusting : !!on);
+            return p.adjusting;
+        },
+        rotate: (i, dx, dy) => {
+            const p = panels[i];
+            if (!p) return null;
+            rotateModelByDrag(p, dx, dy);
+            return p.userQuat.toArray().map(v => +v.toFixed(4));
+        },
+        axis: (i, axis, deg) => {
+            const p = panels[i];
+            if (!p) return null;
+            const axisVec = axis === 'x' ? AXIS_X : (axis === 'y' ? AXIS_Y : AXIS_Z);
+            const delta = new THREE.Quaternion().setFromAxisAngle(axisVec, deg * Math.PI / 180);
+            p.userQuat.premultiply(toUserSpace(delta)).normalize();
+            applyGroupTransform(p, p.sceneCenter);
+            forceResort(p);
+            wakeRenderLoop();
+            return p.userQuat.toArray().map(v => +v.toFixed(4));
+        },
+        reset: (i) => {
+            const p = panels[i];
+            if (!p) return null;
+            p.userQuat.identity();
+            applyGroupTransform(p, p.sceneCenter);
+            forceResort(p);
+            wakeRenderLoop();
+            return true;
+        }
+    };
     </script>
 </body>
 </html>

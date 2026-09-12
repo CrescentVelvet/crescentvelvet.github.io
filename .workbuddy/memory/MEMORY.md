@@ -42,10 +42,11 @@
   光关视觉旋转会让"先对准再走"退化成看不见的原地停顿，看起来像卡住。
 - 目前仅 `BallisticMissile` / `CruiseMissile` 享有。它们的 `tryAttack` 无 `isFacing` 门禁，开火不受影响。
 
-### 沙盘视觉改动的验证方法（2026-09-11 定）
-**本机没有可用的无头截图**：Edge CLI `--headless --screenshot` 静默退出且不产文件，
-playwright / agent-browser 均未安装（装 Chromium 约 500MB，别为单次验证装）。
-改用两步静态验证，都能真正抓出错误：
+### 沙盘视觉改动的验证方法（2026-09-11 定；2026-09-12 修订）
+**Edge CLI `--headless --screenshot` 不可用**（静默退出且不产文件），playwright 也未安装。
+但**不要因此放弃无头验证**——CDP 直驱系统 Edge 是可行的（见本文档
+「无头验证方法（2026-09-12 更新）」，零依赖，已跑通 37 项断言 + 截图）。
+本页（DOM+CSS 渲染）目前仍以两步静态验证为主，都能真正抓出错误：
 1. **几何断言**：从 CSS 文本解析声明，按 padding box 反算页面坐标像素框，
    断言"居中 / 与弹尾衔接无断缝 / 配件层级尺寸关系"。
    解析修饰规则（如 `.boosting`）必须**与基类做层叠合并、且取最后一次声明**。
@@ -71,7 +72,7 @@ playwright / agent-browser 均未安装（装 Chromium 约 500MB，别为单次�
 - 托管 Node 路径：`C:/Users/wangyufeng/.workbuddy/binaries/node/versions/22.22.2-3/node.exe`
   （早期记录里的 `22.22.2-2` 已删除，调用会直接 127）。
 
-## 3DGS 对比查看器（_pages/splat-compare.html）
+## 高斯对比 / 3DGS 对比查看器（_pages/splat-compare.html，页名已改为「高斯对比」）
 
 ### gaussian-splats-3d v0.4.7 的 gpuAcceleratedSort 黑屏 bug（2026-09-07 定案）
 - **必须保持 `gpuAcceleratedSort: false`**（产品页 L321 有长注释，勿改回）。
@@ -89,8 +90,49 @@ playwright / agent-browser 均未安装（装 Chromium 约 500MB，别为单次�
   （截图像素 diff=0 实证）。splatMesh.matrixWorld 含 group 变换，排序+渲染都吃。
 - 相机同步必须全量含 target（右键平移改 controls.target），只同步球面坐标会丢平移。
 
-### 调试资产（都还在仓库里）
-- `_pages/splat-test-matrix.html`：变体矩阵测试页（URL 参数 gpusort/halfprec/manual/nooffset/forceall）。
-- `_pages/splat-test-inner.html` 标准 Viewer / `splat-test-dropin.html` DropInViewer 1:1 复刻探针页。
-- `.workbuddy/tmp/`：pxstat.py（截图非背景像素统计）、matrix_probe.js、e2e_compare_probe.js（DataTransfer 模拟拖放注入 File 到产品页）、8896/8897 Range 文件服务器。
-- 无头验证方法：Playwright `channel:'msedge'` + `--enable-unsafe-swiftshader`，PIL 像素统计代替看图。
+### 单模型「调正」（每模型独立朝向，2026-09-12 定）
+- 场景：不同模型坐标系不同（COLMAP Y-down vs Y-up），必须**先各自转到同一角度**再开相机联动比对。
+- 数据模型：每面板 `panel.userQuat`（**世界空间**累积旋转），最终朝向 **`R = flip · userQuat`**。
+  `flip` 在**左**（世界空间）⇒ 点「上下翻转」时所有模型整体一起翻，**相对朝向不被打乱**。
+- 居中不变式：`t = -R·c`（模型中心 c 必须落到原点）。**R 变了 t 必须重算**，统一走 `applyGroupTransform`。
+  模型恒居中 ⇒ 绕世界原点转 == 绕模型自身中心转，构图不漂。
+- **必守：`toUserSpace` 共轭。** 拖动/快捷键给的是"世界空间增量 D"，但左乘对象是内层 `userQuat`，
+  必须 `userQuat ← (flip⁻¹·D·flip)·userQuat`。不换算的话**翻转开启时水平拖动方向会反**
+  （`flip = Rx(180°)` 只与绕 X 的旋转可交换：`f·Ry(a)·f = Ry(-a)`）。轴向快捷键同理。
+- 调正时 `controls.enabled = false`（输入冻结，拖动改为转模型），但**仍参与相机联动**——
+  各面板同机位才能边调边跟对面比对；换机位去拖**未调正**的面板。
+  已核对 `OrbitControls.update()` **无 `enabled` 早退**（库 L4922 起），故 `applyCameraState` 照常生效。
+- **朝向变化必须强制重排**（否则复用旧 view-space 深度 → 串色）：
+  `applyGroupTransform` 里补 `g.updateMatrixWorld(true)`（排序读 `splatMesh.matrixWorld`，库 L14102，
+  不刷会读到上一帧旧矩阵）；`runSplatSort(force, forceSortAll)` 在排序中直接 `return true`
+  （库 L14071，静默丢弃）⇒ 用 `panel.sortDirty` 由渲染循环补跑，**`tryResort` 放在 `render()` 之后**
+  （此时 camera/splatMesh 的 matrixWorld 才都是本帧最新）。`tick()` 里
+  `anyPending = sortDirty || viewer.sortRunning`，有它就不挂起循环，防止停在旧排序上。
+- 用户已明确：调正结果**不按文件名记住**。
+
+### 调试资产
+- **已入库（在 Git 里）**：`_pages/splat-test-matrix.html`（变体矩阵测试页，URL 参数
+  gpusort/halfprec/manual/nooffset/forceall）、`_pages/splat-test-inner.html`（标准 Viewer）、
+  `_pages/splat-test-dropin.html`（DropInViewer 1:1 复刻）。
+- **仅在本机、未入库**：`.workbuddy/tmp/` **整个目录被 `.gitignore` 忽略**——
+  里面的探针脚本（pxstat.py、matrix_probe.js、e2e_compare_probe.js、
+  check_splat_compare.js、adjust_math_harness.mjs、e2e_adjust_cdp.js、pngstat.js…）
+  以及 `real.ply`(284MB) 只要工作区被清就会丢，别把长期依赖放在这里。
+
+### 无头验证方法（2026-09-12 更新 —— 旧记录的 Playwright 路线已不可用）
+**playwright / puppeteer 本机都没装，但可以 CDP 直驱系统 Edge，零依赖。**
+脚本 `.workbuddy/tmp/e2e_adjust_cdp.js`（自带 `http.createServer` 静态服务）：
+启 `msedge --headless=new --enable-unsafe-swiftshader --remote-debugging-port=N`
+（路径 `C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe`），
+用 **Node 内置 WebSocket** 手写极简 CDP 客户端
+（`Target.createTarget` → `attachToTarget(flatten)` → `Runtime.evaluate(returnByValue+awaitPromise)`
+→ `Input.dispatchMouseEvent` → `Page.captureScreenshot`；`/json/version` 取 browser 级 ws 端点）。
+- 真实拖放注入：page 内 `fetch(PLY) → new File → new DataTransfer → dispatchEvent('drop')`
+  （284MB 走这条路 0.5s，比 base64 稳得多）。
+- 页面错误收集：`Runtime.exceptionThrown` + `Log.entryAdded`；**favicon.ico 的 404 要白名单掉**。
+- 产品页新增诊断钩子：`__pixelStats(i)`（render 后**同一任务内** `gl.readPixels`，
+  否则默认帧缓冲已被合成清空）、`__splatCounts(i)`、`__adjust{toggle,rotate,axis,reset}`。
+- `.workbuddy/tmp/pngstat.js`：**纯 `zlib` 手写 PNG 解码** + 逐像素差异 + 16×16 粗格签名（不装 PIL）。
+- **像素基线必须先等渲染收敛**：刚 ready 时 `splatRenderCount` 未达全量，此时取的"基线"是残缺渲染
+  （曾导致误判"重置没回到基线"）。**任何像素级断言前先断言 `splatRenderCount == getSplatCount()`**。
+  滚动校验和不适合判"有没有变"（排序顺序微调就整体翻转），要用 PNG 变化像素占比/粗格签名。
