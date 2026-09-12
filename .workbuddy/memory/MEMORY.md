@@ -142,13 +142,40 @@
   **本轮同机位强制重排对照 = 0%**（渲染是确定性的），所以不能用 no-op 当基线，
   只能拿**同一等价类的另一种表示**来比。
 - **`__adjust` 钩子（当前）**：`toggle / rotate(i,dx) / axis / translate / zoom / commit /
-  quat / cursor / restoreCamera / reset / resetCommit / forceResort(i)`。
+  quat / cursor / restoreCamera / reset / resetCommit / forceResort(i) / broadcast(i) /
+  dolly(i,factor)`。
   `rotate` 现在只吃 `dx`（绕 Y），与 UI 左键水平拖同一套。
-- **验证（全绿）**：`check_splat_compare.js` **61 OK**；
+- **验证（全绿）**：`check_splat_compare.js` **66 OK**；
   `adjust_isolation.js` **25 OK**（含 10 项**真实鼠标事件路径**：CDP 注入左/中/右键+滚轮，
   断言另一面板相机与模型全程不动）；
   `adjust_freeze.js` 定格 **60.5% → 4.72%**（均值 2.98）；
+  `link_sync.js` **11 OK**；`turn_sync_verify.js` **10 OK**；
   `eye_predict.mjs` 相机会数值吻合；`roll_check.mjs` 复现 Y=0°/X=10.5°/Z=14.0°。
+
+#### 第六/七轮（2026-09-12）—— 相机联动模型最终定案（**当前生效语义**）
+**调正只改「私有偏差」，共同基准 `mainCameraState` 一个字节都不动。**
+每面板三个私有偏差字段，全部同构（广播时扣除、接收时叠加、折算时写入）：
+```js
+yawDelta      // 相对基准的私有偏航增量（弧度，azimuth 维）
+distFactor    // 私有距离倍率（= after.distance / base.distance）
+targetDelta   // 私有注视点世界偏移（Vector3）
+```
+- 广播：`azimuth_base = normalizeAngle(state.azimuth − src.yawDelta)`、
+  `distance_base = distance / src.distFactor`、`target_base = target − src.targetDelta`。
+- 接收：`azimuth = base + panel.yawDelta`、`distance = base.distance × panel.distFactor`、
+  `target = base.target + panel.targetDelta`。
+- **无偏差面板（0 / 1 / 0）退化成整体同步** ⇒ 左键转动、中键缩放、右键平移的
+  原有跨面板联动手感**完全保留**（第六轮修的就是这个：第五轮切过头了）。
+- `fitAllToFirst`（「适应」）与 `loadPlyToPanel` 清空三个偏差。
+
+**⚠️ 两个已踩过、绝不能再犯的坑：**
+1. **第五轮的过度隔离**：曾把「折算产生的私有距离」与「用户主动缩放/平移」混为一谈，
+   改成「只同步朝向」⇒ 中键/右键联动整体失灵。**区分标准是"谁发起的"，不是"是不是距离"。**
+2. **第七轮**：折算会改变本面板相机方位角（实测 −32°），
+   **绝不能把 `after.azimuth/elevation` 写进 `mainCameraState`** ——
+   其他面板不会当场跟转，下次任意面板一广播就把本面板按新基准重放，**再跳 24°**。
+   折算不是"朝向事件"，它只改这一个面板的私有偏差。
+   静态检查器已加守卫：`mainCameraState.azimuth = after.azimuth` 出现即 FAIL。
 
 ### 调试资产
 - **已入库（在 Git 里）**：`_pages/splat-test-matrix.html`（变体矩阵测试页，URL 参数
