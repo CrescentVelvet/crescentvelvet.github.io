@@ -63,6 +63,10 @@ Node 内置 `WebSocket` 手写极简客户端（`Target.createTarget` → `attac
 - 滚轮要挡住 OrbitControls 必须挂**捕获阶段**（canvas 是 canvasWrap 子节点，冒泡监听排在它之后 ⇒ 静默失效）。
 - 缩放手感抄 OrbitControls `getZoomScale()=pow(0.95,zoomSpeed)`：滚轮一格 ×1/0.95=+5.26%；中键拖 40px/档。
 - TDZ 坑：顶层标识符**不要命名 `zf`**（vendor 里有 `let zf`）。
+- **必须 `antialiased: true`**（2026-09-12 黑斑 A/B 实测定案）：关掉时 2D 协方差被 kernel2DSize=0.3px 加粗
+  但 vColor.a 不减（vendor L8169 分支）→ 薄层高斯叠出随视角漂移的深色侵蚀斑（SuperSplat 默认带补偿故光滑）。
+  开启实测亮区暗斑个数/面积降 30~45%。SH0/SH2、协方差 fp16/fp32、dpr1/dpr2 对黑斑**均无影响**（A/B 实证）。
+  ⚠️ 只对训练时带 gsplat 补偿的模型正确；未补偿模型会整体略淡。量化工具：tmp/blob_scan.js（亮区内暗斑连通域）。
 
 ### 「单独调整」（原调正）语义 —— 2026-09-12 第九轮定案，**现行架构**
 - **共同基准 ⊕ 私有偏移**，全部状态只有两份：

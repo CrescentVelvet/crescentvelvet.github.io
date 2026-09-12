@@ -511,10 +511,17 @@ title: "高斯对比"
                 integerBasedSort: true,
                 dynamicScene: false,
                 webXRMode: 0, // None
+                // gsplat/Mip-Splatting 式「反走样透明度补偿」（2026-09-12 黑斑 A/B 实测定案）：
+                // 关掉时 2D 协方差被 0.3px 核强行加粗但不减透明度，薄层高斯在脸上叠出
+                // 深色侵蚀斑、且随视角漂移；SuperSplat 默认带补偿所以显得光滑。
+                // 开启后实测亮区内暗斑个数/总面积降 30~45%（tmp/blob_scan.js 连通域量化）。
+                // 注意：只对「训练时用了补偿」的模型正确；没补偿训练的模型开它会整体略变淡。
+                antialiased: true,
                 // 纯查看模式：显式固定 SH degree=0（v0.4.7 默认也是 0）。
                 // PLY 里的 45 个 SH 视角依赖颜色系数在解析阶段直接丢弃，
                 // 只保留 f_dc 基础色。对比消融模型时视觉差异可忽略，
                 // 解析更快、显存/带宽更省。注意：必须构造时传，之后改无效。
+                // （A/B 实测：SH0/SH2 对黑斑无影响，黑斑根因是上面的 antialiased。）
                 sphericalHarmonicsDegree: 0
             });
 
