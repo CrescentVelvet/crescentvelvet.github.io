@@ -74,23 +74,10 @@ title: "高斯对比"
         .panel-adjust.active { background: #2f4f3f; border-color: #5a9; color: #cfe; }
         .panel-adjust.disabled { opacity: 0.35; cursor: not-allowed; }
         .panel-adjust.disabled:hover { background: transparent; color: #999; }
-        .panel-adjust-bar {
-            position: absolute; left: 8px; right: 8px; bottom: 8px; z-index: 8;
-            display: none; align-items: center; gap: 5px; flex-wrap: wrap;
-            background: rgba(18, 24, 21, 0.88); border: 1px solid #3a5a4a;
-            border-radius: 4px; padding: 6px 8px;
-        }
-        .panel-adjust-bar.show { display: flex; }
-        .panel-adjust-bar .adj-hint { font-size: 11px; color: #9cb; margin-right: auto; }
-        .panel-adjust-bar button {
-            background: #2f3a34; color: #cfe; border: 1px solid #4a5a52;
-            padding: 3px 7px; border-radius: 3px; cursor: pointer; font-size: 11px;
-        }
-        .panel-adjust-bar button:hover { background: #3f4f46; }
-        .panel-adjust-bar button.adj-reset { border-color: #5a4a4a; color: #ebc; }
-        /* 调正时光标由 JS 按当前动作动态设置（rotate=grab / translate=move / zoom=ns-resize），
-           这里只给一个兜底，避免样式表规则覆盖 JS 的 inline 值之外的场景。 */
-        .panel-canvas-wrap.adjusting { cursor: grab; }
+        /* 调正中：本面板的鼠标操作只改【自己的私有偏移】，共同基准与其他面板都不动。
+           工具栏已取消 —— 三键语义与查看模式**完全一致**（左键转/中键缩/右键平移，
+           都是操作相机），不需要任何额外按钮。改用一圈高亮描边提示"处于私有调整状态"。 */
+        .panel-canvas-wrap.adjusting { outline: 2px solid #5a9; outline-offset: -2px; }
 
         .panel-canvas-wrap { flex: 1; position: relative; }
         .panel-canvas-wrap canvas { display: block; width: 100%; height: 100%; }
@@ -193,34 +180,20 @@ title: "高斯对比"
     // 默认 false = 模型原始数据朝向，无预置摆正
     let allFlipped = false;
 
-    // ============ 单模型「调正」 ============
+    // ============ 单面板「调正」 ============
     // 有些模型的坐标系和其他模型不一致（例如 COLMAP Y-down vs Y-up），
     // 直接对比看不出差异，必须先各自转到同一朝向。
     //
-    // 语义：**调正按键只作用于被调正的那一个模型**（回到最初设计）。
-    // 进入调正时冻结本面板 OrbitControls，左键/中键/右键/滚轮直接操作这一个模型的
-    // 旋转/缩放/平移，**不广播**、其他面板纹丝不动；退出时把模型上累积的变换
-    // 折算进本面板相机修正（相机吸收、模型归位），画面逐点不变。
-    //
-    // 折算是可证的：模型绕世界轴转 R ⟺ 相机绕世界轴转 R⁻¹；模型缩放 S ⟺ 相机距离 ÷S；
-    // 模型平移 T ⟺ 相机平移 −T。数值验证见 .workbuddy/tmp/adjust_commit_math.mjs
-    // （最大屏幕偏差 1.76e-10）。
-    const AXIS_X = new THREE.Vector3(1, 0, 0);
-    const AXIS_Y = new THREE.Vector3(0, 1, 0);
-    const AXIS_Z = new THREE.Vector3(0, 0, 1);
+    // 语义（2026-09-12 定案）：**调正与查看是同一套鼠标操作，只是变化量记到不同地方**。
+    //   查看模式：变化量 → 共同基准机位 → 广播 → 所有面板一起动（各自私有偏移保留）
+    //   调正模式：变化量 → 本面板私有偏移 camOffset → 不广播 → 只有本面板动
+    // 三键语义完全一致：左键转 / 中键缩 / 右键平移，操作的都是**相机**。
+    // 因此调正不再需要：自定义指针处理、冻结 controls、退出时折算、"只能绕 Y 轴"限制。
+    // **退出调正 = 无操作**：私有偏移一直活在 camOffset 里，画面逐点不变。
+    const AXIS_X = new THREE.Vector3(1, 0, 0);   // 仅用于全局上下翻转
 
-    // 调正时"操作模型"的手感参数（与查看模型同一套量级）
-    const DRAG_ROT_STEP = 0.007;      // 每像素对应的模型旋转弧度
-    const USER_SCALE_MIN = 0.05;
-    const USER_SCALE_MAX = 20;
-    // 缩放：抄 OrbitControls 的 getZoomScale() = pow(0.95, zoomSpeed=1)
-    const ZOOM_NOTCH = 0.95;          // 一档滚轮/一次 dolly 的相机距离倍率
-    const ZOOM_DRAG_PX_PER_NOTCH = 40; // 中键拖多少像素等价一档滚轮（见 zoomFactorFromDrag 注释）
-
-    // 相机联动语义：广播「共同基准机位」，各面板叠加自己的私有偏差
-    // （调正折算引入的 distFactor / targetDelta）。
-    // 这样中键缩放、右键平移**照旧全体同步**（改的是共同基准），
-    // 而调正折算出的私有距离/注视点不会污染别人。
+    // 相机联动：广播「共同基准机位」，各面板叠加自己的私有偏移 camOffset。
+    // 查看模式的变化量进基准（全体同步），调正模式的变化量进私有偏移（只动本面板）。
     const ZERO3 = new THREE.Vector3(0, 0, 0);
 
     // 注意：别把任何顶层标识符命名成 zf：vendor 模块在模块级声明了 `let zf`，
@@ -279,13 +252,6 @@ title: "高斯对比"
             <div class="panel-canvas-wrap">
                 <div class="panel-empty">拖入 .ply 或点击添加</div>
             </div>
-            <div class="panel-adjust-bar">
-                <span class="adj-hint">左键←→=绕垂直轴转该模型 · 中键/滚轮=缩放 · 右键=平移</span>
-                <button data-axis="y" data-dir="-1" title="绕垂直轴逆时针 90°">Y−90°</button>
-                <button data-axis="y" data-dir="1" title="绕垂直轴顺时针 90°">Y+90°</button>
-                <button class="adj-scale-reset" title="缩放倍数回到 1">复原尺寸</button>
-                <button class="adj-reset" title="朝向/平移/缩放全部复原">重置</button>
-            </div>
         `;
         grid.appendChild(el);
 
@@ -293,7 +259,6 @@ title: "高斯对比"
         const closeEl = el.querySelector('.panel-close');
         const canvasWrap = el.querySelector('.panel-canvas-wrap');
         const adjustEl = el.querySelector('.panel-adjust');
-        const adjustBar = el.querySelector('.panel-adjust-bar');
 
         // 标题编辑
         titleEl.addEventListener('click', () => {
@@ -318,114 +283,34 @@ title: "高斯对比"
             if (idx >= 0) removePanel(idx);
         });
 
-        // 「调正」：进入/退出单模型朝向调整
+        // 「调正」：进入/退出【本面板私有机位】调整。
+        // 三键语义与查看模式**完全一致**（左键转 / 中键缩 / 右键平移，都是操作相机），
+        // 唯一区别是变化量记到本面板的私有偏移，而不写进共同基准、也不广播。
+        // 因此这里**不需要任何自定义指针处理**：OrbitControls 照常开着，
+        // 由 controls 的 change 事件按 panel.adjusting 路由到 offset 还是 base。
         adjustEl.addEventListener('click', () => {
             const p = panels.find(x => x.el === el);
             if (!p || p.state !== 'ready') return;
             setPanelAdjusting(p, !p.adjusting);
         });
 
-        // 调正工具条：轴向 ±90° 快捷键 + 复原尺寸 + 重置
-        adjustBar.addEventListener('click', (e) => {
-            const btn = e.target.closest('button');
-            if (!btn) return;
-            const p = panels.find(x => x.el === el);
-            if (!p || !p.adjusting) return;
-            if (btn.classList.contains('adj-reset')) {
-                p.userQuat.identity();
-                p.userScale = 1;
-                p.userOffset.set(0, 0, 0);
-            } else if (btn.classList.contains('adj-scale-reset')) {
-                p.userScale = 1;
-            } else {
-                // 轴向 ±90°：直接绕**世界轴**旋转该模型（与左键拖动同一套 userQuat 语义）。
-                const deg = (parseFloat(btn.dataset.dir) || 1) * 90;
-                const axis = axisVector(btn.dataset.axis);
-                applyWorldDelta(p, new THREE.Quaternion().setFromAxisAngle(axis, deg * Math.PI / 180));
-            }
-            applyGroupTransform(p, p.sceneCenter);
-            forceResort(p);
-            wakeRenderLoop();
-        });
-
-        // 调正模式下：**只操作被调正的那一个模型**，其他面板纹丝不动。
-        //   左键水平拖 = 绕世界 Y 转该模型（对齐多个模型的水平朝向差异）
-        //   中键拖     = 缩放该模型（与查看模型推拉同一套方向）
-        //   滚轮       = 缩放该模型
-        //   右键拖     = 平移该模型
-        // 该面板的 OrbitControls 在进入调正时已被冻结（controls.enabled=false），
-        // 所以这些指针事件不会被 OrbitControls 抢走，也不会广播给其他面板。
-        // 退出调正时这三类变换会精确折算进本面板相机（见 commitAdjustToCamera）。
-        canvasWrap.addEventListener('contextmenu', (e) => {
-            const p = panels.find(x => x.el === el);
-            if (p && p.adjusting) e.preventDefault(); // 调正时右键用于平移，屏蔽菜单
-        });
-        canvasWrap.addEventListener('pointerdown', (e) => {
-            const p = panels.find(x => x.el === el);
-            if (!p || !p.adjusting || p.state !== 'ready') return;
-            const mode = e.button === 0 ? 'rotate' : e.button === 1 ? 'zoom' : e.button === 2 ? 'translate' : null;
-            if (!mode) return;
-            e.preventDefault();
-            e.stopPropagation(); // 不让事件继续冒泡（即使 controls 已冻结也不留隐患）
-            p.adjustDrag = { x: e.clientX, y: e.clientY, mode };
-            canvasWrap.classList.add('dragging');
-            setAdjustCursor(p, mode, true);
-            try { canvasWrap.setPointerCapture(e.pointerId); } catch (_) {}
-        });
-        canvasWrap.addEventListener('pointermove', (e) => {
-            const p = panels.find(x => x.el === el);
-            if (!p) return;
-            if (!p.adjustDrag) { updateAdjustHoverCursor(p, e); return; }
-            const dx = e.clientX - p.adjustDrag.x;
-            const dy = e.clientY - p.adjustDrag.y;
-            p.adjustDrag.x = e.clientX;
-            p.adjustDrag.y = e.clientY;
-            if (p.adjustDrag.mode === 'translate') translateModelByDrag(p, dx, dy);
-            else if (p.adjustDrag.mode === 'zoom') applyModelScaleFactor(p, zoomFactorFromDrag(dy));
-            else rotateModelByDrag(p, dx);
-        });
-        const endAdjustDrag = (e) => {
-            const p = panels.find(x => x.el === el);
-            if (!p || !p.adjustDrag) return;
-            p.adjustDrag = null;
-            setAdjustCursor(p, null, false);
-            canvasWrap.classList.remove('dragging');
-            try { canvasWrap.releasePointerCapture(e.pointerId); } catch (_) {}
-        };
-        canvasWrap.addEventListener('pointerup', endAdjustDrag);
-        canvasWrap.addEventListener('pointercancel', endAdjustDrag);
-
         const panel = {
-            el, titleEl, closeEl, canvasWrap, adjustEl, adjustBar,
+            el, titleEl, closeEl, canvasWrap, adjustEl,
             title: '未加载',
             viewer: null, renderer: null, camera: null, controls: null,
             scene: null,
             state: 'empty', // empty | loading | ready | error
             bbox: null,
             scale: 1, // 归一化缩放
-            userQuat: new THREE.Quaternion(), // 单模型调正累积旋转（世界空间）；退出调正时折算进相机
-            userScale: 1,                     // 单模型调正缩放倍数；退出调正时折算进相机
-            userOffset: new THREE.Vector3(),  // 单模型调正平移（世界坐标）；退出调正时折算进相机
-            adjusting: false,                 // 调正中：本面板 OrbitControls 冻结，指针直接操作模型
-            adjustEnterState: null,           // 进入调正时的相机态（退出时作为折算基准）
-            suppressBroadcast: false,         // 折算回写相机期间禁止广播（只改本面板）
-            adjustDrag: null,                 // {x, y, mode:'rotate'|'translate'|'zoom'}
-            sortDirty: false,                 // 朝向/缩放变了待重排（排序进行中时补跑）
-            // 调正折算给本面板相机引入的【私有偏差】（默认无偏差）。
-            // 广播联动时用它把"本面板的绝对机位"换算回"大家的共同基准机位"，
-            // 接收方再按各自的偏差还原：
-            //   azimuth  = base.azimuth + yawDelta   （私有偏航增量）
-            //   distance = baseDistance × distFactor
-            //   target   = baseTarget   + targetDelta
-            // 这样中键缩放/右键平移照样全体同步（改的是共同基准），
-            // 而调正折算出的私有朝向/距离/注视点不会被推给别人。
-            yawDelta: 0,
-            distFactor: 1,
-            targetDelta: new THREE.Vector3(),
+            adjusting: false,   // 调正中：本面板的鼠标变化量只记进 camOffset，不写共同基准、不广播
+            sortDirty: false,   // 朝向变了待重排（排序进行中时补跑）
+            // 【私有偏移】= 本面板机位相对「共同基准机位」的差。
+            //   本面板实际机位 = 共同基准 ⊕ camOffset
+            // 它是**唯一**被调正模式写入的量；查看模式只写共同基准、绝不碰它。
+            // 无偏移（0/0/1/零向量）时退化成与基准完全一致 ⇒ 整体同步。
+            camOffset: zeroOffset(),
         };
         panels.push(panel);
-        // 滚轮要在 panel 建好后挂（捕获阶段，见 installAdjustWheel 注释）
-        installAdjustWheel(panel);
         relayout();
         return panel;
     }
@@ -445,23 +330,20 @@ title: "高斯对比"
     // 必须放 group 级 —— v0.4.7 static 模式 scene0 变换被烘焙进数据纹理，
     // 事后改无效；splatMesh.matrixWorld 含 group 变换，排序+渲染都吃。
     //
-    // 最终变换（与查看模型时的语义一致）：
-    //   R = flip · userQuat   朝向；  S = userScale  缩放；
-    //   t = -R·(c·S) + userOffset   位置（把模型中心搬到 userOffset）
-    //   · flip     在左（世界空间），全局上下翻转动的是这一层；
-    //   · userQuat 在内层，是单模型自己的坐标系修正。
-    //     这样点「上下翻转」时所有模型整体一起翻，彼此相对朝向不被打乱。
-    //   · 居中不变式：userOffset=0 时中心 c 必须落到原点 → t = -R·c（R 变了 t 必须重算）。
-    //     userOffset 就是「右键平移」的等价物，默认 0。
+    // 最终变换（只剩「全局翻转 + 居中」两件事）：
+    //   R = flip   朝向（全局上下翻转，所有模型一起翻）；
+    //   t = -R·c   把模型中心 c 搬到原点（多模型对齐）。
+    // 调正不再改模型变换 —— 它改的是**相机**（见 camOffset / 相机联动一节）。
+    // 必须放 group 级：v0.4.7 static 模式 scene0 变换被烘焙进数据纹理，事后改无效；
+    // splatMesh.matrixWorld 含 group 变换，排序+渲染都吃这套。
     function applyGroupTransform(panel, sceneCenter) {
         const g = panel.splatGroup;
         if (!g) return;
-        const q = currentFlipQuat().multiply(panel.userQuat);
+        const q = currentFlipQuat();
         g.quaternion.copy(q);
-        g.scale.setScalar(panel.userScale);
-        // 中心先随缩放移动（模型空间），再转到世界空间，最后加用户平移
-        g.position.copy(sceneCenter).multiplyScalar(panel.userScale)
-            .applyQuaternion(q).multiplyScalar(-1).add(panel.userOffset);
+        g.scale.setScalar(1);
+        // 居中：world = R*p + t，center c 映射到 0 ⇒ t = -R·c
+        g.position.copy(sceneCenter).applyQuaternion(q).multiplyScalar(-1);
         g.updateMatrix();
         // 排序读 splatMesh.matrixWorld（库 L14102：mvpMatrix × splatMesh.matrixWorld），
         // 而这行代码可能在 render 之前执行（forceResort），必须立刻把 matrixWorld
@@ -472,14 +354,6 @@ title: "高斯对比"
     // 全局翻转对应的四元数（绕 X 轴 180°）
     function currentFlipQuat() {
         return new THREE.Quaternion().setFromAxisAngle(AXIS_X, allFlipped ? Math.PI : 0);
-    }
-
-    // 一个屏幕像素在「过原点、垂直于视线」的平面上对应多少世界单位。
-    // 用来把鼠标位移换算成模型平移，使不同面板（不同距离/视锥）手感一致。
-    function worldPerPixel(panel) {
-        const cam = panel.camera;
-        const h = panel.canvasWrap.clientHeight || panel.renderer.domElement.clientHeight || 1;
-        return (2 * Math.tan(cam.fov * Math.PI / 360) * cam.position.distanceTo(panel.controls.target)) / h;
     }
 
     // 强制重排：模型朝向变了，view-space 深度全变，复用旧排序会串色。
@@ -518,258 +392,35 @@ title: "高斯对比"
         wakeRenderLoop();
     }
 
-    // ============ 单模型调正：进入 / 退出 / 旋转 / 平移 / 缩放 ============
-    // 语义（回到最初设计）：**调正按键只作用于被调正的那一个模型**。
-    //   进入调正 → 冻结本面板 OrbitControls（enabled=false），相机彻底不动；
-    //              左键/中键/右键/滚轮改为直接操作这一个模型的旋转/缩放/平移；
-    //              期间**不广播**任何相机状态，其他面板纹丝不动。
-    //   退出调正 → 把模型上累积的 R/S/T **折算进本面板的相机修正**
-    //              （相机吸收这段变换、模型归位），画面逐点不变。
+    // ============ 单面板调正：进入 / 退出 ============
+    // 语义（2026-09-12 定案）：**调正与查看是同一套操作，只是变化量记到不同的地方**。
     //
-    // 折算公式（已用 .workbuddy/tmp/adjust_commit_math.mjs 数值证明到 1.76e-10）：
-    //   C'   = R⁻¹ · C                  ← 注意是 R⁻¹，不是 R
-    //   eye' = (eye − T) · R⁻¹ / S
-    //   模型归位：userQuat←I、userScale←1、userOffset←0
-    // 直觉：「模型绕世界轴转 R」要由相机绕世界轴转 R⁻¹ 来等价抵消；
-    //       「模型放大 S 倍」等价于「相机距离缩到 1/S」；「模型平移 T」等价于「相机反向平移 T」。
-    // 这与查看模型的语义完全对齐：查看时相机绕世界轴转 −θ ⟺ 模型绕 +θ（见文件上方注释）。
+    //   查看模式：鼠标变化量 → 写进【共同基准机位】→ 广播 → 所有面板 = 新基准 ⊕ 各自私有偏移
+    //   调正模式：鼠标变化量 → 写进【本面板私有偏移】→ 不广播 → 只有本面板动
+    //
+    // 三键语义两种模式**完全一致**（左键转 / 中键缩 / 右键平移，操作的都是**相机**），
+    // 所以调正模式：
+    //   · 不需要任何自定义指针处理（OrbitControls 照常开着）
+    //   · 不需要冻结 controls
+    //   · 不需要"退出时把模型变换折算进相机"
+    //   · 不再受"只能绕 Y 轴"限制（没有折算 ⇒ 没有横滚问题，俯仰可自由私有偏移）
+    //
+    // **退出调正 ⇒ 什么都不做。** 私有偏移本来就活在 camOffset 里，相机一直停在那儿，
+    // 画面逐点不变，其他面板从头到尾没被碰过。
     function setPanelAdjusting(panel, on) {
         if (on && panel.state !== 'ready') return;
+        if (panel.adjusting === on) return;
         panel.adjusting = on;
         panel.adjustEl.classList.toggle('active', on);
-        panel.adjustBar.classList.toggle('show', on);
         panel.canvasWrap.classList.toggle('adjusting', on);
-        if (panel.controls) panel.controls.enabled = !on;   // 调正期间本面板相机完全冻结
         if (on) {
-            panel.adjustEnterState = computeCameraState(panel);
-            panel.adjustDrag = null;
-            setAdjustCursor(panel, null, false);
-        } else {
-            panel.adjustDrag = null;
-            panel.canvasWrap.classList.remove('dragging');
-            setAdjustCursor(panel, null, false);
-            commitAdjustToCamera(panel);   // 把模型上的累积变换折算进相机修正
+            // 进入调正：把「当前机位 − 共同基准」定格为私有偏移。
+            // 正常情况这个差就是已有的 camOffset（相机本来就停在 base ⊕ offset），
+            // 重算一遍纯属兜底：任何绕过 applyBaseToPanel 改过相机的路径都能被吸收。
+            recordPrivateOffset(panel);
         }
+        // 退出：无操作。camOffset 保持、相机保持、画面保持。
         wakeRenderLoop();
-    }
-
-    // 退出调正：把模型累积的「绕世界 Y 的旋转 + 缩放 + 平移」折算到本面板相机上，
-    // 模型恢复纯单位变换，画面逐点不变。只动 **本面板** 的 cam/controls/target。
-    //
-    // 为什么只折算 Y 轴：渲染循环每帧 `controls.update()` 末行是 `camera.lookAt(target)`
-    // 且 `camera.up = 世界Y`，相机横滚恒为 0。把「绕 X/Z 的倾斜」折进相机要求相机带横滚
-    // （实测：X 轴 10.5°、Z 轴 14.0°），lookAt 无法表示 → 退出时画面必跳。
-    // 而绕 Y 的旋转折算后相机横滚恰为 0（实测 0.000°、重建偏差 0.000°），可精确定格。
-    // 调正的用途本就是「对齐多个模型的水平朝向差异」，故只保留 Y 轴旋转。
-    //   C'   = R_y⁻¹ · C
-    //   eye' = (eye − T) · R_y⁻¹ / S
-    function commitAdjustToCamera(panel) {
-        if (!panel.controls || panel.state !== 'ready' || !panel.camera) return;
-        // 整个折算过程禁止广播：只改本面板相机，其他面板必须纹丝不动。
-        panel.suppressBroadcast = true;
-        try {
-            const R = currentFlipQuat().multiply(panel.userQuat).normalize();
-            const S = panel.userScale || 1;
-            const T = panel.userOffset.clone();
-            const Rinv = R.clone().invert();
-
-            // 相机当前世界旋转（由 pos + target + up=世界Y 决定）
-            const eye = panel.camera.position.clone();
-            const target = panel.controls.target.clone();
-            const C = new THREE.Quaternion().setFromRotationMatrix(
-                new THREE.Matrix4().lookAt(eye, target, AXIS_Y)).normalize();
-
-            const newEye = eye.clone().sub(T).applyQuaternion(Rinv).multiplyScalar(1 / S);
-            const newTarget = target.clone().sub(T).applyQuaternion(Rinv).multiplyScalar(1 / S);
-            const C2 = Rinv.clone().multiply(C).normalize();
-
-            // controls.target 取「相机朝向射线上、与原目标深度一致」的点，
-            // 这样 OrbitControls 的球坐标与当前朝向自洽（后续环绕手感正确）。
-            const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(C2);
-            const depth = newEye.distanceTo(newTarget);
-            panel.controls.target.copy(newEye).addScaledVector(fwd, depth);
-
-            // ⚠️ 必须先把 OrbitControls 的阻尼残量清零再 update()，否则"退出调正会闪一下"。
-            // 原因：update() 内部是 `offset = position − target` → `spherical.setFromVector3(offset)`
-            //   → `spherical.theta += sphericalDelta.theta * dampingFactor` → `position = target + offset`。
-            //   调正的交互刚结束时 sphericalDelta / panOffset 往往还有未耗尽的余量，
-            //   update() 会在我们刚写回的 newEye 上【再加一次】该余量，随后逐帧衰减
-            //   （实测偏离 176 帧、最大 1.80，表现为"退出后视角闪一下再自己飘回去"）。
-            // 阻尼残量是 update() 的闭包私有变量，外部拿不到；
-            // 但 enableDamping=false 分支（库 L5027-5031）会把 sphericalDelta / panOffset 直接置零。
-            // 故：临时关阻尼跑一次 update() 清残量 → 恢复阻尼 → 再写回目标机位并同步一次。
-            const dampingWas = panel.controls.enableDamping;
-            panel.controls.enableDamping = false;
-            panel.controls.update();          // 清掉 sphericalDelta / panOffset
-            panel.controls.enableDamping = dampingWas;
-
-            panel.camera.position.copy(newEye);
-            panel.camera.quaternion.copy(C2);
-            panel.camera.up.set(0, 1, 0);
-            panel.controls.update();          // 此时残量已空，仅做球坐标同步，不再产生位移
-
-            // 记录本次折算给本面板带来的【私有偏差】。
-            // ⚠️ 折算改的是本面板的**绝对**机位，共同基准 mainCameraState 必须
-            //    **原封不动** —— 调正的语义是「只修改这一个模型的私有偏差」。
-            //    尤其**不能**把折算后的 azimuth/elevation 写进基准：
-            //    旋转模型会让折算后的方位角整体转 R⁻¹（实测 23.5°），
-            //    写进基准就变成"改了所有人的朝向"，而别的面板并不会当场跟转，
-            //    下次它们一广播就把本面板拉回旧方位角 → 又跳一次。
-            //    朝向本就由 C' = R⁻¹·C 体现在本面板相机自身，无需广播。
-            {
-                const after = computeCameraState(panel);
-                if (after) {
-                    // 懒初始化基准（正常情况下 fitAllToFirst 已建好，这里只是兜底）
-                    if (!mainCameraState) {
-                        mainCameraState = {
-                            target: new THREE.Vector3(0, 0, 0),
-                            azimuth: panel.adjustEnterState ? panel.adjustEnterState.azimuth : after.azimuth,
-                            elevation: panel.adjustEnterState ? panel.adjustEnterState.elevation : after.elevation,
-                            distance: panel.adjustEnterState ? panel.adjustEnterState.distance : after.distance,
-                        };
-                    }
-                    const base = mainCameraState;
-                    const baseTarget = base.target || ZERO3;
-                    // 折算带来的【全部】朝向/距离/注视点差异都记为本面板私有偏差，
-                    // 一个字节都不外泄。
-                    //   · 朝向：存成相对基准的偏航增量 yawDelta（绕世界 Y）；
-                    //     基准 azimuth 是"共同朝向"，本面板实际朝向 = 基准 + yawDelta。
-                    //   · 距离：比率 distFactor（不依赖基准的绝对值）
-                    //   · 注视点：世界坐标偏移 targetDelta
-                    const dAz = normalizeAngle(after.azimuth - base.azimuth);
-                    panel.yawDelta = (panel.yawDelta || 0) + dAz;
-                    panel.distFactor = base.distance ? (after.distance / base.distance) : 1;
-                    panel.targetDelta = after.target.clone().sub(baseTarget);
-                }
-            }
-
-            // 模型完全归位（只折 Y 轴 ⇒ 无残余倾斜，可真正回到单位变换）
-            panel.userQuat.identity();
-            panel.userScale = 1;
-            panel.userOffset.set(0, 0, 0);
-            applyGroupTransform(panel, panel.sceneCenter);
-            forceResort(panel);
-        } finally {
-            panel.adjustEnterState = null;
-            panel.suppressBroadcast = false;
-        }
-        wakeRenderLoop();
-    }
-
-    // 把「世界空间的旋转增量 D」施加到面板当前姿态上。
-    // panel.userQuat 承载 R = flip · userQuat，世界增量 D 要右乘其共轭：
-    //   R ← D·R  ⟺  userQuat ← userQuat · (R⁻¹·D·R)
-    // 不要尝试"直接右乘某个轴向四元数"来近似 —— 只有 D 与当前 R 共轴时才成立。
-    function applyWorldDelta(panel, D) {
-        const R0 = currentFlipQuat().multiply(panel.userQuat).normalize();
-        const local = R0.clone().invert().multiply(D).multiply(R0).normalize();
-        panel.userQuat.multiply(local).normalize();
-    }
-
-    // 拖动旋转该模型：**只绕世界 Y 轴偏航**（水平拖）。
-    // 这是调正的核心用途 —— 对齐多个模型之间的水平朝向差异。
-    // 竖直拖不参与旋转（见 commitAdjustToCamera 注释：绕 X/Z 的倾斜折不进相机，
-    // 会造成退出调正时画面跳动，故不提供）。
-    // 模型已居中到原点，绕世界原点转 == 绕自身竖直轴转，构图不漂。
-    function rotateModelByDrag(panel, dx) {
-        if (!dx) return;
-        // 屏幕水平拖 → 世界 Y 偏航：向左拖（dx<0）模型逆时针转，与"转动一个物体"的直觉一致。
-        applyWorldDelta(panel, new THREE.Quaternion().setFromAxisAngle(AXIS_Y, dx * DRAG_ROT_STEP));
-        applyGroupTransform(panel, panel.sceneCenter);
-        forceResort(panel);
-        wakeRenderLoop();
-    }
-
-    // 平移该模型：位移加在 userOffset 上（世界坐标，即模型的最终位置）。
-    // 方向与查看模型时右键平移（OrbitControls pan）一致：水平拖 → 模型跟手横移，
-    // 竖直拖 → 模型跟手上下移（模型在屏幕上往哪走，userOffset 就往哪加）。
-    function translateModelByDrag(panel, dx, dy) {
-        if (!dx && !dy) return;
-        const k = worldPerPixel(panel);
-        const right = new THREE.Vector3(1, 0, 0).applyQuaternion(panel.camera.quaternion);
-        const up = new THREE.Vector3(0, 1, 0).applyQuaternion(panel.camera.quaternion);
-        panel.userOffset.addScaledVector(right, dx * k).addScaledVector(up, -dy * k);
-        applyGroupTransform(panel, panel.sceneCenter);
-        forceResort(panel);
-        wakeRenderLoop();
-    }
-
-    // 缩放该模型 —— 与查看模型推拉**同一套量级**（设计目标：手感一致）。
-    //
-    // 查看模型时 OrbitControls 改的是「相机距离 d」，屏幕上模型大小 ∝ 1/d；
-    // 调正时改的是「模型自身 scale」，屏幕上大小 ∝ scale。
-    // 所以只要给 scale 乘上 **1/d 的那个倍率**，两种模式的观感就逐档相同。
-    //
-    // OrbitControls 的两个入口（vendor 实测）：
-    //   · 滚轮：`getZoomScale() = pow(0.95, zoomSpeed=1) = 0.95`，**每个 wheel 事件一档**，
-    //           与 deltaY 的大小无关（只看符号）。dollyIn ⇒ d ×0.95 ⇒ 观感 ×1/0.95 = +5.26%。
-    //   · 中键拖：`handleMouseMoveDolly` 同样是**每个 mousemove 事件一档** 0.95，
-    //           不是按像素！实测拖 200px（5 个 move 事件）⇒ d ×0.95^5 = ×0.7738 ⇒ 观感 +29.2%。
-    //
-    // 中键拖若照抄"每事件一档"会依赖浏览器派发 move 的频率（拖快拖慢结果不同），
-    // 不可复现。改为**按像素**、并令 `ZOOM_DRAG_PX_PER_NOTCH = 40px 等价一档滚轮`：
-    // 200px ⇒ 0.95^(-5) = ×1.2923，与上面实测的查看模式 +29.2% **逐位吻合**，且确定可复现。
-    function applyModelScaleFactor(panel, factor) {
-        if (!factor || factor === 1) return;
-        panel.userScale = Math.min(USER_SCALE_MAX, Math.max(USER_SCALE_MIN,
-            panel.userScale * factor));
-        applyGroupTransform(panel, panel.sceneCenter);
-        forceResort(panel);
-        wakeRenderLoop();
-    }
-
-    // 中键拖的屏幕像素增量 dy → 缩放因子。
-    // dy<0（向上拖）= 推近 = 模型变大，与查看模式同向。
-    function zoomFactorFromDrag(dy) {
-        if (!dy) return 1;
-        return Math.pow(ZOOM_NOTCH, dy / ZOOM_DRAG_PX_PER_NOTCH);
-    }
-
-    // 滚轮 deltaY → 缩放因子。抄 OrbitControls：**只看符号，一格一档**。
-    // deltaY<0（向前滚/推近）= 模型变大。
-    function zoomFactorFromWheel(deltaY) {
-        const dir = Math.sign(deltaY);
-        if (!dir) return 1;
-        return Math.pow(ZOOM_NOTCH, dir);
-    }
-
-    // ⚠️ 滚轮必须在**捕获阶段**挂到 canvasWrap 上。
-    // 原因：OrbitControls 把 wheel 挂在 `renderer.domElement`（canvas）上，而 canvas 是
-    // canvasWrap 的**子节点** —— 冒泡阶段 canvasWrap 的监听器排在 canvas 之后，
-    // 事件早被 OrbitControls 消费掉（走原生相机缩放），调正的滚轮分支根本轮不到。
-    // （历史坑：第三轮因此删掉了调正滚轮；第四轮补回来时用的是**冒泡**监听器，
-    //   于是"调正时滚轮"一直静默走 OrbitControls 改相机、不改模型 —— 直到第七轮才被抓出。）
-    // 捕获阶段自上而下、先于 target 上的监听器执行，这里 stopPropagation() 才挡得住。
-    function installAdjustWheel(panel) {
-        panel.canvasWrap.addEventListener('wheel', (e) => {
-            if (!panel.adjusting || panel.state !== 'ready') return;
-            e.preventDefault();
-            e.stopPropagation();
-            applyModelScaleFactor(panel, zoomFactorFromWheel(e.deltaY));
-        }, { passive: false, capture: true });
-    }
-
-    function axisVector(name) {
-        if (name === 'x') return AXIS_X;
-        if (name === 'y') return AXIS_Y;
-        return AXIS_Z;
-    }
-
-    // 调正光标：按当前正在操作的动作给提示
-    function setAdjustCursor(panel, mode, dragging) {
-        const w = panel.canvasWrap;
-        if (!panel.adjusting) { w.style.cursor = ''; return; }
-        if (mode === 'translate') w.style.cursor = 'move';
-        else if (mode === 'zoom') w.style.cursor = 'ns-resize';
-        else if (mode === 'rotate') w.style.cursor = dragging ? 'grabbing' : 'grab';
-        else w.style.cursor = 'grab';
-    }
-
-    // 未按下时根据按键实时切换光标（不触发任何变换）
-    function updateAdjustHoverCursor(panel, e) {
-        if (!panel.adjusting) return;
-        const b = e.buttons;
-        setAdjustCursor(panel, (b & 2) ? 'translate' : (b & 4) ? 'zoom' : 'rotate', false);
     }
 
     // ============ 加载 PLY 到面板 ============
@@ -783,24 +434,13 @@ title: "高斯对比"
         if (panel.renderer) {
             panel.renderer.dispose();
         }
-        // 换模型 → 单模型调正状态作废（调正是针对当前模型调的，不跨模型沿用）
+        // 换模型 → 调正状态与私有偏移作废（调正是针对当前模型调的，不跨模型沿用）
         panel.adjusting = false;
-        panel.adjustDrag = null;
-        panel.adjustEnterState = null;
         panel.sortDirty = false;
-        panel.userQuat.identity();
-        panel.userScale = 1;
-        panel.userOffset.set(0, 0, 0);
-        panel.yawDelta = 0;
-        panel.distFactor = 1;
-        panel.targetDelta.set(0, 0, 0);
-        // 右键要交还给 OrbitControls 平移（上一次可能在调正中途被换掉）
-        if (panel.controls) panel.controls.mouseButtons.RIGHT = THREE.MOUSE.PAN;
+        panel.camOffset = zeroOffset();
         panel.adjustEl.classList.add('disabled');
         panel.adjustEl.classList.remove('active');
-        panel.adjustBar.classList.remove('show');
-        panel.canvasWrap.classList.remove('adjusting', 'dragging');
-        panel.canvasWrap.style.cursor = '';
+        panel.canvasWrap.classList.remove('adjusting');
         // 无条件清空容器（移除 .panel-empty / 旧 canvas / 旧 loading / 旧 error）
         panel.canvasWrap.innerHTML = '';
 
@@ -891,13 +531,22 @@ title: "高斯对比"
             // 保留 panel.viewer 引用用于 dispose 和状态查询
             panel.viewer = splatGroup.viewer;
 
-            // 绑定 controls change → 唤醒按需渲染 + 联动广播
+            // 绑定 controls change → 唤醒按需渲染 + 变化量路由。
+            // 这是「查看 / 调正」唯一的分叉点：
+            //   查看模式 → 变化量进共同基准并广播（全体一起动，各自私有偏移保留）
+            //   调正模式 → 变化量进本面板私有偏移，不广播（只有本面板动）
+            // 两种模式鼠标语义完全相同（左键转/中键缩/右键平移，都是 OrbitControls 原生操作相机）。
             controls.addEventListener('change', () => {
                 wakeRenderLoop();
-                // 调正期间以及折算回写相机时，本面板的相机变化**绝不允许广播**：
-                // 调正的语义是"只操作这一个模型"，其他面板必须纹丝不动。
-                if (panel.adjusting || panel.suppressBroadcast) return;
-                if (syncLock) return;
+                if (panel.adjusting) {
+                    // 调正：把当前机位相对基准的差记成本面板私有偏移。
+                    // recordPrivateOffset 只【读】相机、不改相机 ⇒ 不会触发二次 change，
+                    // 因此这里**不能**上 syncLock（否则会吞掉拖动/阻尼末尾的 change，
+                    // 让偏移记录滞后一帧）。每次都从当前机位反算，幂等、不漂移。
+                    recordPrivateOffset(panel);
+                    return;
+                }
+                if (syncLock) return;   // 联动回写引发的 change，不再二次广播
                 syncLock = true;
                 broadcastCameraState(panel);
                 requestAnimationFrame(() => { syncLock = false; });
@@ -1052,17 +701,43 @@ title: "高斯对比"
         requestAnimationFrame(tick);
     }
 
-    // ============ 相机联动 ============
-    // 同步完整相机状态：target（含右键平移）+ 相对 target 的球面偏移
-    // （azimuth/elevation/distance）。各模型已各自居中到原点，平移量
-    // 直接共享 target 即可保持所有窗口同步。
+    // ============ 相机联动：共同基准 + 私有偏移 ============
+    //
+    // 全部状态只有两份：
+    //   mainCameraState  共同基准机位 = { target, azimuth, elevation, distance }
+    //   panel.camOffset  本面板私有偏移 = { dTarget, dAz, dEl, distRatio }
+    //
+    //   本面板实际机位 = 共同基准 ⊕ 私有偏移
+    //
+    // 鼠标操作产生的变化量按模式路由到其中一份（这就是"只需要加上变化量"）：
+    //   查看模式 → 变化量进【共同基准】，再广播：每个面板 = 新基准 ⊕ 各自偏移
+    //              ⇒ 全体一起动同样的量，各自的私有偏移原样保留。
+    //   调正模式 → 变化量进【本面板私有偏移】，基准一个字节不动、不广播
+    //              ⇒ 只有本面板动。
+    //
+    // 两个方向用的是**同一个**减法 `subState(a, b) = a ⊖ b`：
+    //   调正：camOffset = 实际机位 ⊖ 基准      （把变化量记成私有）
+    //   查看：基准       = 实际机位 ⊖ camOffset （剥掉自己的私有，剩下的就是共同量）
+    // 因为 camOffset 每次都是**从当前机位反算**、而不是增量累加，
+    // 所以不存在"记错一点就跳一下"的漂移，也不可能重复累加。
     let mainCameraState = null; // {target, azimuth, elevation, distance}
 
-    // 把角度归一化到 (−π, π]，用于"基准朝向 + 私有偏航增量"的加减（避免 theta 绕圈）。
+    // 把角度归一化到 (−π, π]，用于"基准朝向 + 私有偏移"的加减（避免 theta 绕圈）。
     function normalizeAngle(a) {
         while (a <= -Math.PI) a += Math.PI * 2;
         while (a > Math.PI) a -= Math.PI * 2;
         return a;
+    }
+
+    function zeroOffset() {
+        return { dTarget: new THREE.Vector3(), dAz: 0, dEl: 0, distRatio: 1 };
+    }
+
+    // 俯仰（球坐标 phi）合法区间：0 = 正上方，π = 正下方。
+    // 越界会让 lookAt 翻转，所以叠加私有偏移后必须钳回开区间。
+    const PHI_EPS = 1e-4;
+    function clampPhi(phi) {
+        return Math.min(Math.PI - PHI_EPS, Math.max(PHI_EPS, phi));
     }
 
     function computeCameraState(panel) {
@@ -1078,54 +753,70 @@ title: "高斯对比"
         };
     }
 
-    function broadcastCameraState(sourcePanel) {
-        const state = computeCameraState(sourcePanel);
-        if (!state) return;
-        // 把源面板的【绝对机位】换算回【共同基准机位】：
-        //   源面板自身的私有偏差（调正折算引入）必须先扣掉，
-        //   否则它的方位角/距离/注视点会污染其他面板。
-        //   azimuth_base  = azimuth − yawDelta
-        //   distance_base = distance / distFactor
-        //   target_base   = target − targetDelta
-        // 接收方再按各自的 yawDelta / distFactor / targetDelta 还原。
-        const base = {
-            azimuth: normalizeAngle(state.azimuth - (sourcePanel.yawDelta || 0)),
-            elevation: state.elevation,
-            distance: state.distance / (sourcePanel.distFactor || 1),
-            target: state.target.clone().sub(sourcePanel.targetDelta || ZERO3),
+    // a ⊖ b：把 b 从 a 里剥掉，得到"a 相对 b 的偏移"。
+    //   朝向/俯仰 = 角度差；距离 = 比率；注视点 = 世界向量差（峰哥定的：世界坐标）。
+    // b 为 null 时返回零偏移（还没有共同基准 ⇒ 谈不上偏移）。
+    function subState(a, b) {
+        if (!a || !b) return zeroOffset();
+        return {
+            dTarget: a.target.clone().sub(b.target || ZERO3),
+            dAz: normalizeAngle(a.azimuth - b.azimuth),
+            dEl: a.elevation - b.elevation,
+            distRatio: b.distance ? (a.distance / b.distance) : 1,
         };
-        mainCameraState = base;
-        for (const p of panels) {
-            if (p === sourcePanel) continue;
-            if (p.state !== 'ready' || !p.controls) continue;
-            applyCameraState(p, base);
-        }
     }
 
-    // 把「共同基准机位」落到某个面板：
-    //   本面板的最终机位 = 基准叠加【自己的】私有偏差（调正折算引入）。
-    //   无偏差的面板（yawDelta=0 / distFactor=1 / targetDelta=0）退化成整体同步 ——
-    //   即原有的中键缩放、右键平移全体联动手感，完全保留。
-    function applyCameraState(panel, state) {
-        if (!panel.controls) return;
-        const f = panel.distFactor || 1;
-        const d = panel.targetDelta || ZERO3;
-        const yaw = state.azimuth + (panel.yawDelta || 0);
-        const baseTarget = state.target ? state.target.clone() : new THREE.Vector3(0, 0, 0);
-        const target = baseTarget.add(d);
-        const spherical = new THREE.Spherical(state.distance * f, state.elevation, yaw);
-        const offset = new THREE.Vector3().setFromSpherical(spherical);
-        const newPos = new THREE.Vector3().addVectors(target, offset);
+    // 基准 ⊕ 私有偏移 → 落到面板相机上。
+    // 写的是 position / target / up 这套参数 —— 渲染循环每帧 controls.update() 末行
+    // 是 camera.lookAt(target)（库 L5018），直接写 camera.quaternion 会被抹掉。
+    function applyBaseToPanel(panel, base) {
+        if (!panel.controls || !base) return;
+        const off = panel.camOffset || zeroOffset();
+        const target = (base.target || ZERO3).clone().add(off.dTarget);
+        const spherical = new THREE.Spherical(
+            base.distance * (off.distRatio || 1),
+            clampPhi(base.elevation + (off.dEl || 0)),
+            base.azimuth + (off.dAz || 0));
+        const pos = new THREE.Vector3().addVectors(target, new THREE.Vector3().setFromSpherical(spherical));
 
         panel.controls.target.copy(target);
-        panel.camera.position.copy(newPos);
+        panel.camera.position.copy(pos);
         panel.camera.up.set(0, 1, 0);
         panel.camera.lookAt(target);
         panel.controls.update();
     }
 
+    // 调正模式：把本面板当前机位相对共同基准的差，记成【私有偏移】。
+    // 不碰基准、不广播 ⇒ 其他面板纹丝不动。
+    function recordPrivateOffset(panel) {
+        const st = computeCameraState(panel);
+        if (!st) return;
+        if (!mainCameraState) mainCameraState = { ...st, target: st.target.clone() };
+        panel.camOffset = subState(st, mainCameraState);
+    }
+
+    // 查看模式：源面板的变化量进【共同基准】，然后广播给其他面板。
+    // 剥掉源面板自己的私有偏移，剩下的才是"大家一起变的那个量"。
+    function broadcastCameraState(sourcePanel) {
+        const st = computeCameraState(sourcePanel);
+        if (!st) return;
+        const off = sourcePanel.camOffset || zeroOffset();
+        const base = {
+            target: st.target.clone().sub(off.dTarget || ZERO3),
+            azimuth: normalizeAngle(st.azimuth - (off.dAz || 0)),
+            elevation: clampPhi(st.elevation - (off.dEl || 0)),
+            distance: st.distance / (off.distRatio || 1),
+        };
+        mainCameraState = base;
+        for (const p of panels) {
+            if (p === sourcePanel) continue;
+            if (p.state !== 'ready' || !p.controls) continue;
+            applyBaseToPanel(p, base);
+        }
+    }
+
     function syncPanelToMain(panel) {
-        if (mainCameraState) applyCameraState(panel, mainCameraState);
+        applyBaseToPanel(panel, mainCameraState);
     }
 
     function fitAllToFirst(firstPanel) {
@@ -1140,6 +831,9 @@ title: "高斯对比"
         const offset = new THREE.Vector3().setFromSpherical(spherical);
         const newPos = new THREE.Vector3().addVectors(target, offset);
 
+        // 「适应」= 全体回到同一初始机位 ⇒ 先清空所有私有偏移，再落基准
+        for (const p of panels) p.camOffset = zeroOffset();
+
         firstPanel.controls.target.copy(target);
         firstPanel.camera.position.copy(newPos);
         firstPanel.camera.up.set(0, 1, 0);
@@ -1151,16 +845,10 @@ title: "高斯对比"
         // 初始视角以模型中心（原点）为注视点
         state.target = new THREE.Vector3(0, 0, 0);
         mainCameraState = state;
-        // 「适应」= 全体回到同一初始机位 ⇒ 清空各面板的调正私有偏差
-        for (const p of panels) {
-            p.yawDelta = 0;
-            p.distFactor = 1;
-            p.targetDelta = new THREE.Vector3();
-        }
         for (const p of panels) {
             if (p === firstPanel) continue;
             if (p.state !== 'ready') continue;
-            applyCameraState(p, state);
+            applyBaseToPanel(p, state);
         }
     }
 
@@ -1246,7 +934,7 @@ title: "高斯对比"
         stillFrames: stillFrameCount,
         readyPanels: panels.filter(p => p.state === 'ready').length
     });
-    // 调试钩子（Playwright/控制台用）：读取各面板相机状态
+    // 调试钩子（Playwright/控制台用）：读取各面板相机状态 + 私有偏移
     window.__debugCameras = () => panels.map(p => ({
         state: p.state,
         target: p.controls ? p.controls.target.toArray().map(v => +v.toFixed(3)) : null,
@@ -1254,10 +942,15 @@ title: "高斯对比"
         // 排查"某个面板转不动/滚不动"时最直接的两个状态
         enabled: p.controls ? p.controls.enabled : null,
         adjusting: p.adjusting,
-        yawDelta: +((p.yawDelta || 0) * 180 / Math.PI).toFixed(3),
-        distFactor: +(p.distFactor || 1).toFixed(4),
+        // 私有偏移（调正写入、查看只读）：偏航/俯仰用度、距离用倍率、注视点用世界向量
+        off: p.camOffset ? {
+            dAz: +(p.camOffset.dAz * 180 / Math.PI).toFixed(3),
+            dEl: +(p.camOffset.dEl * 180 / Math.PI).toFixed(3),
+            distRatio: +(p.camOffset.distRatio || 1).toFixed(4),
+            dTarget: p.camOffset.dTarget.toArray().map(v => +v.toFixed(3)),
+        } : null,
     }));
-    // 调试钩子：读取各面板 splatGroup 变换（验证翻转/居中/调正）
+    // 调试钩子：读取各面板 splatGroup 变换（只剩全局翻转 + 居中，调正不再改模型变换）
     window.__debugGroupXform = () => panels.map(p => {
         if (!p.splatGroup || p.state !== 'ready') return null;
         return {
@@ -1265,9 +958,6 @@ title: "高斯对比"
             quat: p.splatGroup.quaternion.toArray().map(v => +v.toFixed(4)),
             position: p.splatGroup.position.toArray().map(v => +v.toFixed(3)),
             sceneCenter: p.sceneCenter ? p.sceneCenter.toArray().map(v => +v.toFixed(3)) : null,
-            userQuat: p.userQuat.toArray().map(v => +v.toFixed(4)),
-            userScale: +p.userScale.toFixed(5),
-            userOffset: p.userOffset.toArray().map(v => +v.toFixed(4)),
             adjusting: p.adjusting,
             controlsEnabled: p.controls ? p.controls.enabled : null,
             sortDirty: p.sortDirty,
@@ -1309,8 +999,8 @@ title: "高斯对比"
             ready: !!p.viewer.splatRenderReady,
         };
     };
-    // 调试钩子：脚本驱动单模型调正（Playwright / 控制台）
-    // 语义与 UI 一致：调正期间旋转/缩放改的是**相机视角**，平移改的是模型位置。
+    // 调试钩子：脚本驱动单面板调正（CDP / 控制台）。
+    // 语义与 UI 一致：调正只改本面板【私有偏移 camOffset】，查看改【共同基准】。
     window.__adjust = {
         toggle: (i, on) => {
             const p = panels[i];
@@ -1318,98 +1008,44 @@ title: "高斯对比"
             setPanelAdjusting(p, on === undefined ? !p.adjusting : !!on);
             return p.adjusting;
         },
-        // 旋转该模型（屏幕像素增量，与左键拖动同一套；仅 dx 生效 = 绕世界 Y）
-        rotate: (i, dx) => {
+        // 读本面板私有偏移（度 / 倍率 / 世界向量）
+        offset: (i) => {
             const p = panels[i];
-            if (!p) return null;
-            rotateModelByDrag(p, dx || 0);
-            return p.userQuat.toArray().map(v => +v.toFixed(4));
+            if (!p || !p.camOffset) return null;
+            const o = p.camOffset;
+            return {
+                dAz: +(o.dAz * 180 / Math.PI).toFixed(4),
+                dEl: +(o.dEl * 180 / Math.PI).toFixed(4),
+                distRatio: +(o.distRatio || 1).toFixed(5),
+                dTarget: o.dTarget.toArray().map(v => +v.toFixed(4)),
+            };
         },
-        // 绕世界轴 ★旋转该模型★（与工具条按钮同一条实现）
-        axis: (i, axis, deg) => {
+        // 直接设私有偏移并落到相机（验证"基准 ⊕ 偏移"的还原是否正确）
+        setOffset: (i, o) => {
             const p = panels[i];
-            if (!p) return null;
-            applyWorldDelta(p, new THREE.Quaternion().setFromAxisAngle(axisVector(axis), (deg || 0) * Math.PI / 180));
-            applyGroupTransform(p, p.sceneCenter);
-            forceResort(p);
+            if (!p || !p.controls) return null;
+            p.camOffset = {
+                dTarget: new THREE.Vector3().fromArray(o.dTarget || [0, 0, 0]),
+                dAz: (o.dAz || 0) * Math.PI / 180,
+                dEl: (o.dEl || 0) * Math.PI / 180,
+                distRatio: o.distRatio === undefined ? 1 : o.distRatio,
+            };
+            applyBaseToPanel(p, mainCameraState);
             wakeRenderLoop();
-            return p.userQuat.toArray().map(v => +v.toFixed(4));
+            return window.__adjust.offset(i);
         },
-        // 平移模型（屏幕像素增量，方向与右键平移一致）
-        translate: (i, dx, dy) => {
+        // 清空私有偏移（回到共同基准）
+        clearOffset: (i) => {
             const p = panels[i];
-            if (!p) return null;
-            translateModelByDrag(p, dx, dy);
-            return p.userOffset.toArray().map(v => +v.toFixed(4));
-        },
-        // 缩放模型（与滚轮/中键同一套）
-        zoom: (i, dy) => {
-            const p = panels[i];
-            if (!p) return null;
-            applyModelScaleFactor(p, dy || 1);
-            return +p.userScale.toFixed(5);
-        },
-        // 调试：直接给缩放因子（与 UI 同一入口）
-        zoomFactor: (i, f) => {
-            const p = panels[i];
-            if (!p) return null;
-            applyModelScaleFactor(p, f || 1);
-            return +p.userScale.toFixed(5);
-        },
-        // 调试：按"屏幕像素拖拽"缩放（与 UI 中键拖同一套换算）
-        zoomDrag: (i, px) => {
-            const p = panels[i];
-            if (!p) return null;
-            applyModelScaleFactor(p, zoomFactorFromDrag(px || 0));
-            return +p.userScale.toFixed(5);
-        },
-        // 调试：按"滚轮一整格"缩放（与 UI 滚轮同一套换算）
-        zoomWheel: (i, deltaY) => {
-            const p = panels[i];
-            if (!p) return null;
-            applyModelScaleFactor(p, zoomFactorFromWheel(deltaY || 0));
-            return +p.userScale.toFixed(5);
-        },
-        // 折算进相机（等价于退出调正）
-        commit: (i) => {
-            const p = panels[i];
-            if (!p) return null;
-            commitAdjustToCamera(p);
-            return p.userQuat.toArray().map(v => +v.toFixed(4));
-        },
-        // 当前累积朝向（世界空间）
-        quat: (i) => (panels[i] ? panels[i].userQuat.toArray().map(v => +v.toFixed(4)) : null),
-        // 当前画布光标（验证按键与光标对应）
-        cursor: (i) => (panels[i] ? panels[i].canvasWrap.style.cursor : null),
-        // 把相机搬到指定机位（仅调试用；重置/折算本身不负责搬相机）
-        // 入参可给 {target, pos}（__debugCameras 的输出），由页面反推球坐标。
-        restoreCamera: (state) => {
-            const p = panels[0];
-            if (!p || !p.controls) return false;
-            const target = new THREE.Vector3().fromArray(state.target || [0, 0, 0]);
-            let st;
-            if (typeof state.distance === 'number') {
-                st = { target, azimuth: state.azimuth, elevation: state.elevation, distance: state.distance };
-            } else {
-                const pos = new THREE.Vector3().fromArray(state.pos || [0, 0, 0]);
-                const sph = new THREE.Spherical().setFromVector3(new THREE.Vector3().subVectors(pos, target));
-                st = { target, azimuth: sph.theta, elevation: sph.phi, distance: sph.radius };
-            }
-            applyCameraState(p, st);
-            broadcastCameraState(p);
+            if (!p || !p.controls) return null;
+            p.camOffset = zeroOffset();
+            applyBaseToPanel(p, mainCameraState);
             wakeRenderLoop();
             return true;
         },
-        // 调试：直接从某面板广播一次（验证基准扣除/叠加是否正确）
-        broadcast: (i) => {
-            const p = panels[i];
-            if (!p) return false;
-            broadcastCameraState(p);
-            wakeRenderLoop();
-            return true;
-        },
-        // 调试：模拟"该面板被滚轮缩小 5%"——按 OrbitControls 的语义直接改球坐标，
-        // 再走一次广播，用于在没有可靠滚轮注入时验证联动数学。
+        // 模拟"该面板被滚轮缩放"——按 OrbitControls 语义直接改球坐标距离，
+        // 再走一次 update()（触发 change → 按 adjusting 路由到 offset 或 base）。
+        // 用于在没有可靠滚轮注入时验证联动数学。
         dolly: (i, factor) => {
             const p = panels[i];
             if (!p || !p.controls) return false;
@@ -1419,24 +1055,18 @@ title: "高斯对比"
             const pos = new THREE.Vector3().addVectors(p.controls.target, new THREE.Vector3().setFromSpherical(sph));
             p.camera.position.copy(pos);
             p.camera.lookAt(p.controls.target);
-            p.controls.update();
+            p.controls.update();   // 触发 change：调正中→记私有偏移；查看中→广播基准
+            wakeRenderLoop();
+            return true;
+        },
+        // 直接从某面板广播一次（验证基准剥离/叠加是否正确）
+        broadcast: (i) => {
+            const p = panels[i];
+            if (!p) return false;
             broadcastCameraState(p);
             wakeRenderLoop();
             return true;
         },
-        // 只复原模型（不碰相机）
-        reset: (i) => {
-            const p = panels[i];
-            if (!p) return null;
-            p.userQuat.identity();
-            p.userScale = 1;
-            p.userOffset.set(0, 0, 0);
-            applyGroupTransform(p, p.sceneCenter);
-            forceResort(p);
-            wakeRenderLoop();
-            return true;
-        },
-        // 复原模型 + 把这部分折算进相机（等价于"重置 + 退出"的完整语义）
         // 强制重排（调试用：量出"排序噪声地板"）
         forceResort: (i) => {
             const p = panels[i];
@@ -1445,13 +1075,6 @@ title: "高斯对比"
             wakeRenderLoop();
             return true;
         },
-        resetCommit: (i) => {
-            const p = panels[i];
-            if (!p) return null;
-            commitAdjustToCamera(p);
-            wakeRenderLoop();
-            return true;
-        }
     };
     </script>
 </body>
