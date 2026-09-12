@@ -64,7 +64,7 @@ title: "高斯对比"
         }
         .panel-close:hover { background: #4a2a2a; color: #e88; }
 
-        /* 单模型「调正」按钮 + 调正工具条 */
+        /* 单模型「单独调整」按钮 + 单独调整工具条 */
         .panel-adjust {
             font-size: 12px; color: #999; cursor: pointer; padding: 1px 7px;
             border-radius: 3px; user-select: none; white-space: nowrap;
@@ -74,9 +74,8 @@ title: "高斯对比"
         .panel-adjust.active { background: #2f4f3f; border-color: #5a9; color: #cfe; }
         .panel-adjust.disabled { opacity: 0.35; cursor: not-allowed; }
         .panel-adjust.disabled:hover { background: transparent; color: #999; }
-        /* 调正中：本面板的鼠标操作只改【自己的私有偏移】，共同基准与其他面板都不动。
-           工具栏已取消 —— 三键语义与查看模式**完全一致**（左键转/中键缩/右键平移，
-           都是操作相机），不需要任何额外按钮。改用一圈高亮描边提示"处于私有调整状态"。 */
+        /* 「单独调整」按钮：进入后本面板鼠标操作只改【自己的私有偏移】，
+           共同基准与其他面板都不动。绿框高亮 = 处于单独调整状态。 */
         .panel-canvas-wrap.adjusting { outline: 2px solid #5a9; outline-offset: -2px; }
 
         .panel-canvas-wrap { flex: 1; position: relative; }
@@ -180,20 +179,20 @@ title: "高斯对比"
     // 默认 false = 模型原始数据朝向，无预置摆正
     let allFlipped = false;
 
-    // ============ 单面板「调正」 ============
+    // ============ 单面板「单独调整」 ============
     // 有些模型的坐标系和其他模型不一致（例如 COLMAP Y-down vs Y-up），
     // 直接对比看不出差异，必须先各自转到同一朝向。
     //
-    // 语义（2026-09-12 定案）：**调正与查看是同一套鼠标操作，只是变化量记到不同地方**。
+    // 语义（2026-09-12 定案）：**单独调整与查看是同一套鼠标操作，只是变化量记到不同地方**。
     //   查看模式：变化量 → 共同基准机位 → 广播 → 所有面板一起动（各自私有偏移保留）
-    //   调正模式：变化量 → 本面板私有偏移 camOffset → 不广播 → 只有本面板动
+    //   单独调整模式：变化量 → 本面板私有偏移 camOffset → 不广播 → 只有本面板动
     // 三键语义完全一致：左键转 / 中键缩 / 右键平移，操作的都是**相机**。
-    // 因此调正不再需要：自定义指针处理、冻结 controls、退出时折算、"只能绕 Y 轴"限制。
-    // **退出调正 = 无操作**：私有偏移一直活在 camOffset 里，画面逐点不变。
+    // 因此单独调整不再需要：自定义指针处理、冻结 controls、退出时折算、"只能绕 Y 轴"限制。
+    // **退出单独调整 = 无操作**：私有偏移一直活在 camOffset 里，画面逐点不变。
     const AXIS_X = new THREE.Vector3(1, 0, 0);   // 仅用于全局上下翻转
 
     // 相机联动：广播「共同基准机位」，各面板叠加自己的私有偏移 camOffset。
-    // 查看模式的变化量进基准（全体同步），调正模式的变化量进私有偏移（只动本面板）。
+    // 查看模式的变化量进基准（全体同步），单独调整模式的变化量进私有偏移（只动本面板）。
     const ZERO3 = new THREE.Vector3(0, 0, 0);
 
     // 注意：别把任何顶层标识符命名成 zf：vendor 模块在模块级声明了 `let zf`，
@@ -246,7 +245,7 @@ title: "高斯对比"
         el.innerHTML = `
             <div class="panel-header">
                 <span class="panel-title" contenteditable="false">未加载</span>
-                <span class="panel-adjust disabled" title="单独调正该模型朝向">调正</span>
+                <span class="panel-adjust disabled" title="单独调整该模型的视角（只动这一个面板，退出后保留效果）">单独调整</span>
                 <span class="panel-close" title="关闭">×</span>
             </div>
             <div class="panel-canvas-wrap">
@@ -283,7 +282,7 @@ title: "高斯对比"
             if (idx >= 0) removePanel(idx);
         });
 
-        // 「调正」：进入/退出【本面板私有机位】调整。
+        // 「单独调整」：进入/退出【本面板私有机位】调整。
         // 三键语义与查看模式**完全一致**（左键转 / 中键缩 / 右键平移，都是操作相机），
         // 唯一区别是变化量记到本面板的私有偏移，而不写进共同基准、也不广播。
         // 因此这里**不需要任何自定义指针处理**：OrbitControls 照常开着，
@@ -302,11 +301,11 @@ title: "高斯对比"
             state: 'empty', // empty | loading | ready | error
             bbox: null,
             scale: 1, // 归一化缩放
-            adjusting: false,   // 调正中：本面板的鼠标变化量只记进 camOffset，不写共同基准、不广播
+            adjusting: false,   // 单独调整中：本面板的鼠标变化量只记进 camOffset，不写共同基准、不广播
             sortDirty: false,   // 朝向变了待重排（排序进行中时补跑）
             // 【私有偏移】= 本面板机位相对「共同基准机位」的差。
             //   本面板实际机位 = 共同基准 ⊕ camOffset
-            // 它是**唯一**被调正模式写入的量；查看模式只写共同基准、绝不碰它。
+            // 它是**唯一**被单独调整模式写入的量；查看模式只写共同基准、绝不碰它。
             // 无偏移（0/0/1/零向量）时退化成与基准完全一致 ⇒ 整体同步。
             camOffset: zeroOffset(),
         };
@@ -325,7 +324,7 @@ title: "高斯对比"
         relayout();
     }
 
-    // ============ splatGroup 变换（全局翻转 × 单模型调正 + 摆位） ============
+    // ============ splatGroup 变换（全局翻转 × 单模型单独调整 + 摆位） ============
     // 统一入口：把变换应用到 splatGroup 级。
     // 必须放 group 级 —— v0.4.7 static 模式 scene0 变换被烘焙进数据纹理，
     // 事后改无效；splatMesh.matrixWorld 含 group 变换，排序+渲染都吃。
@@ -333,7 +332,7 @@ title: "高斯对比"
     // 最终变换（只剩「全局翻转 + 居中」两件事）：
     //   R = flip   朝向（全局上下翻转，所有模型一起翻）；
     //   t = -R·c   把模型中心 c 搬到原点（多模型对齐）。
-    // 调正不再改模型变换 —— 它改的是**相机**（见 camOffset / 相机联动一节）。
+    // 单独调整不再改模型变换 —— 它改的是**相机**（见 camOffset / 相机联动一节）。
     // 必须放 group 级：v0.4.7 static 模式 scene0 变换被烘焙进数据纹理，事后改无效；
     // splatMesh.matrixWorld 含 group 变换，排序+渲染都吃这套。
     function applyGroupTransform(panel, sceneCenter) {
@@ -392,20 +391,20 @@ title: "高斯对比"
         wakeRenderLoop();
     }
 
-    // ============ 单面板调正：进入 / 退出 ============
-    // 语义（2026-09-12 定案）：**调正与查看是同一套操作，只是变化量记到不同的地方**。
+    // ============ 单面板「单独调整」 ============
+    // 语义（2026-09-12 定案）：**单独调整与查看是同一套操作，只是变化量记到不同的地方**。
     //
     //   查看模式：鼠标变化量 → 写进【共同基准机位】→ 广播 → 所有面板 = 新基准 ⊕ 各自私有偏移
-    //   调正模式：鼠标变化量 → 写进【本面板私有偏移】→ 不广播 → 只有本面板动
+    //   单独调整：鼠标变化量 → 写进【本面板私有偏移】→ 不广播 → 只有本面板动
     //
     // 三键语义两种模式**完全一致**（左键转 / 中键缩 / 右键平移，操作的都是**相机**），
-    // 所以调正模式：
+    // 所以单独调整模式：
     //   · 不需要任何自定义指针处理（OrbitControls 照常开着）
     //   · 不需要冻结 controls
     //   · 不需要"退出时把模型变换折算进相机"
     //   · 不再受"只能绕 Y 轴"限制（没有折算 ⇒ 没有横滚问题，俯仰可自由私有偏移）
     //
-    // **退出调正 ⇒ 什么都不做。** 私有偏移本来就活在 camOffset 里，相机一直停在那儿，
+    // **退出单独调整 ⇒ 什么都不做。** 私有偏移本来就活在 camOffset 里，相机一直停在那儿，
     // 画面逐点不变，其他面板从头到尾没被碰过。
     function setPanelAdjusting(panel, on) {
         if (on && panel.state !== 'ready') return;
@@ -414,7 +413,7 @@ title: "高斯对比"
         panel.adjustEl.classList.toggle('active', on);
         panel.canvasWrap.classList.toggle('adjusting', on);
         if (on) {
-            // 进入调正：把「当前机位 − 共同基准」定格为私有偏移。
+            // 进入单独调整：把「当前机位 − 共同基准」定格为私有偏移。
             // 正常情况这个差就是已有的 camOffset（相机本来就停在 base ⊕ offset），
             // 重算一遍纯属兜底：任何绕过 applyBaseToPanel 改过相机的路径都能被吸收。
             recordPrivateOffset(panel);
@@ -434,7 +433,7 @@ title: "高斯对比"
         if (panel.renderer) {
             panel.renderer.dispose();
         }
-        // 换模型 → 调正状态与私有偏移作废（调正是针对当前模型调的，不跨模型沿用）
+        // 换模型 → 单独调整状态与私有偏移作废（单独调整是针对当前模型调的，不跨模型沿用）
         panel.adjusting = false;
         panel.sortDirty = false;
         panel.camOffset = zeroOffset();
@@ -532,14 +531,14 @@ title: "高斯对比"
             panel.viewer = splatGroup.viewer;
 
             // 绑定 controls change → 唤醒按需渲染 + 变化量路由。
-            // 这是「查看 / 调正」唯一的分叉点：
+            // 这是「查看 / 单独调整」唯一的分叉点：
             //   查看模式 → 变化量进共同基准并广播（全体一起动，各自私有偏移保留）
-            //   调正模式 → 变化量进本面板私有偏移，不广播（只有本面板动）
+            //   单独调整模式 → 变化量进本面板私有偏移，不广播（只有本面板动）
             // 两种模式鼠标语义完全相同（左键转/中键缩/右键平移，都是 OrbitControls 原生操作相机）。
             controls.addEventListener('change', () => {
                 wakeRenderLoop();
                 if (panel.adjusting) {
-                    // 调正：把当前机位相对基准的差记成本面板私有偏移。
+                    // 单独调整：把当前机位相对基准的差记成本面板私有偏移。
                     // recordPrivateOffset 只【读】相机、不改相机 ⇒ 不会触发二次 change，
                     // 因此这里**不能**上 syncLock（否则会吞掉拖动/阻尼末尾的 change，
                     // 让偏移记录滞后一帧）。每次都从当前机位反算，幂等、不漂移。
@@ -594,7 +593,7 @@ title: "高斯对比"
             // 移除 loading
             loadingEl.remove();
             panel.state = 'ready';
-            panel.adjustEl.classList.remove('disabled'); // 就绪后「调正」才可用
+            panel.adjustEl.classList.remove('disabled'); // 就绪后「单独调整」才可用
             console.log('[splat-compare] 加载完成，panel.state=ready');
 
             // 唤醒渲染循环（fit/sync 改了相机，change 事件也会触发，双保险）
@@ -712,11 +711,11 @@ title: "高斯对比"
     // 鼠标操作产生的变化量按模式路由到其中一份（这就是"只需要加上变化量"）：
     //   查看模式 → 变化量进【共同基准】，再广播：每个面板 = 新基准 ⊕ 各自偏移
     //              ⇒ 全体一起动同样的量，各自的私有偏移原样保留。
-    //   调正模式 → 变化量进【本面板私有偏移】，基准一个字节不动、不广播
+    //   单独调整模式 → 变化量进【本面板私有偏移】，基准一个字节不动、不广播
     //              ⇒ 只有本面板动。
     //
     // 两个方向用的是**同一个**减法 `subState(a, b) = a ⊖ b`：
-    //   调正：camOffset = 实际机位 ⊖ 基准      （把变化量记成私有）
+    //   单独调整：camOffset = 实际机位 ⊖ 基准      （把变化量记成私有）
     //   查看：基准       = 实际机位 ⊖ camOffset （剥掉自己的私有，剩下的就是共同量）
     // 因为 camOffset 每次都是**从当前机位反算**、而不是增量累加，
     // 所以不存在"记错一点就跳一下"的漂移，也不可能重复累加。
@@ -786,7 +785,7 @@ title: "高斯对比"
         panel.controls.update();
     }
 
-    // 调正模式：把本面板当前机位相对共同基准的差，记成【私有偏移】。
+    // 单独调整模式：把本面板当前机位相对共同基准的差，记成【私有偏移】。
     // 不碰基准、不广播 ⇒ 其他面板纹丝不动。
     function recordPrivateOffset(panel) {
         const st = computeCameraState(panel);
@@ -942,7 +941,7 @@ title: "高斯对比"
         // 排查"某个面板转不动/滚不动"时最直接的两个状态
         enabled: p.controls ? p.controls.enabled : null,
         adjusting: p.adjusting,
-        // 私有偏移（调正写入、查看只读）：偏航/俯仰用度、距离用倍率、注视点用世界向量
+        // 私有偏移（单独调整写入、查看只读）：偏航/俯仰用度、距离用倍率、注视点用世界向量
         off: p.camOffset ? {
             dAz: +(p.camOffset.dAz * 180 / Math.PI).toFixed(3),
             dEl: +(p.camOffset.dEl * 180 / Math.PI).toFixed(3),
@@ -950,7 +949,7 @@ title: "高斯对比"
             dTarget: p.camOffset.dTarget.toArray().map(v => +v.toFixed(3)),
         } : null,
     }));
-    // 调试钩子：读取各面板 splatGroup 变换（只剩全局翻转 + 居中，调正不再改模型变换）
+    // 调试钩子：读取各面板 splatGroup 变换（只剩全局翻转 + 居中，单独调整不再改模型变换）
     window.__debugGroupXform = () => panels.map(p => {
         if (!p.splatGroup || p.state !== 'ready') return null;
         return {
@@ -999,8 +998,8 @@ title: "高斯对比"
             ready: !!p.viewer.splatRenderReady,
         };
     };
-    // 调试钩子：脚本驱动单面板调正（CDP / 控制台）。
-    // 语义与 UI 一致：调正只改本面板【私有偏移 camOffset】，查看改【共同基准】。
+    // 调试钩子：脚本驱动单面板单独调整（CDP / 控制台）。
+    // 语义与 UI 一致：单独调整只改本面板【私有偏移 camOffset】，查看改【共同基准】。
     window.__adjust = {
         toggle: (i, on) => {
             const p = panels[i];
@@ -1055,7 +1054,7 @@ title: "高斯对比"
             const pos = new THREE.Vector3().addVectors(p.controls.target, new THREE.Vector3().setFromSpherical(sph));
             p.camera.position.copy(pos);
             p.camera.lookAt(p.controls.target);
-            p.controls.update();   // 触发 change：调正中→记私有偏移；查看中→广播基准
+            p.controls.update();   // 触发 change：单独调整中→记私有偏移；查看中→广播基准
             wakeRenderLoop();
             return true;
         },
