@@ -215,6 +215,11 @@ title: "高斯对比"
     const USER_SCALE_MIN = 0.05;
     const USER_SCALE_MAX = 20;
 
+    // 相机联动策略：true = 只同步「朝向」，各面板保留自己的注视点与距离（独立机位）。
+    // 这是峰哥明确的诉求（"不要联动（各面板独立机位）"）。
+    // 若为 false，则退回"广播绝对机位"（会把调正折算后的距离强推给别人 → 其他面板跳）。
+    const PER_PANEL_DISTANCE = true;
+
     // 注意：别把任何顶层标识符命名成 zf：vendor 模块在模块级声明了 `let zf`，
     // 我们内联模块脚本与它同处一个全局词法环境，重名会让库的 zf 被 raise 成
     // TDZ（"Cannot access 'zf' before initialization"），OrbitControls 直接失效。
@@ -569,17 +574,30 @@ title: "高斯对比"
             const newTarget = target.clone().sub(T).applyQuaternion(Rinv).multiplyScalar(1 / S);
             const C2 = Rinv.clone().multiply(C).normalize();
 
-            // 写回相机
-            panel.camera.position.copy(newEye);
-            panel.camera.quaternion.copy(C2);
-            panel.camera.up.set(0, 1, 0);
-
             // controls.target 取「相机朝向射线上、与原目标深度一致」的点，
             // 这样 OrbitControls 的球坐标与当前朝向自洽（后续环绕手感正确）。
             const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(C2);
             const depth = newEye.distanceTo(newTarget);
             panel.controls.target.copy(newEye).addScaledVector(fwd, depth);
-            panel.controls.update();
+
+            // ⚠️ 必须先把 OrbitControls 的阻尼残量清零再 update()，否则"退出调正会闪一下"。
+            // 原因：update() 内部是 `offset = position − target` → `spherical.setFromVector3(offset)`
+            //   → `spherical.theta += sphericalDelta.theta * dampingFactor` → `position = target + offset`。
+            //   调正的交互刚结束时 sphericalDelta / panOffset 往往还有未耗尽的余量，
+            //   update() 会在我们刚写回的 newEye 上【再加一次】该余量，随后逐帧衰减
+            //   （实测偏离 176 帧、最大 1.80，表现为"退出后视角闪一下再自己飘回去"）。
+            // 阻尼残量是 update() 的闭包私有变量，外部拿不到；
+            // 但 enableDamping=false 分支（库 L5027-5031）会把 sphericalDelta / panOffset 直接置零。
+            // 故：临时关阻尼跑一次 update() 清残量 → 恢复阻尼 → 再写回目标机位并同步一次。
+            const dampingWas = panel.controls.enableDamping;
+            panel.controls.enableDamping = false;
+            panel.controls.update();          // 清掉 sphericalDelta / panOffset
+            panel.controls.enableDamping = dampingWas;
+
+            panel.camera.position.copy(newEye);
+            panel.camera.quaternion.copy(C2);
+            panel.camera.up.set(0, 1, 0);
+            panel.controls.update();          // 此时残量已空，仅做球坐标同步，不再产生位移
 
             // 模型完全归位（只折 Y 轴 ⇒ 无残余倾斜，可真正回到单位变换）
             panel.userQuat.identity();
@@ -966,12 +984,43 @@ title: "高斯对比"
     function broadcastCameraState(sourcePanel) {
         const state = computeCameraState(sourcePanel);
         if (!state) return;
+        // 各面板独立机位：广播时只传【朝向】（azimuth/elevation），
+        // 不传 target / distance。
+        // 原因：调正退出会把模型上的缩放与平移折算进相机，那之后该面板的
+        //   distance（= 原距离/S）与 target（平移过）就和别人不一样了。
+        //   若把绝对值强推给其他面板，其他面板会瞬间跳到那个机位 ——
+        //   表现为"退出调正后转动视角，其他模型立刻变化视角"。
+        //   朝向是全体共同的世界视角（大家看的是同一个世界），同步它是对的；
+        //   而距离/注视点是每面板的独立机位，必须各自保留。
+        if (PER_PANEL_DISTANCE) {
+            for (const p of panels) {
+                if (p === sourcePanel) continue;
+                if (p.state !== 'ready' || !p.controls) continue;
+                applyCameraOrientation(p, state.azimuth, state.elevation);
+            }
+            return;
+        }
         mainCameraState = state;
         for (const p of panels) {
             if (p === sourcePanel) continue;
             if (p.state !== 'ready' || !p.controls) continue;
             applyCameraState(p, state);
         }
+    }
+
+    // 只同步朝向，保留本面板自己的注视点与距离（独立机位）。
+    function applyCameraOrientation(panel, azimuth, elevation) {
+        if (!panel.controls) return;
+        const target = panel.controls.target.clone();
+        const offset = new THREE.Vector3().subVectors(panel.camera.position, target);
+        const dist = offset.length();
+        const spherical = new THREE.Spherical(dist, elevation, azimuth);
+        const newPos = target.clone().add(new THREE.Vector3().setFromSpherical(spherical));
+        panel.controls.target.copy(target);
+        panel.camera.position.copy(newPos);
+        panel.camera.up.set(0, 1, 0);
+        panel.camera.lookAt(target);
+        panel.controls.update();
     }
 
     function applyCameraState(panel, state) {
