@@ -2716,9 +2716,9 @@ fetch(window.location.href)
             const date = new Date(lastModified);
             const formattedDate = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
             const formattedTime = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
-            lastModifiedElement.textContent = `最后更新: ${formattedDate} ${formattedTime}`;
+            lastModifiedElement.textContent = `最后修改时间: ${formattedDate} ${formattedTime}`;
         } else {
-            lastModifiedElement.textContent = '最后更新时间未知';
+            lastModifiedElement.textContent = '最后修改时间未知';
         }
     })
     .catch(() => {
