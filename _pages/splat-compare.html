@@ -215,10 +215,11 @@ title: "高斯对比"
     const USER_SCALE_MIN = 0.05;
     const USER_SCALE_MAX = 20;
 
-    // 相机联动策略：true = 只同步「朝向」，各面板保留自己的注视点与距离（独立机位）。
-    // 这是峰哥明确的诉求（"不要联动（各面板独立机位）"）。
-    // 若为 false，则退回"广播绝对机位"（会把调正折算后的距离强推给别人 → 其他面板跳）。
-    const PER_PANEL_DISTANCE = true;
+    // 相机联动语义：广播「共同基准机位」，各面板叠加自己的私有偏差
+    // （调正折算引入的 distFactor / targetDelta）。
+    // 这样中键缩放、右键平移**照旧全体同步**（改的是共同基准），
+    // 而调正折算出的私有距离/注视点不会污染别人。
+    const ZERO3 = new THREE.Vector3(0, 0, 0);
 
     // 注意：别把任何顶层标识符命名成 zf：vendor 模块在模块级声明了 `let zf`，
     // 我们内联模块脚本与它同处一个全局词法环境，重名会让库的 zf 被 raise 成
@@ -415,6 +416,14 @@ title: "高斯对比"
             suppressBroadcast: false,         // 折算回写相机期间禁止广播（只改本面板）
             adjustDrag: null,                 // {x, y, mode:'rotate'|'translate'|'zoom'}
             sortDirty: false,                 // 朝向/缩放变了待重排（排序进行中时补跑）
+            // 调正折算给本面板相机引入的【私有偏差】（默认无偏差）。
+            // 广播联动时用它把"本面板的绝对机位"换算回"大家的共同基准机位"：
+            //   distance = baseDistance × distFactor
+            //   target   = baseTarget   + targetDelta
+            // 这样中键缩放/右键平移照样全体同步（改的是共同基准），
+            // 而调正折算出的私有距离/注视点不会被推给别人。
+            distFactor: 1,
+            targetDelta: new THREE.Vector3(),
         };
         panels.push(panel);
         relayout();
@@ -598,6 +607,32 @@ title: "高斯对比"
             panel.camera.quaternion.copy(C2);
             panel.camera.up.set(0, 1, 0);
             panel.controls.update();          // 此时残量已空，仅做球坐标同步，不再产生位移
+
+            // 记录本次折算给本面板带来的【私有偏差】，供联动时反算基准。
+            // 折算后本面板的绝对机位变了，但"共同基准"没变：
+            //   新私有偏差 = 折算后的绝对机位 − 折算后的共同基准
+            // 朝向（azimuth/elevation）是全体共同量，折算把它改了就更新基准；
+            // 距离与注视点只更新本面板的私有偏差。
+            {
+                const after = computeCameraState(panel);
+                if (after) {
+                    // 朝向变化同步进基准（所有面板都会跟着转到新朝向）
+                    if (mainCameraState) {
+                        mainCameraState.azimuth = after.azimuth;
+                        mainCameraState.elevation = after.elevation;
+                    } else {
+                        mainCameraState = {
+                            target: new THREE.Vector3(0, 0, 0),
+                            azimuth: after.azimuth, elevation: after.elevation, distance: 4,
+                        };
+                    }
+                    const base = mainCameraState;
+                    const baseTarget = base.target || ZERO3;
+                    // distFactor 用"比率"表达，避免与基准的绝对距离耦合
+                    panel.distFactor = base.distance ? (after.distance / base.distance) : 1;
+                    panel.targetDelta = after.target.clone().sub(baseTarget);
+                }
+            }
 
             // 模型完全归位（只折 Y 轴 ⇒ 无残余倾斜，可真正回到单位变换）
             panel.userQuat.identity();
@@ -984,49 +1019,37 @@ title: "高斯对比"
     function broadcastCameraState(sourcePanel) {
         const state = computeCameraState(sourcePanel);
         if (!state) return;
-        // 各面板独立机位：广播时只传【朝向】（azimuth/elevation），
-        // 不传 target / distance。
-        // 原因：调正退出会把模型上的缩放与平移折算进相机，那之后该面板的
-        //   distance（= 原距离/S）与 target（平移过）就和别人不一样了。
-        //   若把绝对值强推给其他面板，其他面板会瞬间跳到那个机位 ——
-        //   表现为"退出调正后转动视角，其他模型立刻变化视角"。
-        //   朝向是全体共同的世界视角（大家看的是同一个世界），同步它是对的；
-        //   而距离/注视点是每面板的独立机位，必须各自保留。
-        if (PER_PANEL_DISTANCE) {
-            for (const p of panels) {
-                if (p === sourcePanel) continue;
-                if (p.state !== 'ready' || !p.controls) continue;
-                applyCameraOrientation(p, state.azimuth, state.elevation);
-            }
-            return;
-        }
-        mainCameraState = state;
+        // 把源面板的【绝对机位】换算回【共同基准机位】：
+        //   源面板自身的私有偏差（调正折算引入）必须先扣掉，
+        //   否则它的 distance/target 会污染其他面板。
+        //   distance_base = distance / distFactor
+        //   target_base   = target − targetDelta
+        // 接收方再按各自的 distFactor / targetDelta 还原。
+        const base = {
+            azimuth: state.azimuth,
+            elevation: state.elevation,
+            distance: state.distance / (sourcePanel.distFactor || 1),
+            target: state.target.clone().sub(sourcePanel.targetDelta || ZERO3),
+        };
+        mainCameraState = base;
         for (const p of panels) {
             if (p === sourcePanel) continue;
             if (p.state !== 'ready' || !p.controls) continue;
-            applyCameraState(p, state);
+            applyCameraState(p, base);
         }
     }
 
-    // 只同步朝向，保留本面板自己的注视点与距离（独立机位）。
-    function applyCameraOrientation(panel, azimuth, elevation) {
-        if (!panel.controls) return;
-        const target = panel.controls.target.clone();
-        const offset = new THREE.Vector3().subVectors(panel.camera.position, target);
-        const dist = offset.length();
-        const spherical = new THREE.Spherical(dist, elevation, azimuth);
-        const newPos = target.clone().add(new THREE.Vector3().setFromSpherical(spherical));
-        panel.controls.target.copy(target);
-        panel.camera.position.copy(newPos);
-        panel.camera.up.set(0, 1, 0);
-        panel.camera.lookAt(target);
-        panel.controls.update();
-    }
-
+    // 把「共同基准机位」落到某个面板：
+    //   本面板的最终机位 = 基准叠加【自己的】私有偏差（调正折算引入）。
+    //   无偏差的面板（distFactor=1 / targetDelta=0）退化成整体同步 —— 即原有的
+    //   中键缩放、右键平移全体联动手感，完全保留。
     function applyCameraState(panel, state) {
         if (!panel.controls) return;
-        const target = state.target ? state.target.clone() : new THREE.Vector3(0, 0, 0);
-        const spherical = new THREE.Spherical(state.distance, state.elevation, state.azimuth);
+        const f = panel.distFactor || 1;
+        const d = panel.targetDelta || ZERO3;
+        const baseTarget = state.target ? state.target.clone() : new THREE.Vector3(0, 0, 0);
+        const target = baseTarget.add(d);
+        const spherical = new THREE.Spherical(state.distance * f, state.elevation, state.azimuth);
         const offset = new THREE.Vector3().setFromSpherical(spherical);
         const newPos = new THREE.Vector3().addVectors(target, offset);
 
@@ -1064,6 +1087,11 @@ title: "高斯对比"
         // 初始视角以模型中心（原点）为注视点
         state.target = new THREE.Vector3(0, 0, 0);
         mainCameraState = state;
+        // 「适应」= 全体回到同一初始机位 ⇒ 清空各面板的调正私有偏差
+        for (const p of panels) {
+            p.distFactor = 1;
+            p.targetDelta = new THREE.Vector3();
+        }
         for (const p of panels) {
             if (p === firstPanel) continue;
             if (p.state !== 'ready') continue;
@@ -1158,6 +1186,10 @@ title: "高斯对比"
         state: p.state,
         target: p.controls ? p.controls.target.toArray().map(v => +v.toFixed(3)) : null,
         pos: p.camera ? p.camera.position.toArray().map(v => +v.toFixed(3)) : null,
+        // 排查"某个面板转不动/滚不动"时最直接的两个状态
+        enabled: p.controls ? p.controls.enabled : null,
+        adjusting: p.adjusting,
+        distFactor: +(p.distFactor || 1).toFixed(4),
     }));
     // 调试钩子：读取各面板 splatGroup 变换（验证翻转/居中/调正）
     window.__debugGroupXform = () => panels.map(p => {
@@ -1277,6 +1309,30 @@ title: "高斯对比"
                 st = { target, azimuth: sph.theta, elevation: sph.phi, distance: sph.radius };
             }
             applyCameraState(p, st);
+            broadcastCameraState(p);
+            wakeRenderLoop();
+            return true;
+        },
+        // 调试：直接从某面板广播一次（验证基准扣除/叠加是否正确）
+        broadcast: (i) => {
+            const p = panels[i];
+            if (!p) return false;
+            broadcastCameraState(p);
+            wakeRenderLoop();
+            return true;
+        },
+        // 调试：模拟"该面板被滚轮缩小 5%"——按 OrbitControls 的语义直接改球坐标，
+        // 再走一次广播，用于在没有可靠滚轮注入时验证联动数学。
+        dolly: (i, factor) => {
+            const p = panels[i];
+            if (!p || !p.controls) return false;
+            const offset = new THREE.Vector3().subVectors(p.camera.position, p.controls.target);
+            const sph = new THREE.Spherical().setFromVector3(offset);
+            sph.radius *= (factor || 1);
+            const pos = new THREE.Vector3().addVectors(p.controls.target, new THREE.Vector3().setFromSpherical(sph));
+            p.camera.position.copy(pos);
+            p.camera.lookAt(p.controls.target);
+            p.controls.update();
             broadcastCameraState(p);
             wakeRenderLoop();
             return true;
