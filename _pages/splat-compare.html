@@ -801,6 +801,32 @@ title: "高斯对比"
         panel.camOffset = subState(st, mainCameraState);
     }
 
+    // 右键平移是【屏幕空间】操作：OrbitControls 用**各自相机**的右/上轴把像素换算成世界位移
+    //   Δt = right·(−2·dx·td/H) + up·(2·dy·td/H)，td = dist·tan(fov/2)，H = 视口高。
+    // 所以「源面板算出的世界位移」直接广播给朝向/距离不同的面板，屏幕轨迹必定走偏。
+    // 解决办法：平移广播「像素意图」，每个面板用自己的相机换回自己的世界位移。
+    function panScale(panel) {
+        const cam = panel.camera;
+        const el = panel.renderer && panel.renderer.domElement;
+        const H = (el && el.clientHeight) || 1;
+        const td = cam.position.distanceTo(panel.controls.target) * Math.tan((cam.fov / 2) * Math.PI / 180);
+        cam.updateMatrixWorld();
+        return {
+            right: new THREE.Vector3().setFromMatrixColumn(cam.matrixWorld, 0),
+            up: new THREE.Vector3().setFromMatrixColumn(cam.matrixWorld, 1),
+            k: (2 * td) / H,   // 世界单位 / 像素
+        };
+    }
+    function worldToPanPixels(panel, d) {
+        const s = panScale(panel);
+        return { dx: -d.dot(s.right) / s.k, dy: d.dot(s.up) / s.k };
+    }
+    function panPixelsToWorld(panel, dx, dy) {
+        const s = panScale(panel);
+        return s.right.clone().multiplyScalar(-dx * s.k)
+            .add(s.up.clone().multiplyScalar(dy * s.k));
+    }
+
     // 查看模式：源面板的变化量进【共同基准】，然后广播给其他面板。
     // 剥掉源面板自己的私有偏移，剩下的才是"大家一起变的那个量"。
     function broadcastCameraState(sourcePanel) {
@@ -813,10 +839,46 @@ title: "高斯对比"
             elevation: clampPhi(st.elevation - (off.dEl || 0)),
             distance: st.distance / (off.distRatio || 1),
         };
+        const prev = mainCameraState;
         mainCameraState = base;
+
+        // 判断这一次变化是不是「纯平移」：target 动了，而朝向/俯仰/距离没动。
+        // 纯平移必须走【像素意图】广播 —— 见上面 panScale 的说明。
+        let isPan = false, panDX = 0, panDY = 0, panWhy = 'no-prev';
+        if (prev) {
+            const dAz = Math.abs(normalizeAngle(base.azimuth - prev.azimuth));
+            const dEl = Math.abs(base.elevation - prev.elevation);
+            const dDist = Math.abs(base.distance - prev.distance);
+            isPan = dAz < 1e-6 && dEl < 1e-6 && dDist < 1e-6 * Math.max(1, prev.distance);
+            panWhy = isPan ? 'pan' : `dAz=${dAz.toExponential(2)} dEl=${dEl.toExponential(2)} dDist=${dDist.toExponential(2)}`;
+            if (isPan) {
+                const pix = worldToPanPixels(sourcePanel, base.target.clone().sub(prev.target));
+                panDX = pix.dx;
+                panDY = pix.dy;
+            }
+        }
+        window.__lastBroadcast = {
+            src: panels.indexOf(sourcePanel), isPan, panWhy,
+            dx: +panDX.toFixed(3), dy: +panDY.toFixed(3),
+        };
+
         for (const p of panels) {
             if (p === sourcePanel) continue;
             if (p.state !== 'ready' || !p.controls) continue;
+            if (isPan) {
+                // 源面板的屏幕平移量 → 本面板自己的世界位移。
+                // 基准里已经含了源面板的世界位移，所以私有偏移要补上两者之差。
+                // 用「老实际 target + 本面板世界位移 − 新基准 target」绝对收敛，不累加。
+                const stP = computeCameraState(p);
+                if (stP) {
+                    const o = p.camOffset || zeroOffset();
+                    const dOwn = panPixelsToWorld(p, panDX, panDY);
+                    p.camOffset = {
+                        dTarget: stP.target.clone().add(dOwn).sub(base.target),
+                        dAz: o.dAz, dEl: o.dEl, distRatio: o.distRatio,
+                    };
+                }
+            }
             applyBaseToPanel(p, base);
         }
     }
@@ -956,6 +1018,13 @@ title: "高斯对比"
             dTarget: p.camOffset.dTarget.toArray().map(v => +v.toFixed(3)),
         } : null,
     }));
+    // 调试钩子：把世界点投影到各面板屏幕像素坐标（验证"平移在屏幕上是否同步"）。
+    window.__project = (x, y, z) => panels.map(p => {
+        if (!p.camera || !p.renderer || p.state !== 'ready') return null;
+        const v = new THREE.Vector3(x, y, z).project(p.camera);
+        const el = p.renderer.domElement;
+        return [(v.x + 1) / 2 * el.clientWidth, (1 - v.y) / 2 * el.clientHeight];
+    });
     // 调试钩子：读取各面板 splatGroup 变换（只剩全局翻转 + 居中，单独调整不再改模型变换）
     window.__debugGroupXform = () => panels.map(p => {
         if (!p.splatGroup || p.state !== 'ready') return null;
