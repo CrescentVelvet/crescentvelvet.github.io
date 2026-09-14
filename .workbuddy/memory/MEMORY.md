@@ -82,10 +82,20 @@ Node 内置 `WebSocket` 手写极简客户端（`Target.createTarget` → `attac
 - **退出单独调整 = 无操作**。偏移反算是幂等的 ⇒ 不可能重复累加/漂移（第六、七轮的账本 bug 在此架构下不存在）。
 - 偏移含 `dEl`（俯仰私有维，clampPhi 钳 (0,π)）⇒ **"只能绕 Y"限制已取消**（无折算即无横滚问题）。
 - 广播 = 同一个减法 `base = st ⊖ camOffset`；fitAllToFirst/换模型清偏移。
-- `applyGroupTransform` 只剩全局翻转 + 居中（`t = -R·c`），模型侧调正变换已全部删除（约 320 行）。
+- `applyGroupTransform` 只剩 本面板翻转 + 居中（`t = -R·c`），模型侧调正变换已全部删除（约 320 行）。
 - 历史：第 1–8 轮（模型侧变换 + 退出折算 R⁻¹·C + 账本 distFactor/yawDelta/targetDelta）已全部作废，
   教训留在当日日志 2026-09-12.md。旧回归 link_sync/adjust_isolation/adjust_freeze 走旧钩子，一并作废；
-  现行回归 = `unify_semantics.js`（两模型真实 CDP 鼠标 25 项）+ 重写版 `check_splat_compare.js`（44 项，33 个旧标识符死名单）。
+  现行回归 = `unify_semantics.js`（两模型真实 CDP 鼠标 26 项）+ 重写版 `check_splat_compare.js`（51+7 项）。
+
+### 上下翻转 = 每面板状态 —— 2026-09-14 第十一轮定案，**现行架构**
+- 存 `panel.flipped`（**模型**侧状态，绕 X 轴 180°，`splatGroup.quaternion`），不再是全局布尔 `allFlipped`。
+  理由：翻转改的是"模型自己倒没倒"，**相机表达不出来**（相机翻不了物体自身朝向）。
+- 两条入口：面板标题栏「翻转」（独立，`setPanelFlipped`）+ 顶部「**全部翻转**」批量
+  （`setAllFlipped` → 把所有面板置为同一状态；`allPanelsFlipped()` 决定按钮 active，混态时点一次 = 全翻）。
+- 单面板翻转 = 相机逐点不动、其他面板不动；模型绕**自身中心**转（t = −R·c）⇒ 原地翻身不出画面。
+  必须 `forceResort`（朝向变了 view-space 深度全变，否则串色）；`setPanelFlipped` 内要 `syncFlipButton()`
+  （否则顶部按钮显示滞后——E2E 抓到过）。换模型/关面板清 flipped。角标 `.panel-canvas-wrap.flipped::after` 显示"上下翻转"。
+- 钩子 `window.__flip = {set, all, state, allFlipped}`；回归 `flip_panel.js`（2 模型，17 项，真实点击 DOM 按钮）。
 
 ### 平移的「屏幕像素意图」—— 2026-09-14 第十轮定案，**现行架构**
 - 右键平移是 OrbitControls 的**屏幕空间**操作：`Δt_world = right·(−2·dx·td/H) + up·(2·dy·td/H)`，
