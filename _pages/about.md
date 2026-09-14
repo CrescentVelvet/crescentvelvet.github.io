@@ -56,8 +56,14 @@ redirect_from:
         transform: translateY(-2px) scale(1.03);
         color: #fff;
     }
+    /* 按压反馈：pointerup 的 click 之后浏览器立刻开始导航，:active 才是"确实点到了"的即时反馈 */
+    .button-grid .link-button:active {
+        transform: translateY(-1px) scale(0.98);
+        box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+        transition-duration: 0.05s;
+    }
     
-    /* 保留原有水波纹样式 */
+    /* 水波纹：容器固定铺满视口且不吃指针事件 */
     #ripple-container {
         position: fixed;
         top: 0;
@@ -68,47 +74,26 @@ redirect_from:
         z-index: 9999;
     }
 
+    /* 波纹本体：固定 200px 直径，只动 transform。
+       原来动的是 width/height（每帧触发布局），且带前缀的 3 份 keyframes 副本动画的仍是宽高，
+       会盖掉标准版 —— 一并删掉，只留标准 @keyframes */
     .ripple {
         position: absolute;
+        width: 200px;
+        height: 200px;
         border-radius: 50%;
         background-color: rgba(0, 0, 0, 0.1);
-        width: 0;
-        height: 0;
-        transform: translate(-50%, -50%);
-        -webkit-animation: rippleEffect 1s ease-out;
-        -moz-animation: rippleEffect 1s ease-out;
-        -o-animation: rippleEffect 1s ease-out;
+        transform: translate(-50%, -50%) scale(0);
         animation: rippleEffect 1s ease-out;
     }
 
-    @-webkit-keyframes rippleEffect {
-        to {
-            width: 200px;
-            height: 200px;
-            opacity: 0;
-        }
-    }
-
-    @-moz-keyframes rippleEffect {
-        to {
-            width: 200px;
-            height: 200px;
-            opacity: 0;
-        }
-    }
-
-    @-o-keyframes rippleEffect {
-        to {
-            width: 200px;
-            height: 200px;
-            opacity: 0;
-        }
-    }
-
     @keyframes rippleEffect {
+        from {
+            transform: translate(-50%, -50%) scale(0);
+            opacity: 1;
+        }
         to {
-            width: 200px;
-            height: 200px;
+            transform: translate(-50%, -50%) scale(1);
             opacity: 0;
         }
     }
@@ -157,37 +142,46 @@ redirect_from:
     <a href="/tower_defense.html" class="link-button">塔防战争</a>
     <a href="/splat-compare/" class="link-button">高斯对比</a>
 </div>
-<hr>
-<p>强调一下<strong>几个字</strong></p>
-<p>倾斜一下<em>几个字</em></p>
-<blockquote>引用内容</blockquote>
-<p>分割线</p>
-<hr>
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const rippleContainer = document.getElementById('ripple-container');
+    (function () {
+        function init() {
+            const container = document.getElementById('ripple-container');
+            const grid = document.querySelector('.button-grid');
+            if (!container || !grid) return;
 
-        function createRipple(event) {
-            const ripple = document.createElement('div');
-            ripple.classList.add('ripple');
+            let lastRipple = null;
+            const clearRipple = (node) => { if (node && node.parentNode) container.removeChild(node); };
 
-            const x = event.clientX;
-            const y = event.clientY;
-            ripple.style.left = `${x}px`;
-            ripple.style.top = `${y}px`;
+            function createRipple(x, y) {
+                const ripple = document.createElement('div');
+                ripple.className = 'ripple';
+                ripple.style.left = `${x}px`;
+                ripple.style.top = `${y}px`;
+                container.appendChild(ripple);
+                lastRipple = ripple;
 
-            rippleContainer.appendChild(ripple);
+                // animationend 正常回收；另加定时器兜底，动画被打断时不泄漏节点
+                const timer = setTimeout(() => clearRipple(ripple), 1200);
+                ripple.addEventListener('animationend', () => {
+                    clearTimeout(timer);
+                    clearRipple(ripple);
+                });
+            }
 
-            ripple.addEventListener('animationend', () => {
-                ripple.remove();
+            // 修复①：只挂 pointerdown —— 原来 click + touchstart 双监听，移动端一次点击出两个波纹
+            // 修复②：pointerdown 早于 click/导航，波纹才来得及看见（配合 .link-button:active 按压态）
+            // 修复③：限定在 .button-grid 内 —— 原来挂 document，点标题/页脚/空白处也冒波纹
+            grid.addEventListener('pointerdown', (e) => {
+                if (e.button !== 0) return;                                   // 只响应主键（排除右键/中键）
+                if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+                createRipple(e.clientX, e.clientY);
             });
+
+            // 起手变成滚动时浏览器会取消本次手势，顺手撤掉那颗波纹
+            grid.addEventListener('pointercancel', () => { clearRipple(lastRipple); lastRipple = null; });
         }
 
-        document.addEventListener('click', createRipple);
-
-        document.addEventListener('touchstart', (event) => {
-            const touch = event.touches[0];
-            createRipple(touch);
-        }, { passive: true });
-    });
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+        else init();
+    }());
 </script>
