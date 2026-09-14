@@ -23,6 +23,9 @@ Node 内置 `WebSocket` 手写极简客户端（`Target.createTarget` → `attac
 - ⚠️ CDP `mouseWheel` 对某些面板不可靠 ⇒ 量级验证走状态钩子，真实事件只验"派发通不通"。
 - ⚠️ **断言禁止"非零即过"**：交互量级 bug 必须拿对照实现（OrbitControls 原生推拉）的实测数值当期望值，
   且每条事件通道独立断言。静默劫持（事件被原生消费）用"非零即过"永远查不出来。
+- ⚠️ **测量前必须 `settle()`**：`enableDamping=true` 下拖动结束后相机仍在漂移，跨 CDP 调用连读
+  "投影 + 相机状态"会读到**不同帧**，曾把 0 误差误报成 118px 漂移。做法：轮询 `__debugCameras()`
+  直到连续两次返回值相同（或超时）再读。
 
 ## 沙盘战争（_pages/sandbox_war_game.html）
 - 单位是 **DOM+CSS**（非 canvas）：`.unit`（定位/旋转）→ `.unit-body`（`scale(var(--scale))`）→ 配件 div。
@@ -83,6 +86,18 @@ Node 内置 `WebSocket` 手写极简客户端（`Target.createTarget` → `attac
 - 历史：第 1–8 轮（模型侧变换 + 退出折算 R⁻¹·C + 账本 distFactor/yawDelta/targetDelta）已全部作废，
   教训留在当日日志 2026-09-12.md。旧回归 link_sync/adjust_isolation/adjust_freeze 走旧钩子，一并作废；
   现行回归 = `unify_semantics.js`（两模型真实 CDP 鼠标 25 项）+ 重写版 `check_splat_compare.js`（44 项，33 个旧标识符死名单）。
+
+### 平移的「屏幕像素意图」—— 2026-09-14 第十轮定案，**现行架构**
+- 右键平移是 OrbitControls 的**屏幕空间**操作：`Δt_world = right·(−2·dx·td/H) + up·(2·dy·td/H)`，
+  `td = dist·tan(fov/2)`，`H = domElement.clientHeight`，右/上轴取 `camera.matrixWorld` 列 0/1。
+  所以广播**世界位移**会让朝向/距离不同的面板走偏（单独调整后必然发生）。
+- 现方案：查看模式广播「像素意图」(dx,dy)，各面板按自身相机换回世界位移，并演化自身私有
+  `dTarget`：`dTarget_new = st_p.target + dOwn − base_new.target`（绝对值 ⇒ 不漂移）。
+  函数：`panScale` / `worldToPanPixels` / `panPixelsToWorld`；`broadcastCameraState` 内 `isPan` 分支
+  （判据：target 动了而 az/el/dist 未动）。**左键旋转、滚轮缩放不受影响**（角度/比例增量与相机局部系无关）。
+- 探针：`window.__project(x,y,z)`（世界点→各面板屏幕像素）、`window.__lastBroadcast`。
+- 回归：`pan_sync.js`（两模型，8 项，屏幕位移差须 0.00px）+ `unify_semantics.js`（26 项，
+  T7 已改用屏幕位移断言）+ `check_splat_compare.js`（51 项）。
 
 ### 调试资产
 - **已入库**：`_pages/splat-test-matrix.html`（变体矩阵，URL 参数 gpusort/halfprec/manual/nooffset/forceall）、
