@@ -26,6 +26,9 @@ Node 内置 `WebSocket` 手写极简客户端（`Target.createTarget` → `attac
 - ⚠️ **测量前必须 `settle()`**：`enableDamping=true` 下拖动结束后相机仍在漂移，跨 CDP 调用连读
   "投影 + 相机状态"会读到**不同帧**，曾把 0 误差误报成 118px 漂移。做法：轮询 `__debugCameras()`
   直到连续两次返回值相同（或超时）再读。
+- ⚠️ **oracle 必须与"性质的成立条件"同帧**：测"同一帧内才成立"的性质（如混合帧的像素意图），
+  不能靠真实鼠标序时序碰运气，也不能用"整段累积量 ÷ 变化前基"（基在序列中转动 ⇒ 必误报 18px 假失败）。
+  用**原子注入单帧变化**（钩子）把条件做定，期望值才能精确计算。
 
 ## 沙盘战争（_pages/sandbox_war_game.html）
 - 单位是 **DOM+CSS**（非 canvas）：`.unit`（定位/旋转）→ `.unit-body`（`scale(var(--scale))`）→ 配件 div。
@@ -103,11 +106,17 @@ Node 内置 `WebSocket` 手写极简客户端（`Target.createTarget` → `attac
   所以广播**世界位移**会让朝向/距离不同的面板走偏（单独调整后必然发生）。
 - 现方案：查看模式广播「像素意图」(dx,dy)，各面板按自身相机换回世界位移，并演化自身私有
   `dTarget`：`dTarget_new = st_p.target + dOwn − base_new.target`（绝对值 ⇒ 不漂移）。
-  函数：`panScale` / `worldToPanPixels` / `panPixelsToWorld`；`broadcastCameraState` 内 `isPan` 分支
-  （判据：target 动了而 az/el/dist 未动）。**左键旋转、滚轮缩放不受影响**（角度/比例增量与相机局部系无关）。
-- 探针：`window.__project(x,y,z)`（世界点→各面板屏幕像素）、`window.__lastBroadcast`。
-- 回归：`pan_sync.js`（两模型，8 项，屏幕位移差须 0.00px）+ `unify_semantics.js`（26 项，
-  T7 已改用屏幕位移断言）+ `check_splat_compare.js`（51 项）。
+  函数：`panScale` / `worldToPanPixels` / `panPixelsToWorld`。**左键旋转、滚轮缩放不受影响**
+  （角度/比例增量与相机局部系无关）。
+- **不判据化（第十二轮）**：`dWorld = base.target − prev.target` 非零就走像素意图，为零（纯旋转/缩放）自然跳过。
+  曾用 `isPan` 判据（target 动而 az/el/dist 未动）—— 猜不了**混合帧**（旋转余波 + 平移同帧），必删。
+- ⚠️ **世界→像素必须用源面板「变化前」的基**（`sourcePanel.panBasis`，广播末尾刷新各面板 `panBasis`）：
+  同帧里先平移后旋转时，用变化后的实时基还原会把像素意图额外拧偏（实测 18° 同帧 ⇒ 接收面板偏 6.7°，修后 6e-4）。
+  接收面板侧仍用**实时基**（那一刻它就是变化前的基）。
+- 探针：`window.__project(x,y,z)`（世界点→各面板屏幕像素）、`__debugCameras` 含 `fov`/`panBasis`、
+  `__lastBroadcast`、`__mixChange(i,{dx,dy,dAz})`（原子注入单帧混合变化，测试混合帧用）。
+- 回归：`pan_sync.js`（两模型，12 项，P3/P5/P6 屏幕或像素意图差须 ~0）+ `unify_semantics.js`（26 项，
+  T7 已改用屏幕位移断言）+ `check_splat_compare.js`（51+11 项）。
 
 ### 调试资产
 - **已入库**：`_pages/splat-test-matrix.html`（变体矩阵，URL 参数 gpusort/halfprec/manual/nooffset/forceall）、
