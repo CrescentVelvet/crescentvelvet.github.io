@@ -8,29 +8,14 @@ redirect_from:
   - /about.html
 ---
 <style>
-    /* 只针对特定链接的按钮样式 */
-    a.link-button {
-        display: inline-block;
-        color: white;
-        background-color: #4CAF50;
-        text-decoration: none;
-        padding: 8px 16px;
-        border-radius: 4px;
-        transition: all 0.3s ease;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        margin: 5px 0;
-        border: none;
-        font-weight: normal;
-    }
-    
-    a.link-button:hover {
-        background-color: #45a049;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-        transform: translateY(-1px);
-    }
+    /* 入口按钮网格。.link-button 只在本页 .button-grid 内出现（全站范围已确认），
+       原来的 a.link-button / a.link-button:hover 基类被下面两条 .button-grid 规则逐属性全覆盖
+       （唯一"生效"的 margin: 5px 0 又与 grid 的 gap 语义重复），已删 */
     .button-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        /* 112px 下限按实测取的：最窄可真出现 5 个汉字标签（约 84px）仍两侧有余量。
+           160px 时 320~375px 屏只能 1 列（19 行），1024~1279px 窗口只有 3 列；改后 2 列 / 4 列 */
+        grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
         gap: 18px 24px;
         margin: 30px 0;
         padding: 0;
@@ -40,7 +25,7 @@ redirect_from:
         text-align: center;
         font-size: 16px;
         font-weight: 500;
-        padding: 14px 0;
+        padding: 14px 8px;
         background: linear-gradient(90deg, #4CAF50 60%, #45a049 100%);
         color: #fff;
         border-radius: 8px;
@@ -50,8 +35,9 @@ redirect_from:
         text-decoration: none;
         letter-spacing: 1px;
     }
+    /* hover 只做同向加深；原来是把两个色标位置对调（60%/100% 互换），渐变带会反着跑 */
     .button-grid .link-button:hover {
-        background: linear-gradient(90deg, #45a049 60%, #4CAF50 100%);
+        background: linear-gradient(90deg, #45a049 60%, #3d8b40 100%);
         box-shadow: 0 4px 16px rgba(0,0,0,0.15);
         transform: translateY(-2px) scale(1.03);
         color: #fff;
@@ -96,27 +82,6 @@ redirect_from:
             transform: translate(-50%, -50%) scale(1);
             opacity: 0;
         }
-    }
-    
-    /* 返回按钮样式 */
-    .back-button {
-        display: inline-block;
-        color: white;
-        background-color: #6c757d;
-        text-decoration: none;
-        padding: 8px 16px;
-        border-radius: 4px;
-        transition: all 0.3s ease;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        margin: 20px 0;
-        border: none;
-        font-weight: normal;
-    }
-    
-    .back-button:hover {
-        background-color: #5a6268;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-        transform: translateY(-1px);
     }
 </style>
 <div id="ripple-container"></div>
