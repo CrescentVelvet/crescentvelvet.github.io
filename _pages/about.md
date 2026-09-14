@@ -86,27 +86,11 @@ redirect_from:
 </style>
 <div id="ripple-container"></div>
 <hr>
-<div class="button-grid">
-    <a href="/chat_bot.html" class="link-button">大模型对话</a>
-    <a href="/travel_map.html" class="link-button">旅行足迹</a>
-    <a href="/course_recorder.html" class="link-button">进度记录</a>
-    <a href="/db_viewer.html" class="link-button">数据库解析</a>
-    <a href="/text_processor.html" class="link-button">文本加密</a>
-    <a href="/enc_reader.html" class="link-button">文本解密</a>
-    <a href="/diary_tree.html" class="link-button">树状日志</a>
-    <a href="/handwriting_ocr.html" class="link-button">手写识别</a>
-    <a href="/paper_retrieval.html" class="link-button">论文调研</a>
-    <a href="/hot_trends.html" class="link-button">每日热榜</a>
-    <a href="/wish_analyzer.html" class="link-button">抽卡分析</a>
-    <a href="/exam_notes/" class="link-button">信创考试</a>
-    <a href="/anime-tracker/" class="link-button">动画世代</a>
-    <a href="/todo_list.html" class="link-button">待办清单</a>
-    <a href="/flow_chart.html" class="link-button">框图绘制</a>
-    <a href="/game_plane.html" class="link-button">飞机大战</a>
-    <a href="/sandbox_war_game.html" class="link-button">沙盘战争</a>
-    <a href="/tower_defense.html" class="link-button">塔防战争</a>
-    <a href="/splat-compare/" class="link-button">高斯对比</a>
-</div>
+<nav class="button-grid" aria-label="站点入口">
+{% for app in site.data.apps %}
+    <a href="{{ app.url }}" class="link-button">{{ app.title }}</a>
+{% endfor %}
+</nav>
 <script>
     (function () {
         function init() {

@@ -6,8 +6,11 @@
 {% endif %}
 {% assign seo_url = seo_url | default: site.github.url %}
 
-{% if page.title %}
+{% if page.title and site.title %}
   {% assign seo_title = page.title | append: " " | append: site.title_separator | append: " " | append: site.title %}
+{% elsif page.title %}
+  {% comment %} 站点名为空时不要拼分隔符，否则 <title> 会留下悬空的 "标题 - " {% endcomment %}
+  {% assign seo_title = page.title %}
 {% endif %}
 
 {% if seo_title %}

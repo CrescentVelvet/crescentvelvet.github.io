@@ -1,0 +1,61 @@
+# 首页入口按钮清单
+# 由 _pages/about.md 的 .button-grid 用 Liquid 循环渲染，**数组顺序 = 页面显示顺序**。
+# 新增一个页面：在对应位置加一项即可（title = 按钮文字，url = 站内路径）。
+# 注意 url 用绝对路径（/xxx.html 或 /xxx/），与本页 permalink: / 的部署方式无关。
+
+- title: 大模型对话
+  url: /chat_bot.html
+
+- title: 旅行足迹
+  url: /travel_map.html
+
+- title: 进度记录
+  url: /course_recorder.html
+
+- title: 数据库解析
+  url: /db_viewer.html
+
+- title: 文本加密
+  url: /text_processor.html
+
+- title: 文本解密
+  url: /enc_reader.html
+
+- title: 树状日志
+  url: /diary_tree.html
+
+- title: 手写识别
+  url: /handwriting_ocr.html
+
+- title: 论文调研
+  url: /paper_retrieval.html
+
+- title: 每日热榜
+  url: /hot_trends.html
+
+- title: 抽卡分析
+  url: /wish_analyzer.html
+
+- title: 信创考试
+  url: /exam_notes/
+
+- title: 动画世代
+  url: /anime-tracker/
+
+- title: 待办清单
+  url: /todo_list.html
+
+- title: 框图绘制
+  url: /flow_chart.html
+
+- title: 飞机大战
+  url: /game_plane.html
+
+- title: 沙盘战争
+  url: /sandbox_war_game.html
+
+- title: 塔防战争
+  url: /tower_defense.html
+
+- title: 高斯对比
+  url: /splat-compare/

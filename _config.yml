@@ -6,11 +6,12 @@
 # `jekyll serve`. If you change this file, please restart the server process.
 
 # Site Settings
-locale                   : "中国"
-title                    : ""
+# 用完整 BCP-47 标签：default.html:8 会取前两个字符做 <html lang>，填 "中国" 会输出非法的 lang="中国"
+locale                   : "zh-CN"
+title                    : "CrescentVelvet"
 title_separator          : "-"
-name                     : &name ""
-description              : &description ""
+name                     : &name "CrescentVelvet"
+description              : &description "个人工具与小游戏合集"
 url                      : https://crescentvelvet.github.io # the base hostname & protocol for your site e.g. "https://mmistakes.github.io"
 baseurl                  : "" # the subpath of your site, e.g. "/blog"
 repository               : "crescentvelvet.github.io"
