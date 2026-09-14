@@ -868,8 +868,8 @@ title: "高斯对比"
             k: (2 * td) / H,   // 世界单位 / 像素
         };
     }
-    function worldToPanPixels(panel, d) {
-        const s = panScale(panel);
+    function worldToPanPixels(panel, d, scale) {
+        const s = scale || panScale(panel);
         return { dx: -d.dot(s.right) / s.k, dy: d.dot(s.up) / s.k };
     }
     function panPixelsToWorld(panel, dx, dy) {
@@ -893,31 +893,37 @@ title: "高斯对比"
         const prev = mainCameraState;
         mainCameraState = base;
 
-        // 判断这一次变化是不是「纯平移」：target 动了，而朝向/俯仰/距离没动。
-        // 纯平移必须走【像素意图】广播 —— 见上面 panScale 的说明。
-        let isPan = false, panDX = 0, panDY = 0, panWhy = 'no-prev';
+        // 注视点的变化量【永远】按「像素意图」分发 —— 不判断"这一帧是不是纯平移"。
+        //   · 纯平移：各面板屏幕位移一致（它存在的理由）；
+        //   · 纯旋转/缩放：注视点没动 ⇒ dWorld = null ⇒ 完全不碰 camOffset，与原路径等价；
+        //   · 混合帧（例如旋转阻尼余波 + 平移同帧）：旋转走基准、平移走像素意图，各自都对。
+        // 判据式的 isPan 猜不了混合帧，会静默退化回世界向量广播 ⇒ 已废除。
+        let dWorld = null, panDX = 0, panDY = 0;
         if (prev) {
-            const dAz = Math.abs(normalizeAngle(base.azimuth - prev.azimuth));
-            const dEl = Math.abs(base.elevation - prev.elevation);
-            const dDist = Math.abs(base.distance - prev.distance);
-            isPan = dAz < 1e-6 && dEl < 1e-6 && dDist < 1e-6 * Math.max(1, prev.distance);
-            panWhy = isPan ? 'pan' : `dAz=${dAz.toExponential(2)} dEl=${dEl.toExponential(2)} dDist=${dDist.toExponential(2)}`;
-            if (isPan) {
-                const pix = worldToPanPixels(sourcePanel, base.target.clone().sub(prev.target));
+            dWorld = base.target.clone().sub(prev.target);
+            if (dWorld.lengthSq() === 0) dWorld = null;
+            else {
+                // 关键：用**源面板变化前**的基做「世界 → 像素」还原。
+                // 这一帧里源面板可能"先平移后旋转"（阻尼余波 + 平移同帧），
+                // 若用变化后的实时基还原，像素意图会被这一帧的旋转额外拧一下
+                // （混合帧注入实测：18° 同帧旋转 ⇒ 接收面板偏 6.7°）。
+                // panBasis 在每次广播结束时刷新，所以它就是"上一次广播后的姿态"。
+                const pix = worldToPanPixels(sourcePanel, dWorld, sourcePanel.panBasis || panScale(sourcePanel));
                 panDX = pix.dx;
                 panDY = pix.dy;
             }
         }
         window.__lastBroadcast = {
-            src: panels.indexOf(sourcePanel), isPan, panWhy,
+            src: panels.indexOf(sourcePanel), pan: !!dWorld,
             dx: +panDX.toFixed(3), dy: +panDY.toFixed(3),
         };
 
         for (const p of panels) {
             if (p === sourcePanel) continue;
             if (p.state !== 'ready' || !p.controls) continue;
-            if (isPan) {
-                // 源面板的屏幕平移量 → 本面板自己的世界位移。
+            if (dWorld) {
+                // 源面板的屏幕平移量 → 本面板自己的世界位移（用本面板**变化前**的基，
+                // 此刻它还没被 applyBaseToPanel 改动，实时基就是变化前的基）。
                 // 基准里已经含了源面板的世界位移，所以私有偏移要补上两者之差。
                 // 用「老实际 target + 本面板世界位移 − 新基准 target」绝对收敛，不累加。
                 const stP = computeCameraState(p);
@@ -931,6 +937,10 @@ title: "高斯对比"
                 }
             }
             applyBaseToPanel(p, base);
+        }
+        // 记下本次广播后的姿态基，供下一次广播做「世界 → 像素」还原
+        for (const p of panels) {
+            if (p.state === 'ready' && p.controls && p.camera) p.panBasis = panScale(p);
         }
     }
 
@@ -1059,6 +1069,18 @@ title: "高斯对比"
         pos: p.camera ? p.camera.position.toArray().map(v => +v.toFixed(3)) : null,
         // 排查"某个面板转不动/滚不动"时最直接的两个状态
         enabled: p.controls ? p.controls.enabled : null,
+        fov: p.camera ? p.camera.fov : null,   // 像素↔世界换算要用（回归脚本自己实现一份）
+        // 页面侧实际用的平移基（右/上轴 + 世界单位每像素），供回归脚本核对自算的那份
+        panBasis: (p.camera && p.controls && p.state === 'ready') ? (() => {
+            const s = panScale(p);
+            const el = p.renderer.domElement;
+            return {
+                right: s.right.toArray().map(v => +v.toFixed(6)),
+                up: s.up.toArray().map(v => +v.toFixed(6)),
+                k: +s.k.toFixed(8),
+                clientHeight: el.clientHeight,
+            };
+        })() : null,
         adjusting: p.adjusting,
         // 私有偏移（单独调整写入、查看只读）：偏航/俯仰用度、距离用倍率、注视点用世界向量
         off: p.camOffset ? {
@@ -1089,6 +1111,28 @@ title: "高斯对比"
             flipped: !!p.flipped,
         };
     });
+    // 调试钩子：**原子注入一帧「旋转 + 平移」的混合变化**。
+    // 真实鼠标很难构造稳定的混合帧（旋转阻尼余波与平移的时序不确定），
+    // 而"平移分量永远走像素意图"恰恰只在混合帧里才能与"世界向量广播"区分开。
+    // 注入的是单帧变化 ⇒ 各面板基向量在这一帧内不变 ⇒ 期望值可被独立精确计算。
+    window.__mixChange = (i, opts = {}) => {
+        const p = panels[i];
+        if (!p || p.state !== 'ready' || !p.controls || !p.camera) return null;
+        const dPan = panPixelsToWorld(p, opts.dx || 0, opts.dy || 0);
+        const dAz = (opts.dAz || 0) * Math.PI / 180;
+        // 平移（等价于一次 OrbitControls pan：position 与 target 同移）
+        p.controls.target.add(dPan);
+        p.camera.position.add(dPan);
+        // 同一帧里再绕注视点转 dAz
+        const off = new THREE.Vector3().subVectors(p.camera.position, p.controls.target);
+        const sph = new THREE.Spherical().setFromVector3(off);
+        sph.theta += dAz;
+        p.camera.position.copy(p.controls.target).add(new THREE.Vector3().setFromSpherical(sph));
+        p.camera.lookAt(p.controls.target);
+        p.controls.update();   // 触发 change ⇒ 按 adjusting 路由（查看模式即广播）
+        wakeRenderLoop();
+        return true;
+    };
     // 调试钩子：脚本驱动翻转（CDP / 控制台）。与 UI 两条入口一一对应。
     window.__flip = {
         set: (i, on) => {
