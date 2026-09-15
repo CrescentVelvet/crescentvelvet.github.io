@@ -331,6 +331,111 @@ title: "日志时间轴"
             text-align: center;
             white-space: nowrap;
         }
+        /* ═══ 单月聚焦（原位浮层）═══
+           卡片原地浮起、盖住邻居，布局一点不变。背景只压暗 0.38 ——
+           压暗太重就看不出"布局没变"，而背景里的柱子正是它在证明这一点。
+           用 DOM 而不是 canvas：右列「当月目录」需要滚动，canvas 里做滚动得不偿失。 */
+        #focus-backdrop {
+            position: fixed;
+            inset: 0;
+            z-index: 60;
+            background: rgba(250, 247, 241, 0.38);
+            display: none;
+        }
+        #focus-backdrop.visible { display: block; }
+        #month-focus {
+            position: fixed;
+            z-index: 61;
+            background: var(--panel-solid);
+            border: 1px solid rgba(126, 93, 73, 0.20);
+            border-radius: 16px;
+            box-shadow: 0 22px 60px rgba(60, 38, 24, 0.28);
+            padding: 18px 22px 14px;
+            display: none;
+            flex-direction: column;
+        }
+        #month-focus.visible { display: flex; }
+        #month-focus .mf-head { display: flex; align-items: center; gap: 10px; }
+        #month-focus .mf-title { font: 600 21px Georgia,"Times New Roman",serif; color: rgba(66,44,32,0.94); }
+        #month-focus .mf-seal {
+            display: none; align-items: center; gap: 6px;
+            color: rgba(160,80,58,0.92); font-size: 11px;
+        }
+        #month-focus.is-full .mf-seal { display: inline-flex; }
+        #month-focus .mf-seal i {
+            width: 12px; height: 12px; border-radius: 2px;
+            background: rgba(178, 88, 64, 0.92);
+            box-shadow: inset 0 0 0 2px rgba(255, 253, 249, 0.92);
+        }
+        #month-focus .mf-stats { margin-left: auto; color: var(--muted); font-size: 12px; }
+        #month-focus .mf-close {
+            border: 0; background: transparent; cursor: pointer; color: var(--muted);
+            font-size: 20px; line-height: 1; padding: 1px 6px; border-radius: 6px;
+        }
+        #month-focus .mf-close:hover { background: rgba(126, 93, 73, 0.10); }
+        #month-focus .mf-bar {
+            display: flex; height: 8px; border-radius: 4px; overflow: hidden; margin: 12px 0 8px;
+        }
+        #month-focus .mf-bar i { display: block; }
+        #month-focus .mf-legend {
+            display: flex; flex-wrap: wrap; gap: 4px 14px;
+            font-size: 11px; color: rgba(91, 74, 64, 0.82);
+        }
+        #month-focus .mf-legend span { display: inline-flex; align-items: center; gap: 5px; }
+        #month-focus .mf-legend .dot { width: 7px; height: 7px; }
+        #month-focus .mf-body { display: flex; gap: 22px; margin-top: 12px; min-height: 0; }
+        #month-focus .mf-cal { flex: 0 0 auto; }
+        #month-focus .mf-list {
+            flex: 1 1 auto; min-width: 0; overflow-y: auto;
+            max-height: 268px; padding-right: 4px;
+        }
+        #month-focus .mf-list h4 {
+            font: 600 12px "Segoe UI","Microsoft YaHei",sans-serif;
+            color: rgba(66,44,32,0.86); margin: 0 0 6px;
+        }
+        #month-focus .mf-row {
+            display: flex; align-items: baseline; gap: 6px;
+            padding: 5px 2px; border-bottom: 1px solid rgba(126,93,73,0.08); cursor: pointer;
+        }
+        #month-focus .mf-row:hover { background: rgba(126, 93, 73, 0.06); }
+        #month-focus .mf-row .dot { width: 7px; height: 7px; flex: 0 0 auto; }
+        #month-focus .mf-row .d { font-size: 11px; color: rgba(91,74,64,0.92); white-space: nowrap; }
+        #month-focus .mf-row .w { margin-left: auto; font-size: 11px; color: rgba(135,125,120,0.92); white-space: nowrap; }
+        #month-focus .mf-row .x {
+            font-size: 11px; color: rgba(66,44,32,0.62);
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 46%;
+        }
+        #month-focus .mf-foot { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+        #month-focus .mf-foot button {
+            border: 0; background: rgba(184, 105, 68, 0.10); color: rgba(150, 82, 54, 0.95);
+            font-size: 11px; padding: 6px 12px; border-radius: 999px; cursor: pointer;
+        }
+        #month-focus .mf-foot button:hover { background: rgba(184, 105, 68, 0.18); }
+        #month-focus .mf-hint { margin-left: auto; font-size: 11px; color: rgba(135, 125, 120, 0.9); }
+        #month-focus .mf-cal table { border-collapse: collapse; }
+        #month-focus .mf-cal th {
+            font: 400 10px "Microsoft YaHei",sans-serif;
+            color: rgba(135, 125, 120, 0.8); padding: 1px 0 5px; font-weight: 400;
+        }
+        #month-focus .mf-cal td { padding: 1.5px; }
+        #month-focus .mf-cell {
+            width: 38px; height: 38px; border-radius: 6px;
+            display: flex; align-items: flex-start; justify-content: flex-start;
+            padding: 4px 0 0 5px; box-sizing: border-box;
+            font: 600 11px "Segoe UI",sans-serif; color: rgba(255,255,255,0.96);
+            position: relative; cursor: pointer;
+        }
+        #month-focus .mf-cell.empty {
+            background: transparent !important;
+            box-shadow: inset 0 0 0 1px rgba(126, 93, 73, 0.16);
+            color: rgba(135, 125, 120, 0.55); font-weight: 400; cursor: default;
+        }
+        #month-focus .mf-cell .multi {
+            position: absolute; top: 4px; right: 5px;
+            width: 5px; height: 5px; border-radius: 50%;
+            background: rgba(255, 255, 255, 0.92);
+        }
+        #month-focus .mf-cell:not(.empty):hover { box-shadow: 0 0 0 2px rgba(184, 105, 68, 0.55); }
         @keyframes floatIn {
             from { opacity: 0; transform: translateY(8px) scale(0.98); }
             to { opacity: 1; transform: translateY(0) scale(1); }
@@ -365,6 +470,27 @@ title: "日志时间轴"
     <div class="hud-sep"></div>
     <div class="hud-summary" id="hud-summary">解密后可以缩小看月份概览，放大看每日记录。</div>
     <div class="hud-right" id="hud-scale"></div>
+</div>
+
+<div id="focus-backdrop"></div>
+<div id="month-focus">
+    <div class="mf-head">
+        <div class="mf-title" id="mf-title"></div>
+        <span class="mf-seal"><i></i>满月</span>
+        <div class="mf-stats" id="mf-stats"></div>
+        <button class="mf-close" id="mf-close" type="button" title="收起">&times;</button>
+    </div>
+    <div class="mf-bar" id="mf-bar"></div>
+    <div class="mf-legend" id="mf-legend"></div>
+    <div class="mf-body">
+        <div class="mf-cal"><table id="mf-cal"></table></div>
+        <div class="mf-list"><h4>当月目录</h4><div id="mf-list-rows"></div></div>
+    </div>
+    <div class="mf-foot">
+        <button id="mf-prev" type="button">‹ 上月</button>
+        <button id="mf-next" type="button">下月 ›</button>
+        <span class="mf-hint">点日期查看当天日志 · Esc 收起</span>
+    </div>
 </div>
 
 <div id="info-popup">
@@ -1373,6 +1499,8 @@ function resize() {
 function resizeAndRender() {
     resize();
     rebuildAll();
+    // 浮层开着时窗口变了：按同一年月重新定位（focusRef 不变，只是坐标要重算）。
+    if (focusRef) showMonthFocus(focusRef.year, focusRef.month);
 }
 
 // ═══ Zoom ═══
@@ -1541,6 +1669,137 @@ document.getElementById('popup-close').onclick = (e) => {
     hidePopup();
 };
 
+// ═══ 单月聚焦（原位浮层）═══
+// 单击月份卡 → 卡片原地浮起、盖住邻居，布局一点不变。
+// 交互层级固定两层：列头(年) → 月份卡 = 这里 → 点某天 = 日详情弹窗。
+// 月级别的统计并入浮层头部，不再单独弹 —— 否则会出现两个平级弹窗互相打架。
+let focusRef = null;
+
+function hideMonthFocus() {
+    focusRef = null;
+    const el = document.getElementById('month-focus');
+    document.getElementById('focus-backdrop').classList.remove('visible');
+    if (el) el.classList.remove('visible');
+}
+
+// 取正文第一行当摘要：数据里每条日志的第一行往往是分类标签，要跳过它。
+function firstDiaryLine(text, max) {
+    const lines = String(text || '').split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+    const skip = ['闲情逸致', '梦幻空花', '做视频想法', '未来回顾', '日常'];
+    const body = lines.filter(l => skip.indexOf(l) < 0);
+    const line = (body[0] || lines[0] || '').replace(/\s+/g, ' ');
+    return line.length > max ? line.slice(0, max) + '…' : line;
+}
+
+function showMonthFocus(year, month) {
+    const stats = statsCache.month.get(`${year}-${month}`);
+    if (!stats || stats.entryCount === 0) return;
+    const yl = layout.years.find(y => y.year === year);
+    const mo = yl && yl.months.find(m => m.month === month);
+    if (!mo) return;
+    focusRef = { year, month };
+
+    // 定位：以卡片在屏幕上的左上角为锚放大成固定尺寸，再夹进视口。
+    // 锚在卡片本身 ⇒ 视觉上就是"这张卡长出来了"，而不是凭空弹一个窗。
+    const el = document.getElementById('month-focus');
+    const bw = Math.min(700, window.innerWidth - 32);
+    const bh = Math.min(470, window.innerHeight - 48);
+    let px = mo.cardX * scale + viewX - 14;
+    let py = mo.cardY * scale + viewY - 34;
+    px = Math.min(Math.max(px, 16), Math.max(16, window.innerWidth - bw - 16));
+    py = Math.min(Math.max(py, 44), Math.max(44, window.innerHeight - bh - 16));
+    el.style.left = px + 'px';
+    el.style.top = py + 'px';
+    el.style.width = bw + 'px';
+    el.style.maxHeight = bh + 'px';
+
+    document.getElementById('mf-title').textContent = `${year} 年 ${month} 月`;
+    document.getElementById('mf-stats').textContent =
+        `${stats.dayCount}天 · ${stats.entryCount}篇 · ${formatCompactNumber(stats.wordCount)}字`;
+    el.classList.toggle('is-full', !!stats.isFull);
+
+    // 分类构成条 + 图例
+    const counts = {};
+    for (const e of stats.entries) counts[e.category] = (counts[e.category] || 0) + 1;
+    const order = ['leisure', 'dream', 'video', 'review', 'normal'].filter(c => counts[c]);
+    document.getElementById('mf-bar').innerHTML = order
+        .map(c => `<i style="flex:${counts[c]};background:${categoryColor(c, 0.78)}"></i>`).join('');
+    document.getElementById('mf-legend').innerHTML = order
+        .map(c => `<span><span class="dot" style="background:${categoryColor(c, 0.85)}"></span>`
+            + `${categoryLabel(c)} ${counts[c]}</span>`).join('');
+
+    // 真月历 7×6：色深 ∝ 当日字数（同一把全局标尺），多篇的日子右上角一个白点。
+    const dim = daysInMonth(year, month);
+    const firstDow = (new Date(year, month - 1, 1).getDay() + 6) % 7;
+    let cells = '';
+    for (let d = 1; d <= dim; d++) {
+        const ds = statsCache.day.get(`${year}-${month}-${d}`);
+        let cell;
+        if (ds && ds.entryCount > 0) {
+            const inten = Math.min(ds.wordCount / Math.max(1, scaleAxis.denom), 1);
+            cell = `<div class="mf-cell" data-day="${d}" style="background:${categoryColor(ds.category, 0.30 + inten * 0.62)}">`
+                + `${d}${ds.entryCount > 1 ? '<span class="multi"></span>' : ''}</div>`;
+        } else {
+            cell = `<div class="mf-cell empty">${d}</div>`;
+        }
+        cells += `<td>${cell}</td>`;
+        if ((firstDow + d) % 7 === 0) cells += '</tr><tr>';
+    }
+    document.getElementById('mf-cal').innerHTML =
+        '<tr>' + ['一','二','三','四','五','六','日'].map(w => `<th>${w}</th>`).join('') + '</tr>'
+        + '<tr>' + '<td></td>'.repeat(firstDow) + cells + '</tr>';
+
+    // 当月目录：按日期升序，日期/星期 + 字数 + 首句摘要，可滚动。
+    document.getElementById('mf-list-rows').innerHTML = stats.days.map(d => {
+        const ds = statsCache.day.get(`${year}-${month}-${d}`);
+        const e = ds.entries[0];
+        const dow = ['一','二','三','四','五','六','日'][(new Date(year, month - 1, d).getDay() + 6) % 7];
+        return `<div class="mf-row" data-day="${d}">`
+            + `<span class="dot" style="background:${categoryColor(e.category, 0.9)}"></span>`
+            + `<span class="d">${month}/${d} 周${dow}</span>`
+            + `<span class="w">${ds.entryCount > 1 ? ds.entryCount + '篇 · ' : ''}${ds.wordCount}字</span>`
+            + `<span class="x">${escapeHtml(firstDiaryLine(e.text, 34))}</span></div>`;
+    }).join('') || '这个月没有日志。';
+
+    document.getElementById('focus-backdrop').classList.add('visible');
+    el.classList.add('visible');
+}
+
+function shiftMonthFocus(delta) {
+    if (!focusRef) return;
+    let y = focusRef.year, m = focusRef.month + delta;
+    if (m < 1) { m = 12; y--; }
+    if (m > 12) { m = 1; y++; }
+    // 没有数据的月份不跳（跳过去只会看到一张空卡）。
+    if (!treeData[y] || !treeData[y][m]) return;
+    showMonthFocus(y, m);
+}
+
+document.getElementById('mf-close').onclick = (e) => { e.stopPropagation(); hideMonthFocus(); };
+document.getElementById('focus-backdrop').onclick = () => hideMonthFocus();
+document.getElementById('mf-prev').onclick = (e) => { e.stopPropagation(); shiftMonthFocus(-1); };
+document.getElementById('mf-next').onclick = (e) => { e.stopPropagation(); shiftMonthFocus(1); };
+document.getElementById('mf-cal').addEventListener('click', (e) => {
+    const cell = e.target.closest && e.target.closest('.mf-cell');
+    if (!cell || cell.classList.contains('empty') || !focusRef) return;
+    const y = focusRef.year, m = focusRef.month, d = parseInt(cell.dataset.day, 10);
+    hideMonthFocus();
+    showPopup({ type: 'day', year: y, month: m, day: d }, e.clientX, e.clientY);
+});
+document.getElementById('mf-list-rows').addEventListener('click', (e) => {
+    const row = e.target.closest && e.target.closest('.mf-row');
+    if (!row || !focusRef) return;
+    const y = focusRef.year, m = focusRef.month, d = parseInt(row.dataset.day, 10);
+    hideMonthFocus();
+    showPopup({ type: 'day', year: y, month: m, day: d }, e.clientX, e.clientY);
+});
+document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    const mf = document.getElementById('month-focus');
+    if (mf.classList.contains('visible')) { hideMonthFocus(); return; }
+    if (popup.classList.contains('visible')) hidePopup();
+});
+
 // ═══ Mouse events ═══
 canvas.addEventListener('mousedown', (e) => {
     dragging = true;
@@ -1584,9 +1843,16 @@ canvas.addEventListener('mouseup', (e) => {
             const my = (e.clientY - viewY) / scale;
             const node = hitTest(mx, my);
             if (node) {
-                showPopup(node, e.clientX, e.clientY);
+                if (node.type === 'month') {
+                    // 单击月份卡 = 单月聚焦（原位浮层）。月统计并入浮层头部，不再单独弹。
+                    hidePopup();
+                    showMonthFocus(node.year, node.month);
+                } else {
+                    showPopup(node, e.clientX, e.clientY);
+                }
             } else {
                 hidePopup();
+                hideMonthFocus();
             }
         }
     }
