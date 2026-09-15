@@ -370,6 +370,43 @@ const SCALE_MIN = 0.15, SCALE_MAX = 5;
 const DAY_NODE_SCALE = 1.08;
 const DAY_LABEL_SCALE = 1.55;
 const DAY_DETAIL_SCALE = 2.15;
+
+// ═══ 柱高标尺（分段堆叠柱）═══
+// 分母 = 全局「单日合计字数」最大值 × DENOM_RATIO，且**全局统一** ⇒ 柱高可跨月比较。
+// 实测（4 年 41 月样本）：截平 13.2%、中位日填 47%。分母放大到 0.5× 则中位日只填 33%（卡片半空），
+// 缩到 0.25× 截平升到 22.3%（最忙的月份四成日子被压平）。完整取舍表见
+// _design/diary_tree_redesign.md 第 2.1 节。
+const DENOM_RATIO = 0.35;
+// 季节淡彩：月 → 色调（春青 / 夏赭 / 秋金 / 冬黛）。仅作底纹，不承载数据。
+const SEASON_TINT = (m) => (m >= 3 && m <= 5) ? [124, 158, 92]
+    : (m >= 6 && m <= 8) ? [192, 144, 74]
+    : (m >= 9 && m <= 11) ? [186, 118, 56] : [106, 122, 152];
+let scaleAxis = { denom: 0, globalMaxDay: 0, clipDays: 0, dayCount: 0 };
+
+// 标尺从「已缓存的单日统计」里推，保证与柱高用的是同一份数据。
+function computeScaleAxis() {
+    let maxDay = 0;
+    for (const st of statsCache.day.values()) {
+        if (st.wordCount > maxDay) maxDay = st.wordCount;
+    }
+    const denom = Math.max(1, maxDay * DENOM_RATIO);
+    let clip = 0;
+    for (const st of statsCache.day.values()) {
+        if (st.wordCount > denom) clip++;
+    }
+    scaleAxis = {
+        denom,
+        globalMaxDay: maxDay,
+        clipDays: clip,
+        dayCount: statsCache.day.size
+    };
+    // 截平比例是**数据相关**的：同一套 DENOM_RATIO 在不同分布上差别很大
+    // （示意页样本 13%、dev 样本 30%）。所以把它打到控制台，便于拿真实数据回来调这一个常量。
+    console.log('[diary_tree] 柱高标尺 denom=' + Math.round(denom)
+        + ' 全局最大单日=' + maxDay
+        + ' 截平=' + clip + '/' + statsCache.day.size + ' 天 ('
+        + (clip / Math.max(1, statsCache.day.size) * 100).toFixed(1) + '%)');
+}
 let dragging = false;
 let dragStartX = 0, dragStartY = 0;
 let dragViewX = 0, dragViewY = 0;
@@ -409,36 +446,8 @@ function getMonthY(month) {
     return (month - 1) * (layout.monthHeight + monthGap()) + 48;
 }
 
-// Layout day dots in a wrapped grid that fits inside the available area so 30+
-// days don't overlap. The dot radius shrinks until the grid fits. `availH` is
-// the height reserved for the grid (excludes a header band for the month stats).
-// Shared by draw() and hitTest() so click targets match what's drawn.
-// NOTE: all sizes here are world (scale=1) units; ctx.scale applies the zoom.
-function dayNodePositions(cardX, cardW, availH, gridCenterY, dayCount) {
-    const gap = 3;
-    // Start larger (up to 11 world-px) so at high zoom the dots are big enough
-    // to hold a readable day number; shrink only if they truly don't fit.
-    let r = Math.min(layout.monthHeight * 0.28, 11);
-    let cols, rows;
-    for (; r >= 2; r -= 0.5) {
-        cols = Math.min(dayCount, Math.max(1, Math.floor((cardW - 12) / (r * 2 + gap))));
-        rows = Math.ceil(dayCount / cols);
-        if (rows * (r * 2 + gap) <= availH - 6) break;
-    }
-    if (r < 2) r = 2;
-    const cell = r * 2 + gap;
-    const gridW = cols * cell;
-    const gridH = rows * cell;
-    const startX = cardX + (cardW - gridW) / 2 + r;
-    const startY = gridCenterY - gridH / 2 + r;
-    const positions = [];
-    for (let i = 0; i < dayCount; i++) {
-        const rr = Math.floor(i / cols);
-        const cc = i % cols;
-        positions.push({ dx: startX + cc * cell, dy: startY + rr * cell });
-    }
-    return { positions, r };
-}
+// 原 dayNodePositions()（把 30+ 个日圆点排成自适应网格）已删除 ——
+// 日粒度改由柱区的 31 个固定槽位表达，不再需要"为了塞下圆点而逐步缩小半径"这套布局。
 
 function getViewMode() {
     if (scale >= DAY_DETAIL_SCALE) return '日详情';
@@ -705,18 +714,18 @@ function computeLayout() {
             const cardY = cy - cardH / 2;
             const cardR = Math.min(cardH / 2, 10);
             const headerH = 16;
-            const gridTop = cardY + headerH;
-            const gridAvailH = Math.max((cardY + cardH) - gridTop, 8);
-            const gridCenterY = gridTop + gridAvailH / 2;
-            let dayRadius = 0, dayPositions = [];
-            if (days.length > 0) {
-                const dp = dayNodePositions(cardX, cardW, gridAvailH, gridCenterY, days.length);
-                dayRadius = dp.r;
-                dayPositions = dp.positions;
-            }
+            // 柱区几何：左侧留 30px 给月序与主导分类竖标，底部留 7px 作基线。
+            // 固定 31 个横向槽位（而不是按当月天数均分），这样不同月份的同一天
+            // 在视觉上落在同一相对位置，跨月对比时不会漂移。
+            const plotL = cardX + 30;
+            const plotR = cardX + cardW - 11;
+            const plotT = cardY + 22;
+            const plotB = cardY + cardH - 7;
             months.push({
                 month: m, days, cx, cy, cardX, cardW, cardY, cardH, cardR,
-                headerH, gridTop, gridAvailH, gridCenterY, dayRadius, dayPositions
+                headerH, plotL, plotR, plotT, plotB,
+                plotW: Math.max(plotR - plotL, 1),
+                plotH: Math.max(plotB - plotT, 1)
             });
         }
         return { year, months, x, width: yearWidth };
@@ -740,6 +749,7 @@ function rebuildStats() {
         statsCache.year.set(`${yl.year}`, getYearStats(yl.year));
     }
     statsCache.all = getAllStats();
+    computeScaleAxis();
 }
 
 // Coalesce render requests into a single rAF tick. High-frequency input
@@ -797,16 +807,22 @@ function hitTest(mx, my) {
             const cardH = mo.cardH;
             const cardY = mo.cardY;
 
-            // Day nodes take priority once zoomed in enough.
-            if (scale >= DAY_NODE_SCALE && mo.days.length > 0) {
-                const dayCount = mo.days.length;
-                const positions = mo.dayPositions;
-                const dayRadius = mo.dayRadius;
-                for (let di = 0; di < dayCount; di++) {
-                    const { dx, dy } = positions[di];
-                    const dist = Math.hypot(mx - dx, my - dy);
-                    if (dist < dayRadius + 4) {
-                        return { type: 'day', year: yl.year, month: mo.month, day: mo.days[di], cx: dx, cy: dy, radius: dayRadius };
+            // 柱区：命中某一根柱子 = 选中那一天。柱子的横坐标就是命中判据，
+            // 与 drawMonthBars() 共用同一套 31 槽几何，所以点击位置与看到的柱子一致。
+            if (scale >= DAY_NODE_SCALE && mo.plotH > 4
+                && mx >= mo.plotL && mx <= mo.plotR && my >= mo.plotT && my <= mo.plotB) {
+                const dim = daysInMonth(yl.year, mo.month);
+                const step = mo.plotW / 31;
+                const day = Math.floor((mx - mo.plotL) / step) + 1;
+                if (day >= 1 && day <= dim) {
+                    const ds = statsCache.day.get(`${yl.year}-${mo.month}-${day}`);
+                    if (ds && ds.entryCount > 0) {
+                        return {
+                            type: 'day', year: yl.year, month: mo.month, day,
+                            cx: mo.plotL + (day - 0.5) * step,
+                            cy: (mo.plotT + mo.plotB) / 2,
+                            radius: step / 2
+                        };
                     }
                 }
             }
@@ -830,6 +846,115 @@ function hitTest(mx, my) {
 function drawCurvePath(x1, y1, x2, y2) {
     const cpx = (x1 + x2) / 2;
     ctx.bezierCurveTo(cpx, y1, cpx, y2, x2, y2);
+}
+
+// ═══ 柱区绘制 ═══
+// 分段堆叠柱：一根柱子 = 一天。柱高 ∝ 当日合计字数（**全局统一标尺**，故可跨月比较），
+// 柱内自下而上按「篇」分段，段色 = 该篇分类、段深 = 该篇字数。
+//
+// 超出标尺的日子截平：柱体缩短 1.6px + 上方浮一条比柱窄 42% 的短线。
+// ⚠️ 不能用「柱顶深色横线」标记截平 —— 柱内分段本身就承载信息，深色顶线会被读成
+// 「这一天又多写了一篇」。任何柱顶装饰都必须与「分段」语义显式区分。
+function drawMonthBars(year, mo) {
+    const dim = daysInMonth(year, mo.month);
+    const plotH = mo.plotH, base = mo.plotB;
+    // 固定 31 槽（不按当月天数均分），让不同月份的同一天落在同一相对位置。
+    const slot = mo.plotW / 31;
+    const barW = Math.max(1, slot * 0.62);
+    const denom = Math.max(1, scaleAxis.denom);
+
+    for (let d = 1; d <= dim; d++) {
+        const bx = mo.plotL + (d - 1) * slot + (slot - barW) / 2;
+        const ds = statsCache.day.get(`${year}-${mo.month}-${d}`);
+        if (!ds || ds.entryCount === 0) {
+            // 无记录：只留一格 1px 的基线短划，让"断更"看得见。
+            ctx.fillStyle = 'rgba(126, 93, 73, 0.13)';
+            ctx.fillRect(bx, base - 1, barW, 1);
+            continue;
+        }
+        const clipped = ds.wordCount > denom;
+        const raw = Math.min(plotH, ds.wordCount / denom * plotH);
+        const H = Math.max(3, raw - (clipped ? 1.6 : 0));
+        const n = ds.entries.length;
+        const segH = H / n;
+        // 段高在屏幕上够大才拉开间隔、长圆角（"格子感"）。
+        const gap = (segH * scale >= 7) ? 0.55 : 0;
+        const rr = gap > 0 ? Math.min(1.5, (segH - gap) * 0.3) : 0;
+
+        for (let k = 0; k < n; k++) {
+            const e = ds.entries[k];
+            const yt = base - (k + 1) * segH;
+            ctx.fillStyle = categoryColor(e.category, 0.58 + Math.min(e.wordCount / 2600, 1) * 0.34);
+            ctx.beginPath();
+            if (rr > 0) {
+                roundRect(ctx, bx, yt + gap * 0.5, barW, Math.max(segH - gap, 0.6), rr);
+                ctx.fill();
+            } else {
+                ctx.fillRect(bx, yt, barW, segH);
+            }
+        }
+
+        if (clipped) {
+            // 浮线贴近柱顶 2.8px：太远会像一根游离的短线，太近又会被当成柱子的顶边。
+            ctx.fillStyle = 'rgba(70, 46, 34, 0.42)';
+            ctx.fillRect(bx + barW * 0.29, base - H - 2.8, barW * 0.42, 1.3);
+        }
+    }
+}
+
+// 当月累计字数包络：独立标尺（0 → 当月总量），只表达「前紧后松 / 月底冲刺」。
+// 与柱高是两套标尺，这是刻意的：柱高回答"哪天写得多"，包络回答"这个月怎么分配"。
+// 浅填充画在柱后、实线与匀速参考虚线画在柱上层 —— 只画在柱后时会被高柱整段遮住。
+function drawMonthEnvelope(year, mo, phase) {
+    const dim = daysInMonth(year, mo.month);
+    const plotH = mo.plotH, base = mo.plotB;
+    let total = 0;
+    const cum = [];
+    for (let d = 1; d <= dim; d++) {
+        const ds = statsCache.day.get(`${year}-${mo.month}-${d}`);
+        if (ds) total += ds.wordCount;
+        cum.push(total);
+    }
+    if (total <= 0) return;
+
+    const x0 = mo.plotL, step = mo.plotW / 31;
+    const pts = cum.map((v, i) => [x0 + (i + 0.5) * step, base - (v / total) * plotH]);
+    const trace = () => {
+        ctx.beginPath();
+        ctx.moveTo(x0, base);
+        let px = x0, py = base;
+        for (const p of pts) {
+            ctx.quadraticCurveTo(px, py, (px + p[0]) / 2, (py + p[1]) / 2);
+            px = p[0]; py = p[1];
+        }
+        ctx.lineTo(px, py);
+    };
+    const endX = x0 + dim * step;
+    const lastY = pts.length ? pts[pts.length - 1][1] : base;
+
+    if (phase === 'fill') {
+        trace();
+        ctx.lineTo(endX, base);
+        ctx.closePath();
+        ctx.fillStyle = 'rgba(126, 93, 73, 0.075)';
+        ctx.fill();
+        return;
+    }
+
+    ctx.save();
+    ctx.setLineDash([2.2, 2.6]);
+    ctx.strokeStyle = 'rgba(126, 93, 73, 0.30)';
+    ctx.lineWidth = 0.8;
+    ctx.beginPath();
+    ctx.moveTo(x0, base);
+    ctx.lineTo(endX, lastY);
+    ctx.stroke();
+    ctx.restore();
+
+    trace();
+    ctx.strokeStyle = 'rgba(86, 58, 40, 0.52)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
 }
 
 function draw() {
@@ -891,49 +1016,9 @@ function draw() {
         ctx.stroke();
     }
 
-    // Draw a quiet snake spine that visually ties the years together.
-    if (years.length > 1 && scale > 0.36) {
-        const spineY = getMonthY(6) + layout.monthHeight / 2;
-        ctx.strokeStyle = 'rgba(160, 117, 86, 0.18)';
-        ctx.lineWidth = 2.2;
-        ctx.beginPath();
-        for (let yi = 0; yi < years.length; yi++) {
-            const yl = years[yi];
-            const x = yl.x + yl.width / 2;
-            const y = spineY + Math.sin(yi * 0.9) * 18;
-            if (yi === 0) ctx.moveTo(x, y);
-            else {
-                const prev = years[yi - 1];
-                const px = prev.x + prev.width / 2;
-                const py = spineY + Math.sin((yi - 1) * 0.9) * 18;
-                const cpx = (px + x) / 2;
-                ctx.bezierCurveTo(cpx, py, cpx, y, x, y);
-            }
-        }
-        ctx.stroke();
-    }
-
-    // Draw month connector curves inside each year.
-    if (scale > 0.42) {
-        for (let yi = 0; yi < years.length; yi++) {
-            const yl = years[yi];
-            ctx.strokeStyle = yearColor(yi, years.length, 0.18);
-            ctx.lineWidth = 1.6;
-            ctx.beginPath();
-            for (let mi = 0; mi < yl.months.length; mi++) {
-                const mo = yl.months[mi];
-                const cx = yl.x + yl.width / 2;
-                const cy = getMonthY(mo.month) + layout.monthHeight / 2;
-                if (mi === 0) ctx.moveTo(cx, cy);
-                else {
-                    const prevMonth = yl.months[mi - 1].month;
-                    const py = getMonthY(prevMonth) + layout.monthHeight / 2;
-                    ctx.bezierCurveTo(cx - 10, py, cx + 10, cy, cx, cy);
-                }
-            }
-            ctx.stroke();
-        }
-    }
+    // 蛇形脊柱与月间连接曲线已删除。
+    // 它们既不编码任何数据（脊柱只是一条固定在 6 月高度的装饰弧），又和新增的
+    // 累计包络线抢"曲线"这个视觉语汇 —— 一张图里不该有两种含义不同的曲线。
 
     // Draw month summary cards and day detail nodes.
     for (const yl of years) {
@@ -949,97 +1034,60 @@ function draw() {
             const cardR = mo.cardR;
             const stats = statsCache.month.get(`${yl.year}-${mo.month}`);
             const hasEntries = stats.entryCount > 0;
-            const intensity = Math.min(stats.entryCount / 12, 1);
-            const fillAlpha = hasEntries ? 0.72 + intensity * 0.18 : 0.32;
-            const strokeAlpha = hasEntries ? 0.24 + intensity * 0.16 : 0.08;
+            const tint = SEASON_TINT(mo.month);
 
-            const cardGradient = ctx.createLinearGradient(cardX, cardY, cardX + cardW, cardY);
-            cardGradient.addColorStop(0, `rgba(255, 252, 246, ${fillAlpha})`);
-            cardGradient.addColorStop(1, hasEntries ? `hsla(23, 78%, ${88 - intensity * 10}%, ${0.42 + intensity * 0.24})` : 'rgba(255,255,255,0.22)');
-            ctx.fillStyle = 'rgba(82, 55, 35, 0.055)';
+            // 卡片：季节淡彩 + 底部发丝线。
+            // 替代原来的「橙色渐变 + 活跃度编码」—— 那套填充只在 fillAlpha 0.72~0.90
+            // 之间摆动，肉眼分不出深浅，等于没有编码。
+            ctx.fillStyle = `rgba(${tint.join(',')},${hasEntries ? 0.115 : 0.035})`;
             ctx.beginPath();
-            roundRect(ctx, cardX + 1.5, cardY + 2, cardW, cardH, cardR);
+            roundRect(ctx, cardX, cardY + 3, cardW, cardH - 6, Math.min(7, cardR));
             ctx.fill();
-            ctx.fillStyle = cardGradient;
-            ctx.strokeStyle = `rgba(130, 91, 65, ${strokeAlpha})`;
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            roundRect(ctx, cardX, cardY, cardW, cardH, cardR);
-            ctx.fill();
-            ctx.stroke();
+            ctx.fillStyle = 'rgba(126, 93, 73, 0.10)';
+            ctx.fillRect(cardX + 10, cardY + cardH - 2.5, cardW - 20, 1);
 
-            // Golden border for a "full" month — every day of the month has a diary entry.
+            // 满月 = 朱印。原来的「4.5px 暖黄光晕 + 2.6px 亮金描边」气质像 focus ring，
+            // 与暖纸基调冲突；方章既贴题又不抢视线。
             if (stats.isFull) {
-                // Outer warm halo + a bright gold core so the full-month badge pops.
-                ctx.strokeStyle = 'rgba(245, 197, 66, 0.55)';
-                ctx.lineWidth = 4.5;
+                const sealS = 11;
+                const sealX = cardX + cardW - sealS - 5;
+                const sealY = cardY + 3.5;
+                ctx.fillStyle = 'rgba(178, 88, 64, 0.90)';
                 ctx.beginPath();
-                roundRect(ctx, cardX, cardY, cardW, cardH, cardR);
-                ctx.stroke();
-                ctx.strokeStyle = 'rgba(255, 210, 90, 0.98)';
-                ctx.lineWidth = 2.6;
+                roundRect(ctx, sealX, sealY, sealS, sealS, 1.5);
+                ctx.fill();
+                ctx.strokeStyle = 'rgba(255, 253, 249, 0.92)';
+                ctx.lineWidth = 1;
                 ctx.beginPath();
-                roundRect(ctx, cardX, cardY, cardW, cardH, cardR);
+                roundRect(ctx, sealX + 2.1, sealY + 2.1, sealS - 4.2, sealS - 4.2, 0.5);
                 ctx.stroke();
             }
 
-            // Activity fill: the wider it is, the more days have entries.
+            // 主导分类竖标 —— 分类色在静止视图里的第一处落点。
             if (hasEntries) {
-                const barH = 3.2;
-                const barW = Math.max(barH, (cardW - 8) * Math.min(stats.dayCount / 31, 1));
-                ctx.fillStyle = categoryColor(stats.category, 0.32);
+                ctx.fillStyle = categoryColor(stats.category, 0.88);
                 ctx.beginPath();
-                roundRect(ctx, cardX + 4, cardY + cardH - barH - 4, barW, barH, barH / 2);
+                roundRect(ctx, cardX + 4.5, cardY + 9, 2.5, Math.max(cardH - 22, 4), 1.25);
                 ctx.fill();
             }
 
-            // Month header — a colored number badge plus stats text that adapts to
-            // the available width so narrow cards (mobile, many years) never overlap.
+            // 月序（衬线）+ 统计。
+            // 月序从原来的 9px 彩色胶囊换成衬线体，与年表头、正文题头同一套字；
+            // 统计去掉字数（柱高已经在表达它），只留「N天 · M篇」。
             if (scale > 0.52) {
-                const headerH = 16;
-                const headerY = cardY + headerH / 2;
-                // Soft header backdrop so labels stay legible over any dots.
-                ctx.fillStyle = 'rgba(255, 252, 246, 0.86)';
-                ctx.beginPath();
-                roundRect(ctx, cardX + 2, cardY + 1, cardW - 4, headerH - 1, Math.min(6, cardR));
-                ctx.fill();
-
-                // Month number as a tinted pill (colored by the month's dominant category).
-                ctx.font = `700 9px "Segoe UI","Microsoft YaHei",sans-serif`;
-                ctx.textAlign = 'center';
+                ctx.font = `600 15px Georgia,"Times New Roman",serif`;
+                ctx.textAlign = 'left';
                 ctx.textBaseline = 'middle';
-                const badgeText = String(mo.month);
-                const badgeTextW = ctx.measureText(badgeText).width;
-                const badgePadX = 4;
-                const badgeW = Math.min(badgeTextW + badgePadX * 2, cardW - 8);
-                const badgeH = 11;
-                const badgeX = cardX + 5;
-                const badgeY2 = headerY - badgeH / 2;
-                ctx.fillStyle = hasEntries ? categoryColor(stats.category, 0.22) : 'rgba(120, 104, 92, 0.12)';
-                ctx.beginPath();
-                roundRect(ctx, badgeX, badgeY2, badgeW, badgeH, badgeH / 2);
-                ctx.fill();
-                ctx.fillStyle = hasEntries ? categoryColor(stats.category, 0.98) : 'rgba(120, 104, 92, 0.6)';
-                ctx.fillText(badgeText, badgeX + badgeW / 2, headerY);
+                ctx.fillStyle = hasEntries ? 'rgba(66, 44, 32, 0.78)' : 'rgba(66, 44, 32, 0.20)';
+                ctx.fillText(String(mo.month), cardX + 11, cardY + 15);
 
-                // Stats text — right aligned, but only the longest variant that fits
-                // without colliding with the badge. Prevents the old text stacking.
-                const statsLeft = badgeX + badgeW + 4;
-                const statsRight = cardX + cardW - 6;
-                const statsMaxW = statsRight - statsLeft;
-                if (statsMaxW >= 12) {
-                    ctx.font = `8.5px "Segoe UI","Microsoft YaHei",sans-serif`;
-                    let text = '';
-                    if (hasEntries) {
-                        text = `${stats.dayCount}天 · ${stats.entryCount}篇 · ${formatCompactNumber(stats.wordCount)}字`;
-                    } else if (ctx.measureText('无记录').width <= statsMaxW) {
-                        text = '无记录';
-                    }
-                    if (text) {
-                        ctx.fillStyle = hasEntries ? 'rgba(91, 74, 64, 0.82)' : 'rgba(91, 74, 64, 0.32)';
-                        ctx.textAlign = 'right';
-                        ctx.fillText(text, statsRight, headerY);
-                    }
+                if (hasEntries) {
+                    // 满月时给右上角的朱印让出 19px，否则统计文字会被方章压住。
+                    const statsRight = cardX + cardW - 11 - (stats.isFull ? 19 : 0);
+                    ctx.textAlign = 'right';
+                    ctx.font = `10px "Segoe UI","Microsoft YaHei",sans-serif`;
+                    ctx.fillStyle = 'rgba(91, 74, 64, 0.66)';
+                    ctx.fillText(`${stats.dayCount}天 · ${stats.entryCount}篇`, statsRight, cardY + 15);
                 }
             } else if (scale > 0.36) {
                 // At low zoom, just a faint centered month number.
@@ -1048,6 +1096,14 @@ function draw() {
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.fillText(String(mo.month), cx, cy);
+            }
+
+            // 当月的两种读数：背景累计包络（节奏走向）+ 前景分段柱（逐日字数与分类）。
+            // 包络的浅填充必须画在柱后、实线必须画在柱上层 —— 只画在柱后时会被高柱整段遮住。
+            if (hasEntries && mo.plotH > 10) {
+                drawMonthEnvelope(yl.year, mo, 'fill');
+                drawMonthBars(yl.year, mo);
+                drawMonthEnvelope(yl.year, mo, 'line');
             }
 
             // Highlight hovered/selected month
@@ -1070,74 +1126,9 @@ function draw() {
                 ctx.stroke();
             }
 
-            // Day nodes emerge when zoomed in. At high zoom they include compact stats.
-            if (scale >= DAY_NODE_SCALE && mo.days.length > 0) {
-                const dayCount = mo.days.length;
-                // Geometry (positions/radius) is pre-computed in computeLayout().
-                const positions = mo.dayPositions;
-                const dayRadius = mo.dayRadius;
-                const dotMinR = dayRadius * 0.6;
-
-                for (let di = 0; di < dayCount; di++) {
-                    const day = mo.days[di];
-                    const dayStats = statsCache.day.get(`${yl.year}-${mo.month}-${day}`);
-                    const { dx, dy } = positions[di];
-
-                    const cat = dayStats.category;
-                    const baseR = Math.max(dotMinR, dayRadius * (0.72 + 0.36 * Math.min(dayStats.wordCount / 2400, 1)));
-                    // Grow the WHOLE dot (not just the number) once we're in day-label
-                    // range, so the day number stays inside the dot instead of overflowing.
-                    // growth ramps from 1→~2.2× as scale goes DAY_LABEL_SCALE→SCALE_MAX.
-                    let growth = 1;
-                    if (scale > DAY_LABEL_SCALE) {
-                        growth = 1 + (scale - DAY_LABEL_SCALE) / (SCALE_MAX - DAY_LABEL_SCALE) * 1.2;
-                    }
-                    const dr = baseR * growth;
-
-                    // Flat solid dot + thin white rim — clean, modern, no glow/gradient.
-                    ctx.fillStyle = categoryColor(cat, 0.95);
-                    ctx.beginPath();
-                    ctx.arc(dx, dy, dr, 0, Math.PI * 2);
-                    ctx.fill();
-                    ctx.strokeStyle = 'rgba(255,255,255,0.85)';
-                    ctx.lineWidth = 1;
-                    ctx.beginPath();
-                    ctx.arc(dx, dy, dr, 0, Math.PI * 2);
-                    ctx.stroke();
-
-                    // Hovered: a crisp accent ring just outside the dot.
-                    if (hoveredNode && hoveredNode.type === 'day' && hoveredNode.year === yl.year && hoveredNode.month === mo.month && hoveredNode.day === day) {
-                        ctx.strokeStyle = 'rgba(184,105,68,0.95)';
-                        ctx.lineWidth = 2;
-                        ctx.beginPath();
-                        ctx.arc(dx, dy, dr + 2.5, 0, Math.PI * 2);
-                        ctx.stroke();
-                    }
-                    // Selected: a bolder accent ring (no halo).
-                    if (selectedNode && selectedNode.type === 'day' && selectedNode.year === yl.year && selectedNode.month === mo.month && selectedNode.day === day) {
-                        ctx.strokeStyle = 'rgba(211,95,5,0.95)';
-                        ctx.lineWidth = 2.5;
-                        ctx.beginPath();
-                        ctx.arc(dx, dy, dr + 3.5, 0, Math.PI * 2);
-                        ctx.stroke();
-                    }
-
-                    // Day number — only when the dot (on screen) is big enough to hold it.
-                    // Font tracks the dot radius so the number never overflows the dot.
-                    const screenR = dr * scale;
-                    if (scale >= DAY_LABEL_SCALE && screenR >= 10) {
-                        const fontPx = screenR * 0.72 / scale;   // ~72% of screen radius
-                        ctx.font = `700 ${fontPx}px "Segoe UI","Microsoft YaHei",sans-serif`;
-                        ctx.textAlign = 'center';
-                        ctx.textBaseline = 'middle';
-                        ctx.lineWidth = Math.max(1.5, 2 / scale);
-                        ctx.strokeStyle = 'rgba(0,0,0,0.30)';
-                        ctx.strokeText(day, dx, dy);
-                        ctx.fillStyle = '#fff';
-                        ctx.fillText(day, dx, dy);
-                    }
-                }
-            }
+            // 原来的「日节点圆点」已删除：日粒度现在由柱区表达（一根柱子 = 一天），
+            // 放大后柱子长圆角、写日序号，不再是另一套叠在卡片上的圆点。
+            // 日详情改为经「单月聚焦浮层」进入（见 _design/diary_tree_redesign.md 2.3）。
         }
     }
 
