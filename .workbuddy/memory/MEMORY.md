@@ -104,7 +104,13 @@
   ② **柱顶装饰必须与「分段」语义区分**——截平曾用"柱顶深色横线"，被误读成"这一天又多了一篇"，
   改成"柱体缩短 1.6px + 上方浮一条窄线"。
 - 页面需密码解密 `assets/data/*.txt`，**本机无法直接端到端跑**；验证走
-  「复制页面到 `.workbuddy/tmp/` + 把鉴权块换成合成数据注入」的 dev 副本，渲染代码保持与线上一致。
+  「复制页面到 `.workbuddy/tmp/dev/` + 把鉴权块换成合成数据注入」的 dev 副本（`shot_dev.js`），
+  **渲染代码与线上逐字一致**。探针在 `probe.js`，用 `shot_dev.js 1440 900 probes` 跑（15 条全过）；
+  支持 `DEV_FILTER` / `DEV_FOCUS` / `DEV_DAY` 环境变量直接进入筛选/浮层/日详情态。
+- **已全部落地**（2026-09-15，8 个 commit `739f5e4…c16b2fe`）。遗留两件事：
+  ① `DENOM_RATIO=0.35` 需要**拿真实数据核对**（截平率是数据相关的：示意页 13.2%、dev 样本 29.9%），
+     控制台会打 `[diary_tree] 柱高标尺 …`，顶栏右侧也显示，改一个常量即可；
+  ② 真月历行数写死 6 行（5 行的月份底部留空）、浮层目录只放 6 行 —— 见 redesign 文档第 4 节。
 
 ## 站点 crescentvelvet.github.io（Jekyll + minimal-mistakes 分支）
 - **主题内联在仓库里**：`_config.yml` 里**没有** `theme:`/`remote_theme:`/`minimal_mistakes_skin:`，
