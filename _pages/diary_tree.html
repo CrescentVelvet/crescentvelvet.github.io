@@ -389,11 +389,15 @@ title: "日志时间轴"
             display: none; align-items: center; gap: 6px;
             color: rgba(160,80,58,0.92); font-size: 11px;
         }
-        #month-focus.is-full .mf-seal { display: inline-flex; }
+        /* 月相语言：常显（有日志就显示盈亏名），不再只满月出现。 */
+        #month-focus.has-moon .mf-seal { display: inline-flex; }
         #month-focus .mf-seal i {
-            width: 12px; height: 12px; border-radius: 2px;
-            background: rgba(178, 88, 64, 0.92);
-            box-shadow: inset 0 0 0 2px rgba(255, 253, 249, 0.92);
+            width: 12px; height: 12px; border-radius: 50%;
+            background: radial-gradient(circle,
+                rgba(255,196,110,0.5) 0%, rgba(255,196,110,0.5) 68%,
+                rgba(255,196,110,0) 100%);
+            background-color: #eaba56;
+            box-shadow: 0 0 4px rgba(255,196,110,0.55);
         }
         #month-focus .mf-stats { margin-left: auto; color: var(--muted); font-size: 12px; }
         #month-focus .mf-close {
@@ -504,7 +508,7 @@ title: "日志时间轴"
 <div id="month-focus">
     <div class="mf-head">
         <div class="mf-title" id="mf-title"></div>
-        <span class="mf-seal"><i></i>满月</span>
+        <span class="mf-seal"><i></i><span id="mf-seal-name"></span></span>
         <div class="mf-stats" id="mf-stats"></div>
         <button class="mf-close" id="mf-close" type="button" title="收起">&times;</button>
     </div>
@@ -711,6 +715,8 @@ function getMonthStats(year, month) {
         paraCount,
         category: dominantCategory(entries),
         isFull: dayCount > 0 && dayCount === daysInMonth(year, month),
+        // 月相覆盖率：有日志天数 / 当月天数，0~1。驱动月相章的盈亏。
+        dayRatio: daysInMonth(year, month) > 0 ? dayCount / daysInMonth(year, month) : 0,
         entries
     };
 }
@@ -1301,21 +1307,16 @@ function draw() {
             ctx.fillStyle = 'rgba(126, 93, 73, 0.10)';
             ctx.fillRect(cardX + 10, cardY + cardH - 2.5, cardW - 20, 1);
 
-            // 满月 = 朱印。原来的「4.5px 暖黄光晕 + 2.6px 亮金描边」气质像 focus ring，
-            // 与暖纸基调冲突；方章既贴题又不抢视线。
-            if (stats.isFull) {
-                const sealS = 11;
-                const sealX = cardX + cardW - sealS - 5;
-                const sealY = cardY + 3.5;
-                ctx.fillStyle = 'rgba(178, 88, 64, 0.90)';
-                ctx.beginPath();
-                roundRect(ctx, sealX, sealY, sealS, sealS, 1.5);
-                ctx.fill();
-                ctx.strokeStyle = 'rgba(255, 253, 249, 0.92)';
-                ctx.lineWidth = 1;
-                ctx.beginPath();
-                roundRect(ctx, sealX + 2.1, sealY + 2.1, sealS - 4.2, sealS - 4.2, 0.5);
-                ctx.stroke();
+            // 月相章：月相盈亏 = 有日志天数比例（dayRatio），满月（写满全月）加金橙暖晕。
+            // 替代原「满月才出现的赤陶方章」——现在每个月都有章，盈亏本身承载信息。
+            // 位置贴卡片右上角（内缩 3px）；统计文字一律让位 17px，见下方 statsRight。
+            if (hasEntries) {
+                drawMoonSeal(ctx,
+                    cardX + cardW - 3 - 6,   // 章心 x：右缘内缩 3px，r=6（章径 12px）
+                    cardY + 3 + 6,           // 章心 y：顶缘内缩 3px
+                    6,
+                    stats.dayRatio,
+                    stats.isFull);           // 满月才有暖晕
             }
 
             // 主导分类竖标 —— 分类色在静止视图里的第一处落点。
@@ -1342,8 +1343,8 @@ function draw() {
                 ctx.fillText(String(mo.month), cardX + 11, cardY + 15);
 
                 if (hasEntries) {
-                    // 满月时给右上角的朱印让出 19px，否则统计文字会被方章压住。
-                    const statsRight = cardX + cardW - 11 - (stats.isFull ? 19 : 0);
+                    // 右上角月相章（12px，贴角内缩 3px）常驻，统计文字一律让位 17px。
+                    const statsRight = cardX + cardW - 11 - 17;
                     ctx.textAlign = 'right';
                     ctx.font = `10px "Segoe UI","Microsoft YaHei",sans-serif`;
                     ctx.fillStyle = 'rgba(91, 74, 64, 0.66)';
@@ -1431,6 +1432,97 @@ function draw() {
         const clipPct = (scaleAxis.clipDays / Math.max(1, scaleAxis.dayCount) * 100).toFixed(1);
         hudScale.innerHTML = `柱高 ∝ 当日字数 · 满格 ${Math.round(scaleAxis.denom)} 字 · 截平 ${clipPct}% ｜ <b>${Math.round(scale * 100)}% · ${mode}</b>`;
     }
+}
+
+// ═══ 月相章 ═══
+// 用月相盈亏表示当月有日志的天数比例：新月(仅轨道环)→娥眉→半月→凸月→满月。
+// 亮面 = 蜜色，统一朝右上 45°（阴影圆心恒在左下），覆盖率精确映射可见面积
+// （双圆透镜面积二分反解，不是目测）。满月 = 金盘 + 中晕·金橙（径向 2.35r）。
+// 设计定稿见 .workbuddy/tmp/seal_preview/moon_phases_v2.html（2026-09-15 用户选定）。
+function moonSealSolveX(c) {
+    // 覆盖率 c → 遮挡圆偏移 x（单位 r=1 的双圆心距，透镜面积 = π·(1-c)）
+    if (c >= 1) return 2;
+    if (c <= 0) return 0;
+    let lo = 0, hi = 2;
+    for (let i = 0; i < 48; i++) {
+        const x = (lo + hi) / 2;
+        const lens = 2 * Math.acos(x / 2) - (x / 2) * Math.sqrt(Math.max(0, 4 - x * x));
+        (1 - lens / Math.PI < c) ? lo = x : hi = x;
+    }
+    return (lo + hi) / 2;
+}
+
+function drawMoonSeal(ctx, cx, cy, r, ratio, withGlow) {
+    const DIR = Math.PI / 4;                       // 明暗线法向：朝右上
+    const RING = 'rgba(176,131,64,0.85)';          // 轨道环（暖棕，任何相位都有锚）
+    const LIT = '#e3b34e';                         // 亮面：蜜色（用户选定）
+    const FULL = '#eaba56';                        // 满月盘：蜜色提亮
+    const FULL_DIM = '#d19c3e';                    // 满月盘描边
+    const G = Math.max(0.75, r * 0.17);
+
+    // 轨道环
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, 6.2832);
+    ctx.strokeStyle = RING;
+    ctx.lineWidth = G;
+    ctx.stroke();
+    if (ratio <= 0) return;
+
+    if (ratio >= 1) {
+        if (withGlow) {
+            // 满月暖晕：中晕·金橙，半径 2.35r
+            const gr = ctx.createRadialGradient(cx, cy, r * 0.55, cx, cy, r * 2.35);
+            gr.addColorStop(0, 'rgba(255,196,110,0.5)');
+            gr.addColorStop(1, 'rgba(255,196,110,0)');
+            ctx.fillStyle = gr;
+            ctx.beginPath();
+            ctx.arc(cx, cy, r * 2.35, 0, 6.2832);
+            ctx.fill();
+        }
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, 6.2832);
+        ctx.fillStyle = FULL;
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, 6.2832);
+        ctx.strokeStyle = FULL_DIM;
+        ctx.lineWidth = Math.max(0.6, r * 0.07);
+        ctx.stroke();
+        return;
+    }
+
+    // 阴影圆从左下 45° 咬入，两圆心距按透镜面积反解
+    const d = moonSealSolveX(ratio) * r;
+    const ox = cx - d * Math.cos(DIR);
+    const oy = cy + d * Math.sin(DIR);
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, 6.2832);
+    ctx.clip();
+    ctx.fillStyle = LIT;
+    ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.beginPath();
+    ctx.arc(ox, oy, r, 0, 6.2832);
+    ctx.fill();
+    ctx.restore();
+
+    // 细边让月牙/凸月边缘利落
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, 6.2832);
+    ctx.strokeStyle = RING;
+    ctx.lineWidth = Math.max(0.5, r * 0.05);
+    ctx.stroke();
+}
+
+// 覆盖率 → 盈亏名（浮层题头用；档位与预览页五档一致）
+function moonPhaseName(ratio) {
+    if (ratio >= 1) return '满月';
+    if (ratio <= 0) return '新月';
+    if (ratio < 0.5) return '娥眉月';
+    if (ratio === 0.5) return '半月';
+    return '凸月';
 }
 
 function roundRect(ctx, x, y, w, h, r) {
@@ -1717,7 +1809,9 @@ function showMonthFocus(year, month) {
     document.getElementById('mf-title').textContent = `${year} 年 ${month} 月`;
     document.getElementById('mf-stats').textContent =
         `${stats.dayCount}天 · ${stats.entryCount}篇 · ${formatCompactNumber(stats.wordCount)}字`;
-    el.classList.toggle('is-full', !!stats.isFull);
+    // 月相语言：按覆盖率给出盈亏名（与月卡月相章同一把 dayRatio 标尺）。
+    el.classList.toggle('has-moon', stats.dayCount > 0);
+    document.getElementById('mf-seal-name').textContent = moonPhaseName(stats.dayRatio);
 
     // 分类构成条 + 图例
     const counts = {};
