@@ -1144,7 +1144,8 @@ function drawMonthBars(year, mo) {
         // 段高在屏幕上够大才拉开间隔、长圆角（"格子感"）。两个条件都要过：
         // k 闸门负责"用户想看多细"，segH*scale 护栏负责"物理上画不画得下"。
         const gap = (zr >= LOD.ROUND && segH * scale >= 7) ? 0.55 : 0;
-        const rr = gap > 0 ? Math.min(1.5, (segH - gap) * 0.3) : 0;
+        // 圆角还要受柱宽约束：barW 只有 ~4 世界像素，1.5 的半径会让柱顶变成"铅笔尖"。
+        const rr = gap > 0 ? Math.min(1.5, (segH - gap) * 0.3, barW * 0.2) : 0;
 
         for (let k = 0; k < n; k++) {
             const e = ds.entries[k];
