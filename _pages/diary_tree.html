@@ -931,12 +931,11 @@ function computeLayout() {
             const cardY = cy - cardH / 2;
             const cardR = Math.min(cardH / 2, 10);
             const headerH = 16;
-            // 柱区几何：左侧留 30px 给月序与主导分类竖标，上下各留 19/5 px。
-            // 上下留白压到最小（月序 15px 在 cardY+8~22，柱区从 cardY+19 起且横向错开，
-            // 互不重叠），因为卡片高度是这张图最稀缺的资源。
+            // 柱区几何：左侧只留 10px 给主导分类竖标（cardX+4.5，宽 2.5），上下各留 19/5 px。
+            // 月序不再独占一列 —— 它画在最上层（深色衬线字），高柱从下面穿过也压不住它。
             // 固定 31 个横向槽位（而不是按当月天数均分），这样不同月份的同一天
             // 在视觉上落在同一相对位置，跨月对比时不会漂移。
-            const plotL = cardX + 30;
+            const plotL = cardX + 10;
             const plotR = cardX + cardW - 11;
             const plotT = cardY + 19;
             const plotB = cardY + cardH - 5;
@@ -1184,61 +1183,6 @@ function drawMonthBars(year, mo) {
     }
 }
 
-// 当月累计字数包络：独立标尺（0 → 当月总量），只表达「前紧后松 / 月底冲刺」。
-// 与柱高是两套标尺，这是刻意的：柱高回答"哪天写得多"，包络回答"这个月怎么分配"。
-// 浅填充画在柱后、实线与匀速参考虚线画在柱上层 —— 只画在柱后时会被高柱整段遮住。
-function drawMonthEnvelope(year, mo, phase) {
-    const dim = daysInMonth(year, mo.month);
-    const plotH = mo.plotH, base = mo.plotB;
-    let total = 0;
-    const cum = [];
-    for (let d = 1; d <= dim; d++) {
-        const ds = statsCache.day.get(`${year}-${mo.month}-${d}`);
-        if (ds) total += ds.wordCount;
-        cum.push(total);
-    }
-    if (total <= 0) return;
-
-    const x0 = mo.plotL, step = mo.plotW / 31;
-    const pts = cum.map((v, i) => [x0 + (i + 0.5) * step, base - (v / total) * plotH]);
-    const trace = () => {
-        ctx.beginPath();
-        ctx.moveTo(x0, base);
-        let px = x0, py = base;
-        for (const p of pts) {
-            ctx.quadraticCurveTo(px, py, (px + p[0]) / 2, (py + p[1]) / 2);
-            px = p[0]; py = p[1];
-        }
-        ctx.lineTo(px, py);
-    };
-    const endX = x0 + dim * step;
-    const lastY = pts.length ? pts[pts.length - 1][1] : base;
-
-    if (phase === 'fill') {
-        trace();
-        ctx.lineTo(endX, base);
-        ctx.closePath();
-        ctx.fillStyle = 'rgba(126, 93, 73, 0.075)';
-        ctx.fill();
-        return;
-    }
-
-    ctx.save();
-    ctx.setLineDash([2.2, 2.6]);
-    ctx.strokeStyle = 'rgba(126, 93, 73, 0.30)';
-    ctx.lineWidth = 0.8;
-    ctx.beginPath();
-    ctx.moveTo(x0, base);
-    ctx.lineTo(endX, lastY);
-    ctx.stroke();
-    ctx.restore();
-
-    trace();
-    ctx.strokeStyle = 'rgba(86, 58, 40, 0.52)';
-    ctx.lineWidth = 1;
-    ctx.stroke();
-}
-
 // 全年 365 格概览条：一格一天，色 = 当天主导分类，无记录留极淡底色。
 // 它回答"这一年整体怎么走的"，比逐月扫 12 张卡片快得多。
 function drawYearStrip(yl, y) {
@@ -1328,9 +1272,8 @@ function draw() {
         ctx.stroke();
     }
 
-    // 蛇形脊柱与月间连接曲线已删除。
-    // 它们既不编码任何数据（脊柱只是一条固定在 6 月高度的装饰弧），又和新增的
-    // 累计包络线抢"曲线"这个视觉语汇 —— 一张图里不该有两种含义不同的曲线。
+    // 蛇形脊柱与月间连接曲线已删除：它们不编码任何数据（脊柱只是一条固定在 6 月高度的装饰弧）。
+    // 当月累计包络线后来也被删除（2026-09-15 评审：阅读成本高于它提供的「前紧后松」读数）。
 
     // Draw month summary cards and day detail nodes.
     for (const yl of years) {
@@ -1383,12 +1326,9 @@ function draw() {
                 ctx.fill();
             }
 
-            // 当月的两种读数：背景累计包络（节奏走向）+ 前景分段柱（逐日字数与分类）。
-            // 包络的浅填充必须画在柱后、实线必须画在柱上层 —— 只画在柱后时会被高柱整段遮住。
+            // 分段堆叠柱：逐日字数与分类。
             if (hasEntries && mo.plotH > 10) {
-                drawMonthEnvelope(yl.year, mo, 'fill');
                 drawMonthBars(yl.year, mo);
-                drawMonthEnvelope(yl.year, mo, 'line');
             }
 
             // 月序（衬线）+ 统计 —— 画在柱子**之后**，否则高柱会盖住文字。
