@@ -389,9 +389,15 @@ let treeData = {};         // year → month → day → entries[]
 let viewX = 0, viewY = 0;
 let scale = 1;
 const SCALE_MIN = 0.15, SCALE_MAX = 5;
-const DAY_NODE_SCALE = 1.08;
-const DAY_LABEL_SCALE = 1.55;
-const DAY_DETAIL_SCALE = 2.15;
+
+// ═══ LOD：由 k = scale / fitScale 驱动 ═══
+// k 是「相对 fitAllYears 的倍数」，**不是绝对像素** —— 绝对阈值在"只有两年"或大屏上，
+// 静止态本身就把阈值越过去了，用户还没想细看就先跳进了下一档。
+// 两个阈值各自只当"闸门"，底下还要再叠一层「装得下才画」的护栏（见 drawMonthBars）。
+const LOD = { ROUND: 1.30, NUM: 1.60 };
+function zoomRatio() {
+    return scale / Math.max(0.0001, layout.fitScale || 1);
+}
 
 // ═══ 柱高标尺（分段堆叠柱）═══
 // 分母 = 全局「单日合计字数」最大值 × DENOM_RATIO，且**全局统一** ⇒ 柱高可跨月比较。
@@ -437,7 +443,7 @@ let selectedNode = null;
 let animationId = null;
 
 // Layout computed values (recomputed on resize / data change)
-let layout = { years: [], yearWidth: 0, monthHeight: 0, colGap: 0, totalWidth: 0, totalHeight: 0 };
+let layout = { years: [], yearWidth: 0, monthHeight: 0, colGap: 0, totalWidth: 0, totalHeight: 0, fitScale: 1 };
 
 // Cached stats (recomputed on data change). draw() reads these instead of
 // re-iterating every entry each frame.
@@ -479,8 +485,10 @@ function getMonthY(month) {
 // 日粒度改由柱区的 31 个固定槽位表达，不再需要"为了塞下圆点而逐步缩小半径"这套布局。
 
 function getViewMode() {
-    if (scale >= DAY_DETAIL_SCALE) return '日详情';
-    if (scale >= DAY_NODE_SCALE) return '日节点';
+    // 用 k（相对 fitAllYears 的倍数）而不是绝对 scale，含义是"用户相对默认视图放大了多少"。
+    const k = zoomRatio();
+    if (k >= LOD.NUM) return '日详情';
+    if (k >= LOD.ROUND) return '日节点';
     return '月概览';
 }
 
@@ -703,7 +711,7 @@ function buildTree(entries) {
 // ═══ Layout computation ═══
 function computeLayout() {
     const years = Object.keys(treeData).map(Number).filter(y => y >= 2000).sort((a, b) => a - b);
-    if (years.length === 0) { layout = { years: [], yearWidth: 0, monthHeight: 0, colGap: 0, totalWidth: 0, totalHeight: 0 }; return; }
+    if (years.length === 0) { layout = { years: [], yearWidth: 0, monthHeight: 0, colGap: 0, totalWidth: 0, totalHeight: 0, fitScale: 1 }; return; }
 
     // Base layout at scale = 1, in CSS pixels. The drawing context is already
     // scaled by DPR (see resize), so all coordinates are CSS pixels. Visual zoom
@@ -727,6 +735,8 @@ function computeLayout() {
     layout.colGap = colGap;
     layout.totalWidth = colGap + years.length * (yearWidth + colGap);
     layout.totalHeight = TOP_OFFSET + monthCount * (monthHeight + gap) + 16;
+    // fitScale 随布局一起算：LOD 的 k 就是相对它定义的，改窗口宽度会自动跟着更新。
+    layout.fitScale = Math.max(SCALE_MIN, Math.min(1, w / Math.max(1, layout.totalWidth)));
 
     // Pre-compute every month's card geometry and day-node grid so draw() and
     // hitTest() can read cached values instead of recomputing per frame.
@@ -842,7 +852,8 @@ function hitTest(mx, my) {
 
             // 柱区：命中某一根柱子 = 选中那一天。柱子的横坐标就是命中判据，
             // 与 drawMonthBars() 共用同一套 31 槽几何，所以点击位置与看到的柱子一致。
-            if (scale >= DAY_NODE_SCALE && mo.plotH > 4
+            // 门槛用 k：只有"柱子已经长成格子"（LOD.ROUND）之后才切到日粒度。
+            if (zoomRatio() >= LOD.ROUND && mo.plotH > 4
                 && mx >= mo.plotL && mx <= mo.plotR && my >= mo.plotT && my <= mo.plotB) {
                 const dim = daysInMonth(yl.year, mo.month);
                 const step = mo.plotW / 31;
@@ -895,6 +906,8 @@ function drawMonthBars(year, mo) {
     const slot = mo.plotW / 31;
     const barW = Math.max(1, slot * 0.62);
     const denom = Math.max(1, scaleAxis.denom);
+    const zr = zoomRatio();
+    const showNum = zr >= LOD.NUM && slot * scale >= 10;   // k 当闸门，下面还有"装得下"的护栏
 
     for (let d = 1; d <= dim; d++) {
         const bx = mo.plotL + (d - 1) * slot + (slot - barW) / 2;
@@ -910,8 +923,9 @@ function drawMonthBars(year, mo) {
         const H = Math.max(3, raw - (clipped ? 1.6 : 0));
         const n = ds.entries.length;
         const segH = H / n;
-        // 段高在屏幕上够大才拉开间隔、长圆角（"格子感"）。
-        const gap = (segH * scale >= 7) ? 0.55 : 0;
+        // 段高在屏幕上够大才拉开间隔、长圆角（"格子感"）。两个条件都要过：
+        // k 闸门负责"用户想看多细"，segH*scale 护栏负责"物理上画不画得下"。
+        const gap = (zr >= LOD.ROUND && segH * scale >= 7) ? 0.55 : 0;
         const rr = gap > 0 ? Math.min(1.5, (segH - gap) * 0.3) : 0;
 
         for (let k = 0; k < n; k++) {
@@ -931,6 +945,22 @@ function drawMonthBars(year, mo) {
             // 浮线贴近柱顶 2.8px：太远会像一根游离的短线，太近又会被当成柱子的顶边。
             ctx.fillStyle = 'rgba(70, 46, 34, 0.42)';
             ctx.fillRect(bx + barW * 0.29, base - H - 2.8, barW * 0.42, 1.3);
+        }
+
+        // 日序号：写在中间那一段里，字号跟着段高走（永远不会溢出段）；
+        // 下限 6/scale 保证屏幕上不小于 6px，否则宁可不写。
+        if (showNum && segH * scale >= 7) {
+            const midSeg = Math.floor(n / 2);
+            const cy = base - midSeg * segH - segH / 2;
+            const fontPx = Math.max(6 / scale, Math.min(segH * 0.62, slot * 0.66));
+            ctx.font = `600 ${fontPx}px "Segoe UI","Microsoft YaHei",sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.lineWidth = Math.max(0.8, 1.6 / scale);
+            ctx.strokeStyle = 'rgba(0,0,0,0.28)';
+            ctx.strokeText(String(d), bx + barW / 2, cy);
+            ctx.fillStyle = 'rgba(255,255,255,0.95)';
+            ctx.fillText(String(d), bx + barW / 2, cy);
         }
     }
 }
@@ -1296,9 +1326,7 @@ function zoomAt(cx, cy, factor) {
 // Fit all year columns into the viewport so later years (e.g. 2023+) are
 // visible by default instead of being pushed off-screen on narrow phones.
 function fitAllYears() {
-    const w = canvas._w || window.innerWidth;
-    const tw = layout.totalWidth || 1;
-    scale = Math.max(SCALE_MIN, Math.min(1, w / tw));
+    scale = layout.fitScale || 1;
     viewX = 0;
     viewY = 0;
 }
