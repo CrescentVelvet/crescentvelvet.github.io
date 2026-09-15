@@ -116,6 +116,15 @@ $medium-wide                : 900px !default;
 $large                      : 925px !default;
 $x-large                    : 1280px !default;
 
+/* 主页（front matter: classes: wide）的正文容器上限。
+   比默认的 $large(925px) 宽，用来吃掉 .page 右侧那段 suffix(2 of 12) 留白。
+   取值 1112 = 目标正文宽 1080 + #main 左右各 1em 的 padding。
+   1080 这个数不是拍脑袋：卡片网格 minmax(122px,1fr)+gap 18px 时，
+   正文宽落在 [962,1102) 才会是 7 列（19 张卡 = 7+7+5，末行 5 张，最平衡）；
+   落到 1102 以上变 8 列（8+8+3），落到 962 以下变 6 列（6+6+6+1，末行只剩 1 张很难看）。
+   实测校验：.workbuddy/tmp/diag_grid.js（逐视口列数表）。 */
+$page-wide-max              : 1112px !default;
+
 /*
    Grid
    ========================================================================== */

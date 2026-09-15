@@ -1,6 +1,23 @@
 {% include base_path %}
 
-<div class="masthead">
+{% comment %}
+  没有配置导航（_data/navigation.yml 的 main:）时，把整条页头折叠成 0 高。
+
+  ⚠️ 为什么不是直接 {% raw %}{% if site.data.navigation.main %}{% endraw %} 把这块整个删掉 —— 那样更"干净"，
+  但会踩到 assets/js/main.min.js 里 greedy-nav 的一个真实缺陷：
+      var $nav=$("#site-nav"), $btn=$("#site-nav button"), $vlinks=$("#site-nav .visible-links")...
+      ... updateNav()                      // 无条件调用，没有守卫
+      function updateNav(){ var e = $btn.hasClass("hidden") ? $nav.width() : $nav.width()-$btn.width()-30;
+        ... $vlinks.width() > e && updateNav() }              // 递归点
+  #site-nav 不存在时，$nav.width() 与 $btn.width() 都取到 0 ⇒ e = -30，
+  而 $vlinks.width() 也是 0 ⇒ 0 > -30 恒真 ⇒ 每次加载都 "Maximum call stack size exceeded"（实测复现 3/3）。
+  折叠法保住 #site-nav 的**宽度**（宽度与祖先的高度无关，只要不 display:none），
+  于是 e ≈ 880-0-30 = 850 > 0，递归条件不成立。
+  所以这里**不能**用 display:none —— 那会让宽度变 0，同样触发递归。
+
+  将来要启用页头：建 _data/navigation.yml 写 main: 列表即可，修饰类会自动消失、页头正常显示。
+{% endcomment %}
+<div class="masthead{% unless site.data.navigation.main %} masthead--collapsed{% endunless %}"{% unless site.data.navigation.main %} aria-hidden="true"{% endunless %}>
   <div class="masthead__inner-wrap">
     <div class="masthead__menu">
       <nav id="site-nav" class="greedy-nav">

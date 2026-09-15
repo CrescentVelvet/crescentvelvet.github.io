@@ -34,6 +34,42 @@
   }
 }
 
+/*
+   宽版正文容器（页面 front matter 写 classes: wide，由 default.html 落到 <body>）
+
+   默认 .page 在 >= $large 时编译出来是：
+     width: 83.05%;  float: right;
+     padding-left: 4.24%;   (prefix 0.5 of 12)
+     padding-right: 16.95%; (suffix 2 of 12)
+   右侧那 16.95% 是**纯留白**，正文只剩 65% 宽 —— 1280px 视口下实测只有 770px。
+   窄栏适合长文阅读，但主页是卡片网格，用不上那个右留白，白白浪费近一半屏宽。
+
+   #main 的 max-width 必须一起放宽：它默认被卡在 $large(925px)，若只把 .page 放到 100%，
+   925~1279px 视口下正文也只有 925-32 = 893px，凑不出 7 列（会掉到 6 列、末行只剩 1 张）。
+   放到 $page-wide-max 后，>= 1024px 的视口都能拿到 7 列。
+
+   注意：925~991px 这个窄区间，可用宽只有 viewport-32（893~959px），
+   数学上就是 6 列（822 <= W < 962），末行会出现 1 张孤卡 —— 这是 auto-fit 网格
+   配素数张卡片（19）的固有现象，改 min 值会在小屏引出更糟的结果（600px 从 4 列掉到 3 列），
+   所以有意保留。详见记忆日志与 .workbuddy/tmp/diag_grid.js 的列数表。
+*/
+body.wide {
+  #main {
+    @include breakpoint($large) {
+      max-width: $page-wide-max;
+    }
+  }
+
+  .page {
+    @include breakpoint($large) {
+      width: 100%;
+      float: none;
+      padding-left: 0;
+      padding-right: 0;
+    }
+  }
+}
+
 .page__title {
   margin-top: 0;
   line-height: 1;

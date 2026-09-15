@@ -11,6 +11,24 @@
           animation-delay: 0.15s;
   z-index: 20;
 
+  /*
+     没配导航时（见 _includes/masthead.html）整条页头折叠成 0 高：
+     去掉那 37px 的空白条与下边框，视觉上等于没有页头。
+
+     ⚠️ 两个约束，改动前务必读：
+     1) 不能改成 display:none。main.min.js 里的 greedy-nav 初始化是无条件的 updateNav()，
+        它用 $("#site-nav").width() 参与判断；display:none 会让宽度变 0，
+        使 e = 0-0-30 = -30 而 $vlinks.width() = 0 ⇒ 0 > -30 恒真 ⇒ 无限递归。
+        height:0 + overflow:hidden 只裁高度，**宽度照常参与布局**，所以安全。
+     2) 也不能在模板里把整块 markup 删掉 —— 同上，缺 #site-nav 一样会递归。
+     实测校验：.workbuddy/tmp/probe_js_error.js（连开 3 次页面，异常数必须为 0）
+  */
+  &--collapsed {
+    height: 0;
+    overflow: hidden;
+    border-bottom: 0;
+  }
+
   &__inner-wrap {
     @include container;
     @include clearfix;

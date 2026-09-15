@@ -3,6 +3,10 @@ permalink: /
 title: "欢迎来到网站"
 excerpt: "个人工具与小游戏合集入口"
 author_profile: false
+# wide：放宽正文容器。默认 .page 在 >=925px 是 span(10/12)+prefix(0.5/12)+suffix(2/12)，
+# 右侧 16.95% 是纯留白，1280px 视口下正文只有 770px。主页是卡片网格，用不上窄栏。
+# 取值与推导写在 _sass/_page.scss 的 body.wide 段里（上限在 _variables.scss 的 $page-wide-max）。
+classes: wide
 redirect_from: 
   - /about/
   - /about.html
