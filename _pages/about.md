@@ -30,6 +30,11 @@ redirect_from:
         --card-bg-active: #edf5f8;
         --card-shadow-hover: 0 3px 10px rgba(73, 78, 82, 0.10);
         --ripple-color: rgba(82, 173, 200, 0.20);
+        /* 组合特效参数。--tilt 由 JS 读出来用（见脚本里的 TILT），
+           改这里就能同时改 CSS 与 JS 两侧，不用两边同步维护 */
+        --spot-color: rgba(82, 173, 200, 0.14);
+        --spot-size: 150px;
+        --tilt: 4deg;
     }
 
     /* 入口卡片网格。.link-button 只在本页 .button-grid 内出现（全站范围已确认），
@@ -70,14 +75,17 @@ redirect_from:
         font-size: 16px;
         font-weight: 500;
         padding: 13px 7px;
-        background: var(--card-bg);
+        background-color: var(--card-bg);
         color: var(--ink);
         border: 1px solid var(--line);
         border-radius: 8px;
         text-decoration: none;
         letter-spacing: 1px;
+        /* transform 单独用更短的时长（0.10s）：它同时承载 hover 上浮和 JS 逐帧写的倾斜，
+           0.18s 会让倾斜明显滞后于鼠标。短过渡反而形成"阻尼跟随"的手感，比瞬时更耐看。
+           其余属性保持 0.18s。逐属性列出而不用 all：避免将来新增属性被意外插值。 */
         transition: background-color 0.18s ease, border-color 0.18s ease,
-                    box-shadow 0.18s ease, transform 0.18s ease;
+                    box-shadow 0.18s ease, transform 0.10s ease-out;
     }
     /* 图标：Font Awesome 5 Free Solid，已随主题 main.css 全量加载，零额外请求。
        盒宽 16px 的作用是**布局单位**，不是裁剪框：它把 19 张卡的图标占位统一成 16px，
@@ -103,12 +111,22 @@ redirect_from:
     }
     /* hover：描边转到强调色 + 极淡的同色底 + 轻微上浮。
        原来的"整块渐变换色 + scale(1.03)"是实心按钮的语言；卡片式里 scale 会让相邻卡片的
-       描边在视觉上互相挤压，只上浮更干净。 */
+       描边在视觉上互相挤压，只上浮更干净。
+
+       跟随高光用 background-image 的 radial-gradient 实现，而不是 ::after 遮罩层 ——
+       遮罩层会盖在图标/文字之上，要么加 z-index 要么给内容单独抬层；
+       背景层天然在内容之下，且一样被卡片的 overflow/border-radius 裁切。
+       位置由 JS 写的 --mx/--my 驱动（单位 px）；还没移动过时回落到 50% 居中。
+       只改自定义属性 ⇒ 只触发重绘，不触发布局（这正是当初把波纹的 width/height 换掉的原因）。 */
     .button-grid .link-button:hover {
-        background: var(--card-bg-hover);
+        background-color: var(--card-bg-hover);
+        background-image: radial-gradient(var(--spot-size) circle at var(--mx, 50%) var(--my, 50%),
+                                         var(--spot-color), rgba(82, 173, 200, 0));
         border-color: var(--accent);
         box-shadow: var(--card-shadow-hover);
         transform: translateY(-2px);
+        /* 只在下悬时提升为合成层，避免 19 张卡常态各占一层 */
+        will-change: transform;
     }
     /* 键盘可达性：鼠标 hover 有反馈，Tab 也必须看得出落点。
        用 :focus-visible 而非 :focus —— 后者会让鼠标点击后残留一圈焦点框 */
@@ -118,13 +136,30 @@ redirect_from:
     }
     /* 按压反馈：pointerup 的 click 之后浏览器立刻开始导航，:active 才是"确实点到了"的即时反馈。
        卡片式用"底色加深 + 取消上浮"表达按压，不再需要投影 —— 实心按钮时代靠阴影收缩，
-       白底描边卡片上那样会显得脏。 */
+       白底描边卡片上那样会显得脏。
+       这里必须用 background-color 而不是 background 简写：简写会把 background-image 重置成
+       none，按下时跟随高光会突然消失。 */
     .button-grid .link-button:active {
-        background: var(--card-bg-active);
+        background-color: var(--card-bg-active);
         border-color: var(--accent);
         box-shadow: none;
         transform: translateY(0);
         transition-duration: 0.05s;
+    }
+
+    /* 降低动效偏好：三样都要收掉 —— 上浮、跟随高光、倾斜。
+       高光是靠 JS 写自定义属性驱动的，JS 侧也有同样的判断（两处都要，
+       JS 那份是为了不白跑 pointermove，CSS 这份是为了覆盖 hover 的静态上浮）。 */
+    @media (prefers-reduced-motion: reduce) {
+        .button-grid .link-button,
+        .button-grid .link-button:active {
+            transition: none;
+        }
+        .button-grid .link-button:hover {
+            transform: none;
+            background-image: none;
+            will-change: auto;
+        }
     }
     
     /* 波纹本体：只动 transform（width/height 由 JS 按下式算好后再动画，见 createRipple）。
@@ -167,6 +202,10 @@ redirect_from:
             const grid = document.querySelector('.button-grid');
             if (!grid) return;
 
+            // 三处动效（波纹 / 跟随高光 / 倾斜）共用同一个"降低动效"判断。
+            // MediaQueryList 是活对象，用户中途改系统偏好会自动反映到 .matches。
+            const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+
             let lastRipple = null;
             const clearRipple = (node) => { if (node && node.parentNode) node.parentNode.removeChild(node); };
 
@@ -208,7 +247,7 @@ redirect_from:
             // 修复③：限定在 .button-grid 内 —— 原来挂 document，点标题/页脚/空白处也冒波纹
             grid.addEventListener('pointerdown', (e) => {
                 if (e.button !== 0) return;                                   // 只响应主键（排除右键/中键）
-                if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+                if (reduceMotion.matches) return;
                 const card = e.target.closest('.link-button');
                 if (!card) return;                                            // 落在卡片之间的缝隙里则不出波纹
                 createRipple(card, e.clientX, e.clientY);
@@ -216,6 +255,80 @@ redirect_from:
 
             // 起手变成滚动时浏览器会取消本次手势，顺手撤掉那颗波纹
             grid.addEventListener('pointercancel', () => { clearRipple(lastRipple); lastRipple = null; });
+
+            // ---- 组合特效之二、三：光标跟随高光 + 轻微倾斜 ----
+            // （之一"主题色波纹"就是上面的 createRipple；三者叠加才是"组合"。
+            //   上浮由 CSS 的 :hover 负责，不在这里管。）
+            //
+            // 三条硬约束，改动前先读：
+            //  ① 只写 transform 与两个自定义属性，绝不碰 width/height/top/left —— 否则每帧触发布局。
+            //     当初波纹就是从 width/height 改过来的（见 .ripple 的注释）。
+            //  ② pointermove 必须用 rAF 合并：高回报率鼠标（1000Hz）每秒能触发上千次事件，
+            //     不合并就是上千次样式写入。
+            //  ③ 触屏不做倾斜，按事件的 pointerType 判，不用 CSS 的 @media (pointer: coarse) ——
+            //     带触摸屏的笔记本主指针仍是 fine，媒体查询会把这类设备误判成可以倾斜。
+            const TILT = parseFloat(getComputedStyle(grid).getPropertyValue('--tilt')) || 4;
+            let frame = 0;        // 排队中的 rAF id
+            let pending = null;   // 最近一次 pointermove 事件
+            let tracked = null;   // 当前正在被跟踪的卡片
+
+            function resetCard(card) {
+                if (!card) return;
+                card.style.removeProperty('--mx');
+                card.style.removeProperty('--my');
+                // 交还控制权：移除内联 transform，回到 :hover / :active 的 CSS 值
+                card.style.removeProperty('transform');
+            }
+
+            // 把"停止跟踪"的清理集中在一处：pointerleave 与 pointercancel 都要用
+            function release() {
+                if (frame) { cancelAnimationFrame(frame); frame = 0; }
+                pending = null;
+                resetCard(tracked);
+                tracked = null;
+            }
+
+            function paint() {
+                frame = 0;
+                const e = pending, card = tracked;
+                pending = null;                       // 先取出再清空，避免 paint 里再被覆盖
+                if (!e || !card) return;
+
+                const box = card.getBoundingClientRect();
+                const x = e.clientX - box.left, y = e.clientY - box.top;
+                card.style.setProperty('--mx', x + 'px');
+                card.style.setProperty('--my', y + 'px');
+
+                if (e.pointerType === 'touch') return;   // 触屏只要高光，不要倾斜
+
+                const nx = (x / box.width) * 2 - 1;      // -1 左 .. 1 右
+                const ny = (y / box.height) * 2 - 1;     // -1 上 .. 1 下
+                // 鼠标在上方 ⇒ 上沿向后退（rotateX 取负），左右同理（rotateY 取正）。
+                // translateY(-2px) 与 CSS :hover 的上浮保持一致，否则内联值会把它顶掉。
+                // perspective 必须排在旋转之前，否则旋转没有透视、看起来是平的。
+                card.style.transform =
+                    'perspective(600px) translateY(-2px) ' +
+                    'rotateX(' + (-ny * TILT).toFixed(2) + 'deg) ' +
+                    'rotateY(' + (nx * TILT).toFixed(2) + 'deg)';
+            }
+
+            grid.addEventListener('pointermove', (e) => {
+                if (reduceMotion.matches) return;
+                const card = e.target.closest ? e.target.closest('.link-button') : null;
+                if (!card) { release(); return; }        // 落在卡片之间的缝隙里
+                if (tracked && tracked !== card) resetCard(tracked);
+                tracked = card;
+                pending = e;
+                if (!frame) frame = requestAnimationFrame(paint);
+            });
+
+            grid.addEventListener('pointerleave', release);
+            grid.addEventListener('pointercancel', release);
+
+            // 运行中把系统偏好切成"降低动效"时，撤掉已经写在卡片上的倾斜
+            if (reduceMotion.addEventListener) {
+                reduceMotion.addEventListener('change', () => { if (reduceMotion.matches) release(); });
+            }
         }
 
         if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);

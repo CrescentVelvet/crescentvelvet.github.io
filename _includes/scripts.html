@@ -1,4 +1,15 @@
-<script src="{{ base_path }}/assets/js/main.min.js"></script>
+{% comment %}
+  这里以前是 {{ base_path }}/assets/js/main.min.js。
+  base_path = site.url + site.baseurl（见 _includes/base_path），产物里是**绝对**的生产域名
+  https://crescentvelvet.github.io/assets/js/main.min.js。后果：
+    · 本地/离线预览时即使构建的是本地产物，浏览器也会去线上拉这个文件
+      ⇒ 对 main.min.js 的本地修改在本地完全看不到效果，且断网时首页会被它挂住；
+    · 域名一旦变动（换自定义域名、挂到子路径、内网预览）就得同步改配置。
+  改用 relative_url（和 _includes/head.html 里 main.css 的写法一致）→ 输出 /assets/js/main.min.js，
+  根相对路径在任何域名下都能解析，并会带上 baseurl。
+  base_path 仍保留给 href / 图片 / og:image 用 —— 那些**必须**是绝对地址（canonical、社交分享）。
+{% endcomment %}
+<script src="{{ 'assets/js/main.min.js' | relative_url }}"></script>
 
 {% include analytics.html %}
 {% include /comments-providers/scripts.html %}
