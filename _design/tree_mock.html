@@ -1,0 +1,1271 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>日志时间轴 · 美化方案示意</title>
+<!-- 设计评审用示意页（_design 不参与 Jekyll 构建）。定案规格见 diary_tree_redesign.md。
+     用法：tree_mock.html?v=O|A|B|C|H1|H2|H3|F|D
+               [&zoom=N][&scale=sqrt][&bf=sans][&tone=plain][&vcal=1][&filter=cat,cat]
+     O=现状复刻（对照） A=节气长卷 B=年历墙 C=时光树
+     H3=分段堆叠柱（落地形态） F=单月聚焦原位浮层 D=日详情弹窗
+     scale/tone/vcal/bf 均为**对照开关**，用于复现被否决的方案（见 redesign 文档第 3 节）
+     filter= 预置分类筛选（页面上也可直接点图例）
+     顶栏 36px 全宽；computeLayout 的 top=96 为年表头让位（修掉 HUD 压盖第一年）
+     分类筛选只加了一处钩子：压暗写进全局 rgba()，全页分类色自动跟随
+     ⚠️ 中文正文字体栈必须给 ≥2 个候选，只写一个会静默退到通用字体
+     数据为确定性合成样本（含合成中文正文），所有方案共用同一份。 -->
+<style>
+  :root{ --bg:#f7f4ee; --ink:#2f2a28; --muted:#877d78; --accent:#b86944; --paper:#fffdf9; }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;overflow:hidden}
+  body{font-family:'Segoe UI','Microsoft YaHei',Arial,sans-serif;background:var(--bg);color:var(--ink);
+       touch-action:none;user-select:none;-webkit-user-select:none}
+  #canvas{display:block;width:100vw;height:100vh}
+  .hud{position:fixed;top:0;left:0;right:0;height:36px;display:flex;align-items:center;gap:13px;
+       padding:0 18px;background:rgba(255,255,255,.74);border-bottom:1px solid rgba(126,93,73,.12);
+       backdrop-filter:blur(18px);pointer-events:none;z-index:5;color:var(--muted)}
+  .hud .tb-title{font-size:13px;font-weight:700;color:var(--ink);letter-spacing:.02em;white-space:nowrap}
+  .hud .tb-sep{width:1px;height:15px;background:rgba(126,93,73,.20);flex:0 0 auto}
+  .hud .s{font-size:11px;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .hud .tb-right{margin-left:auto;display:flex;gap:13px;flex:0 0 auto;align-items:center}
+  .hud .tb-right .s b{color:var(--accent)}
+  .legend{position:fixed;bottom:14px;left:16px;display:flex;gap:3px;align-items:center;
+       background:rgba(255,255,255,.72);border:1px solid rgba(255,255,255,.72);border-radius:999px;
+       padding:5px 7px;font-size:11px;color:var(--muted);backdrop-filter:blur(16px);pointer-events:auto}
+  .legend .lg{display:inline-flex;align-items:center;gap:5px;border:0;background:transparent;
+       font:inherit;font-size:11px;color:inherit;cursor:pointer;padding:5px 9px;border-radius:999px;
+       transition:background .15s,opacity .15s}
+  .legend .lg:hover{background:rgba(126,93,73,.07)}
+  .legend .lg b{font-weight:600;opacity:.62}
+  .legend .lg.active{background:#fffdf9;box-shadow:inset 0 0 0 1px rgba(126,93,73,.26);color:var(--ink)}
+  .legend .lg.active b{opacity:.85}
+  .legend.filtering .lg:not(.active):not(.lg-reset){opacity:.34}
+  .legend .lg-reset{color:var(--accent)}
+  .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:0;vertical-align:middle}
+  .tag{position:fixed;bottom:14px;right:16px;background:rgba(255,255,255,.74);border:1px solid rgba(255,255,255,.72);
+       border-radius:999px;padding:8px 15px;font-size:11px;color:var(--muted);backdrop-filter:blur(16px);
+       letter-spacing:.02em}
+  .tag b{color:var(--accent);font-weight:700}
+</style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+<div class="hud">
+  <div class="tb-title">日志时间轴</div>
+  <div class="tb-sep"></div>
+  <div class="s" id="hudS"></div>
+  <div class="tb-right"><div class="s" id="hudR"></div></div>
+</div>
+<div class="legend" id="legend"></div>
+<div class="tag" id="tag"></div>
+<script>
+'use strict';
+const VARIANT = (new URLSearchParams(location.search).get('v') || 'A').toUpperCase();
+const QS = new URLSearchParams(location.search);
+const ZOOM = parseFloat(QS.get('zoom') || '1');
+const ZA = { x: 520, y: 320 };
+const SQ = QS.get('scale') === 'sqrt';   // 标尺：lin（默认，已定案）| sqrt
+const K = ZOOM;                       // k = scale / fitScale；示意页里 fit 对应 zoom=1
+const LOD = { ROUND: 1.30, NUM: 1.60 };
+const FOCUS_Y = 2024, FOCUS_M = 8;
+/* 视觉基调：plain = 现状语汇；paper = 深化纸本语汇（纸纹 / 印章 / 竖排年份） */
+const TONE = QS.get('tone') || 'paper';
+const IS_PAPER = TONE === 'paper';
+const VCAL = QS.get('vcal') === '1';   // 竖排年份（实测是倒退，仅留作对照）
+
+/* 朱印（替换原先的金环 —— 金环气质像 focus ring） */
+function drawSeal(x,y,s,alpha){
+  ctx.fillStyle = `rgba(178,88,64,${alpha===undefined?0.90:alpha})`;
+  roundPath(x,y,s,s,1.5); ctx.fill();
+  ctx.strokeStyle = 'rgba(255,253,249,0.92)'; ctx.lineWidth = 1;
+  roundPath(x+2.1, y+2.1, s-4.2, s-4.2, 0.5); ctx.stroke();
+}
+
+/* 纸纹：全画布极淡的竖向纤维（重复细线，不是位图/噪点） */
+function paperGrain(){
+  for(let x=0; x<L.w; x+=5){
+    const h1 = 40 + ((x*37) % 260);
+    const y0 = (x*53) % Math.max(1, L.h-h1);
+    ctx.fillStyle = 'rgba(126,93,73,' + (0.011 + (x%3)*0.004).toFixed(3) + ')';
+    ctx.fillRect(x, y0, 0.8, h1);
+  }
+}
+
+/* 竖排年份：中文竖排是很强的"书卷"信号，且不占横向表头 */
+function verticalYear(c, year){
+  const s = String(year);
+  ctx.font = '500 13px Georgia,"Times New Roman",serif';
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillStyle = 'rgba(96,66,46,0.60)';
+  const x = Math.max(9, c.x - 10), y0 = L.top + 24;
+  for(let i=0;i<s.length;i++) ctx.fillText(s[i], x, y0 + i*17);
+}
+const hRaw = w => SQ ? Math.sqrt(w/DENOM) : w/DENOM;
+let CARD_MODE = 'spark';
+const F = px => (px/ZOOM).toFixed(2)+'px';
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+
+/* ══════════ 调色板（沿用现网语义色）══════════ */
+const CAT = {
+  leisure:{c:[211,95,5],  label:'闲情逸致'},
+  dream:  {c:[138,43,226],label:'梦幻空花'},
+  video:  {c:[0,86,179],  label:'做视频想法'},
+  review: {c:[13,148,136],label:'未来回顾'},
+  normal: {c:[74,144,226],label:'日常'}
+};
+/* 分类筛选：图例点击后，未选中的分类统一压到 16% —— 一处钩子覆盖全页所有分类色 */
+let CAT_FILTER = new Set((QS.get('filter') || '').split(',').filter(Boolean));
+const rgba = (k,a) => {
+  const dim = (CAT_FILTER.size && !CAT_FILTER.has(k)) ? 0.16 : 1;
+  return 'rgba(' + CAT[k].c.join(',') + ',' + (a*dim).toFixed(4) + ')';
+};
+const SEASON = { spring:[124,158,92], summer:[192,144,74], autumn:[186,118,56], winter:[106,122,152] };
+const seasonOf = m => (m>=3&&m<=5)?'spring':(m>=6&&m<=8)?'summer':(m>=9&&m<=11)?'autumn':'winter';
+const fmt = n => n>=10000 ? (n/10000).toFixed(n>=100000?0:1)+'万' : String(n);
+
+/* ══════════ 合成数据（确定性种子，模拟 4 年真实密度）══════════ */
+const YEARS = [2023,2024,2025,2026];
+let tree = {}, monthStats = {}, dayStats = {}, yearStats = {}, allStats = {};
+
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+const rnd = mulberry32(20260915);
+function pickCat(){ const r=rnd(); if(r<.40)return 'normal'; if(r<.62)return 'leisure'; if(r<.76)return 'dream'; if(r<.88)return 'video'; return 'review'; }
+
+const PLAN = [
+  {y:2023, from:5,  to:12, p:.44, force:[]},
+  {y:2024, from:1,  to:12, p:.88, force:[3,8]},
+  {y:2025, from:1,  to:12, p:.79, force:[10]},
+  {y:2026, from:1,  to:9,  p:.72, force:[]}
+];
+function buildData(){
+  for(const pl of PLAN){
+    tree[pl.y] = {};
+    let yEntries=0, yWords=0, yParas=0, yDays=0, yMonths=0;
+    for(let m=1;m<=12;m++){
+      if(m<pl.from||m>pl.to) continue;
+      const dim = new Date(pl.y, m, 0).getDate();
+      const forced = pl.force.indexOf(m) >= 0;
+      const mm = {};
+      let mEntries=0, mWords=0, mParas=0, mCatCount={};
+      for(let d=1;d<=dim;d++){
+        if(!forced && rnd()>pl.p) continue;
+        const n = rnd()<.76 ? 1 : (rnd()<.86 ? 2 : 3);
+        const list = [];
+        for(let k=0;k<n;k++){
+          const base = 160 + rnd()*1850;
+          const wc = Math.round(rnd()<.10 ? base*2.6 : base);
+          const cat = pickCat();
+          list.push({ wordCount:wc, paraCount:1+Math.floor(rnd()*3), category:cat });
+          mWords += wc; mParas += 1+Math.floor(rnd()*3);
+          mCatCount[cat] = (mCatCount[cat]||0)+1;
+        }
+        mm[d] = list;
+        mEntries += list.length;
+        dayStats[pl.y+'-'+m+'-'+d] = {
+          entries:list, entryCount:list.length, wordCount:list.reduce((s,e)=>s+e.wordCount,0),
+          paraCount:list.reduce((s,e)=>s+e.paraCount,0),
+          category:Object.entries(mCatCount).sort((a,b)=>b[1]-a[1])[0] ? dominantOf(mCatCount) : 'normal'
+        };
+      }
+      const days = Object.keys(mm).map(Number).sort((a,b)=>a-b);
+      if(!days.length) continue;
+      yMonths++; yDays += days.length; yEntries += mEntries; yWords += mWords; yParas += mParas;
+      tree[pl.y][m] = mm;
+      monthStats[pl.y+'-'+m] = {
+        days, dayCount:days.length, entryCount:mEntries, wordCount:mWords, paraCount:mParas,
+        category:dominantOf(mCatCount), isFull:days.length===dim
+      };
+    }
+    yearStats[pl.y] = { monthCount:yMonths, dayCount:yDays, entryCount:yEntries, wordCount:yWords, paraCount:yParas };
+    allStats.yearCount=(allStats.yearCount||0)+1;
+    allStats.monthCount=(allStats.monthCount||0)+yMonths;
+    allStats.dayCount=(allStats.dayCount||0)+yDays;
+    allStats.entryCount=(allStats.entryCount||0)+yEntries;
+    allStats.wordCount=(allStats.wordCount||0)+yWords;
+  }
+}
+function dominantOf(counts){
+  const e = Object.entries(counts).sort((a,b)=>b[1]-a[1]);
+  return e.length ? e[0][0] : 'normal';
+}
+
+/* ══════════ 全局柱高标尺：分母 = 全局单日最大字数 × 0.5，全局统一 ══════════ */
+let GLOBAL_MAX_DAY = 1, DENOM = 1, CLIP_DAYS = 0, DAY_WORDS = [], CLIP_WORST = null, SCALE_TABLE = [];
+function computeGlobalScale(){
+  DAY_WORDS = [];
+  let mx = 0;
+  for(const k in dayStats){ const w = dayStats[k].wordCount; DAY_WORDS.push(w); if(w>mx) mx=w; }
+  DAY_WORDS.sort((a,b)=>a-b);
+  GLOBAL_MAX_DAY = mx || 1;
+  DENOM = GLOBAL_MAX_DAY * 0.35;
+  CLIP_DAYS = 0;
+  const byMonth = {};
+  for(const k in dayStats){
+    const w = dayStats[k].wordCount;
+    if(w > DENOM) CLIP_DAYS++;
+    const mk = k.split('-').slice(0,2).join('-');
+    const o = byMonth[mk] || (byMonth[mk] = {n:0, total:0});
+    o.total++;
+    if(w > DENOM) o.n++;
+  }
+  CLIP_WORST = Object.entries(byMonth)
+    .map(([k,v])=>({ key:k, clipped:v.n, days:v.total, ratio:v.n/v.total }))
+    .sort((a,b)=>b.clipped-a.clipped)[0] || null;
+  // 标尺取舍表：截平比例只由分母决定；非线性标尺只改变"填满程度"
+  const med = DAY_WORDS[Math.floor(DAY_WORDS.length/2)];
+  SCALE_TABLE = [0.2,0.25,0.3,0.35,0.4,0.45,0.5,1.0].map(f=>{
+    const d = GLOBAL_MAX_DAY*f;
+    return { f, denom:Math.round(d),
+             lin:+(Math.min(1, med/d)).toFixed(3),
+             sqrt:+(Math.min(1, Math.sqrt(med/d))).toFixed(3),
+             clip:+(DAY_WORDS.filter(w=>w>d).length/DAY_WORDS.length).toFixed(4) };
+  });
+}
+const pct = q => DAY_WORDS.length ? DAY_WORDS[Math.min(DAY_WORDS.length-1, Math.floor(DAY_WORDS.length*q))] : 0;
+
+/* ══════════ 合成正文片段（示意页需要真实长度的中文，才能评排版）══════════ */
+const EXC = {
+  leisure:['傍晚沿着河堤走了很久，风把云推成一片一片的。','煮了一壶茶，把窗子开了一条缝，听楼下的声音。',
+           '翻了半本旧书，纸页的味道比内容更让人安心。','午后的光落在桌角，什么也没做，就这么坐着。'],
+  dream:  ['梦见一条向下延伸的楼梯，尽头有很亮的光。','半夜醒来还记得刚才的场景，像一段没拍完的片子。',
+           '脑子里浮出一座悬在云上的城，街道是弯的。','做了一个很长的梦，醒来只记得一种颜色。'],
+  video:  ['想做一个关于凌晨四点的城市声音的短片。','如果把这段做成延时，再配一段钢琴，应该会好。',
+           '想到一个开头：先给空镜，再让声音先出现。','这个题材可以做成三集，每集只讲一个动作。'],
+  review: ['回头看这个月，前半段太满了，后半段反而空。','记一下：下次不要在同一天安排两件重要的事。',
+           '这几个月的节奏不太对，需要重新排一下。','把去年这个时候的计划翻出来，只完成了一半。'],
+  normal: ['上午处理完邮件，下午开了两个会，没做成什么。','买菜、做饭、洗碗，一天就这么过去了。',
+           '把积着的事情清掉了大半，心里舒服一点。','出门忘带伞，回来的时候衣服是湿的。']
+};
+/* 多段正文用的句子池（与首句摘要分开，避免一眼看出重复） */
+const SENT = {
+  leisure:['后来天就黑了，路灯一盏一盏亮起来。','回去的路上买了一个热的东西捧在手里。',
+           '这种时候什么都不想做，只想让时间慢一点。','明天大概还会来，如果不下雨的话。'],
+  dream:  ['醒来的时候窗外还很暗，只有空调的声音。','想把它记下来，但细节很快就化了。',
+           '也许是最近看的东西太多了。','那个地方我好像去过，又好像没有。'],
+  video:  ['先试试拍一分钟，不满意再改。','镜头可以定住，让画面自己动起来。',
+           '配乐先不用，把环境声留住。','这个想法先放着，等有素材了再说。'],
+  review: ['问题不在时间不够，而在排序不对。','下个月先把这件事清掉，再谈别的。',
+           '记在这里，免得又忘。','能做到七成就行，不必强求。'],
+  normal: ['晚上把明天的东西大致理了一下。','状态一般，没有特别想做的事。',
+           '手机看多了，眼睛有点酸。','就这样，明天再说。']
+};
+const COMMON = ['想想也没什么可写的，就这样吧。','今天过得很快，一晃就过去了。',
+                '有点累，但说不上来累在哪。','天气还行，不冷不热。',
+                '中间接了两个电话，事情被打断了几次。','喝了两杯咖啡，晚上大概睡不着。',
+                '把桌面收拾了一下，舒服一些。','想起一件很久以前的事，没头没尾的。',
+                '时间不太够用，只能挑重要的做。','算了，明天起来再看。',
+                '窗外的树被风推着，一片一片地响。','晚饭随便吃了一点，不太饿。',
+                '把明天的清单写下来了，只写了三行。','手机放远了一点，确实安静一些。',
+                '没什么特别的，就是普通的一天。','想早点睡，但大概还是会拖到很晚。'];
+
+function makeBody(cat, wordCount, r){
+  // 示意页只渲染节选（末尾打诚实的省略标记），句数压到不重复的量级
+  const target = Math.max(4, Math.min(14, Math.round(wordCount/60)));
+  const used = new Set(), paras = [];
+  let left = target;
+  while(left > 0){
+    const n = Math.min(left, 2 + Math.floor(r()*3));
+    let s = '';
+    for(let i=0;i<n;i++){
+      let sent = '', tries = 0;
+      do{
+        const useCommon = r() < 0.4;
+        const pool = useCommon ? COMMON : SENT[cat];
+        sent = pool[Math.floor(r()*pool.length)];
+        tries++;
+      } while(used.has(sent) && tries < 12);
+      used.add(sent);
+      s += sent;
+    }
+    paras.push(s);
+    left -= n;
+  }
+  return paras;
+}
+
+function assignExcerpts(){
+  const r = mulberry32(777);
+  for(const k in dayStats){
+    for(const e of dayStats[k].entries){
+      e.body = makeBody(e.category, e.wordCount, r);
+      e.paraCount = e.body.length;
+      const first = e.body[0], pool = EXC[e.category];
+      e.excerpt = first.length>=18 ? first.slice(0,32) : pool[Math.floor(r()*pool.length)];
+    }
+    // 段数按实际正文重算（否则日头统计与分节头对不上）
+    dayStats[k].paraCount = dayStats[k].entries.reduce((s,e)=>s+e.paraCount, 0);
+  }
+}
+function clipText(t, maxW, font){
+  ctx.font = font;
+  if(ctx.measureText(t).width <= maxW) return t;
+  let s = t;
+  while(s.length>1 && ctx.measureText(s+'…').width > maxW) s = s.slice(0,-1);
+  return s+'…';
+}
+/* 中文折行 + 避头尾（禁则处理）：标点不得出现在行首，左括号不得留在行尾 */
+const NO_START = '。，、；：！？）】》」』”’·…—％';
+const NO_END   = '（【《「『“‘';
+function wrapCJK(text, maxW, font){
+  ctx.font = font;
+  const out = []; let line = '';
+  for(const ch of text){
+    const tooWide = ctx.measureText(line+ch).width > maxW;
+    if(line && tooWide && NO_START.includes(ch)){
+      line += ch;                                   // 行首禁则：让标点悬挂在行尾
+    } else if(line && tooWide && NO_END.includes(ch) && line.length>1){
+      const prev = line[line.length-1];              // 行尾禁则：把前一个字一起挪下去
+      out.push(line.slice(0,-1)); line = prev + ch;
+    } else if(line && tooWide){
+      out.push(line); line = ch;
+    } else {
+      line += ch;
+    }
+  }
+  if(line) out.push(line);
+  return out;
+}
+
+/* ══════════ 布局（与线上页面同一套：年=列，月=行）══════════ */
+let L = {};
+function computeLayout(){
+  const w = innerWidth, h = innerHeight;
+  // 顶栏占 36px，年表头整体下移，不再被压住
+  const colGap = 22, top = 96, bottom = 62, mGap = 6;
+  const yearWidth = Math.max((w - colGap*(YEARS.length+1)) / YEARS.length, 140);
+  const monthH = Math.max((h - top - bottom - mGap*11) / 12, 22);
+  L = {
+    w, h, top, bottom, mGap, yearWidth, monthH, colGap,
+    cols: YEARS.map((y,i)=>({ year:y, x: colGap + i*(yearWidth+colGap), w: yearWidth })),
+    totalW: colGap + YEARS.length*(yearWidth+colGap)
+  };
+}
+const monthRect = (ci,m) => ({ x:L.cols[ci].x, y:L.top+(m-1)*(L.monthH+L.mGap), w:L.yearWidth, h:L.monthH });
+
+/* ══════════ 通用绘制工具 ══════════ */
+function roundPath(x,y,w,h,r){
+  r = Math.min(r, w/2, h/2);
+  ctx.beginPath();
+  ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y); ctx.arcTo(x+w,y,x+w,y+r,r);
+  ctx.lineTo(x+w,y+h-r); ctx.arcTo(x+w,y+h,x+w-r,y+h,r);
+  ctx.lineTo(x+r,y+h); ctx.arcTo(x,y+h,x,y+h-r,r);
+  ctx.lineTo(x,y+r); ctx.arcTo(x,y,x+r,y,r); ctx.closePath();
+}
+function paper(w,h,c1,c2){
+  ctx.fillStyle = c1; ctx.fillRect(0,0,w,h);
+  const g = ctx.createLinearGradient(0,0,w,h);
+  g.addColorStop(0,c1); g.addColorStop(1,c2);
+  ctx.fillStyle=g; ctx.fillRect(0,0,w,h);
+}
+function label(txt,x,y,font,color,align,base){
+  ctx.font=font; ctx.fillStyle=color;
+  ctx.textAlign=align||'left'; ctx.textBaseline=base||'alphabetic';
+  ctx.fillText(txt,x,y);
+}
+
+/* ══════════════════════════════════════════════════════════
+   现状复刻（v=O）—— 线上 draw() 的等价重绘，用于对照
+   ══════════════════════════════════════════════════════════ */
+function drawCurrent(){
+  const {w,h}=L;
+  const bg=ctx.createLinearGradient(0,0,w,h);
+  bg.addColorStop(0,'#fbf8f2'); bg.addColorStop(.5,'#f3efe8'); bg.addColorStop(1,'#fbf3e8');
+  ctx.fillStyle=bg; ctx.fillRect(0,0,w,h);
+
+  // 年份色柱
+  L.cols.forEach((c,i)=>{
+    const hue = 200 + (i/Math.max(YEARS.length-1,1))*80;
+    const g = ctx.createLinearGradient(0,8,0,8+h);
+    g.addColorStop(0,`hsla(${hue},55%,70%,0.16)`); g.addColorStop(1,`hsla(${hue},55%,70%,0.045)`);
+    ctx.fillStyle=g; ctx.strokeStyle=`hsla(${hue},55%,70%,0.22)`; ctx.lineWidth=1;
+    roundPath(c.x-8,8,c.w+16,h-20,26); ctx.fill(); ctx.stroke();
+  });
+  // 蛇形脊柱
+  const spineY = L.top + 5*(L.monthH+L.mGap) + L.monthH/2;
+  ctx.strokeStyle='rgba(160,117,86,0.18)'; ctx.lineWidth=2.2; ctx.beginPath();
+  L.cols.forEach((c,i)=>{
+    const x=c.x+c.w/2, y=spineY+Math.sin(i*0.9)*18;
+    if(i===0) ctx.moveTo(x,y);
+    else { const p=L.cols[i-1], px=p.x+p.w/2, py=spineY+Math.sin((i-1)*0.9)*18;
+      ctx.bezierCurveTo((px+x)/2,py,(px+x)/2,y,x,y); }
+  });
+  ctx.stroke();
+  // 月间连接曲线
+  L.cols.forEach((c,i)=>{
+    const hue = 200 + (i/Math.max(YEARS.length-1,1))*80;
+    ctx.strokeStyle=`hsla(${hue},55%,70%,0.18)`; ctx.lineWidth=1.6; ctx.beginPath();
+    for(let m=1;m<=12;m++){
+      const x=c.x+c.w/2, y=L.top+(m-1)*(L.monthH+L.mGap)+L.monthH/2;
+      if(m===1) ctx.moveTo(x,y);
+      else { const py=L.top+(m-2)*(L.monthH+L.mGap)+L.monthH/2; ctx.bezierCurveTo(x-10,py,x+10,y,x,y); }
+    }
+    ctx.stroke();
+  });
+  // 月份卡
+  YEARS.forEach((y,i)=>{
+    for(let m=1;m<=12;m++){
+      const r=monthRect(i,m), st=monthStats[y+'-'+m];
+      const has = st && st.entryCount>0;
+      const intensity = has ? Math.min(st.entryCount/12,1) : 0;
+      const fillAlpha = has ? .72+intensity*.18 : .32;
+      const strokeAlpha = has ? .24+intensity*.16 : .08;
+      ctx.fillStyle='rgba(82,55,35,0.055)';
+      roundPath(r.x+1.5,r.y+2,r.w,r.h,10); ctx.fill();
+      const cg=ctx.createLinearGradient(r.x,0,r.x+r.w,0);
+      cg.addColorStop(0,`rgba(255,252,246,${fillAlpha})`);
+      cg.addColorStop(1, has ? `hsla(23,78%,${88-intensity*10}%,${.42+intensity*.24})` : 'rgba(255,255,255,0.22)');
+      ctx.fillStyle=cg; ctx.strokeStyle=`rgba(130,91,65,${strokeAlpha})`; ctx.lineWidth=1;
+      roundPath(r.x,r.y,r.w,r.h,10); ctx.fill(); ctx.stroke();
+      if(st && st.isFull){
+        ctx.strokeStyle='rgba(245,197,66,0.55)'; ctx.lineWidth=4.5; roundPath(r.x,r.y,r.w,r.h,10); ctx.stroke();
+        ctx.strokeStyle='rgba(255,210,90,0.98)'; ctx.lineWidth=2.6; roundPath(r.x,r.y,r.w,r.h,10); ctx.stroke();
+      }
+      if(has){
+        const barH=3.2, barW=Math.max(barH,(r.w-8)*Math.min(st.dayCount/31,1));
+        ctx.fillStyle=rgba(st.category,0.32);
+        roundPath(r.x+4,r.y+r.h-barH-4,barW,barH,barH/2); ctx.fill();
+      }
+      // 头部
+      const headerH=16, headerY=r.y+headerH/2;
+      ctx.fillStyle='rgba(255,252,246,0.86)';
+      roundPath(r.x+2,r.y+1,r.w-4,headerH-1,6); ctx.fill();
+      label(String(m),0,0,'700 9px "Segoe UI","Microsoft YaHei",sans-serif','#000','center','middle');
+      const bw = ctx.measureText(String(m)).width + 8;
+      const bh=11, bx=r.x+5, by=headerY-bh/2;
+      ctx.fillStyle = has ? rgba(st.category,0.22) : 'rgba(120,104,92,0.12)';
+      roundPath(bx,by,Math.min(bw,r.w-8),bh,bh/2); ctx.fill();
+      label(String(m), bx+Math.min(bw,r.w-8)/2, headerY, '700 9px "Segoe UI","Microsoft YaHei",sans-serif',
+            has?rgba(st.category,0.98):'rgba(120,104,92,0.6)','center','middle');
+      const sL=bx+Math.min(bw,r.w-8)+4, sR=r.x+r.w-6;
+      if(sR-sL>=12){
+        const t = has ? `${st.dayCount}天 · ${st.entryCount}篇 · ${fmt(st.wordCount)}字` : '无记录';
+        label(t,sR,headerY,'8.5px "Segoe UI","Microsoft YaHei",sans-serif',
+              has?'rgba(91,74,64,0.82)':'rgba(91,74,64,0.32)','right','middle');
+      }
+    }
+  });
+  // 年份标签
+  L.cols.forEach((c,i)=>{
+    label(String(c.year), c.x+c.w/2, 13, '700 12px "Segoe UI","Microsoft YaHei",sans-serif','rgba(70,46,34,0.9)','center','top');
+    const ys=yearStats[c.year];
+    const hue=200+(i/Math.max(YEARS.length-1,1))*80;
+    label(`${ys.monthCount}月 · ${ys.entryCount}篇 · ${fmt(ys.wordCount)}字`, c.x+c.w/2, 30,
+          '8.5px "Segoe UI","Microsoft YaHei",sans-serif',`hsla(${hue},55%,58%,0.68)`,'center','top');
+  });
+}
+
+/* 当月累计字数包络：独立标尺（0 → 当月总量），只表达"前紧后松 / 月底冲刺" */
+function cumGeom(x0, colW, base, maxH, m, y){
+  const dim = new Date(y,m,0).getDate();
+  let total=0; const raw=[];
+  for(let d=1; d<=dim; d++){
+    const ds = dayStats[y+'-'+m+'-'+d];
+    if(ds) total += ds.wordCount;
+    raw.push(total);
+  }
+  if(total<=0) return null;
+  return { dim, endX:x0+dim*colW, start:[x0,base],
+           P: raw.map((v,i)=>[x0+i*colW+colW/2, base-(v/total)*maxH]) };
+}
+function traceCum(c){
+  ctx.beginPath(); ctx.moveTo(c.start[0], c.start[1]);
+  let px=c.start[0], py=c.start[1];
+  for(const p of c.P){
+    const mx=(px+p[0])/2, my=(py+p[1])/2;
+    ctx.quadraticCurveTo(px,py,mx,my);
+    px=p[0]; py=p[1];
+  }
+  ctx.lineTo(px,py);
+}
+function cumFill(c){
+  traceCum(c); ctx.lineTo(c.endX, c.start[1]); ctx.closePath();
+  ctx.fillStyle='rgba(126,93,73,0.075)'; ctx.fill();
+}
+function cumLine(c){
+  // 匀速参考虚线：实际曲线与它的间距 = 前紧后松 / 月底冲刺
+  ctx.save();
+  ctx.setLineDash([2.2,2.6]);
+  ctx.strokeStyle='rgba(126,93,73,0.30)'; ctx.lineWidth=0.8;
+  const topY = c.P[c.P.length-1][1];
+  ctx.beginPath(); ctx.moveTo(c.start[0], c.start[1]); ctx.lineTo(c.endX, topY); ctx.stroke();
+  ctx.restore();
+  traceCum(c);
+  ctx.strokeStyle='rgba(86,58,40,0.52)'; ctx.lineWidth=1; ctx.stroke();
+}
+
+/* ══════════════════════════════════════════════════════════
+   H3 —— 「分段堆叠柱」：一个渲染器同时给出两种读数
+   柱高 ∝ 当日字数（读节奏，与 A 的火花线同一公式）
+   柱内按"篇"分段、段色 = 该篇分类（读结构/心情）
+   段高够大时自动长出圆角格与日序号 ⇒ 放大即"展开"
+   ══════════════════════════════════════════════════════════ */
+function drawStackCard(r,st,m,y){
+  const dim = new Date(y,m,0).getDate();
+  const x0=r.x+30, x1=r.x+r.w-9, colW=(x1-x0)/31;
+  const base=r.y+r.h-7, maxH=Math.max(6, r.h-22-6);
+  const showNum = colW*ZOOM >= 12;
+  const cg = cumGeom(x0, colW, base, maxH, m, y);
+  if(cg) cumFill(cg);
+  const wantRound = K >= LOD.ROUND, wantNum = K >= LOD.NUM;
+  for(let d=1;d<=dim;d++){
+    const ds=dayStats[y+'-'+m+'-'+d];
+    const cx=x0+(d-1)*colW, cw=colW*0.62, bb=x0+(d-1)*colW+colW*0.19;
+    if(!ds){
+      ctx.fillStyle='rgba(126,93,73,0.13)';
+      ctx.fillRect(bb, base-1, cw, 1);
+      if(wantNum && colW*K>=10) label(String(d), cx+colW/2, base-maxH*0.5,
+        `${F(7.6)} "Segoe UI","Microsoft YaHei",sans-serif`,'rgba(135,125,120,0.45)','center','middle');
+      continue;
+    }
+    const raw = hRaw(ds.wordCount)*maxH;
+    const clipped = ds.wordCount > DENOM;
+    // 截平柱：柱体缩短 1.6px，上方浮一条比柱窄的短线 —— 读作"还有更多"，
+    // 而不是"这一天又多了一篇"（深色顶线会被误读成分段）
+    const H = Math.max(3, Math.min(maxH, raw) - (clipped?1.6:0));
+    const n = ds.entryCount, segH = H/n;
+    const gap = (wantRound && segH*K>=7) ? 0.55 : 0;
+    for(let k=0;k<n;k++){
+      const e = ds.entries[k];
+      const yt = base - (k+1)*segH;
+      ctx.fillStyle=rgba(e.category, 0.58+Math.min(e.wordCount/2600,1)*0.34);
+      const rr = gap>0 ? Math.min(1.5, (segH-gap)*0.3) : 0;
+      if(rr>0){ roundPath(bb, yt+gap*0.5, cw, segH-gap, rr); ctx.fill(); }
+      else ctx.fillRect(bb, yt, cw, segH);
+    }
+    if(clipped){
+      ctx.fillStyle='rgba(70,46,34,0.42)';
+      ctx.fillRect(bb + cw*0.29, base-H-4.0, cw*0.42, 1.3);
+    }
+    if(wantNum && colW*K>=10 && segH*K>=7){
+      label(String(d), cx+colW/2, base-Math.floor(n/2)*segH-segH*0.5,
+            `${segH*K>=13?'600':'400'} ${F(7.8)} "Segoe UI","Microsoft YaHei",sans-serif`,
+            segH*K>=13?'rgba(255,255,255,0.94)':'rgba(70,46,34,0.72)','center','middle');
+    }
+  }
+  for(let d=7; d<31; d+=7){
+    ctx.fillStyle='rgba(126,93,73,0.09)';
+    ctx.fillRect(x0+d*colW-0.25, r.y+20, 0.5, r.h-26);
+  }
+  if(cg) cumLine(cg);
+}
+
+/* ══════════════════════════════════════════════════════════
+   H1/H2 —— 放大后的两种「展开形态」（卡片几何不变，只换内容）
+   H1: 日序矩阵 31 列 × 3 行（每列一天，行 = 当日第 n 篇）
+   H2: 真月历 7 列 × 6 行（周一对齐）
+   ══════════════════════════════════════════════════════════ */
+function drawMatrixCard(r,st,m,y){
+  const dim = new Date(y,m,0).getDate();
+  const gx0=r.x+30, gx1=r.x+r.w-9, gy0=r.y+22, gy1=r.y+r.h-7;
+  const cw=(gx1-gx0)/31, ch=(gy1-gy0)/3;
+  const showNum = cw*ZOOM >= 13;
+  for(let d=1;d<=31;d++){
+    if(d>dim) continue;
+    const ds = dayStats[y+'-'+m+'-'+d];
+    for(let k=0;k<3;k++){
+      const cx=gx0+(d-1)*cw+0.7, cy=gy0+k*ch+0.8, wc=cw-1.4, hc=ch-1.6;
+      if(!ds){ if(k===0){ ctx.fillStyle='rgba(126,93,73,0.05)'; ctx.fillRect(cx,cy,wc,hc); } continue; }
+      if(k>=ds.entryCount) continue;
+      const e=ds.entries[k];
+      ctx.fillStyle=rgba(e.category, 0.42+Math.min(e.wordCount/2600,1)*0.53);
+      roundPath(cx,cy,wc,hc,1.3); ctx.fill();
+    }
+    if(showNum){
+      const cx=gx0+(d-1)*cw+0.7, cy=gy0+0.8, wc=cw-1.4, hc=ch-1.6;
+      label(String(d), cx+wc/2, cy+hc/2,
+            `${ds?'600':'400'} ${F(8.2)} "Segoe UI","Microsoft YaHei",sans-serif`,
+            ds?'rgba(255,255,255,0.94)':'rgba(135,125,120,0.7)','center','middle');
+    }
+  }
+  for(let d=7; d<31; d+=7){
+    ctx.fillStyle='rgba(126,93,73,0.10)';
+    ctx.fillRect(gx0+d*cw-0.3, gy0, 0.6, gy1-gy0);
+  }
+}
+
+function drawCalCard(r,st,m,y){
+  const dim = new Date(y,m,0).getDate();
+  const firstDow = (new Date(y,m-1,1).getDay()+6)%7;
+  const av=r.x+30, aw=r.w-38, ah=r.h-26;
+  const cs=Math.min(aw/7, ah/6.7);
+  if(cs*ZOOM < 5) return;
+  const gw=cs*7, gh=cs*6;
+  const gx=av+(aw-gw)/2, gy=r.y+23+(ah-gh-cs*0.7)/2 + cs*0.7;
+  if(cs*ZOOM>=9){
+    const wk=['一','二','三','四','五','六','日'];
+    for(let k=0;k<7;k++)
+      label(wk[k], gx+k*cs+cs/2, gy-1.2, `${F(7.6)} "Microsoft YaHei",sans-serif`,
+            'rgba(135,125,120,0.72)','center','bottom');
+  }
+  for(let d=1;d<=dim;d++){
+    const idx=firstDow+d-1, rr=Math.floor(idx/7), cc=idx%7;
+    const cx=gx+cc*cs+0.9, cy=gy+rr*cs+0.9, s=cs-1.8;
+    const ds=dayStats[y+'-'+m+'-'+d];
+    const showNum = s*ZOOM>=15;
+    if(ds){
+      ctx.fillStyle=rgba(ds.category, 0.42+Math.min(ds.wordCount/2600,1)*0.53);
+      roundPath(cx,cy,s,s,Math.min(2.6,s*0.26)); ctx.fill();
+      if(showNum) label(String(d), cx+s/2, cy+s/2,
+        `${F(8.2)} "Segoe UI","Microsoft YaHei",sans-serif`,'rgba(255,255,255,0.94)','center','middle');
+    } else {
+      ctx.strokeStyle='rgba(126,93,73,0.13)'; ctx.lineWidth=1;
+      roundPath(cx+0.5,cy+0.5,s-1,s-1,Math.min(2.6,s*0.26)); ctx.stroke();
+      if(showNum) label(String(d), cx+s/2, cy+s/2,
+        `${F(8.2)} "Segoe UI","Microsoft YaHei",sans-serif`,'rgba(135,125,120,0.55)','center','middle');
+    }
+  }
+  // 卡片远宽于方阵 ⇒ 把剩下的宽度标出来（几何不匹配的可视化）
+  ctx.fillStyle='rgba(184,105,68,0.055)';
+  ctx.fillRect(gx+gw+3, gy-cs*0.7, Math.max(0, av+aw-(gx+gw)-3), gh+cs*0.7);
+}
+
+/* ══════════════════════════════════════════════════════════
+   方案 A —— 「节气长卷」：保留网格，把看不见的信号做成看得见的
+   月条 = 宋体月序 + 主导分类竖标 + 31 格「日字量」火花线 + 季节淡彩
+   ══════════════════════════════════════════════════════════ */
+function drawA(){
+  const {w,h}=L;
+  paper(w,h,'#fbf8f2','#f8f2e9');
+  if(IS_PAPER) paperGrain();
+
+  // 年柱：极淡纸色块 + 左侧墨线
+  L.cols.forEach(c=>{
+    ctx.fillStyle='rgba(255,255,255,0.50)';
+    roundPath(c.x-7, L.top-46, c.w+14, h-L.top+30, 14); ctx.fill();
+    ctx.fillStyle= IS_PAPER ? 'rgba(96,66,46,0.22)' : 'rgba(126,93,73,0.14)';
+    ctx.fillRect(c.x-7, L.top-46, 1, h-L.top+30);
+  });
+
+  L.cols.forEach((c,i)=>{
+    const ys=yearStats[c.year];
+    if(IS_PAPER && VCAL){
+      verticalYear(c, c.year);
+    } else {
+      label(String(c.year), c.x, L.top-26, '600 27px Georgia,"Times New Roman",serif','rgba(66,44,32,0.92)','left','alphabetic');
+    }
+    label(`${ys.monthCount}个月 · ${ys.dayCount}天 · ${ys.entryCount}篇`, c.x, L.top-10,
+          '11px "Segoe UI","Microsoft YaHei",sans-serif','rgba(135,125,120,0.95)','left','alphabetic');
+    label(fmt(ys.wordCount)+'字', c.x-7+ (c.w+14), L.top-26,
+          '600 14px Georgia,serif', rgba('leisure',0.60),'right','alphabetic');
+    // 细渐隐横线
+    const g=ctx.createLinearGradient(c.x,0,c.x+c.w,0);
+    g.addColorStop(0,'rgba(126,93,73,0.32)'); g.addColorStop(1,'rgba(126,93,73,0.02)');
+    ctx.fillStyle=g; ctx.fillRect(c.x, L.top-5, c.w, 1);
+
+    // 全年 365 格概览条
+    const stripY = L.top-2, stripH=2.5, step=(c.w)/366;
+    for(let mo=1;mo<=12;mo++){
+      const dim=new Date(c.year,mo,0).getDate();
+      for(let d=1;d<=dim;d++){
+        const ds=dayStats[c.year+'-'+mo+'-'+d];
+        const idx=Math.round((new Date(c.year,mo-1,d)-new Date(c.year,0,1))/864e5);
+        ctx.fillStyle = ds ? rgba(ds.category,0.85) : 'rgba(126,93,73,0.10)';
+        ctx.fillRect(c.x+idx*step, stripY, Math.max(1.2,step*0.9), stripH);
+      }
+    }
+  });
+
+  YEARS.forEach((y,i)=>{
+    for(let m=1;m<=12;m++){
+      const r=monthRect(i,m), st=monthStats[y+'-'+m];
+      const has = !!st;
+      const sea = SEASON[seasonOf(m)];
+      // 卡片：季节淡彩
+      ctx.fillStyle = `rgba(${sea.join(',')},${has?0.115:0.035})`;
+      roundPath(r.x, r.y+3, r.w, r.h-6, 7); ctx.fill();
+      // 底部发丝线
+      ctx.fillStyle='rgba(126,93,73,0.10)'; ctx.fillRect(r.x+10, r.y+r.h-2.5, r.w-20, 1);
+
+      // 月序（衬线）
+      label(String(m), r.x+11, r.y+15, '600 15px Georgia,serif',
+            has?'rgba(66,44,32,0.78)':'rgba(66,44,32,0.20)','left','middle');
+      // 主导分类竖标
+      if(has){ ctx.fillStyle=rgba(st.category,0.88); roundPath(r.x+4.5, r.y+9, 2.5, r.h-22, 1.25); ctx.fill(); }
+
+      if(has){
+        label(`${st.dayCount}天 · ${st.entryCount}篇`, r.x+r.w-11-(st.isFull&&IS_PAPER?19:0), r.y+15,
+              '10px "Segoe UI","Microsoft YaHei",sans-serif','rgba(91,74,64,0.66)','right','middle');
+        if(CARD_MODE==='matrix') drawMatrixCard(r,st,m,y);
+        else if(CARD_MODE==='cal') drawCalCard(r,st,m,y);
+        else if(CARD_MODE==='stack') drawStackCard(r,st,m,y);
+        else {
+          const base=r.y+r.h-9, maxH=Math.min(r.h-29, 30);
+          const x0=r.x+31, x1=r.x+r.w-11, step=(x1-x0)/31;
+          for(let d=1;d<=31;d++){
+            const bw=Math.max(2, step*0.60), bx=x0+(d-1)*step;
+            const ds=dayStats[y+'-'+m+'-'+d];
+            if(!ds){ ctx.fillStyle='rgba(126,93,73,0.13)'; ctx.fillRect(bx, base-1, bw, 1); continue; }
+            const raw=hRaw(ds.wordCount)*maxH, hh=Math.max(2, Math.min(maxH, raw));
+            ctx.fillStyle=rgba(ds.category,0.60);
+            ctx.fillRect(bx, base-hh, bw, hh);
+            if(ds.wordCount>DENOM){ ctx.fillStyle='rgba(70,46,34,0.52)'; ctx.fillRect(bx, base-hh, bw, 1.2); }
+          }
+        }
+        // 满月标记：paper 用朱印，plain 用金点
+        if(st.isFull){
+          if(IS_PAPER) drawSeal(r.x+r.w-16, r.y+3.5, 11);
+          else {
+            ctx.fillStyle='rgba(202,152,42,0.92)';
+            ctx.beginPath(); ctx.arc(r.x+r.w-9, r.y+9.5, 3, 0, Math.PI*2); ctx.fill();
+          }
+        }
+      }
+    }
+  });
+}
+
+/* ══════════════════════════════════════════════════════════
+   方案 B —— 「年历墙」：每月换成真·月历方阵（周一列对齐）
+   信息量搬到静止层：一眼看出哪年哪月写了什么、什么心情
+   ══════════════════════════════════════════════════════════ */
+function drawB(){
+  const {w,h}=L;
+  paper(w,h,'#faf7f1','#f7f2ea');
+
+  // 每年一堵"墙"（列内 2×6 排月历）
+  L.cols.forEach((c,i)=>{
+    label(String(c.year), c.x, 34, '600 24px Georgia,"Times New Roman",serif','rgba(66,44,32,0.92)','left','alphabetic');
+    const ys=yearStats[c.year];
+    label(`${ys.monthCount}个月 · ${ys.dayCount}天 · ${ys.entryCount}篇`, c.x+72, 34,
+          '11px "Segoe UI","Microsoft YaHei",sans-serif','rgba(135,125,120,0.95)','left','alphabetic');
+    label(fmt(ys.wordCount)+'字', c.x+c.w, 34, '600 14px Georgia,serif', rgba('leisure',0.60),'right','alphabetic');
+
+    // 年内 12 个月历，2 列 × 6 行
+    const rows=6, cols=2, gapX=14, gapY=8;
+    const cellW=(c.w-gapX)/cols;
+    const blockH=(h-70-46)/rows;
+    for(let m=1;m<=12;m++){
+      const rk=Math.floor((m-1)/2), ck=(m-1)%2;
+      const bx=c.x + ck*(cellW+gapX);
+      const by=46 + rk*(blockH+gapY);
+      const st=monthStats[c.year+'-'+m];
+      const has=!!st;
+      const dim=new Date(c.year,m,0).getDate();
+      const firstDow=(new Date(c.year,m-1,1).getDay()+6)%7; // 周一起
+
+      // 月历纸张
+      ctx.fillStyle = has ? 'rgba(255,255,255,0.66)' : 'rgba(255,255,255,0.26)';
+      roundPath(bx,by,cellW,blockH,8); ctx.fill();
+      ctx.strokeStyle='rgba(126,93,73,0.10)'; ctx.lineWidth=1;
+      roundPath(bx+0.5,by+0.5,cellW-1,blockH-1,8); ctx.stroke();
+
+      // 月份标题
+      label(String(m), bx+9, by+13, '600 13px Georgia,serif',
+            has?'rgba(66,44,32,0.80)':'rgba(66,44,32,0.22)','left','middle');
+      if(has){
+        label(`${st.dayCount}/${dim}天`, bx+cellW-9, by+13,
+              '10px "Segoe UI","Microsoft YaHei",sans-serif','rgba(91,74,64,0.60)','right','middle');
+      }
+      ctx.fillStyle= has ? rgba(st.category,0.85) : 'rgba(126,93,73,0.14)';
+      ctx.fillRect(bx+9, by+20, cellW-18, 1);
+
+      // 周历表头 + 格子（7 列 × 6 行）
+      const innerW=cellW-18, innerH=blockH-30;
+      const gw=innerW/7, gh=innerH/6;
+      const cs=Math.min(gw-2, gh-2);
+      const ox=bx+9, oy=by+24;
+      if(cs>=3){
+        const wk=['一','二','三','四','五','六','日'];
+        if(cs>=7) for(let k=0;k<7;k++)
+          label(wk[k], ox+k*gw+gw/2, oy-4, '9px "Microsoft YaHei",sans-serif','rgba(135,125,120,0.72)','center','middle');
+        for(let d=1;d<=dim;d++){
+          const cellIdx=firstDow+d-1;
+          const rr=Math.floor(cellIdx/7), cc=cellIdx%7;
+          const cx=ox+cc*gw+(gw-cs)/2, cy=oy+rr*gh+(gh-cs)/2;
+          const ds=dayStats[c.year+'-'+m+'-'+d];
+          if(ds){
+            const inten=Math.min(ds.wordCount/2600,1);
+            ctx.fillStyle=rgba(ds.category, 0.42+inten*0.52);
+            roundPath(cx,cy,cs,cs,Math.min(2.5,cs*0.28)); ctx.fill();
+          } else {
+            ctx.strokeStyle='rgba(126,93,73,0.13)'; ctx.lineWidth=1;
+            roundPath(cx+0.5,cy+0.5,cs-1,cs-1,Math.min(2.5,cs*0.28)); ctx.stroke();
+          }
+        }
+      }
+      if(st && st.isFull){
+        ctx.fillStyle='rgba(202,152,42,0.95)';
+        ctx.beginPath(); ctx.arc(bx+cellW-14, by+12, 2.6, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle='rgba(202,152,42,0.22)';
+        ctx.beginPath(); ctx.arc(bx+cellW-14, by+12, 5.5, 0, Math.PI*2); ctx.fill();
+      }
+    }
+  });
+}
+
+/* ══════════════════════════════════════════════════════════
+   方案 C —— 「时光树」：主干即时间轴（左→右），年为一株立枝，
+   月为横生小枝（长度 ∝ 当月天数），日为叶（大小 ∝ 当日字数，色 = 分类）
+   ══════════════════════════════════════════════════════════ */
+function cubPath(p0,p1,p2,p3){
+  return {
+    P(t){ const m=1-t;
+      return [ m*m*m*p0[0]+3*m*m*t*p1[0]+3*m*t*t*p2[0]+t*t*t*p3[0],
+               m*m*m*p0[1]+3*m*m*t*p1[1]+3*m*t*t*p2[1]+t*t*t*p3[1] ]; }
+  };
+}
+function quadPath(a,c,b){
+  return { P(t){ const m=1-t; return [m*m*a[0]+2*m*t*c[0]+t*t*b[0], m*m*a[1]+2*m*t*c[1]+t*t*b[1]]; } };
+}
+function trunkAtX(trunk,x){
+  let best=null, bd=Infinity;
+  for(let k=0;k<=120;k++){ const p=trunk.P(k/120); const d=Math.abs(p[0]-x); if(d<bd){ bd=d; best=p; } }
+  return best;
+}
+
+function drawC(){
+  const {w,h}=L;
+  paper(w,h,'#faf6ef','#f5efe4');
+
+  const trunkY = h-148;
+  const tX0 = 66, tX1 = w-58;
+  const c1 = tX0+280, c2 = tX1-340;
+  const trunk = cubPath([tX0,trunkY+14],[c1,trunkY-26],[c2,trunkY-26],[tX1,trunkY-2]);
+
+  // 淡年轮
+  for(let k=0;k<4;k++){
+    ctx.strokeStyle = `rgba(160,124,88,${0.062-k*0.013})`; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.arc(tX0+30, trunkY+6, 180+k*130, -Math.PI*0.60, -Math.PI*0.31); ctx.stroke();
+  }
+
+  // 主干
+  ctx.strokeStyle='rgba(84,58,40,0.82)'; ctx.lineCap='round'; ctx.lineWidth=6.5;
+  ctx.beginPath(); ctx.moveTo(tX0,trunkY+14);
+  ctx.bezierCurveTo(c1,trunkY-26,c2,trunkY-26,tX1,trunkY-2); ctx.stroke();
+  // 根须
+  ctx.lineWidth=2; ctx.strokeStyle='rgba(84,58,40,0.30)';
+  for(let k=0;k<3;k++){
+    ctx.beginPath(); ctx.moveTo(tX0+10+k*18, trunkY+18);
+    ctx.quadraticCurveTo(tX0-18+k*20, trunkY+44+k*8, tX0-38+k*22, trunkY+58+k*10); ctx.stroke();
+  }
+  label('时间 →', tX1, trunkY+26, '10px "Segoe UI","Microsoft YaHei",sans-serif','rgba(135,125,120,0.9)','right','alphabetic');
+
+  const boughTop = 246;
+  const baseXs = YEARS.map((y,i)=> Math.min(196 + i*296, w-250));
+  const leaves=[], fruits=[];
+
+  YEARS.forEach((y,i)=>{
+    const bx0 = baseXs[i];
+    const bp = trunkAtX(trunk, bx0);
+    const by0 = bp[1]-5, by1 = boughTop + (i%2 ? 40 : 0);
+    const bough = cubPath([bx0,by0],[bx0+(i%2?104:-74), by0-(by0-by1)*0.30],
+                          [bx0+20, by0-(by0-by1)*0.74],[bx0+32,by1]);
+
+    // 地面柔影
+    ctx.fillStyle='rgba(126,93,73,0.055)';
+    ctx.beginPath(); ctx.ellipse(bx0+14, by0+5, 76, 8, 0, 0, Math.PI*2); ctx.fill();
+
+    // 立枝：分段渐细
+    for(let s=0;s<16;s++){
+      const p0=bough.P(s/16), p1=bough.P((s+1)/16);
+      ctx.strokeStyle=`rgba(92,64,44,${0.78-s*0.030})`; ctx.lineWidth=6.2-s*0.30;
+      ctx.beginPath(); ctx.moveTo(p0[0],p0[1]); ctx.lineTo(p1[0],p1[1]); ctx.stroke();
+    }
+
+    for(let m=1;m<=12;m++){
+      const st = monthStats[y+'-'+m];
+      const ap = bough.P(0.07 + (m-1)/11*0.90);
+      const side = (m%2) ? -1 : 1;
+      const days = st ? st.days : [];
+      const len = 26 + Math.min(days.length,31)*3.0;
+      const tilt = -0.30 - (m%5)*0.035;
+      const dl = Math.hypot(0.95,tilt);
+      const dx = side*0.95/dl, dy = tilt/dl;
+      const tip = [ap[0]+dx*len, ap[1]+dy*len];
+      const ctl = [ap[0]+dx*len*0.55 - dy*5, ap[1]+dy*len*0.55 + dx*5];
+      const twig = quadPath(ap,ctl,tip);
+
+      ctx.strokeStyle = st ? rgba(st.category,0.42) : 'rgba(126,93,73,0.15)';
+      ctx.lineWidth=1.7; ctx.beginPath(); ctx.moveTo(ap[0],ap[1]);
+      ctx.quadraticCurveTo(ctl[0],ctl[1],tip[0],tip[1]); ctx.stroke();
+
+      if(i===0){
+        label(String(m), ap[0] - side*9, ap[1], '8px "Segoe UI","Microsoft YaHei",sans-serif',
+              st?'rgba(135,125,120,0.95)':'rgba(135,125,120,0.42)', side<0?'right':'left','middle');
+      }
+      if(!st) continue;
+
+      // 侧生小枝：让叶片成簇而不是一条直线
+      const mid = twig.P(0.58);
+      const t2c = [mid[0]-6, mid[1]-7];
+      const t2 = [mid[0]+dx*len*0.34 + dy*len*0.22*side, mid[1]+dy*len*0.34 - dx*len*0.22*side];
+      ctx.strokeStyle = rgba(st.category,0.30); ctx.lineWidth=1.1;
+      ctx.beginPath(); ctx.moveTo(mid[0],mid[1]);
+      ctx.quadraticCurveTo(t2c[0],t2c[1],t2[0],t2[1]); ctx.stroke();
+      const twig2 = quadPath(mid,t2c,t2);
+
+      const n = days.length;
+      days.forEach((d,k)=>{
+        const ds = dayStats[y+'-'+m+'-'+d];
+        const onSub = (n>=8) && (k%3===0);
+        const seat = onSub ? twig2 : twig;
+        const s = onSub ? 0.35 + ((k/3)%3)*0.25 : 0.20 + (n>1 ? k/(n-1) : 0.5)*0.80;
+        const pt = seat.P(Math.min(s,1));
+        const jit = ((k*7)%5-2)*0.85;
+        leaves.push({ x:pt[0]+(onSub?dx*2:0), y:pt[1]+(k%2?4.6:-4.6)+jit,
+                      r:1.6 + Math.min(ds.wordCount/2600,1)*3.0, c:ds.category });
+      });
+      if(st.isFull) fruits.push({ x:tip[0]+dx*4, y:tip[1]+dy*4 });
+    }
+
+    const ys = yearStats[y];
+    label(String(y), bx0-6, trunkY+40, '600 17px Georgia,"Times New Roman",serif','rgba(66,44,32,0.88)','left','alphabetic');
+    label(`${ys.entryCount}篇 · ${fmt(ys.wordCount)}字`, bx0-6, trunkY+54,
+          '9.5px "Segoe UI","Microsoft YaHei",sans-serif','rgba(135,125,120,0.95)','left','alphabetic');
+  });
+
+  for(const lf of leaves){ ctx.fillStyle=rgba(lf.c,0.74); ctx.beginPath(); ctx.arc(lf.x,lf.y,lf.r,0,Math.PI*2); ctx.fill(); }
+  for(const f of fruits){
+    ctx.fillStyle='rgba(202,152,42,0.26)'; ctx.beginPath(); ctx.arc(f.x,f.y,6.5,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='rgba(202,152,42,0.95)'; ctx.beginPath(); ctx.arc(f.x,f.y,3,0,Math.PI*2); ctx.fill();
+  }
+
+  label('叶 = 一天 · 大小 = 当日字数 · 颜色 = 主导分类 · 金果 = 满月', tX1, 30,
+        '11px "Segoe UI","Microsoft YaHei",sans-serif','rgba(135,125,120,0.9)','right','alphabetic');
+}
+
+/* ══════════════════════════════════════════════════════════
+   单月聚焦（原位浮层）：卡片原地浮起、盖住邻居，布局一点不变
+   浮层内含：月统计 + 分类构成条 + 真月历 7×6 + 上下月切换
+   ══════════════════════════════════════════════════════════ */
+function catBreakdown(y,m){
+  const cnt={};
+  for(const d in tree[y][m]) for(const e of tree[y][m][d]) cnt[e.category]=(cnt[e.category]||0)+1;
+  const total = Object.values(cnt).reduce((a,b)=>a+b,0) || 1;
+  return Object.entries(cnt).sort((a,b)=>b[1]-a[1]).map(([k,v])=>({cat:k,n:v,p:v/total}));
+}
+
+function drawFocusOverlay(y,m){
+  const ci = YEARS.indexOf(y);
+  if(ci<0 || !tree[y] || !tree[y][m]) return;
+  const r = monthRect(ci, m);
+  const ow = Math.max(520, L.yearWidth*1.95);
+  const oh = 436;
+  let ox = r.x - 14, oy = r.y - 34;
+  ox = Math.min(Math.max(ox, 26), L.w - ow - 26);
+  oy = Math.min(Math.max(oy, 26), L.h - oh - 26);
+  const st = monthStats[y+'-'+m];
+
+  // 背景压暗（很轻，让网格"退后"但仍看得见 —— "布局不变"要看得出来）
+  ctx.fillStyle='rgba(250,247,241,0.38)';
+  ctx.fillRect(0,0,L.w,L.h);
+
+  // 浮层本体
+  ctx.save();
+  ctx.shadowColor='rgba(70,46,34,0.22)'; ctx.shadowBlur=34; ctx.shadowOffsetY=13;
+  ctx.fillStyle='#fffdf9';
+  roundPath(ox,oy,ow,oh,16); ctx.fill();
+  ctx.restore();
+  ctx.strokeStyle='rgba(126,93,73,0.20)'; ctx.lineWidth=1;
+  roundPath(ox+0.5,oy+0.5,ow-1,oh-1,16); ctx.stroke();
+
+  const padX=24, bodyX=ox+padX, bodyW=ow-padX*2;
+
+  // ── 头部
+  const titleFont='600 21px Georgia,"Times New Roman",serif';
+  label(String(y)+' 年 '+m+' 月', bodyX, oy+38, titleFont,'rgba(66,44,32,0.94)','left','alphabetic');
+  const titleW = (ctx.font=titleFont, ctx.measureText(String(y)+' 年 '+m+' 月').width);
+  if(st.isFull){
+    if(IS_PAPER){
+      drawSeal(bodyX+titleW+12, oy+26, 13);
+      label('满月', bodyX+titleW+31, oy+36, '11px "Microsoft YaHei",sans-serif','rgba(160,80,58,0.9)','left','alphabetic');
+    } else {
+      ctx.strokeStyle='rgba(202,152,42,0.9)'; ctx.lineWidth=1.6;
+      ctx.beginPath(); ctx.arc(bodyX+titleW+16, oy+32, 5, 0, Math.PI*2); ctx.stroke();
+      label('满月', bodyX+titleW+26, oy+36, '11px "Microsoft YaHei",sans-serif','rgba(180,132,30,0.9)','left','alphabetic');
+    }
+  }
+  label(`${st.dayCount}天 · ${st.entryCount}篇 · ${fmt(st.wordCount)}字`, ox+ow-padX-26, oy+37,
+        '12px "Segoe UI","Microsoft YaHei",sans-serif','rgba(135,125,120,0.95)','right','alphabetic');
+  ctx.strokeStyle='rgba(126,93,73,0.55)'; ctx.lineWidth=1.4;
+  ctx.beginPath();
+  ctx.moveTo(ox+ow-26-5, oy+22); ctx.lineTo(ox+ow-26+5, oy+32);
+  ctx.moveTo(ox+ow-26+5, oy+22); ctx.lineTo(ox+ow-26-5, oy+32);
+  ctx.stroke();
+
+  // ── 分类构成条 + 图例
+  const brk=catBreakdown(y,m), barY=oy+56, barH=8;
+  let bx=bodyX;
+  for(const b of brk){
+    const w=bodyW*b.p;
+    ctx.fillStyle=rgba(b.cat,0.78);
+    if(b===brk[0]){ roundPath(bx,barY,w,barH,barH/2); ctx.fill(); } else ctx.fillRect(bx,barY,w,barH);
+    bx+=w;
+  }
+  let lx=bodyX;
+  for(const b of brk){
+    ctx.fillStyle=rgba(b.cat,0.85);
+    ctx.beginPath(); ctx.arc(lx+3.5, barY+19, 3.5, 0, Math.PI*2); ctx.fill();
+    const t=`${CAT[b.cat].label} ${b.n}`;
+    label(t, lx+11, barY+22, '11px "Segoe UI","Microsoft YaHei",sans-serif','rgba(91,74,64,0.80)','left','alphabetic');
+    lx += 11 + (ctx.font='11px "Segoe UI","Microsoft YaHei",sans-serif', ctx.measureText(t).width) + 16;
+  }
+
+  // ── 左：真月历 7×6
+  const calTop=oy+108, calH=oh-108-52;
+  const dim=new Date(y,m,0).getDate();
+  const firstDow=(new Date(y,m-1,1).getDay()+6)%7;
+  const calW=Math.min(316, bodyW*0.48);
+  const cs=Math.min(calW/7, calH/6.7)-3;
+  const gw=cs*7+3*7, gx=bodyX, gy=calTop+4;
+  const wk=['一','二','三','四','五','六','日'];
+  for(let k=0;k<7;k++)
+    label(wk[k], gx+k*(cs+3)+cs/2, gy-6, '11px "Microsoft YaHei",sans-serif',
+          'rgba(135,125,120,0.80)','center','alphabetic');
+  for(let d=1;d<=dim;d++){
+    const idx=firstDow+d-1, rr=Math.floor(idx/7), cc=idx%7;
+    const x=gx+cc*(cs+3), yy=gy+rr*(cs+3);
+    const ds=dayStats[y+'-'+m+'-'+d];
+    if(ds){
+      ctx.fillStyle=rgba(ds.category, 0.30+Math.min(ds.wordCount/DENOM,1)*0.62);
+      roundPath(x,yy,cs,cs,6); ctx.fill();
+      if(ds.entryCount>1){
+        ctx.fillStyle='rgba(255,255,255,0.92)';
+        ctx.beginPath(); ctx.arc(x+cs-6.5, yy+6.5, 2.4, 0, Math.PI*2); ctx.fill();
+      }
+      label(String(d), x+6, yy+15, '600 11px "Segoe UI",sans-serif','rgba(255,255,255,0.96)','left','alphabetic');
+    } else {
+      ctx.strokeStyle='rgba(126,93,73,0.16)'; ctx.lineWidth=1;
+      roundPath(x+0.5,yy+0.5,cs-1,cs-1,6); ctx.stroke();
+      label(String(d), x+6, yy+15, '400 11px "Segoe UI",sans-serif','rgba(135,125,120,0.55)','left','alphabetic');
+    }
+  }
+
+  // ── 右：当月日志目录（吃掉落差，也是"这个月写了什么"的入口）
+  const listX=gx+gw+30, listW=ox+ow-padX-listX;
+  ctx.fillStyle='rgba(126,93,73,0.14)';
+  ctx.fillRect(listX-15, calTop, 1, calH+6);
+  label('当月目录', listX, calTop+10, '600 12px "Segoe UI","Microsoft YaHei",sans-serif',
+        'rgba(66,44,32,0.86)','left','alphabetic');
+  const rowH=38, rows=Math.floor((calH-26)/rowH);
+  let shown=0, ry=calTop+26;
+  const dayList=st.days;
+  for(const d of dayList){
+    if(shown>=rows) break;
+    const ds=dayStats[y+'-'+m+'-'+d];
+    const e=ds.entries[0];
+    const dow=['一','二','三','四','五','六','日'][(new Date(y,m-1,d).getDay()+6)%7];
+    ctx.fillStyle=rgba(e.category,0.9);
+    ctx.beginPath(); ctx.arc(listX+3, ry+7, 3, 0, Math.PI*2); ctx.fill();
+    label(`${m}/${d} 周${dow}`, listX+11, ry+11, '11px "Segoe UI","Microsoft YaHei",sans-serif',
+          'rgba(91,74,64,0.9)','left','alphabetic');
+    label(ds.entryCount>1 ? `${ds.entryCount}篇 · ${ds.wordCount}字` : `${ds.wordCount}字`,
+          listX+listW, ry+11, '11px "Segoe UI","Microsoft YaHei",sans-serif','rgba(135,125,120,0.9)','right','alphabetic');
+    label(clipText(e.excerpt, listW, '11px "Segoe UI","Microsoft YaHei",sans-serif'),
+          listX+11, ry+27, '11px "Segoe UI","Microsoft YaHei",sans-serif','rgba(66,44,32,0.62)','left','alphabetic');
+    ry+=rowH; shown++;
+  }
+  if(shown<dayList.length)
+    label(`↓ 还有 ${dayList.length-shown} 天，滚动查看`, listX+11, ry+2,
+          '11px "Microsoft YaHei",sans-serif','rgba(184,105,68,0.85)','left','alphabetic');
+
+  // ── 底部
+  const fy=oy+oh-32;
+  const pill=(px,txt,w)=>{
+    ctx.fillStyle='rgba(184,105,68,0.10)'; roundPath(px,fy,w,24,12); ctx.fill();
+    label(txt, px+w/2, fy+16, '11px "Segoe UI","Microsoft YaHei",sans-serif','rgba(150,82,54,0.95)','center','alphabetic');
+  };
+  pill(bodyX,'‹ 上月',62); pill(bodyX+70,'下月 ›',62);
+  label('点日期查看当天日志 · Esc 收起', ox+ow-padX, fy+16,
+        '11px "Segoe UI","Microsoft YaHei",sans-serif','rgba(135,125,120,0.9)','right','alphabetic');
+}
+
+/* ══════════════════════════════════════════════════════════
+   日详情弹窗：单栏长文 + 篇级分节头 + 段首缩进 2 字
+   ══════════════════════════════════════════════════════════ */
+const BF = (QS.get('bf') || 'serif') === 'serif'
+  ? '"Songti SC","SimSun",Georgia,serif'
+  : '"Segoe UI","Microsoft YaHei",Arial,sans-serif';
+
+function pickFocusDay(y,m){
+  const days = monthStats[y+'-'+m].days;
+  const two = days.filter(d => dayStats[y+'-'+m+'-'+d].entryCount === 2);
+  const pool = two.length ? two : days;
+  // 选"合并字数最少的两篇日"，让两节都能落进一屏，便于评审分节头
+  return pool.slice().sort((a,b)=>
+    dayStats[y+'-'+m+'-'+a].wordCount - dayStats[y+'-'+m+'-'+b].wordCount)[0];
+}
+
+function drawDayPopup(y,m,d){
+  const ds = dayStats[y+'-'+m+'-'+d];
+  if(!ds) return;
+  const pw=560, padX=34, bx0=0, bw=pw-padX*2;
+  const FS=16, LH=31.2, IND=FS*2, GAP=8;
+  const bFont=`${FS}px ${BF}`;
+  // 预排版：先算内容高度，浮层高度随内容走（别留一大片空底）
+  const wrapped = ds.entries.map(e => e.body.map(p => wrapCJK(p, bw, bFont)));
+  let contentH = 0;
+  wrapped.forEach(ps=>{
+    contentH += 52;
+    for(const lines of ps) contentH += lines.length*LH + GAP;
+  });
+  const ph = Math.min(L.h-90, 116 + contentH + 50);
+  const px=(L.w-pw)/2, py=(L.h-ph)/2;
+  const bx=px+padX;
+
+  ctx.save();
+  ctx.shadowColor='rgba(60,38,24,0.30)'; ctx.shadowBlur=42; ctx.shadowOffsetY=16;
+  ctx.fillStyle='#fffdf9'; roundPath(px,py,pw,ph,18); ctx.fill();
+  ctx.restore();
+  ctx.strokeStyle='rgba(126,93,73,0.20)'; ctx.lineWidth=1;
+  roundPath(px+0.5,py+0.5,pw-1,ph-1,18); ctx.stroke();
+
+  // ── 题头
+  const tFont='600 23px Georgia,"Times New Roman",serif';
+  const tStr=`${y} 年 ${m} 月 ${d} 日`;
+  label(tStr, bx, py+44, tFont, 'rgba(60,40,28,0.95)','left','alphabetic');
+  const tw=(ctx.font=tFont, ctx.measureText(tStr).width);
+  const dow=['一','二','三','四','五','六','日'][(new Date(y,m-1,d).getDay()+6)%7];
+  label('周'+dow, bx+tw+12, py+43, '13px "Segoe UI","Microsoft YaHei",sans-serif',
+        'rgba(135,125,120,0.95)','left','alphabetic');
+  ctx.strokeStyle='rgba(126,93,73,0.55)'; ctx.lineWidth=1.4;
+  ctx.beginPath();
+  ctx.moveTo(px+pw-28-5, py+26); ctx.lineTo(px+pw-28+5, py+36);
+  ctx.moveTo(px+pw-28+5, py+26); ctx.lineTo(px+pw-28-5, py+36);
+  ctx.stroke();
+
+  const sFont='12px "Segoe UI","Microsoft YaHei",sans-serif';
+  const sStr=`${ds.entryCount} 篇 · ${ds.wordCount} 字 · ${ds.paraCount} 段`;
+  label(sStr, bx, py+68, sFont,'rgba(135,125,120,0.95)','left','alphabetic');
+  let cx=bx+(ctx.font=sFont, ctx.measureText(sStr).width)+20;
+  const cnt={}; for(const e of ds.entries) cnt[e.category]=(cnt[e.category]||0)+1;
+  for(const k in cnt){
+    ctx.fillStyle=rgba(k,0.85);
+    ctx.beginPath(); ctx.arc(cx+3.5, py+64, 3.5, 0, Math.PI*2); ctx.fill();
+    const t=`${CAT[k].label} ${cnt[k]}`;
+    label(t, cx+11, py+68, '11px "Segoe UI","Microsoft YaHei",sans-serif','rgba(91,74,64,0.82)','left','alphabetic');
+    cx += 11 + (ctx.font='11px "Segoe UI","Microsoft YaHei",sans-serif', ctx.measureText(t).width) + 16;
+  }
+  ctx.fillStyle='rgba(126,93,73,0.14)'; ctx.fillRect(bx, py+84, bw, 1);
+
+  // ── 正文
+  const bottom = py+ph-50;
+  let cy = py+116, cut = false;
+  for(let i=0;i<ds.entries.length && !cut;i++){
+    const e=ds.entries[i];
+    ctx.fillStyle=rgba(e.category,0.9); roundPath(bx-15, cy-11, 3, 22, 1.5); ctx.fill();
+    const hFont='600 13px "Segoe UI","Microsoft YaHei",sans-serif';
+    const h1=`第 ${i+1} 篇`;
+    label(h1, bx, cy, hFont, rgba(e.category,0.95),'left','alphabetic');
+    label(CAT[e.category].label, bx+(ctx.font=hFont, ctx.measureText(h1).width)+10, cy,
+          '13px "Segoe UI","Microsoft YaHei",sans-serif','rgba(91,74,64,0.85)','left','alphabetic');
+    label(`${e.wordCount} 字 · ${e.paraCount} 段`, bx+bw, cy, sFont,'rgba(135,125,120,0.9)','right','alphabetic');
+    cy += 30;
+    for(const lines of wrapped[i]){
+      for(let li=0; li<lines.length; li++){
+        if(cy > bottom){ cut = true; break; }
+        label(lines[li], bx + (li===0?IND:0), cy, bFont, 'rgba(50,36,28,0.90)','left','alphabetic');
+        cy += LH;
+      }
+      if(cut) break;
+      cy += GAP;
+    }
+    if(!cut){
+      cy += 4;
+      label(`……（全文 ${e.wordCount} 字，此处为节选）`, bx+IND, cy,
+            '11px "Microsoft YaHei",sans-serif','rgba(150,138,130,0.9)','left','alphabetic');
+      cy += 22;
+    }
+    cy += 14;
+  }
+  if(cut) label('↓ 继续滚动阅读', bx, bottom+18, '11px "Microsoft YaHei",sans-serif','rgba(184,105,68,0.85)','left','alphabetic');
+
+  // ── 底部
+  ctx.fillStyle='rgba(255,253,249,0.94)'; ctx.fillRect(px+1, py+ph-46, pw-2, 45);
+  ctx.strokeStyle='rgba(126,93,73,0.12)'; ctx.beginPath();
+  ctx.moveTo(bx, py+ph-46); ctx.lineTo(bx+bw, py+ph-46); ctx.stroke();
+  const fy=py+ph-34;
+  const pill=(ppx,txt,w)=>{
+    ctx.fillStyle='rgba(184,105,68,0.10)'; roundPath(ppx,fy,w,24,12); ctx.fill();
+    label(txt, ppx+w/2, fy+16, '11px "Segoe UI","Microsoft YaHei",sans-serif','rgba(150,82,54,0.95)','center','alphabetic');
+  };
+  pill(bx,'‹ 前一天',70); pill(bx+78,'后一天 ›',70);
+  label('Esc 返回月历', px+pw-padX, fy+16, '11px "Segoe UI","Microsoft YaHei",sans-serif',
+        'rgba(135,125,120,0.9)','right','alphabetic');
+}
+
+/* ══════════ 渲染入口 ══════════ */
+function resize(){
+  const dpr = devicePixelRatio||1;
+  canvas.width = innerWidth*dpr; canvas.height = innerHeight*dpr;
+  canvas.style.width=innerWidth+'px'; canvas.style.height=innerHeight+'px';
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+}
+function draw(){
+  ctx.clearRect(0,0,L.w,L.h);
+  ctx.save();
+  if(ZOOM!==1){ ctx.translate(ZA.x-ZA.x*ZOOM, ZA.y-ZA.y*ZOOM); ctx.scale(ZOOM,ZOOM); }
+  if(VARIANT==='O') drawCurrent();
+  else if(VARIANT==='B') drawB();
+  else if(VARIANT==='C') drawC();
+  else if(VARIANT==='H1'){ CARD_MODE = ZOOM<1.5 ? 'spark' : 'matrix'; drawA(); }
+  else if(VARIANT==='H2'){ CARD_MODE = ZOOM<1.5 ? 'spark' : 'cal'; drawA(); }
+  else if(VARIANT==='H3'){ CARD_MODE = 'stack'; drawA(); }
+  else if(VARIANT==='F'){ CARD_MODE = 'stack'; drawA(); }
+  else if(VARIANT==='D'){ CARD_MODE = 'stack'; drawA(); }
+  else drawA();
+  ctx.restore();
+  if(VARIANT==='F') drawFocusOverlay(FOCUS_Y, FOCUS_M);
+  if(VARIANT==='D'){
+    drawFocusOverlay(FOCUS_Y, FOCUS_M);
+    drawDayPopup(FOCUS_Y, FOCUS_M, pickFocusDay(FOCUS_Y, FOCUS_M));
+  }
+}
+function renderLegend(){
+  const el=document.getElementById('legend');
+  const counts={};
+  for(const y of YEARS) for(const mo of Object.values(tree[y])) for(const ds of Object.values(mo))
+    for(const e of ds) counts[e.category]=(counts[e.category]||0)+1;
+  el.classList.toggle('filtering', CAT_FILTER.size>0);
+  el.innerHTML = Object.keys(CAT).filter(k=>counts[k]).map(k=>
+    `<button class="lg${CAT_FILTER.has(k)?' active':''}" data-cat="${k}" type="button">`
+    + `<i class="dot" style="background:rgb(${CAT[k].c.join(',')})"></i>`
+    + `<span>${CAT[k].label}</span><b>${counts[k]}</b></button>`).join('')
+    + (CAT_FILTER.size ? '<button class="lg lg-reset" data-cat="" type="button">显示全部</button>' : '');
+}
+document.addEventListener('click', ev=>{
+  const btn = ev.target.closest && ev.target.closest('.lg');
+  if(!btn) return;
+  const c = btn.dataset.cat;
+  if(c === '') CAT_FILTER.clear();
+  else CAT_FILTER.has(c) ? CAT_FILTER.delete(c) : CAT_FILTER.add(c);
+  renderLegend(); renderHud(); draw();
+});
+function renderHud(){
+  const base = `${allStats.yearCount}年 · ${allStats.monthCount}个月 · ${allStats.dayCount}天 · ${allStats.entryCount}篇 · ${fmt(allStats.wordCount)}字`;
+  const clipPct = (CLIP_DAYS/DAY_WORDS.length*100).toFixed(1);
+  const medFill = (Math.min(1, hRaw(pct(.5)))*100).toFixed(0);
+  const lodName = K<LOD.ROUND ? '色带档' : (K<LOD.NUM ? '圆角格档' : '日序号档');
+  document.getElementById('hudS').innerHTML = `${allStats.yearCount} 年 · ${allStats.monthCount} 个月 · ${allStats.dayCount} 天 · ${allStats.entryCount} 篇 · ${fmt(allStats.wordCount)} 字`;
+  document.getElementById('hudR').innerHTML =
+    (VARIANT==='H3'||VARIANT==='A')
+      ? `柱高 ∝ 当日字数 · 满格 ${DENOM.toFixed(0)} 字 · 截平 ${clipPct}% · 中位日填 ${medFill}% &nbsp;|&nbsp; k = <b>${K.toFixed(2)}</b> · ${lodName}`
+      : `&nbsp;`;
+  const names={O:'现状复刻（对照）',A:'方案 A · 节气长卷',B:'方案 B · 年历墙',C:'方案 C · 时光树',
+               H1:'H1 · 火花线 → 日序矩阵',H2:'H2 · 火花线 → 真月历',
+               F:'单月聚焦 · 原位浮层（2024-08）',
+               D:'日详情弹窗 · 单栏长文（缩进 2 字 · '+((QS.get('bf')||'serif')==='serif'?'宋体':'黑体')+'）'};
+  document.getElementById('tag').innerHTML =
+    `<b>${names[VARIANT]||VARIANT}</b> · ${Math.round(innerWidth)}×${Math.round(innerHeight)} @${ZOOM===1?'静止视图':('放大 '+ZOOM+'×')} · 基调 ${TONE}`;
+}
+function boot(){
+  buildData(); assignExcerpts(); computeGlobalScale(); computeLayout(); resize(); renderLegend(); renderHud(); draw();
+  window.__stats = allStats;
+  window.__scale = { globalMaxDay: GLOBAL_MAX_DAY, denom: DENOM, clipDays: CLIP_DAYS,
+                     clipRatio: +(CLIP_DAYS/DAY_WORDS.length).toFixed(4),
+                     clipWorst: CLIP_WORST, table: SCALE_TABLE, p50: pct(.5), p95: pct(.95), max: GLOBAL_MAX_DAY };
+  window.__fonts = (()=>{
+    const c = document.createElement('canvas').getContext('2d');
+    const t = '日志时间轴 2024 年 8 月';
+    return ['SimSun','Songti SC','KaiTi','Microsoft YaHei','Georgia','serif','sans-serif']
+      .map(f=>{ c.font = '15px "'+f+'"'; return f+'='+c.measureText(t).width.toFixed(1); }).join(' ');
+  })();
+  window.__ready = true;
+}
+addEventListener('resize', ()=>{ computeLayout(); resize(); draw(); renderHud(); });
+boot();
+</script>
+</body>
+</html>
