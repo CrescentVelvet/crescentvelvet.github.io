@@ -250,14 +250,41 @@ title: "日志时间轴"
             border: 1px solid rgba(255,255,255,0.72);
             border-radius: 999px;
             box-shadow: 0 10px 30px rgba(56,42,31,0.1);
-            padding: 10px 14px;
+            padding: 4px 6px;
             font-size: 12px;
             color: var(--muted);
             display: flex;
-            gap: 16px;
+            gap: 2px;
+            align-items: center;
             flex-wrap: wrap;
             backdrop-filter: blur(18px);
+            pointer-events: auto;
         }
+        /* 图例就是筛选器：可点击。压暗未选中项，让"哪一类写在哪几个月"一眼可见。 */
+        #legend .lg {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 0;
+            background: transparent;
+            font: inherit;
+            font-size: 12px;
+            color: inherit;
+            cursor: pointer;
+            padding: 6px 11px;
+            border-radius: 999px;
+            transition: background .15s, opacity .15s;
+        }
+        #legend .lg:hover { background: rgba(126, 93, 73, 0.08); }
+        #legend .lg b { font-weight: 600; opacity: 0.58; }
+        #legend .lg.active {
+            background: #fffdf9;
+            box-shadow: inset 0 0 0 1px rgba(126, 93, 73, 0.28);
+            color: var(--text);
+        }
+        #legend .lg.active b { opacity: 0.85; }
+        #legend.filtering .lg:not(.active):not(.lg-reset) { opacity: 0.34; }
+        #legend .lg-reset { color: var(--accent); }
         #legend span { display: flex; align-items: center; gap: 4px; }
         #legend .dot {
             display: inline-block;
@@ -347,12 +374,7 @@ title: "日志时间轴"
     <div class="popup-preview" id="popup-preview"></div>
 </div>
 
-<div id="legend">
-    <span><span class="dot" style="background:#d35f05;"></span> 闲情逸致</span>
-    <span><span class="dot" style="background:#8A2BE2;"></span> 梦幻空花</span>
-    <span><span class="dot" style="background:#0056b3;"></span> 做视频想法</span>
-    <span><span class="dot" style="background:#0d9488;"></span> 未来回顾</span>
-</div>
+<div id="legend"></div>
 <div id="zoom-panel" aria-label="缩放控制">
     <button id="zoomOut" type="button" title="缩小">−</button>
     <button id="zoomReset" type="button" title="重置">⌂</button>
@@ -807,17 +829,24 @@ function requestRender() {
 function rebuildAll() {
     computeLayout();
     rebuildStats();
+    renderLegend();
     render();
 }
 
 // ═══ Category color ═══
+// 分类筛选的压暗**只写在这一处**：未选中的分类统一 × 0.16。
+// 柱子、分段、目录点、构成条、图例点全部经过这里，所以加一个筛选器不需要改任何绘制点。
+const CATEGORY_FILTER = new Set();
+const FILTER_DIM = 0.16;
+
 function categoryColor(cat, alpha = 1) {
+    const dim = (CATEGORY_FILTER.size && !CATEGORY_FILTER.has(cat)) ? FILTER_DIM : 1;
     const colors = {
-        leisure: `rgba(211,95,5,${alpha})`,
-        dream: `rgba(138,43,226,${alpha})`,
-        video: `rgba(0,86,179,${alpha})`,
-        review: `rgba(13,148,136,${alpha})`,
-        normal: `rgba(74,144,226,${alpha})`
+        leisure: `rgba(211,95,5,${alpha * dim})`,
+        dream: `rgba(138,43,226,${alpha * dim})`,
+        video: `rgba(0,86,179,${alpha * dim})`,
+        review: `rgba(13,148,136,${alpha * dim})`,
+        normal: `rgba(74,144,226,${alpha * dim})`
     };
     return colors[cat] || colors.normal;
 }
@@ -832,6 +861,41 @@ function categoryLabel(cat) {
     };
     return labels[cat] || labels.normal;
 }
+
+// ═══ 图例 = 分类筛选器 ═══
+// 原来的图例只是在"解释你看不见的颜色"，纯装饰。把它变成筛选器是
+// **零新增 UI 面积换一个真功能**。压暗逻辑只在 categoryColor() 一处，
+// 所以加这个功能不用碰任何绘制点。
+function renderLegend() {
+    const el = document.getElementById('legend');
+    if (!el) return;
+    const counts = {};
+    for (const st of statsCache.day.values()) {
+        for (const e of st.entries) counts[e.category] = (counts[e.category] || 0) + 1;
+    }
+    el.classList.toggle('filtering', CATEGORY_FILTER.size > 0);
+    const items = ['leisure', 'dream', 'video', 'review', 'normal']
+        .filter(cat => counts[cat])
+        .map(cat =>
+            `<button class="lg${CATEGORY_FILTER.has(cat) ? ' active' : ''}" data-cat="${cat}" type="button"`
+            + ` title="点${CATEGORY_FILTER.has(cat) ? '取消' : ''}筛选：${categoryLabel(cat)}">`
+            + `<span class="dot" style="background:${categoryColor(cat, 0.95)}"></span>`
+            + `<span class="lg-name">${categoryLabel(cat)}</span><b>${counts[cat]}</b></button>`
+        ).join('');
+    el.innerHTML = items
+        + (CATEGORY_FILTER.size ? '<button class="lg lg-reset" data-cat="" type="button">显示全部</button>' : '');
+}
+
+document.addEventListener('click', (ev) => {
+    const btn = ev.target.closest && ev.target.closest('#legend .lg');
+    if (!btn) return;
+    const c = btn.dataset.cat;
+    if (c === '') CATEGORY_FILTER.clear();
+    else if (CATEGORY_FILTER.has(c)) CATEGORY_FILTER.delete(c);
+    else CATEGORY_FILTER.add(c);
+    renderLegend();
+    render();
+});
 
 function yearColor(yi, total, alpha = 1) {
     const hue = 200 + (yi / Math.max(total - 1, 1)) * 80;
@@ -1244,7 +1308,8 @@ function draw() {
         ctx.fillText(`${ys.monthCount}个月 · ${ys.dayCount}天 · ${ys.entryCount}篇`, yl.x, bandTop + 44);
 
         ctx.textAlign = 'right';
-        ctx.fillStyle = categoryColor('leisure', 0.60);
+        // 年总字数不用分类色 —— 它不是分类数据，不该跟着筛选器一起被压暗。
+        ctx.fillStyle = 'rgba(160, 82, 54, 0.60)';
         ctx.font = `600 14px Georgia,serif`;
         ctx.fillText(formatCompactNumber(ys.wordCount) + '字', yl.x + yl.width, bandTop + 26);
 
