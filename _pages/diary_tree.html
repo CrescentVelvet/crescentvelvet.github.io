@@ -134,9 +134,9 @@ title: "日志时间轴"
             border: 1px solid rgba(255,255,255,0.78);
             border-radius: 22px;
             box-shadow: 0 20px 60px rgba(56,42,31,0.2);
-            padding: 18px 22px;
-            max-width: 560px;
-            max-height: 82vh;
+            padding: 18px 24px;
+            width: min(560px, calc(100vw - 24px));
+            max-height: 84vh;
             overflow-y: auto;
             pointer-events: auto;
             display: none;
@@ -149,27 +149,51 @@ title: "日志时间轴"
             animation: floatIn 0.18s ease-out;
         }
         #info-popup h3 {
-            color: var(--accent);
-            margin-bottom: 6px;
-            font-size: 1.1rem;
+            color: rgba(66, 44, 32, 0.94);
+            margin-bottom: 4px;
+            font: 600 22px Georgia, "Times New Roman", serif;
+            letter-spacing: 0.01em;
         }
         #info-popup .popup-meta {
             color: var(--muted);
-            font-size: 0.8rem;
+            font-size: 12px;
             margin-bottom: 8px;
             letter-spacing: 0.02em;
         }
+        #info-popup .popup-meta .pdot {
+            display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+            margin: 0 3px 0 10px; vertical-align: middle;
+        }
         #info-popup .popup-preview {
             color: var(--text);
-            font-size: 0.9rem;
-            white-space: pre-wrap;
-            word-break: break-word;
-            max-height: 64vh;
+            max-height: 66vh;
             overflow-y: auto;
             border-top: 1px solid var(--border);
-            padding-top: 8px;
-            margin-top: 4px;
+            padding-top: 10px;
+            margin-top: 6px;
         }
+        /* 篇级分节头 + 正文排版。
+           定案：单栏长文 · 正文宋体 16px / 行高 1.95 / 段首缩进 2 字 · 段距 8px。
+           宋体的字体栈必须给 ≥2 个候选：本机没有 "Songti SC"（探针实测它与通用回退同宽），
+           只写一个会静默退到通用字体，而且退得毫无痕迹。 */
+        #info-popup .dsec { margin-bottom: 18px; }
+        #info-popup .dsec:last-child { margin-bottom: 0; }
+        #info-popup .dsec-head {
+            display: flex; align-items: baseline; gap: 8px;
+            border-left: 3px solid rgba(126, 93, 73, 0.5);
+            padding: 2px 0 2px 9px; margin-bottom: 8px;
+        }
+        #info-popup .dsec-head .dsec-no { font: 600 13px "Segoe UI","Microsoft YaHei",sans-serif; color: rgba(66,44,32,0.9); }
+        #info-popup .dsec-head .dsec-cat { font: 400 13px "Segoe UI","Microsoft YaHei",sans-serif; color: rgba(91,74,64,0.85); }
+        #info-popup .dsec-head .dsec-meta { margin-left: auto; font-size: 11px; color: rgba(135,125,120,0.9); }
+        #info-popup .dsec-body {
+            font-family: "Songti SC", "SimSun", Georgia, serif;
+            font-size: 16px;
+            line-height: 1.95;
+            color: rgba(50, 36, 28, 0.92);
+        }
+        #info-popup .dsec-body .dpara { margin: 0 0 8px; text-indent: 2em; }
+        #info-popup .dsec-body .dpara:last-child { margin-bottom: 0; }
         /* Diary inline-highlight classes — reuse enc_reader's semantics but map
            them to the tree's category palette so colored spans fit the theme. */
         #info-popup .popup-preview .leisure-highlight { color: #d35f05; font-weight: 600; }
@@ -1553,6 +1577,23 @@ const ALLOWED_HIGHLIGHT_CLASSES = new Set([
 function escapeHtml(s) {
     return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
+function renderDiaryLineHtml(line) {
+    // Tokenize on <span ...>...</span> runs; escape everything else.
+    let html = '';
+    const re = /<span\s+class\s*=\s*"([^"]*)"\s*>([\s\S]*?)<\/span>/gi;
+    let last = 0, m;
+    while ((m = re.exec(line)) !== null) {
+        html += escapeHtml(line.slice(last, m.index));
+        const classes = m[1].split(/\s+/).filter(c => ALLOWED_HIGHLIGHT_CLASSES.has(c));
+        html += classes.length
+            ? `<span class="${classes.join(' ')}">${escapeHtml(m[2])}</span>`
+            : escapeHtml(m[2]);
+        last = m.index + m[0].length;
+    }
+    html += escapeHtml(line.slice(last));
+    return html;
+}
+
 function renderDiaryHtml(text) {
     // Wrap each original line in a <p> (enc_reader-style) but preserve any
     // already-present highlight spans by re-emitting them safely.
@@ -1560,22 +1601,7 @@ function renderDiaryHtml(text) {
     const out = [];
     for (const line of lines) {
         if (!line.trim()) { out.push('<p></p>'); continue; }
-        // Tokenize on <span ...>...</span> runs; escape everything else.
-        let html = '';
-        let rest = line;
-        const re = /<span\s+class\s*=\s*"([^"]*)"\s*>([\s\S]*?)<\/span>/gi;
-        let last = 0, m;
-        while ((m = re.exec(line)) !== null) {
-            html += escapeHtml(line.slice(last, m.index));
-            const classes = m[1].split(/\s+/).filter(c => ALLOWED_HIGHLIGHT_CLASSES.has(c));
-            if (classes.length) {
-                html += `<span class="${classes.join(' ')}">${escapeHtml(m[2])}</span>`;
-            } else {
-                html += escapeHtml(m[2]);
-            }
-            last = m.index + m[0].length;
-        }
-        html += escapeHtml(line.slice(last));
+        const html = renderDiaryLineHtml(line);
         // Color "未来回顾" reference lines (date + 回顾) with the review highlight,
         // whether or not enc_reader marked them — covers the bare "2026.06.28回顾：" form.
         if (REVIEW_REF_RE.test(line)) {
@@ -1585,6 +1611,17 @@ function renderDiaryHtml(text) {
         }
     }
     return out.join('');
+}
+
+// 正文按「空行分段」重排：段内的硬换行直接拼起来（中文不需要空格），
+// 每段一个 .dpara，由 CSS 给它段首缩进 2 字与段间距。
+// 不再像旧版那样把整篇塞成一坨 pre-wrap 文本 —— 那是"文本墙"的根源。
+function renderDiaryParagraphs(text) {
+    return String(text || '').split(/\n{2,}/)
+        .map(p => p.replace(/\r?\n/g, '').trim())
+        .filter(Boolean)
+        .map(p => `<p class="dpara">${renderDiaryLineHtml(p)}</p>`)
+        .join('');
 }
 function renderDiaryPreviewHtml(parts) {
     // parts: array of {label, text, truncate?}
@@ -1603,11 +1640,30 @@ function showPopup(node, screenX, screenY) {
     if (node.type === 'day') {
         const dayStats = getDayStats(node.year, node.month, node.day);
         const entries = dayStats.entries;
-        const categories = [...new Set(entries.map(e => categoryLabel(e.category)))].join(' / ');
-        popupTitle.textContent = `${node.year}-${String(node.month).padStart(2,'0')}-${String(node.day).padStart(2,'0')}`;
-        popupMeta.textContent = `${entries.length}篇 · ${dayStats.wordCount}字 · ${dayStats.paraCount}段${categories ? ' · ' + categories : ''}`;
-        // Full, untruncated diary text for the whole day, with highlight spans rendered.
-        popupPreview.innerHTML = renderDiaryPreviewHtml(entries.map(e => ({ text: e.text })));
+        const dow = ['一','二','三','四','五','六','日'][(new Date(node.year, node.month - 1, node.day).getDay() + 6) % 7];
+        popupTitle.textContent = `${node.year} 年 ${node.month} 月 ${node.day} 日 · 周${dow}`;
+
+        // 分类用彩色圆点：筛选态下它们会跟着变暗，与全页一致。
+        const counts = {};
+        for (const e of entries) counts[e.category] = (counts[e.category] || 0) + 1;
+        const dots = Object.keys(counts).map(c =>
+            `<span class="pdot" style="background:${categoryColor(c, 0.85)}"></span>${categoryLabel(c)}`
+            + (counts[c] > 1 ? '×' + counts[c] : '')).join('');
+        popupMeta.innerHTML = `${entries.length} 篇 · ${dayStats.wordCount} 字 · ${dayStats.paraCount} 段`
+            + (dots ? `<span class="pdots">${dots}</span>` : '');
+
+        // 单栏长文 + 篇级分节头（定案 2.4）：一天多篇时用分节头隔开，而不是拆成卡片 ——
+        // 日记的阅读是线性的，卡片流会让人"扫"而不是"读"。
+        popupPreview.innerHTML = entries.length > 0
+            ? entries.map((e, i) =>
+                `<div class="dsec">`
+                + `<div class="dsec-head" style="border-left-color:${categoryColor(e.category, 0.9)}">`
+                + `<span class="dsec-no">第 ${i + 1} 篇</span>`
+                + `<span class="dsec-cat" style="color:${categoryColor(e.category, 0.95)}">${categoryLabel(e.category)}</span>`
+                + `<span class="dsec-meta">${e.wordCount} 字 · ${e.paraCount} 段</span></div>`
+                + `<div class="dsec-body">${renderDiaryParagraphs(e.text)}</div></div>`
+            ).join('')
+            : '这一天没有可显示的日志。';
     } else if (node.type === 'month') {
         const monthStats = getMonthStats(node.year, node.month);
         popupTitle.textContent = `${node.year}年${node.month}月`;
