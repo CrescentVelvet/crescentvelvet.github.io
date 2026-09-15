@@ -366,7 +366,7 @@ title: "日志时间轴"
             background: rgba(250, 247, 241, 0.38);
             display: none;
         }
-        #focus-backdrop.visible { display: block; }
+        #focus-backdrop.visible { display: block; animation: fadeIn 0.18s ease-out; }
         #month-focus {
             position: fixed;
             z-index: 61;
@@ -378,7 +378,11 @@ title: "日志时间轴"
             display: none;
             flex-direction: column;
         }
-        #month-focus.visible { display: flex; }
+        #month-focus.visible { display: flex; animation: floatIn 0.18s ease-out; }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
         #month-focus .mf-head { display: flex; align-items: center; gap: 10px; }
         #month-focus .mf-title { font: 600 21px Georgia,"Times New Roman",serif; color: rgba(66,44,32,0.94); }
         #month-focus .mf-seal {
@@ -1850,10 +1854,30 @@ document.getElementById('mf-list-rows').addEventListener('click', (e) => {
     showPopup({ type: 'day', year: y, month: m, day: d }, e.clientX, e.clientY);
 });
 document.addEventListener('keydown', (e) => {
-    if (e.key !== 'Escape') return;
     const mf = document.getElementById('month-focus');
-    if (mf.classList.contains('visible')) { hideMonthFocus(); return; }
-    if (popup.classList.contains('visible')) hidePopup();
+    const overlayOpen = mf.classList.contains('visible');
+    if (e.key === 'Escape') {
+        // Esc 逐层退出：先浮层，再日详情。
+        if (overlayOpen) { hideMonthFocus(); return; }
+        if (popup.classList.contains('visible')) hidePopup();
+        return;
+    }
+    if (overlayOpen && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+        // 浮层开着时 ←/→ 是「上一个月 / 下一个月」
+        e.preventDefault();
+        shiftMonthFocus(e.key === 'ArrowLeft' ? -1 : 1);
+        return;
+    }
+    if (e.key.indexOf('Arrow') === 0 && !overlayOpen) {
+        // 无浮层时方向键平移（按住可连续移动）
+        e.preventDefault();
+        const step = 60;
+        if (e.key === 'ArrowLeft') viewX += step;
+        if (e.key === 'ArrowRight') viewX -= step;
+        if (e.key === 'ArrowUp') viewY += step;
+        if (e.key === 'ArrowDown') viewY -= step;
+        requestRender();
+    }
 });
 
 // ═══ Mouse events ═══
