@@ -118,7 +118,12 @@
                 },
                 {
                   "title": "融合问题检查位姿优化",
-                  "status": "doing"
+                  "children": [
+                    {
+                      "title": "facealignment未清空问题",
+                      "status": "done"
+                    }
+                  ]
                 },
                 {
                   "title": "云端代码拉取与编译",
@@ -134,6 +139,7 @@
                 },
                 {
                   "title": "红脸问题在2.0版本解决",
+                  "collapsed": true,
                   "children": [
                     {
                       "title": "二次磨皮没能解决",
@@ -148,8 +154,12 @@
                       "status": "done"
                     },
                     {
-                      "title": "前处理和后处理分段磨皮",
-                      "status": "todo"
+                      "title": "磨皮2.1版本：高频DC去红",
+                      "status": "done"
+                    },
+                    {
+                      "title": "磨皮2.2版本：前处理和后处理分段磨皮",
+                      "status": "doing"
                     }
                   ]
                 },
@@ -163,6 +173,52 @@
                     {
                       "title": "faceenhance 渲染图像人脸增强",
                       "status": "todo"
+                    },
+                    {
+                      "title": "磨皮2.3版本：外插视角增强",
+                      "status": "doing"
+                    }
+                  ]
+                },
+                {
+                  "title": "闪烁问题怎么解决",
+                  "status": "todo"
+                },
+                {
+                  "title": "稀疏重建与稠密重建对比",
+                  "children": [
+                    {
+                      "title": "一拖二拍摄",
+                      "status": "todo"
+                    },
+                    {
+                      "title": "高斯对比子网页",
+                      "status": "done"
+                    }
+                  ]
+                },
+                {
+                  "title": "严格视角约束",
+                  "children": [
+                    {
+                      "title": "PLY封装MP4",
+                      "status": "done"
+                    },
+                    {
+                      "title": "MP4解封装PLY",
+                      "status": "done"
+                    },
+                    {
+                      "title": "polarBuffer缓冲回弹区间",
+                      "status": "todo"
+                    },
+                    {
+                      "title": "distanceRange放缩幅度",
+                      "status": "todo"
+                    },
+                    {
+                      "title": "新视界-图库-壁纸：视角约束",
+                      "status": "todo"
                     }
                   ]
                 }
@@ -170,6 +226,7 @@
             },
             {
               "title": "磨皮2.0版本：二次美颜",
+              "collapsed": true,
               "children": [
                 {
                   "title": "构建数据集+训练1000轮+自测",
@@ -198,15 +255,6 @@
               ]
             },
             {
-              "title": "磨皮2.1版本：高频DC去红",
-              "children": [
-                {
-                  "title": "效果不明显",
-                  "status": "done"
-                }
-              ]
-            },
-            {
               "title": "10月提交技术秘密ideaPPT",
               "status": "todo"
             }
@@ -214,6 +262,7 @@
         },
         {
           "title": "人体微动模块",
+          "collapsed": true,
           "children": [
             {
               "title": "论文调研与探索",
@@ -276,6 +325,7 @@
             },
             {
               "title": "视频生成方案测试",
+              "collapsed": true,
               "children": [
                 {
                   "title": "SAM2 人物分割",
@@ -301,6 +351,7 @@
             },
             {
               "title": "图像生成方案测试",
+              "collapsed": true,
               "children": [
                 {
                   "title": "SAM3DBody 姿态估计",
@@ -318,6 +369,7 @@
             },
             {
               "title": "复现云端重建全流程",
+              "collapsed": true,
               "children": [
                 {
                   "title": "环境配置",
@@ -353,7 +405,7 @@
                 },
                 {
                   "title": "PDF-GS对比实验",
-                  "status": "todo"
+                  "status": "done"
                 }
               ]
             }
