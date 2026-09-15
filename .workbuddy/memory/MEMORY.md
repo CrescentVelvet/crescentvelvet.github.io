@@ -123,3 +123,43 @@ Node 内置 `WebSocket` 手写极简客户端（`Target.createTarget` → `attac
   `splat-test-inner.html`、`splat-test-dropin.html`。
 - **仅本机、未入库**：`.workbuddy/tmp/` **整个目录被 `.gitignore` 忽略** —— 探针脚本与 `real.ply`(284MB)
   工作区一清就丢，**别把长期依赖放这里**。
+
+## 站点：crescentvelvet.github.io（Jekyll + minimal-mistakes 分支）
+### 站点级约定
+- **主题是内联在仓库里的**：`_config.yml` 里**没有** `theme:`/`remote_theme:`/`minimal_mistakes_skin:`，
+  `_sass/`+`_includes/`+`_layouts/` 全是本地文件，可直接改。颜色唯一来源 = `_sass/_variables.scss`。
+- **资产引用分两种，别混**：
+  - `href` / 图片 / `og:image` / 社交分享 → 用 `{{ base_path }}`（= `site.url`+`site.baseurl`，**绝对**，必需）。
+  - **本地加载的 CSS/JS → 用 `{{ '...' | relative_url }}`**（根相对，带 baseurl）。
+    `_includes/head.html` 的 main.css 一直是对的，`_includes/scripts.html` 的 main.min.js 曾误用
+    `base_path`（2026-09-15 已改）—— 症状是本地构建预览时脚本从线上拉，本地改动看不见效果、断网会挂住首页。
+- **`_config.yml` 的 `defaults:` 按 scope 生效**，`type: pages` 默认 `author_profile: true`
+  ⇒ 页面不显式写 `author_profile: false` 就会渲染空作者侧栏 + 空 `<img src=".../images/">`。
+- **`classes: wide`**（页面 front matter → `_layouts/default.html` 落到 `<body>`）＝ 放宽正文容器。
+  这个分支原本没有 `classes` 支持，是 2026-09-15 新加的。
+- 首页 `_pages/about.md` 走 `single` 布局，整段 CSS/JS 内联在正文里 → **正文必须从第 0 列开始**，
+  否则 kramdown 会当缩进代码块转义。
+- 提交前缀 `主页: `；`.workbuddy/memory/` 日志与代码改动同一提交；**只 `git add` 明确路径**。
+
+### 布局底账（改容器尺寸前必读）
+- `.page` 在 `>= $large(925px)`：`width:83.051%` + `float:right` + `padding-left:4.237%`(prefix) +
+  `padding-right:16.949%`(suffix)。`#main` 顶层 `max-width:925px`，`>=80em` 改 1280px。
+- ⇒ 925~1279px 视口正文只有 **549.98px**，比 900px 窗口的 864px **还窄**（非单调！）。
+  `classes: wide` 把 `#main` 提到 `$page-wide-max: 1112px`、`.page` 放到 100%，
+  ⇒ `>=1024px` 正文 988~1076px（7 列）。
+- 首页卡片网格：`minmax(122px,1fr)` + `gap:18px`，**两个数绑死**，见 `_pages/about.md` 顶部注释。
+  卡片内容盒需要 106px（图标 16 + 距 4 + ls 1 + 最长 5 汉字 85）。
+- **加 1px 描边要同步把 padding 减 1**（`13px 7px` + `border:1px` ≡ `14px 8px` 无描边），
+  否则内容盒少 2px 会掉列。
+
+### ⚠️ `assets/js/main.min.js` 里的 greedy-nav 不能碰的前提
+`$nav=$("#site-nav")` … `updateNav()` **无条件调用**，末尾 `$vlinks.width()>e && updateNav()` 递归。
+`#site-nav` 缺席或 `display:none` ⇒ 两个 `.width()` 取到 0 ⇒ `e=-30`、`0>-30` 恒真 ⇒ 每次加载必
+`RangeError: Maximum call stack size exceeded`。
+**做法**：保留 `#site-nav`，用 `height:0;overflow:hidden` 折叠页头（宽度照常参与布局）。
+详见 `_includes/masthead.html` 与 `_sass/_masthead.scss` 的注释。
+
+### 站点的验证资产（`.workbuddy/tmp/`，仅本机）
+`icons_e2e.js`(29) / `ripple_card.js`(17) / `fx_card.js`(33) / `site_smoke.js`(21 URL) /
+`check_card_css.js`(12) / `probe_js_error.js` / `diag_grid.js` / `measure_parts.js` /
+`glyph_width.js` / `variants_card.js` / `shot_home.js` / `shot_hover.js`。全部支持 `E2E_SITE` 指向独立构建目录。
