@@ -21,6 +21,18 @@ redirect_from:
                      实测对比过 4 档深浅（.workbuddy/tmp/variants_card.js 出图），65% 这档
                      边界清晰又不显得重；再深会偏"灰旧"，再浅就回到看不见。
                      想让卡片更轻/更重，只改这一个值即可，不影响任何布局。 */
+    /* --glow 用 @property 注册成 <number> 类型：
+       ① 有了 initial-value，即使 JS 没写过也有确定的 0（未注册的自定义属性在
+          calc() 里缺失会让整条 background-image 变成 invalid-at-computed-value-time，
+          退回 none —— 那样卡片就没有渐变层了）；
+       ② 类型化后浏览器能正确参与插值与计算。
+       不支持 @property 的浏览器会忽略这段，由下面 .link-button 里的 --glow: 0 兜底。 */
+    @property --glow {
+        syntax: '<number>';
+        inherits: true;
+        initial-value: 0;
+    }
+
     :root {
         --accent: #52adc8;
         --ink: #494e52;
@@ -30,11 +42,11 @@ redirect_from:
         --card-bg-active: #edf5f8;
         --card-shadow-hover: 0 3px 10px rgba(73, 78, 82, 0.10);
         --ripple-color: rgba(82, 173, 200, 0.20);
-        /* 组合特效参数。--tilt 由 JS 读出来用（见脚本里的 TILT），
-           改这里就能同时改 CSS 与 JS 两侧，不用两边同步维护 */
-        --spot-color: rgba(82, 173, 200, 0.14);
-        --spot-size: 150px;
-        --tilt: 4deg;
+        /* 光效参数。前四个都由 JS 读出来用（见脚本顶部），改这里就能同时改两侧 */
+        --spot-alpha: 0.22;                    /* 光标正下方那张卡的高光强度上限 */
+        --spot-size: 160px;                    /* 单张卡内高光的渐变半径 */
+        --glow-radius: 340px;                  /* 光照衰减半径，超出即完全不亮 */
+        --tilt: 4deg;                          /* 最大倾角 */
     }
 
     /* 入口卡片网格。.link-button 只在本页 .button-grid 内出现（全站范围已确认），
@@ -66,16 +78,34 @@ redirect_from:
        padding 从 14px 8px 改成 13px 7px 是有意的：补上 1px 描边后，
        横向合计仍是 8px、纵向仍是 14px ⇒ 卡片外框尺寸与内容盒宽度**完全不变**，
        上面那套列数算式不需要重算。
-       transition 逐属性列出而不是 all：避免将来新增属性时被意外插值。 */
+       transition 逐属性列出而不是 all：避免将来新增属性时被意外插值。
+
+       ── 光效模型：一个虚拟光源，不是每张卡自己开关 ──
+       渐变写在**基类**而不是 :hover 里，强度由 --glow(0~1) 决定：
+       JS 按"卡片中心到光标的距离"给**范围内的每张卡**写 --glow，超出 --glow-radius 的写 0。
+       于是光标下的卡最亮、邻卡按距离依次减弱 —— 整片网格像被同一盏灯照亮，
+       而不是 19 个各亮各的独立部件。这正是参考 Apple 那种"光洒在整排图标上"的关键：
+       **非悬停的邻卡只被点亮，绝不改描边/底色/位移**，否则"我马上要点哪张"的指示就被糊掉了。
+       光的局部坐标（--mx/--my）逐卡不同：同一光源在左邻卡上落在其右边、在上邻卡上落在其下边，
+       这个差异正是"单一光源"错觉的来源。
+       color-mix 从 --accent 派生透明度，避免把 RGB 再抄一遍。
+       ↔ 改动须知：background-image 一旦在这里出现，下面其它规则就**只能**用 background-color，
+         用 `background:` 简写会把渐变静默重置成 none（按下时高光消失就属这类）。 */
     .button-grid .link-button {
         display: block;
         position: relative;  /* 水波纹的定位父级 */
         overflow: hidden;    /* 把波纹裁在卡片内，不让它溢到白底页面上 */
+        --glow: 0;           /* 不依赖 @property 的兜底（老浏览器没有 @property） */
+        --mx: 50%;
+        --my: 50%;
         text-align: center;
         font-size: 16px;
         font-weight: 500;
         padding: 13px 7px;
         background-color: var(--card-bg);
+        background-image: radial-gradient(var(--spot-size) circle at var(--mx) var(--my),
+                                          color-mix(in srgb, var(--accent) calc(var(--spot-alpha) * var(--glow) * 100%), transparent),
+                                          transparent 70%);
         color: var(--ink);
         border: 1px solid var(--line);
         border-radius: 8px;
@@ -83,7 +113,7 @@ redirect_from:
         letter-spacing: 1px;
         /* transform 单独用更短的时长（0.10s）：它同时承载 hover 上浮和 JS 逐帧写的倾斜，
            0.18s 会让倾斜明显滞后于鼠标。短过渡反而形成"阻尼跟随"的手感，比瞬时更耐看。
-           其余属性保持 0.18s。逐属性列出而不用 all：避免将来新增属性被意外插值。 */
+           其余属性保持 0.18s。 */
         transition: background-color 0.18s ease, border-color 0.18s ease,
                     box-shadow 0.18s ease, transform 0.10s ease-out;
     }
@@ -109,19 +139,17 @@ redirect_from:
         text-align: center;
         color: var(--accent);
     }
-    /* hover：描边转到强调色 + 极淡的同色底 + 轻微上浮。
+    /* hover 只表达"这张是我马上要点的"：描边转强调色 + 底色微亮 + 上浮 + 投影。
        原来的"整块渐变换色 + scale(1.03)"是实心按钮的语言；卡片式里 scale 会让相邻卡片的
        描边在视觉上互相挤压，只上浮更干净。
 
-       跟随高光用 background-image 的 radial-gradient 实现，而不是 ::after 遮罩层 ——
-       遮罩层会盖在图标/文字之上，要么加 z-index 要么给内容单独抬层；
-       背景层天然在内容之下，且一样被卡片的 overflow/border-radius 裁切。
-       位置由 JS 写的 --mx/--my 驱动（单位 px）；还没移动过时回落到 50% 居中。
-       只改自定义属性 ⇒ 只触发重绘，不触发布局（这正是当初把波纹的 width/height 换掉的原因）。 */
+       ⚠️ 高光**不在这里**，而在上面基类的 radial-gradient（由 --glow 驱动）。
+       分两处是有意的：高光是"整片网格被同一盏灯照亮"，属于所有卡片的共同状态；
+       而描边/底色/上浮是"选中反馈"，只该给光标下的那一张。
+       若把高光也放到 :hover，邻卡就永远不会亮 —— 正是这次要修掉的问题。
+       同样地，这里绝不能改 background 简写（会重置 background-image，高光整片消失）。 */
     .button-grid .link-button:hover {
         background-color: var(--card-bg-hover);
-        background-image: radial-gradient(var(--spot-size) circle at var(--mx, 50%) var(--my, 50%),
-                                         var(--spot-color), rgba(82, 173, 200, 0));
         border-color: var(--accent);
         box-shadow: var(--card-shadow-hover);
         transform: translateY(-2px);
@@ -147,17 +175,20 @@ redirect_from:
         transition-duration: 0.05s;
     }
 
-    /* 降低动效偏好：三样都要收掉 —— 上浮、跟随高光、倾斜。
-       高光是靠 JS 写自定义属性驱动的，JS 侧也有同样的判断（两处都要，
-       JS 那份是为了不白跑 pointermove，CSS 这份是为了覆盖 hover 的静态上浮）。 */
+    /* 降低动效偏好：三样都要收掉 —— 上浮、跟随高光（含邻卡环境光）、倾斜。
+       JS 侧有同样的判断（那是主开关：不写 --glow，整片网格的渐变就都是透明的），
+       这里再加一道 CSS 兜底，覆盖 hover 的静态上浮与高光层。 */
     @media (prefers-reduced-motion: reduce) {
         .button-grid .link-button,
         .button-grid .link-button:active {
             transition: none;
         }
+        .button-grid .link-button,
+        .button-grid .link-button:hover {
+            background-image: none;
+        }
         .button-grid .link-button:hover {
             transform: none;
-            background-image: none;
             will-change: auto;
         }
     }
@@ -256,54 +287,73 @@ redirect_from:
             // 起手变成滚动时浏览器会取消本次手势，顺手撤掉那颗波纹
             grid.addEventListener('pointercancel', () => { clearRipple(lastRipple); lastRipple = null; });
 
-            // ---- 组合特效之二、三：光标跟随高光 + 轻微倾斜 ----
-            // （之一"主题色波纹"就是上面的 createRipple；三者叠加才是"组合"。
-            //   上浮由 CSS 的 :hover 负责，不在这里管。）
+            // ---- 光效之二：跟随高光（一个虚拟光源照亮整片网格）----
+            // ---- 光效之三：轻微倾斜（只给光标下那一张）----
+            // （之一"主题色波纹"就是上面的 createRipple。上浮由 CSS :hover 负责，不在这里管。）
             //
-            // 三条硬约束，改动前先读：
-            //  ① 只写 transform 与两个自定义属性，绝不碰 width/height/top/left —— 否则每帧触发布局。
+            // 高光是"一盏灯 + 距离衰减"，不是每张卡各自开关：
+            //   光标下的卡离光源最近 ⇒ 最亮；邻卡在 --glow-radius 内按距离平方衰减依次变暗。
+            //   非悬停卡**只拿到光**，描边/底色/位移一概不变 —— 那是 :hover 的职责，
+            //   否则"我马上要点哪张"的指示就被糊掉了。
+            // 光的局部坐标逐卡计算：同一光源落在左邻卡的右边、上邻卡的下边，
+            // 正是这个差异造成"整片被同一盏灯照亮"的错觉。
+            //
+            // 四条硬约束，改动前先读：
+            //  ① 只写 transform 与自定义属性，绝不碰 width/height/top/left —— 否则每帧触发布局。
             //     当初波纹就是从 width/height 改过来的（见 .ripple 的注释）。
-            //  ② pointermove 必须用 rAF 合并：高回报率鼠标（1000Hz）每秒能触发上千次事件，
-            //     不合并就是上千次样式写入。
-            //  ③ 触屏不做倾斜，按事件的 pointerType 判，不用 CSS 的 @media (pointer: coarse) ——
+            //  ② pointermove 必须用 rAF 合并：高回报率鼠标（1000Hz）每秒触发上千次事件。
+            //  ③ 量矩形必须先全部读完再开始写（下面的 boxes 数组）。读一张写一张会变成
+            //     读-写-读-写，每张卡都触发一次样式重算；批量读最多每帧只刷一次。
+            //  ④ 触屏不做倾斜，按事件的 pointerType 判，不用 CSS 的 @media (pointer: coarse) ——
             //     带触摸屏的笔记本主指针仍是 fine，媒体查询会把这类设备误判成可以倾斜。
-            const TILT = parseFloat(getComputedStyle(grid).getPropertyValue('--tilt')) || 4;
+            const cssNum = (name, dflt) => parseFloat(getComputedStyle(grid).getPropertyValue(name)) || dflt;
+            const TILT = cssNum('--tilt', 4);
+            const GLOW_RADIUS = cssNum('--glow-radius', 340);
+            const GLOW_MIN = 0.004;   // 低于此强度直接归零，省掉一堆看不见的渐变重绘
             let frame = 0;        // 排队中的 rAF id
             let pending = null;   // 最近一次 pointermove 事件
-            let tracked = null;   // 当前正在被跟踪的卡片
-
-            function resetCard(card) {
-                if (!card) return;
-                card.style.removeProperty('--mx');
-                card.style.removeProperty('--my');
-                // 交还控制权：移除内联 transform，回到 :hover / :active 的 CSS 值
-                card.style.removeProperty('transform');
-            }
-
-            // 把"停止跟踪"的清理集中在一处：pointerleave 与 pointercancel 都要用
-            function release() {
-                if (frame) { cancelAnimationFrame(frame); frame = 0; }
-                pending = null;
-                resetCard(tracked);
-                tracked = null;
-            }
+            let tracked = null;   // 光标下那张卡（只有它做倾斜）
+            let lit = [];         // 上一帧被点亮的卡，用来把"刚变暗"的归零
 
             function paint() {
                 frame = 0;
                 const e = pending, card = tracked;
-                pending = null;                       // 先取出再清空，避免 paint 里再被覆盖
-                if (!e || !card) return;
+                pending = null;                       // 先取出再清空，避免 paint 里被覆盖
+                if (!e) return;
 
-                const box = card.getBoundingClientRect();
-                const x = e.clientX - box.left, y = e.clientY - box.top;
-                card.style.setProperty('--mx', x + 'px');
-                card.style.setProperty('--my', y + 'px');
+                const cx = e.clientX, cy = e.clientY;
+                const cards = grid.children;
 
-                if (e.pointerType === 'touch') return;   // 触屏只要高光，不要倾斜
+                // ③ 先把所有矩形一次性读完，再统一写，避免读-写-读-写
+                const boxes = [];
+                for (let i = 0; i < cards.length; i++) boxes.push(cards[i].getBoundingClientRect());
 
-                const nx = (x / box.width) * 2 - 1;      // -1 左 .. 1 右
-                const ny = (y / box.height) * 2 - 1;     // -1 上 .. 1 下
-                // 鼠标在上方 ⇒ 上沿向后退（rotateX 取负），左右同理（rotateY 取正）。
+                const nextLit = [];
+                for (let i = 0; i < cards.length; i++) {
+                    const b = boxes[i];
+                    // 用卡片中心算光距：光标必定在悬停卡内部，而它到自身中心的距离上界是半对角线
+                    // （140×52 卡约 74px），远小于到任何邻卡中心的距离（纵向最近邻 70+ 卡高一半）。
+                    const t = Math.hypot(cx - (b.left + b.width / 2), cy - (b.top + b.height / 2)) / GLOW_RADIUS;
+                    if (t >= 1) continue;              // 超出衰减半径 ⇒ 完全不亮
+                    const glow = (1 - t) * (1 - t);    // 平方衰减，在半径处平滑归零、无硬边
+                    if (glow < GLOW_MIN) continue;
+                    cards[i].style.setProperty('--mx', (cx - b.left) + 'px');
+                    cards[i].style.setProperty('--my', (cy - b.top) + 'px');
+                    cards[i].style.setProperty('--glow', glow.toFixed(3));
+                    nextLit.push(cards[i]);
+                }
+                // 只把"上一帧亮、这一帧灭"的归零；每帧写满 19 张卡是无谓的
+                for (let i = 0; i < lit.length; i++) {
+                    if (nextLit.indexOf(lit[i]) === -1) lit[i].style.setProperty('--glow', '0');
+                }
+                lit = nextLit;
+
+                // 倾斜只作用于光标下那一张
+                if (!card || e.pointerType === 'touch') return;   // 触屏只要高光，不要倾斜
+                const tb = card.getBoundingClientRect();
+                const nx = ((cx - tb.left) / tb.width) * 2 - 1;    // -1 左 .. 1 右
+                const ny = ((cy - tb.top) / tb.height) * 2 - 1;    // -1 上 .. 1 下
+                // 鼠标在上方 ⇒ 上沿向后退（rotateX 取负），左右同理。
                 // translateY(-2px) 与 CSS :hover 的上浮保持一致，否则内联值会把它顶掉。
                 // perspective 必须排在旋转之前，否则旋转没有透视、看起来是平的。
                 card.style.transform =
@@ -312,12 +362,28 @@ redirect_from:
                     'rotateY(' + (nx * TILT).toFixed(2) + 'deg)';
             }
 
+            // 整片网格熄灭 + 撤掉倾斜。pointerleave / pointercancel / 切到"降低动效" 都走这里
+            function release() {
+                if (frame) { cancelAnimationFrame(frame); frame = 0; }
+                pending = null;
+                tracked = null;
+                const cards = grid.children;
+                for (let i = 0; i < cards.length; i++) {
+                    cards[i].style.removeProperty('--glow');
+                    cards[i].style.removeProperty('--mx');
+                    cards[i].style.removeProperty('--my');
+                    // 交还控制权：移除内联 transform，回到 :hover / :active 的 CSS 值
+                    cards[i].style.removeProperty('transform');
+                }
+                lit = [];
+            }
+
             grid.addEventListener('pointermove', (e) => {
                 if (reduceMotion.matches) return;
                 const card = e.target.closest ? e.target.closest('.link-button') : null;
-                if (!card) { release(); return; }        // 落在卡片之间的缝隙里
-                if (tracked && tracked !== card) resetCard(tracked);
-                tracked = card;
+                // 换卡（或移进缝隙）时，先把上一张的倾斜撤掉，否则它会一直歪着
+                if (tracked && tracked !== card) tracked.style.removeProperty('transform');
+                tracked = card;                 // 移进缝隙时为 null：光还在，但没有卡被倾斜
                 pending = e;
                 if (!frame) frame = requestAnimationFrame(paint);
             });
@@ -325,7 +391,7 @@ redirect_from:
             grid.addEventListener('pointerleave', release);
             grid.addEventListener('pointercancel', release);
 
-            // 运行中把系统偏好切成"降低动效"时，撤掉已经写在卡片上的倾斜
+            // 运行中把系统偏好切成"降低动效"时，把已经点亮/倾斜的卡片复原
             if (reduceMotion.addEventListener) {
                 reduceMotion.addEventListener('change', () => { if (reduceMotion.matches) release(); });
             }
