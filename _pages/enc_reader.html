@@ -615,29 +615,10 @@ title: "加密日志阅读器"
     }
 
     // 用编辑后的内容重建该月的 manifest 聚合并合并进 manifestData。
-    // 口径与 DiaryParse.aggregateEntries（= migrate 工具 buildManifest）一致。
+    // 共享实现（DiaryParse.mergeMonthIntoManifest），口径与 migrate 工具 buildManifest 一致。
     function mergeMonthIntoManifest(file, htmlContent) {
-        const mk = file.replace(/\.txt$/, '');            // 'YYYY-MM'
-        const entries = DiaryParse.parseDecryptedText(htmlContent, file);
-        const agg = DiaryParse.aggregateEntries(entries);
         if (!manifestData) manifestData = { v: 1, years: [], maxDayWords: 0, months: {}, days: {} };
-        // 清掉该月的旧聚合（月键 + 该月所有日键），再并入新值
-        delete manifestData.months[mk];
-        for (const dk of Object.keys(manifestData.days)) {
-            if (dk.startsWith(mk + '-')) delete manifestData.days[dk];
-        }
-        if (agg.months[mk]) manifestData.months[mk] = agg.months[mk];
-        for (const dk of Object.keys(agg.days)) manifestData.days[dk] = agg.days[dk];
-        // 全局字段重算（years / maxDayWords）
-        manifestData.years = Object.keys(manifestData.months)
-            .map(k => Number(k.slice(0, 4))).sort((a, b) => a - b);
-        let maxW = 0;
-        for (const dk in manifestData.days) {
-            const w = manifestData.days[dk].reduce((s, x) => s + x.w, 0);
-            if (w > maxW) maxW = w;
-        }
-        manifestData.maxDayWords = maxW;
-        return entries.length;
+        return DiaryParse.mergeMonthIntoManifest(manifestData, file, htmlContent);
     }
 
     document.getElementById('exportBtn').onclick = async function() {

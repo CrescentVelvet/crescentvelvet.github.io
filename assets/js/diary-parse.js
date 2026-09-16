@@ -133,11 +133,44 @@
         return { years: [...years].sort((a, b) => a - b), maxDayWords, months, days };
     }
 
+    /* 单月内容并入 manifest（原地改，返回条目数）。enc_reader / text_processor 共用。
+     * - 清掉文件名月份的旧聚合（月键 + 该月所有日键），再并入新内容聚合
+     * - 新内容若被编辑改到其它月份（跨月改名），其它月的月键/日键同样并入，
+     *   years / maxDayWords 全局重算 —— 比只并文件名月更正确
+     * - manifestData 传 null 时初始化空骨架（v:1） */
+    function mergeMonthIntoManifest(manifestData, file, htmlContent) {
+        const mk = file.replace(/\.txt$/, '');
+        const entries = parseDecryptedText(htmlContent, file);
+        const agg = aggregateEntries(entries);
+        if (!manifestData) manifestData = { v: 1, years: [], maxDayWords: 0, months: {}, days: {} };
+        if (!manifestData.months) manifestData.months = {};
+        if (!manifestData.days) manifestData.days = {};
+        // 清掉该月的旧聚合（月键 + 该月所有日键）
+        delete manifestData.months[mk];
+        for (const dk of Object.keys(manifestData.days)) {
+            if (dk.startsWith(mk + '-')) delete manifestData.days[dk];
+        }
+        // 并入新内容的所有月键（正常单月内容 = 只有 mk 本身）
+        for (const k of Object.keys(agg.months)) manifestData.months[k] = agg.months[k];
+        for (const dk of Object.keys(agg.days)) manifestData.days[dk] = agg.days[dk];
+        // 全局字段重算（years / maxDayWords）
+        manifestData.years = Object.keys(manifestData.months)
+            .map(k => Number(k.slice(0, 4))).sort((a, b) => a - b);
+        let maxW = 0;
+        for (const dk in manifestData.days) {
+            const w = manifestData.days[dk].reduce((s, x) => s + x.w, 0);
+            if (w > maxW) maxW = w;
+        }
+        manifestData.maxDayWords = maxW;
+        return entries.length;
+    }
+
     return {
         REVIEW_REF_RE: REVIEW_REF_RE,
         extractDateFromText: extractDateFromText,
         classifyEntry: classifyEntry,
         parseDecryptedText: parseDecryptedText,
-        aggregateEntries: aggregateEntries
+        aggregateEntries: aggregateEntries,
+        mergeMonthIntoManifest: mergeMonthIntoManifest
     };
 });

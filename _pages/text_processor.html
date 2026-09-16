@@ -252,6 +252,53 @@ title: "文本处理工具"
             border-left: 4px solid #0d9488;
             padding-left: 8px;
         }
+        /* 站内密钥卡片 */
+        .key-card {
+            background: var(--primary-light);
+            border: 1px solid #c7d2fe;
+            border-left: 4px solid var(--primary);
+            border-radius: var(--radius-sm);
+            padding: 16px 18px;
+            margin-top: 18px;
+            font-size: 14px;
+        }
+        .key-card h2 {
+            margin: 0 0 10px;
+        }
+        .key-row {
+            display: flex;
+            gap: 10px;
+        }
+        .key-row input {
+            flex: 1;
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 14px;
+            font-family: inherit;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .key-row input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(79, 109, 245, 0.15);
+        }
+        .key-btn {
+            flex: 0 0 auto;
+            min-width: 110px;
+        }
+        .key-hint {
+            margin-top: 10px;
+            color: var(--text-muted);
+            font-size: 13px;
+            line-height: 1.6;
+        }
+        .key-card.unlocked {
+            border-left-color: var(--success);
+        }
+        .key-card.unlocked .key-hint {
+            color: var(--success-dark);
+        }
     </style>
 </head>
 <body>
@@ -282,6 +329,17 @@ title: "文本处理工具"
             <button id="loadExample" class="copy-button">加载示例文本</button>
         </div>
         <div id="status" class="status"></div>
+        <div class="key-card" id="keyCard">
+            <h2>站内密钥（DEK 信封）</h2>
+            <div class="key-row">
+                <input type="password" id="dekPassword" placeholder="输入日志口令解锁站内密钥">
+                <button id="unlockDekBtn" class="key-btn">解锁密钥</button>
+            </div>
+            <div class="key-hint" id="dekStatus">
+                加密导出前需解锁一次。解锁后 DEK 驻留内存，本页所有加密导出 / 导入直接用它，
+                与 enc_reader / diary_tree 同一把钥匙。口令只解开密钥信封（key.envelope），不接触正文。
+            </div>
+        </div>
         <div class="info-box">
             <div class="info-title">文本处理工具功能说明</div>
             <div class="info-feature">1. 设置字体：将文本设置为宋体，并调整字体大小。</div>
@@ -293,10 +351,12 @@ title: "文本处理工具"
             <div class="info-feature">7. 复制结果：将处理后的文本复制到剪贴板。</div>
             <div class="info-feature">8. 清空：清空输入和输出区域。</div>
             <div class="info-feature">9. 快速导航：使用页面右侧的快速导航按钮，可以快速跳转到各个处理步骤。</div>
+            <div class="info-feature">10. 站内密钥：加密导出前需解锁一次（与 enc_reader / diary_tree 同一口令）。解锁后导出自动按内容日期拆分为 YYYY-MM.txt 月文件 + manifest.enc 索引，放回 assets/data/ 即完成入库。</div>
         </div>
     </div>
     
-    <script src="/assets/js/crypto-js.min.js"></script>
+    <script src="/assets/js/diary-crypto.js"></script>
+    <script src="/assets/js/diary-parse.js"></script>
     <script src="/assets/js/mammoth.browser.min.js"></script>
     <script>
         // 获取DOM元素
@@ -563,28 +623,93 @@ title: "文本处理工具"
             document.body.removeChild(tempElement);
         });
         
-        // 加密导出
-        document.getElementById('exportEncrypted').addEventListener('click', () => {
+        // ═══ 加密导出（DEK 信封体系，2026-09-16 起）═══
+        // 输出区 HTML 按 <p> 行扫描，日期头开组、组随月键 —— 原样切分到各月
+        // （保留高亮 span / 日期行后缀），逐月加密导出 + manifest.enc 联动。
+        // 月文件名 = YYYY-MM.txt，与 assets/data/ 现有命名一致，导出后直接放回。
+        // 需先解锁站内密钥（见「站内密钥」卡片）。每次导出强制新随机 IV。
+        let diaryDek = null;       // Uint8Array(32) | null，解锁后驻内存
+        let manifestData = null;   // 解密后的 manifest（导出时增量更新）
+
+        // 输出区 HTML → { 'YYYY-MM': html }。与 parseDecryptedText 同口径：
+        // REVIEW_REF_RE 优先（回顾行归当前月）、「撤回了一条消息」行丢弃、
+        // 日期头之前的行无归属（丢弃）。p 内多行时逐行检测（防单 p 混多日期头）。
+        function splitOutputByMonth(html) {
+            const doc = new DOMParser().parseFromString(html, 'text/html');
+            const groups = {};
+            let curMk = null;
+            for (const p of doc.querySelectorAll('p')) {
+                const lines = p.textContent.replace(/\u00a0/g, ' ').split('\n');
+                let hasRecall = false;
+                for (const line of lines) {
+                    if (!line.trim()) continue;
+                    if (line.includes('撤回了一条消息')) { hasRecall = true; continue; }
+                    if (!DiaryParse.REVIEW_REF_RE.test(line)) {
+                        const dm = DiaryParse.extractDateFromText(line);
+                        if (dm) curMk = `${dm.year}-${String(dm.month).padStart(2, '0')}`;
+                    }
+                }
+                if (hasRecall && lines.filter(l => l.trim()).length === 1) continue;  // 纯撤回 p 丢弃
+                if (curMk) (groups[curMk] = groups[curMk] || []).push(p.outerHTML);
+            }
+            return groups;
+        }
+
+        function downloadTextFile(filename, text) {
+            const blob = new Blob([text], { type: 'text/plain' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(a.href);
+        }
+
+        document.getElementById('exportEncrypted').addEventListener('click', async () => {
             const content = outputPreview.innerHTML;
             if (!content.trim()) {
                 showStatus('没有可加密的内容', true);
                 return;
             }
-            const password = prompt('请输入加密密码：');
-            if (!password) return;
-            // AES加密
-            const ciphertext = CryptoJS.AES.encrypt(content, password).toString();
-            // 导出为文件
-            const blob = new Blob([ciphertext], {type: 'text/plain'});
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = 'encrypted_log.txt';
-            a.click();
-            showStatus('已加密导出');
+            if (!diaryDek) {
+                showStatus('请先在下方「站内密钥」卡片解锁', true);
+                return;
+            }
+            const groups = splitOutputByMonth(content);
+            const monthKeys = Object.keys(groups).sort();
+            if (!monthKeys.length) {
+                showStatus('内容中未识别到日期头（YYYY-MM-DD），无法拆分到月文件', true);
+                return;
+            }
+            // 覆盖警告：导出是整月替换语义，已有数据的月份被覆盖前确认一次
+            const existing = monthKeys.filter(mk => manifestData && manifestData.months && manifestData.months[mk]);
+            if (existing.length && !confirm(
+                `以下月份在站内已有数据，导出将【整月替换】：\n${existing.join('、')}\n` +
+                `请确认输出区包含这些月份的【全部】内容（不含则点取消，先去 enc_reader 补齐）。继续？`)) return;
+            try {
+                showStatus('正在加密…');
+                let totalEntries = 0;
+                for (const mk of monthKeys) {
+                    const monthHtml = groups[mk].join('\n');
+                    totalEntries += DiaryParse.mergeMonthIntoManifest(manifestData, mk + '.txt', monthHtml);
+                    const ciphertext = await window.DiaryCrypto.encryptData(diaryDek, monthHtml);
+                    downloadTextFile(mk + '.txt', ciphertext);
+                }
+                const manifestEnc = await window.DiaryCrypto.encryptData(diaryDek, JSON.stringify(manifestData));
+                downloadTextFile('manifest.enc', manifestEnc);
+                showStatus(`已导出 ${monthKeys.length} 个月文件 + manifest.enc（共 ${totalEntries} 条）—— 请全部放回 assets/data/`);
+            } catch (e) {
+                showStatus('导出失败：' + e.message, true);
+            }
         });
 
-        // 加密导入
+        // 加密导入（DIARYENC1 格式）：需先解锁站内密钥（同一把 DEK）
         document.getElementById('importEncrypted').addEventListener('click', () => {
+            if (!diaryDek) {
+                showStatus('请先在下方「站内密钥」卡片解锁（导入导出用同一把钥匙）', true);
+                return;
+            }
             document.getElementById('importFileInput').click();
         });
 
@@ -592,24 +717,60 @@ title: "文本处理工具"
             const file = this.files[0];
             if (!file) return;
             const reader = new FileReader();
-            reader.onload = function(e) {
+            reader.onload = async function(e) {
                 const ciphertext = e.target.result;
-                const password = prompt('请输入解密密码：');
-                if (!password) return;
                 try {
-                    const bytes = CryptoJS.AES.decrypt(ciphertext, password);
-                    const decrypted = bytes.toString(CryptoJS.enc.Utf8);
+                    const decrypted = await window.DiaryCrypto.decryptData(diaryDek, ciphertext);
                     if (!decrypted) {
-                        showStatus('密码错误或文件损坏', true);
+                        showStatus('解密后内容为空', true);
                         return;
                     }
                     outputPreview.innerHTML = decrypted;
+                    outputPreview.className = 'output-preview preview-content';
                     showStatus('解密导入成功');
                 } catch (err) {
-                    showStatus('解密失败', true);
+                    showStatus('解密失败：' + err.message, true);
                 }
             };
             reader.readAsText(file);
+            this.value = '';   // 同名文件可重复导入
+        });
+
+        // ═══ 站内密钥解锁（与 enc_reader / diary_tree 同一把 DEK）═══
+        document.getElementById('unlockDekBtn').addEventListener('click', async () => {
+            const btn = document.getElementById('unlockDekBtn');
+            const pw = document.getElementById('dekPassword').value;
+            if (!pw) {
+                document.getElementById('dekStatus').textContent = '请输入口令';
+                return;
+            }
+            try {
+                btn.disabled = true;
+                document.getElementById('dekStatus').textContent = '正在派生密钥（PBKDF2 60 万迭代）…';
+                const envRes = await fetch('/assets/data/key.envelope');
+                if (!envRes.ok) throw new Error('key.envelope 拉取失败 (' + envRes.status + ')');
+                const envText = await envRes.text();
+                diaryDek = await window.DiaryCrypto.openEnvelope(pw, JSON.parse(envText));
+                // 顺手拉 manifest：导出时增量更新（失败不阻塞，导出时新建）
+                try {
+                    const mfRes = await fetch('/assets/data/manifest.enc');
+                    if (mfRes.ok) {
+                        manifestData = JSON.parse(await window.DiaryCrypto.decryptData(diaryDek, await mfRes.text()));
+                    }
+                } catch (e) {
+                    console.warn('[text_processor] manifest 拉取失败，导出时将只含本月：', e.message);
+                    manifestData = null;
+                }
+                document.getElementById('dekStatus').textContent =
+                    '已解锁 ✓  导出将使用站内密钥加密，manifest 联动更新。';
+                document.getElementById('keyCard').classList.add('unlocked');
+                document.getElementById('dekPassword').value = '';
+                document.getElementById('dekPassword').placeholder = '已解锁（无需重输）';
+            } catch (e) {
+                document.getElementById('dekStatus').textContent = '解锁失败：' + e.message;
+            } finally {
+                btn.disabled = false;
+            }
         });
         
         // 清空
