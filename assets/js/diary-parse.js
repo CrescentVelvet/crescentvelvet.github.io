@@ -133,27 +133,55 @@
         return { years: [...years].sort((a, b) => a - b), maxDayWords, months, days };
     }
 
+    /* 判断是否本子文件（非 YYYY-MM.txt 命名的跨月文件，如 随笔本/总结本/评估本）。 */
+    function isBookFile(file) {
+        return !/^\d{4}-\d{2}\.txt$/.test(file);
+    }
+
     /* 单月内容并入 manifest（原地改，返回条目数）。enc_reader / text_processor 共用。
-     * - 清掉文件名月份的旧聚合（月键 + 该月所有日键），再并入新内容聚合
-     * - 新内容若被编辑改到其它月份（跨月改名），其它月的月键/日键同样并入，
-     *   years / maxDayWords 全局重算 —— 比只并文件名月更正确
-     * - manifestData 传 null 时初始化空骨架（v:1） */
+     * - manifestData 传 null 时初始化空骨架（v:1）
+     * - 所有条目统一带 s:'文件名'（阅读端按 (s, 顺序) 定位回填；清旧按 s 过滤幂等），
+     *   manifest.books 记录所有文件→覆盖月列表（老月文件内容跨月是常态，不限本子），
+     *   months 从 days 重建（混合来源天然正确） */
     function mergeMonthIntoManifest(manifestData, file, htmlContent) {
-        const mk = file.replace(/\.txt$/, '');
         const entries = parseDecryptedText(htmlContent, file);
         const agg = aggregateEntries(entries);
         if (!manifestData) manifestData = { v: 1, years: [], maxDayWords: 0, months: {}, days: {} };
         if (!manifestData.months) manifestData.months = {};
         if (!manifestData.days) manifestData.days = {};
-        // 清掉该月的旧聚合（月键 + 该月所有日键）
-        delete manifestData.months[mk];
+        if (!manifestData.books) manifestData.books = {};
+        // ── 清旧聚合：全 manifest 范围内清掉 s===file 的旧条目 ──
+        // （统一 s 标记：月文件跨月编辑时旧条目可能飘到任意日键，按来源过滤最准；
+        //   幂等天然成立：清掉再 push 同内容 = 不变）
         for (const dk of Object.keys(manifestData.days)) {
-            if (dk.startsWith(mk + '-')) delete manifestData.days[dk];
+            const kept = manifestData.days[dk].filter(it => it.s !== file);
+            if (kept.length !== manifestData.days[dk].length) manifestData.days[dk] = kept;
+            if (!manifestData.days[dk].length) delete manifestData.days[dk];   // 清空的日键删掉
         }
-        // 并入新内容的所有月键（正常单月内容 = 只有 mk 本身）
-        for (const k of Object.keys(agg.months)) manifestData.months[k] = agg.months[k];
-        for (const dk of Object.keys(agg.days)) manifestData.days[dk] = agg.days[dk];
-        // 全局字段重算（years / maxDayWords）
+        // ── 并入新内容 ──
+        // 所有条目统一带 s:'文件名'（阅读端按 (s, 顺序) 定位回填；清旧按 s 过滤幂等）。
+        for (const dk of Object.keys(agg.days)) {
+            if (!manifestData.days[dk]) manifestData.days[dk] = [];
+            for (const it of agg.days[dk]) manifestData.days[dk].push({ w: it.w, p: it.p, c: it.c, s: file });
+        }
+        manifestData.books[file] = Object.keys(agg.months).sort();
+        // ── 全局重算（months 从 days 重建，混合来源天然正确）──
+        recalcManifest(manifestData);
+        return entries.length;
+    }
+
+    /* months / years / maxDayWords 从 days 全量重算（merge 后调用）。 */
+    function recalcManifest(manifestData) {
+        manifestData.months = {};
+        for (const dk of Object.keys(manifestData.days)) {
+            const mk = dk.slice(0, 7);
+            if (!manifestData.months[mk]) manifestData.months[mk] = { entries: 0, words: 0, paras: 0, days: 0 };
+            const mo = manifestData.months[mk];
+            mo.days++;
+            for (const it of manifestData.days[dk]) {
+                mo.entries++; mo.words += it.w; mo.paras += it.p;
+            }
+        }
         manifestData.years = Object.keys(manifestData.months)
             .map(k => Number(k.slice(0, 4))).sort((a, b) => a - b);
         let maxW = 0;
@@ -162,7 +190,6 @@
             if (w > maxW) maxW = w;
         }
         manifestData.maxDayWords = maxW;
-        return entries.length;
     }
 
     return {
@@ -171,6 +198,8 @@
         classifyEntry: classifyEntry,
         parseDecryptedText: parseDecryptedText,
         aggregateEntries: aggregateEntries,
+        isBookFile: isBookFile,
+        recalcManifest: recalcManifest,
         mergeMonthIntoManifest: mergeMonthIntoManifest
     };
 });

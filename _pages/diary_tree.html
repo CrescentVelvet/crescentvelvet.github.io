@@ -704,8 +704,8 @@ function formatCompactNumber(num) {
 // 桥接策略：manifest 聚合 → 伪 entry 骨架（wordCount/paraCount/category 齐全、
 // text=''）喂给现有 treeData/statsCache 管线，渲染层零改动；
 // 正文懒加载后回填到同一批 entry 对象上（引用共享，statsCache 自动"长出"正文）。
-const monthBodies = new Map();     // 'YYYY-MM' → 明文（已解密缓存）
-const inflightMonths = new Map();  // 'YYYY-MM' → Promise<string>
+const monthBodies = new Map();     // 文件名 → 明文（已解密缓存；月文件与本子统一键空间）
+const inflightMonths = new Map();  // 文件名 → Promise<string>
 let diaryDek = null;               // Uint8Array(32)，解锁后驻内存
 let manifestData = null;           // 解密后的 manifest 对象
 
@@ -714,26 +714,44 @@ function monthFileOf(year, month) {
     return `${year}-${String(month).padStart(2, '0')}.txt`;
 }
 
-// 取某月正文（解密+解析+回填）。缓存命中直接返回，否则 fetch+解密一次。
-// 失败时清理 inflight —— 下次再点该月会重新尝试（网络抖动可自愈）。
-async function loadMonthBody(year, month) {
-    const mk = `${year}-${String(month).padStart(2, '0')}`;
-    if (monthBodies.has(mk)) return monthBodies.get(mk);
-    if (inflightMonths.has(mk)) return inflightMonths.get(mk);
+// 某月的全部数据来源文件（manifest.days 的 s 字段反查，通用覆盖一切跨月文件）。
+// 任何文件（月文件/本子/隐性跨月的老月文件）只要有条目落在该月就会出现在 days 里，
+// 直接反查 s 即得完整来源清单 —— 老数据里月文件内容跨月是常态，不靠 books 白名单。
+function monthSources(mk) {
+    const src = new Set();
+    const prefix = mk + '-';
+    for (const dk in manifestData.days) {
+        if (!dk.startsWith(prefix)) continue;
+        for (const it of manifestData.days[dk]) {
+            if (it.s) src.add(it.s);
+        }
+    }
+    return [...src];
+}
+
+// 按文件名取正文（解密+缓存）。月文件与本子共用此入口。
+async function loadBodyByFile(file) {
+    if (monthBodies.has(file)) return monthBodies.get(file);
+    if (inflightMonths.has(file)) return inflightMonths.get(file);
     const p = (async () => {
         try {
-            const res = await fetch(`/assets/data/${monthFileOf(year, month)}`);
-            if (!res.ok) throw new Error(`月份文件 ${monthFileOf(year, month)} 拉取失败 (${res.status})`);
+            const res = await fetch(`/assets/data/${encodeURIComponent(file)}`);
+            if (!res.ok) throw new Error(`文件 ${file} 拉取失败 (${res.status})`);
             const ct = await res.text();
             const pt = await window.DiaryCrypto.decryptData(diaryDek, ct);
-            monthBodies.set(mk, pt);
+            monthBodies.set(file, pt);
             return pt;
         } finally {
-            inflightMonths.delete(mk);
+            inflightMonths.delete(file);
         }
     })();
-    inflightMonths.set(mk, p);
+    inflightMonths.set(file, p);
     return p;
+}
+
+// 取某月正文（兼容旧名；等价于 loadBodyByFile(月文件)）。
+function loadMonthBody(year, month) {
+    return loadBodyByFile(monthFileOf(year, month));
 }
 
 // 解密月正文并把 text 回填到 treeData 里的伪 entry 上（不改 statsCache —— 字数等
@@ -743,29 +761,56 @@ async function loadMonthBody(year, month) {
 const hydrateFailed = new Set();   // 'YYYY-MM'，拉取/解密失败的月份（可重试：再次点开会重新 load）
 async function hydrateMonth(year, month) {
     const mk = `${year}-${String(month).padStart(2, '0')}`;
-    try {
-        await loadMonthBody(year, month);
-    } catch (err) {
-        console.error('[diary_tree] 正文解密失败:', monthFileOf(year, month), err.message);
+    // 该月全部来源文件（s 反查），逐个拉取解密。
+    // 来源一律平等：部分失败只影响对应条目（骨架留空），全部失败才判整月失败。
+    const sources = monthSources(mk);
+    const bodies = new Map();      // 文件名 → 明文
+    const failed = [];
+    for (const f of sources) {
+        try {
+            bodies.set(f, await loadBodyByFile(f));
+        } catch (err) {
+            console.error('[diary_tree] 正文解密失败:', f, err.message);
+            failed.push(f);
+        }
+    }
+    if (!sources.length || failed.length === sources.length) {
         hydrateFailed.add(mk);
         refreshAfterHydrate(year, month);
-        return;
+        return;                    // 无来源 / 全部失败 → 整月失败态（可重试）
     }
     hydrateFailed.delete(mk);
     const md = treeData[year] && treeData[year][month];
     if (!md) return;
-    const file = monthFileOf(year, month);
+    // 按来源分组真实条目：file → day → 条目数组（保持文件内出现顺序）
+    const realByFile = new Map();
+    for (const f of bodies.keys()) {
+        const list = DiaryParse.parseDecryptedText(bodies.get(f), f);
+        const byDay = new Map();
+        for (const e of list) {
+            if (!byDay.has(e.day)) byDay.set(e.day, []);
+            byDay.get(e.day).push(e);
+        }
+        realByFile.set(f, byDay);
+    }
     for (const day of Object.keys(md).map(Number)) {
         const skeleton = md[day];       // 伪 entry 数组（引用稳定）
-        const real = DiaryParse.parseDecryptedText(monthBodies.get(mk), file).filter(e => e.day === day);
-        // 按序回填：骨架与真实条目按 (day, 顺序) 一一对应（manifest 统计口径 = parseDecryptedText）
-        let ri = 0;
+        // 每个骨架条目按 manifest 的 s 标记取对应来源的对应序号条目；
+        // 无 s 标记的旧 manifest 兼容：按月文件优先顺序回退。
+        let ri = new Map();             // file → 已消费游标
         for (const e of skeleton) {
-            const r = real[ri];
-            if (!r) break;
-            e.text = r.text;
-            e.suffix = r.suffix;
-            ri++;
+            const srcFile = e._src || monthFileOf(year, month);
+            const byDay = realByFile.get(srcFile);
+            if (!byDay) continue;
+            const list = byDay.get(day) || [];
+            const idx = (ri.get(srcFile) || 0);
+            if (idx < list.length) {
+                const r = list[idx];
+                e.text = r.text;
+                e.suffix = r.suffix;
+                e.source = srcFile;
+                ri.set(srcFile, idx + 1);
+            }
         }
     }
     refreshAfterHydrate(year, month);
@@ -781,7 +826,8 @@ function refreshAfterHydrate(year, month) {
 }
 
 // manifest 聚合 → 伪 entry 骨架。每天 N 篇 = N 个骨架（分段柱需要篇级分段），
-// 每篇 w/p/c 从 manifest.days['YYYY-MM-DD'] 按序取。
+// 每篇 w/p/c 从 manifest.days['YYYY-MM-DD'] 按序取；_src 记来源文件（本子混入条目
+// 回填时定位用；月文件条目也有 s，统一透传）。
 function skeletonFromManifest(mf) {
     const out = [];
     for (const dk of Object.keys(mf.days).sort()) {
@@ -791,7 +837,7 @@ function skeletonFromManifest(mf) {
             out.push({
                 year: y, month: m, day: d,
                 text: '', wordCount: it.w, paraCount: it.p,
-                category: it.c, source: `manifest:${dk}`
+                category: it.c, source: `manifest:${dk}`, _src: it.s || null
             });
         }
     }
@@ -807,8 +853,8 @@ async function mergeMissingMonths() {
         const mk = f.slice(0, -4);
         const [y, m] = mk.split('-').map(Number);
         try {
-            await loadMonthBody(y, m);
-            const entries = DiaryParse.parseDecryptedText(monthBodies.get(mk), f);
+            const pt = await loadBodyByFile(f);
+            const entries = DiaryParse.parseDecryptedText(pt, f);
             for (const e of entries) {
                 allEntries.push(e);
                 if (!treeData[e.year]) treeData[e.year] = {};

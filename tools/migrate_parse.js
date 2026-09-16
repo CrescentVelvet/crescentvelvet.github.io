@@ -18,31 +18,48 @@ function daysInMonth(year, month) {
  *   years: [2005, 2013, ...],
  *   maxDayWords: <全局单日合计字数最大值>,   // 页面 scaleAxis 分母 = maxDayWords * 0.35
  *   months: { "2005-07": { entries: N, words: N, paras: N, days: N } },
- *   days: { "2005-07-15": [ {w,p,c}, ... ] }  // 每日条目数组：w=字数 p=段落数 c=分类
+ *   days: { "2005-07-15": [ {w,p,c,s}, ... ] }  // 每日条目数组：w=字数 p=段落数 c=分类 s=来源文件名
+ *   books: { "随笔本.txt": ["2013-06","2018-09",...] }  // 所有文件 → 覆盖月列表（含跨月的老月文件）
  * }
- * 纯聚合，不含任何正文/首句。
+ * 纯聚合，不含任何正文/首句。s 统一标记所有条目来源（阅读端按 (s,顺序) 回填正文；
+ * merge 清旧按 s 过滤，幂等）。months 从 days 重建（混合来源天然正确）。
  */
 function buildManifest(entries) {
     const years = new Set();
-    const months = {};
     const days = {};
-    let maxDayWords = 0;
+    const bookSets = {};
 
     for (const e of entries) {
         years.add(e.year);
         const mk = `${e.year}-${String(e.month).padStart(2, '0')}`;
         const dk = `${mk}-${String(e.day).padStart(2, '0')}`;
+        if (!days[dk]) days[dk] = [];
+        days[dk].push({ w: e.wordCount, p: e.paraCount, c: e.category, s: e.source });
+        // books 记录所有文件的覆盖月（不限本子）——老月文件内容跨月是常态，
+        // 阅读端 monthSources 直接反查 days.s，books 作为冗余加速索引一并全量记录。
+        if (!bookSets[e.source]) bookSets[e.source] = new Set();
+        bookSets[e.source].add(mk);
+    }
+    const books = {};
+    for (const bk of Object.keys(bookSets)) books[bk] = [...bookSets[bk]].sort();
+
+    // months / maxDayWords 从 days 重建（与 diary-parse.js recalcManifest 同口径）
+    const months = {};
+    for (const dk of Object.keys(days)) {
+        const mk = dk.slice(0, 7);
         if (!months[mk]) months[mk] = { entries: 0, words: 0, paras: 0, days: 0 };
         const mo = months[mk];
-        mo.entries++; mo.words += e.wordCount; mo.paras += e.paraCount;
-        if (!days[dk]) { days[dk] = []; mo.days++; }
-        days[dk].push({ w: e.wordCount, p: e.paraCount, c: e.category });
+        mo.days++;
+        for (const it of days[dk]) {
+            mo.entries++; mo.words += it.w; mo.paras += it.p;
+        }
     }
+    let maxDayWords = 0;
     for (const dk in days) {
         const w = days[dk].reduce((s, x) => s + x.w, 0);
         if (w > maxDayWords) maxDayWords = w;
     }
-    return { v: 1, years: [...years].sort((a, b) => a - b), maxDayWords, months, days };
+    return { v: 1, years: [...years].sort((a, b) => a - b), maxDayWords, months, days, books };
 }
 
 module.exports = { parseDecryptedText, classifyEntry, extractDateFromText, buildManifest, daysInMonth };
