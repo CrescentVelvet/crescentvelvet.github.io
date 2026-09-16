@@ -331,12 +331,17 @@ textarea::-webkit-scrollbar-thumb:hover {
 /* ═══ 内容渲染 ═══════════════════════════════════════════════════════
    正文与分类高亮。三页严格同值——这不是「页面风格」而是「内容的一部分」，
    同一条日记在任何页面都必须长成一样，所以统一放在共享文件里。 */
+/* 正文规格 = 屏幕阅读档：宋体 16px / 行高 1.95 / 段距 8px / 首行缩进 2 字。
+   与 diary_tree 的 `#info-popup .dsec-body` + `.dpara` 逐属性同值。
+   2026-09-16 由「幼圆 10.5pt / 行高 1.0」的 Word 输出档统一过来 —— 代价是
+   text_processor 复制结果粘进 Word 会带 16px 宋体（需在 Word 里重设五号）。
+   改规格必须与 diary_tree 两处同改。 */
 .preview-content {
-    margin-top: 0;
-    margin-bottom: 0;
-    font-family: "幼圆", "圆体-简-细体", "Times New Roman", serif;
-    font-size: 10.5pt;
-    line-height: 1.0;
+    margin: 0 0 8px;
+    color: rgba(50, 36, 28, 0.92);
+    font-family: "Songti SC", "SimSun", Georgia, serif;
+    font-size: 16px;
+    line-height: 1.95;
     text-indent: 2em;
 }
 /* 与 diary_tree.html 的 `#info-popup .popup-preview .xxx-highlight` 逐属性同值：

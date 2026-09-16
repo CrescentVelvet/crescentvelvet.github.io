@@ -95,8 +95,20 @@
 - 验证链路 `.workbuddy/tmp/unify/verify.js`：CDP 自带静态服务，**root=仓库根 + `_pages/` 兜底 +
   剥 front matter/Liquid**（否则页面在 `_pages/` 下会 404，且直服源文件会漏出 front matter）。
   两页 19 项计算样式逐项比对 + 桌面/390px 截图。
-- 遗留：`.preview-content` 正文仍是「幼圆 10.5pt / 行高 1.0」，而 diary_tree 弹层正文是
-  「宋体 16px / 行高 1.95」—— 同篇日记两处排版不同；属内容排版而非页面风格，本次未动。
+- **正文规格三页统一**（2026-09-16 定案）：宋体 16px / 行高 1.95 / 段距 8px / 首行缩进 2 字，
+  与 diary_tree 的 `#info-popup .dsec-body` + `.dpara` **逐属性同值**。已知代价（用户知情选择）：
+  text_processor 「复制结果」复制的是 DOM 选区，粘进 Word 会带 16px 宋体，不再是五号字。
+  输入/输出区高度同步 400→520px（行高近翻倍后 400px 只剩 9 行）。
+- ⚠️ **坑 3**：正文行高/段距曾被 JS 内联写死（`newP.style.lineHeight='1.0'` + marginTop/Bottom
+  `'0.5em'`，两页各 3 行），会盖掉 `.preview-content` 的 CSS —— 改正文规格必须一并删掉，
+  否则只有静态注入才"看起来生效"，真跑流程时被打回。
+- ⚠️ **既有隐患（未修）**：enc_reader 的 `oneKeyFormat()` 用**游离 div 的 `innerText`** 分行，
+  而游离元素 `innerText === textContent` —— p 之间没有字面换行符时多段会被粘成一行。
+  真实数据（解密月文件 / 带换行的粘贴）不暴露；text_processor 的同名步骤是分步实现，无此问题。
+- 验证脚本（均在 `.workbuddy/tmp/unify/`）：`verify_hl.js`（高亮 7 属性×4 类×3 页）、
+  `verify_body.js`（正文 7 属性，**三页各走真实渲染路径**，含真跑 processAll / oneKeyFormat）、
+  `capt_hl.js` / `capt_body.js`（对照图）。注：`captureScreenshot` 的 `clip.scale` 必须为 1
+  （与 deviceScaleFactor 叠加会错位）；recipe 是模板字符串，**注释里不能出现裸反斜杠 n**（会截断注释）。
 
 ## 站点 crescentvelvet.github.io（Jekyll + minimal-mistakes 内联）
 - 主题内联（`_config.yml` 无 theme:），**颜色唯一来源 = `_sass/_variables.scss`**。
