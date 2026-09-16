@@ -109,6 +109,12 @@
   `verify_body.js`（正文 7 属性，**三页各走真实渲染路径**，含真跑 processAll / oneKeyFormat）、
   `capt_hl.js` / `capt_body.js`（对照图）。注：`captureScreenshot` 的 `clip.scale` 必须为 1
   （与 deviceScaleFactor 叠加会错位）；recipe 是模板字符串，**注释里不能出现裸反斜杠 n**（会截断注释）。
+- **text_processor 的「1. 字体设置」已删**（2026-09-16）：它实际只做两件事 —— 给输出容器挂
+  `.preview-content` + 把输入区文本原样搬进输出区；而「段落格式」给每个 `<p>` 挂同一个类，
+  字体表现完全等效，且它写进输出区的内容在 processAll 里会被下一步**从输入区重读**丢弃（空转）。
+  现由「段落格式」兼挂容器类；按钮编号重排 1–4，说明同步（并删掉早已不存在的「快速导航」条目）。
+  ⚠️ 排查同类冗余的原则：按钮的**字面名 ≠ 实际做的事**（"字体设置"从不设置字体，规格一直在 CSS），
+  判断依据 = 它改了哪个状态 + 后续步骤从哪读数据。
 
 ## 站点 crescentvelvet.github.io（Jekyll + minimal-mistakes 内联）
 - 主题内联（`_config.yml` 无 theme:），**颜色唯一来源 = `_sass/_variables.scss`**。
