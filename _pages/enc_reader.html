@@ -145,6 +145,17 @@ title: "加密日志阅读器"
             margin-bottom: 16px;
         }
         .action-row button { flex: 1; }
+        #keyRow button {
+            background: #fff;
+            color: var(--primary-dark);
+            border: 1px solid #cdd7e3;
+            box-shadow: none;
+        }
+        #keyRow button:hover {
+            background: var(--primary-soft);
+            color: var(--primary-dark);
+            border-color: var(--primary);
+        }
 
         /* 粘性工具区（搜索 + 格式化工具条） */
         .sticky-wrap {
@@ -323,6 +334,10 @@ title: "加密日志阅读器"
             <button id="copyBtn">复制内容</button>
             <button id="exportBtn">导出加密日志</button>
         </div>
+        <div class="action-row" id="keyRow" style="display:none;">
+            <button id="rewrapBtn" title="只换口令，不重加密数据。导出一个几 KB 的新信封文件放回 assets/data/。">换口令（重裹信封）</button>
+            <button id="rotateBtn" title="生成全新数据密钥并全量重加密所有月文件。仅在怀疑口令泄露时使用。">深度轮换（换 DEK 全量重加密）</button>
+        </div>
         <div class="sticky-wrap">
             <div class="search-bar" style="align-items:center;gap:8px;">
                 <input type="text" id="searchInput" placeholder="查找内容..." style="flex:2;" />
@@ -347,7 +362,8 @@ title: "加密日志阅读器"
         <div id="status"></div>
         <div class="output" id="output" contenteditable="true" spellcheck="false"></div>
     </div>
-    <script src="/assets/js/crypto-js.min.js"></script>
+    <script src="/assets/js/diary-crypto.js"></script>
+    <script src="/assets/js/diary-parse.js"></script>
     <script>
     window.files = [
         {% for file in site.static_files %}
@@ -368,6 +384,22 @@ title: "加密日志阅读器"
     });
     </script>
     <script>
+    // ═══ 新加密架构状态（DEK 信封体系）═══
+    // 解锁 = 解信封得 DEK（驻内存，不落任何存储）。DEK 存活期间：
+    //   - 切换文件免重输口令（fetch 月文件 + DEK 解密）
+    //   - 导出 = DEK 直接重加密，不再输口令
+    //   - 换口令 = 新口令重裹 DEK，下载几 KB 新信封
+    let diaryDek = null;          // Uint8Array(32) | null
+    let currentFile = null;       // 当前已解密展示的文件名
+    let manifestData = null;      // 解密后的 manifest（编辑导出时增量更新）
+
+    // fetch + DEK 解密一个月文件。错口令/损坏由 GCM tag 直接抛错。
+    async function decryptMonthFile(file) {
+        const res = await fetch(`/assets/data/${file}`);
+        if (!res.ok) throw new Error(`文件拉取失败 (${res.status})`);
+        return window.DiaryCrypto.decryptData(diaryDek, await res.text());
+    }
+
     document.getElementById('decryptBtn').onclick = async function() {
         const file = fileSelect.value;
         const password = document.getElementById('password').value;
@@ -380,32 +412,153 @@ title: "加密日志阅读器"
             status.className = 'error';
             return;
         }
-        if (!password) {
+        // DEK 已解锁：口令框留空直接复用（切文件免重输）；未解锁则必须有口令
+        const needUnlock = !diaryDek;
+        if (needUnlock && !password) {
             status.textContent = '请输入密码';
             status.className = 'error';
             return;
         }
         try {
-            const res = await fetch(`/assets/data/${file}`);
-            if (!res.ok) throw new Error('文件读取失败');
-            const ciphertext = await res.text();
-            const bytes = CryptoJS.AES.decrypt(ciphertext, password);
-            const decrypted = bytes.toString(CryptoJS.enc.Utf8);
-            if (!decrypted) {
-                status.textContent = '密码错误或文件损坏';
-                status.className = 'error';
-                return;
+            if (needUnlock) {
+                status.textContent = '正在派生密钥（PBKDF2 60 万迭代）…';
+                status.className = 'loading';
+                const envText = await window.DiaryCrypto.fetchText('/assets/data/key.envelope');
+                diaryDek = await window.DiaryCrypto.openEnvelope(password, JSON.parse(envText));
+                // 顺手拉 manifest：编辑导出时增量更新它（失败不阻塞阅读）
+                try {
+                    const mfEnc = await window.DiaryCrypto.fetchText('/assets/data/manifest.enc');
+                    manifestData = JSON.parse(await window.DiaryCrypto.decryptData(diaryDek, mfEnc));
+                } catch (e) {
+                    console.warn('[enc_reader] manifest 拉取失败，导出时将只含本月：', e.message);
+                    manifestData = null;
+                }
             }
+            status.textContent = '正在解密…';
+            status.className = 'loading';
+            const decrypted = await decryptMonthFile(file);
             status.textContent = '解密成功';
             status.className = 'success';
             output.innerHTML = decrypted;
+            currentFile = file;
+            // DEK 已驻内存：此后切文件/导出/换口令都不再需要口令
+            document.getElementById('password').value = '';
+            document.getElementById('password').placeholder = '已解锁（无需重输）';
+            syncKeyRow();
             generateTOC();
             updateWordCount();
         } catch (e) {
             status.textContent = '解密失败：' + e.message;
             status.className = 'error';
+            if (String(e.message).includes('口令错误')) diaryDek = null;
         }
     };
+    </script>
+    <script>
+    // ═══ 换口令（rewrap）与深度轮换（rotate DEK）═══
+    // rewrap：新口令重裹现有 DEK → 下载 key.envelope。数据不动，毫秒级。
+    // rotate：新 DEK + 全量重加密所有月文件 + 新信封 + manifest。
+    //   「所有月文件」= window.files 全列表 fetch+解密+重加密（含本会话编辑过、
+    //   尚未放回的月份 —— 编辑区当前内容会被编入，防丢改动）。
+    document.getElementById('rewrapBtn').onclick = async function() {
+        const status = document.getElementById('status');
+        if (!diaryDek) {
+            status.textContent = '请先解密任意文件解锁当前密钥';
+            status.className = 'error';
+            return;
+        }
+        const newPass = prompt('请输入新口令（≥14 位随机，大小写+数字+符号）：');
+        if (!newPass) return;
+        if (newPass.length < 14) {
+            status.textContent = '口令太短：基线 ≥14 位，否则 PBKDF2 也救不回来';
+            status.className = 'error';
+            return;
+        }
+        const confirmPass = prompt('再输入一次新口令确认：');
+        if (confirmPass !== newPass) {
+            status.textContent = '两次输入不一致，已取消';
+            status.className = 'error';
+            return;
+        }
+        try {
+            status.textContent = '正在生成新信封…';
+            status.className = 'loading';
+            const env = await window.DiaryCrypto.createEnvelope(diaryDek, newPass);
+            downloadTextFile('key.envelope', env);
+            status.textContent = '已导出 key.envelope —— 放回 assets/data/ 后，旧口令即作废';
+            status.className = 'success';
+        } catch (e) {
+            status.textContent = '换口令失败：' + e.message;
+            status.className = 'error';
+        }
+    };
+
+    document.getElementById('rotateBtn').onclick = async function() {
+        const status = document.getElementById('status');
+        if (!diaryDek) {
+            status.textContent = '请先解密任意文件解锁当前密钥';
+            status.className = 'error';
+            return;
+        }
+        const files = window.files.filter(f => /^[0-9]{4}-[0-9]{2}\.txt$/.test(f));
+        if (!files.length) {
+            status.textContent = '未发现月文件（window.files 为空，请确认在 Jekyll 站点内访问）';
+            status.className = 'error';
+            return;
+        }
+        if (!confirm(`深度轮换将生成全新密钥并重新加密全部 ${files.length} 个月文件，\n逐个下载到浏览器下载目录，再由你手动放回 assets/data/。\n建议在桌面浏览器进行（数据量大）。继续？`)) return;
+        const newPass = prompt('新数据密钥用哪个口令包裹？（≥14 位随机）');
+        if (!newPass) return;
+        if (newPass.length < 14) {
+            status.textContent = '口令太短：基线 ≥14 位';
+            status.className = 'error';
+            return;
+        }
+        const newDek = window.DiaryCrypto.generateDek();
+        try {
+            status.className = 'loading';
+            let done = 0;
+            let editedCurrent = false;
+            // 编辑区当前内容优先（未放回的编辑不丢）
+            const outputHtml = document.getElementById('output').innerHTML;
+            for (const f of files) {
+                let plain;
+                if (currentFile === f && outputHtml.trim()) {
+                    plain = outputHtml;
+                    editedCurrent = true;
+                } else {
+                    plain = await decryptMonthFile(f);
+                }
+                const ct = await window.DiaryCrypto.encryptData(newDek, plain);
+                downloadTextFile(f, ct);
+                done++;
+                status.textContent = `深度轮换中… ${done}/${files.length}`;
+            }
+            if (currentFile && !editedCurrent && outputHtml.trim()) {
+                // currentFile 不在 window.files（如新增月份）也要带上
+                const ct = await window.DiaryCrypto.encryptData(newDek, outputHtml);
+                downloadTextFile(currentFile, ct);
+            }
+            const env = await window.DiaryCrypto.createEnvelope(newDek, newPass);
+            downloadTextFile('key.envelope', env);
+            if (manifestData) {
+                const mfEnc = await window.DiaryCrypto.encryptData(newDek, JSON.stringify(manifestData));
+                downloadTextFile('manifest.enc', mfEnc);
+            }
+            diaryDek = newDek;
+            status.textContent = `深度轮换完成：${done} 个月文件 + key.envelope 已导出，请全部放回 assets/data/`;
+            status.className = 'success';
+        } catch (e) {
+            status.textContent = '深度轮换失败（可安全中止，放回的旧文件不受影响）：' + e.message;
+            status.className = 'error';
+            console.error('[enc_reader] rotate:', e);
+        }
+    };
+
+    // DEK 解锁后显示密钥操作区（由解锁流程在成功后调用）
+    function syncKeyRow() {
+        document.getElementById('keyRow').style.display = diaryDek ? 'flex' : 'none';
+    }
     </script>
     <script>
     // 复制输出区内容到剪贴板
@@ -446,8 +599,48 @@ title: "加密日志阅读器"
     };
     </script>
     <script>
-    // 导出加密日志：将输出区内容用 AES 加密后下载为文件
-    document.getElementById('exportBtn').onclick = function() {
+    // ═══ 导出：DEK 重加密 + manifest 联动更新 ═══
+    // 下载两个文件：① 当月密文（原文件名，放回 assets/data/ 覆盖）；
+    // ② manifest.enc（索引同步更新，与月文件一起放回）。
+    // 每次 encryptData 强制新随机 IV —— 绝不重用旧 IV（GCM 下 IV 重用是灾难）。
+    function downloadTextFile(filename, text) {
+        const blob = new Blob([text], { type: 'text/plain' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(a.href);
+    }
+
+    // 用编辑后的内容重建该月的 manifest 聚合并合并进 manifestData。
+    // 口径与 DiaryParse.aggregateEntries（= migrate 工具 buildManifest）一致。
+    function mergeMonthIntoManifest(file, htmlContent) {
+        const mk = file.replace(/\.txt$/, '');            // 'YYYY-MM'
+        const entries = DiaryParse.parseDecryptedText(htmlContent, file);
+        const agg = DiaryParse.aggregateEntries(entries);
+        if (!manifestData) manifestData = { v: 1, years: [], maxDayWords: 0, months: {}, days: {} };
+        // 清掉该月的旧聚合（月键 + 该月所有日键），再并入新值
+        delete manifestData.months[mk];
+        for (const dk of Object.keys(manifestData.days)) {
+            if (dk.startsWith(mk + '-')) delete manifestData.days[dk];
+        }
+        if (agg.months[mk]) manifestData.months[mk] = agg.months[mk];
+        for (const dk of Object.keys(agg.days)) manifestData.days[dk] = agg.days[dk];
+        // 全局字段重算（years / maxDayWords）
+        manifestData.years = Object.keys(manifestData.months)
+            .map(k => Number(k.slice(0, 4))).sort((a, b) => a - b);
+        let maxW = 0;
+        for (const dk in manifestData.days) {
+            const w = manifestData.days[dk].reduce((s, x) => s + x.w, 0);
+            if (w > maxW) maxW = w;
+        }
+        manifestData.maxDayWords = maxW;
+        return entries.length;
+    }
+
+    document.getElementById('exportBtn').onclick = async function() {
         const output = document.getElementById('output');
         const status = document.getElementById('status');
         const content = output.innerHTML;
@@ -456,19 +649,26 @@ title: "加密日志阅读器"
             status.className = 'error';
             return;
         }
-        const password = prompt('请输入加密密码：');
-        if (!password) return;
+        if (!diaryDek) {
+            status.textContent = '请先解密任意文件解锁密钥（导出用站内密钥，无需另输口令）';
+            status.className = 'error';
+            return;
+        }
+        const file = currentFile || fileSelect.value;
+        if (!file) {
+            status.textContent = '无法确定导出的目标文件';
+            status.className = 'error';
+            return;
+        }
         try {
-            const ciphertext = CryptoJS.AES.encrypt(content, password).toString();
-            const blob = new Blob([ciphertext], { type: 'text/plain' });
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = 'encrypted_log.txt';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(a.href);
-            status.textContent = '已加密导出';
+            status.textContent = '正在加密…';
+            status.className = 'loading';
+            const entryCount = mergeMonthIntoManifest(file, content);
+            const ciphertext = await window.DiaryCrypto.encryptData(diaryDek, content);
+            downloadTextFile(file, ciphertext);
+            const manifestEnc = await window.DiaryCrypto.encryptData(diaryDek, JSON.stringify(manifestData));
+            downloadTextFile('manifest.enc', manifestEnc);
+            status.textContent = `已导出 ${file} + manifest.enc（${entryCount} 条）—— 请将两个文件一起放回 assets/data/`;
             status.className = 'success';
         } catch (e) {
             status.textContent = '导出失败：' + e.message;

@@ -68,7 +68,28 @@ async function createEnvelope(dek, password) {
     return JSON.stringify({ v: 1, kdf: 'PBKDF2-SHA256', iter: ITER, salt: b64(salt), iv: b64(iv), ct: b64(ct) });
 }
 
-module.exports = { decryptLegacy, encryptData, createEnvelope, evpBytesToKey };
+// ── 新格式解密（与 assets/js/diary-crypto.js 同构，测试/验证用）──
+async function decryptData(dek, text) {
+    const t = (text || '').trim();
+    const parts = t.split(':');
+    if (parts.length !== 3 || parts[0] !== MAGIC) throw new Error('不是本站加密格式（DIARYENC1）');
+    const key = await crypto.subtle.importKey('raw', dek, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
+    const pt = await crypto.subtle.decrypt(
+        { name: 'AES-GCM', iv: unb64(parts[1]) }, key, unb64(parts[2]));
+    return Buffer.from(pt).toString('utf8');
+}
+async function openEnvelope(password, envelope) {
+    const salt = unb64(envelope.salt);
+    const base = await crypto.subtle.importKey('raw', Buffer.from(password, 'utf8'), 'PBKDF2', false, ['deriveKey']);
+    const key = await crypto.subtle.deriveKey(
+        { name: 'PBKDF2', hash: 'SHA-256', salt, iterations: envelope.iter || ITER },
+        base, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
+    const dekBuf = await crypto.subtle.decrypt(
+        { name: 'AES-GCM', iv: unb64(envelope.iv) }, key, unb64(envelope.ct));
+    return new Uint8Array(dekBuf);
+}
+
+module.exports = { decryptLegacy, encryptData, createEnvelope, decryptData, openEnvelope, evpBytesToKey };
 
 // ── 直接运行时执行迁移主流程 ──
 if (require.main === module) {

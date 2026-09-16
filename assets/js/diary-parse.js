@@ -106,10 +106,38 @@
         return entries;
     }
 
+    /* 条目列表 → manifest 聚合（enc_reader/text_processor 编辑后增量更新索引用）。
+     * 口径与 tools/migrate_parse.js 的 buildManifest 严格一致：
+     *   months['YYYY-MM'] = { entries, words, paras, days }
+     *   days['YYYY-MM-DD'] = [ {w,p,c}, ... ]（按条目出现顺序）
+     * 返回 { years, maxDayWords, months, days }（v 字段由调用方补）。 */
+    function aggregateEntries(entries) {
+        const years = new Set();
+        const months = {};
+        const days = {};
+        let maxDayWords = 0;
+        for (const e of entries) {
+            years.add(e.year);
+            const mk = `${e.year}-${String(e.month).padStart(2, '0')}`;
+            const dk = `${mk}-${String(e.day).padStart(2, '0')}`;
+            if (!months[mk]) months[mk] = { entries: 0, words: 0, paras: 0, days: 0 };
+            const mo = months[mk];
+            mo.entries++; mo.words += e.wordCount; mo.paras += e.paraCount;
+            if (!days[dk]) { days[dk] = []; mo.days++; }
+            days[dk].push({ w: e.wordCount, p: e.paraCount, c: e.category });
+        }
+        for (const dk in days) {
+            const w = days[dk].reduce((s, x) => s + x.w, 0);
+            if (w > maxDayWords) maxDayWords = w;
+        }
+        return { years: [...years].sort((a, b) => a - b), maxDayWords, months, days };
+    }
+
     return {
         REVIEW_REF_RE: REVIEW_REF_RE,
         extractDateFromText: extractDateFromText,
         classifyEntry: classifyEntry,
-        parseDecryptedText: parseDecryptedText
+        parseDecryptedText: parseDecryptedText,
+        aggregateEntries: aggregateEntries
     };
 });
