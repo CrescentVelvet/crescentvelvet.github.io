@@ -299,6 +299,34 @@ title: "文本处理工具"
         .key-card.unlocked .key-hint {
             color: var(--success-dark);
         }
+        .key-guide {
+            margin-top: 12px;
+            border-top: 1px dashed #c7d2fe;
+            padding-top: 10px;
+        }
+        .key-guide summary {
+            cursor: pointer;
+            font-weight: 600;
+            color: var(--primary);
+            font-size: 13px;
+            user-select: none;
+        }
+        .key-guide ol {
+            margin: 8px 0 0;
+            padding-left: 20px;
+            color: var(--text-muted);
+            font-size: 13px;
+            line-height: 1.8;
+        }
+        .key-guide ol li b { color: var(--text); }
+        .key-guide .guide-note {
+            margin-top: 8px;
+            font-size: 12.5px;
+            color: var(--text-muted);
+            background: rgba(255, 255, 255, 0.6);
+            border-radius: var(--radius-sm);
+            padding: 8px 10px;
+        }
     </style>
 </head>
 <body>
@@ -339,6 +367,19 @@ title: "文本处理工具"
                 加密导出前需解锁一次。解锁后 DEK 驻留内存，本页所有加密导出 / 导入直接用它，
                 与 enc_reader / diary_tree 同一把钥匙。口令只解开密钥信封（key.envelope），不接触正文。
             </div>
+            <details class="key-guide">
+                <summary>📖 新加密怎么用？（与旧版差异 + 完整流程）</summary>
+                <ol>
+                    <li><b>第一步・解锁</b>：输入日志口令点「解锁密钥」。一次解锁，本次打开页面期间有效（刷新/关闭后失效，需重输）。</li>
+                    <li><b>加密导出</b>：处理完文本后点「加密导出」——自动按内容里的日期拆分成 <b>YYYY-MM.txt 月文件</b> + <b>manifest.enc 索引</b>，全部下载后一起放回 <b>assets/data/</b> 即完成入库。<b>不再需要</b>手动改名 encrypted_log.txt。</li>
+                    <li><b>加密导入</b>：点「加密导入」选择 YYYY-MM.txt 月文件——需先解锁，直接解密回输出区，可继续编辑。</li>
+                    <li><b>想换口令</b>：去 enc_reader 页面，解锁后点「换口令（重裹信封）」，毫秒级完成。</li>
+                </ol>
+                <div class="guide-note">
+                    口令只用于解开密钥信封（PBKDF2 60万次迭代，约 0.5~1 秒），正文用独立的 DEK 数据密钥加密——
+                    所以换口令毫秒级、解密月文件瞬间完成。口令本身不加密任何正文。
+                </div>
+            </details>
         </div>
         <div class="info-box">
             <div class="info-title">文本处理工具功能说明</div>

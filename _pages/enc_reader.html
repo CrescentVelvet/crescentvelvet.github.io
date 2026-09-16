@@ -145,6 +145,38 @@ title: "加密日志阅读器"
             margin-bottom: 16px;
         }
         .action-row button { flex: 1; }
+        /* 使用指引卡（2026-09-16 DEK 信封体系改造后新增） */
+        .usage-guide {
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-left: 4px solid var(--primary);
+            border-radius: 12px;
+            padding: 14px 18px;
+            margin-bottom: 16px;
+            font-size: 14px;
+        }
+        .usage-guide summary {
+            cursor: pointer;
+            font-weight: 600;
+            color: var(--primary-dark);
+            user-select: none;
+        }
+        .usage-guide ol {
+            margin: 10px 0 0;
+            padding-left: 20px;
+            line-height: 1.9;
+            color: var(--text);
+        }
+        .usage-guide ol li b { color: var(--primary-dark); }
+        .usage-guide .guide-note {
+            margin-top: 10px;
+            font-size: 12.5px;
+            color: var(--text-muted, #667);
+            background: #fff;
+            border-radius: 8px;
+            padding: 8px 10px;
+            line-height: 1.6;
+        }
         #keyRow button {
             background: #fff;
             color: var(--primary-dark);
@@ -338,6 +370,19 @@ title: "加密日志阅读器"
             <button id="rewrapBtn" title="只换口令，不重加密数据。导出一个几 KB 的新信封文件放回 assets/data/。">换口令（重裹信封）</button>
             <button id="rotateBtn" title="生成全新数据密钥并全量重加密所有月文件。仅在怀疑口令泄露时使用。">深度轮换（换 DEK 全量重加密）</button>
         </div>
+        <details class="usage-guide">
+            <summary>📖 使用指引（新加密体系怎么用？与旧版有何不同？）</summary>
+            <ol>
+                <li><b>日常解锁</b>：选文件 → 输口令 → 「解密并显示」。<b>解锁一次后本次打开期间切文件、导出都不再要口令</b>（口令框变灰提示「已解锁」）。刷新/关闭页面后需重输。</li>
+                <li><b>编辑后导出</b>：直接在正文区改 → 点「导出加密日志」——自动下载 <b>该月的 YYYY-MM.txt + manifest.enc</b> 两个文件，放回 assets/data/ 即完成（manifest 记录字数/分类索引，正文与索引同步更新）。</li>
+                <li><b>换口令</b>：解锁后点「换口令（重裹信封）」——输入新口令，下载一个几 KB 的 <b>key.envelope</b> 放回即可。<b>只换信封不重加密数据，毫秒级</b>，所有月文件不动。</li>
+                <li><b>深度轮换</b>：怀疑口令泄露时才用。生成全新数据密钥，<b>全部月文件重新加密下载</b>，放回后旧密钥永久作废。日常不要点。</li>
+            </ol>
+            <div class="guide-note">
+                原理：口令只解开密钥信封（PBKDF2 60万次迭代，约 0.5~1 秒，防暴力破解）；正文用独立的 DEK 数据密钥加密。
+                所以换口令毫秒级、解密秒开。旧口令在迁移完成后作废，全站三页（enc_reader / text_processor / diary_tree）用同一把口令。
+            </div>
+        </details>
         <div class="sticky-wrap">
             <div class="search-bar" style="align-items:center;gap:8px;">
                 <input type="text" id="searchInput" placeholder="查找内容..." style="flex:2;" />
