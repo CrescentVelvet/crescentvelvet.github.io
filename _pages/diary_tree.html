@@ -937,12 +937,13 @@ function computeLayout() {
             const cardY = cy - cardH / 2;
             const cardR = Math.min(cardH / 2, 10);
             const headerH = 16;
-            // 柱区几何：左侧只留 10px 给主导分类竖标（cardX+4.5，宽 2.5），上下各留 19/5 px。
+            // 柱区几何：左侧 10px 给主导分类竖标（cardX+4.5，宽 2.5），右侧只留 5px ——
+            // 左缘有竖标和月序压阵，右缘什么都没有，收得更紧些。上下各留 19/5 px。
             // 月序不再独占一列 —— 它画在最上层（深色衬线字），高柱从下面穿过也压不住它。
             // 固定 31 个横向槽位（而不是按当月天数均分），这样不同月份的同一天
             // 在视觉上落在同一相对位置，跨月对比时不会漂移。
             const plotL = cardX + 10;
-            const plotR = cardX + cardW - 11;
+            const plotR = cardX + cardW - 5;
             const plotT = cardY + 19;
             const plotB = cardY + cardH - 5;
             months.push({
