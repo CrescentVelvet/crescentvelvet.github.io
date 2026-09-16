@@ -1344,8 +1344,9 @@ function draw() {
                 ctx.fillText(String(mo.month), cardX + 11, cardY + 15);
 
                 if (hasEntries) {
-                    // 右上角月相章（12px，贴角内缩 3px）常驻，统计文字一律让位 17px。
-                    const statsRight = cardX + cardW - 11 - 17;
+                    // 统计文字右端停在月相章左侧（章左缘 -15，再留 2px 间隙）——
+                    // 比旧值（-28）右移 11px，两位数月份（「10/11/12」）不再压到文字。
+                    const statsRight = cardX + cardW - 17;
                     ctx.textAlign = 'right';
                     ctx.font = `10px "Segoe UI","Microsoft YaHei",sans-serif`;
                     ctx.fillStyle = 'rgba(91, 74, 64, 0.66)';
