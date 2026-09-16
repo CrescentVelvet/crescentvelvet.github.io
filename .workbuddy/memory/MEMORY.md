@@ -79,6 +79,13 @@
 - **内容语义色唯一来源 = diary_tree 的 `categoryColor()`**：leisure `#d35f05` / dream `#8A2BE2` /
   video `#0056b3` / review `#0d9488` / normal `#4a90e2`。`.date-highlight` 原本三页三色
   （暖褐/蓝/靛蓝），已统一到 `var(--accent)`，enc_reader 的 `.btn-date` 同步。
+- **四个高亮类三页逐属性同值**（2026-09-16 实测 7 属性 × 4 类全绿）：字重 `600`、回顾条
+  `3px solid` + `padding-left: 6px`、背景 `rgba(13,148,136,.10)`。全站只有两处定义
+  （`diary-tools.css` 全局 + `diary_tree` 的 `#info-popup .popup-preview` 作用域），
+  **改色必须两处同改**，两处已加注释互相指向。验证脚本 `.workbuddy/tmp/unify/verify_hl.js`
+  （往各页容器注入同一段结构，读计算样式逐属性比对）。
+- 正文兜底字号三页统一 `14px`（enc_reader 的 `.output` 原 15px 已改）；`.date-highlight`
+  字号**有意**不同（工具页 20px / 时间轴继承 14px），不是漏改。
 - 共享语义类：`btn-ghost`(次级描边胶囊) / `btn-danger` / `panel`+`panel-accent` / `surface` / `guide`；
   取代各页自造的 step-button / copy-button / reset-button。
 - ⚠️ **坑 1**：JS 里 `el.className = '...'` 整体覆写会**静默冲掉**后加的类（text_processor 的

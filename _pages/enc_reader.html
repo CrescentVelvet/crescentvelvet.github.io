@@ -131,7 +131,10 @@ title: "加密日志阅读器"
             margin-top: 18px;
             padding: 22px 24px;
             min-height: 220px;
-            font-size: 15px;
+            /* 14px = diary_tree 弹层与 text_processor 输出区的同一基准；
+               原本是 15px，三页高亮文字会有 1px 字号差。正文实际字号由
+               .preview-content 决定，这里只是兜底。 */
+            font-size: 14px;
             line-height: 1.7;
             white-space: pre-wrap;
             overflow-wrap: break-word;

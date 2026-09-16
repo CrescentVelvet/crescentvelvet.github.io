@@ -207,8 +207,10 @@ title: "日志时间轴"
             0%, 100% { opacity: 0.55; }
             50%      { opacity: 1; }
         }
-        /* Diary inline-highlight classes — reuse enc_reader's semantics but map
-           them to the tree's category palette so colored spans fit the theme. */
+        /* Diary inline-highlight classes — 与 assets/css/diary-tools.css 里的
+           .leisure/.dream/.video/.review-highlight 逐属性同值，保证同一篇日记
+           在 diary_tree / enc_reader / text_processor 三页显示完全一致。
+           全站只有这两处定义，改色必须两处一起改（那边是工具页基线）。 */
         #info-popup .popup-preview .leisure-highlight { color: #d35f05; font-weight: 600; }
         #info-popup .popup-preview .dream-highlight   { color: #8A2BE2; font-weight: 600; }
         #info-popup .popup-preview .video-highlight   { color: #0056b3; font-weight: 600; }

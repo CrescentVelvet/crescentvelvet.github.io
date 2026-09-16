@@ -339,14 +339,17 @@ textarea::-webkit-scrollbar-thumb:hover {
     line-height: 1.0;
     text-indent: 2em;
 }
-.leisure-highlight { color: var(--c-leisure); font-weight: bold; }
-.dream-highlight   { color: var(--c-dream);   font-weight: bold; }
-.video-highlight   { color: var(--c-video);   font-weight: bold; }
+/* 与 diary_tree.html 的 `#info-popup .popup-preview .xxx-highlight` 逐属性同值：
+   色值走分类色 token，字重 600、回顾条 3px/6px 都取自基准页。改色必须先改
+   这里，再同步 diary_tree（那边是唯二的一处定义），否则三页又会分叉。 */
+.leisure-highlight { color: var(--c-leisure); font-weight: 600; }
+.dream-highlight   { color: var(--c-dream);   font-weight: 600; }
+.video-highlight   { color: var(--c-video);   font-weight: 600; }
 .review-highlight {
     color: var(--c-review);
     background: var(--c-review-bg);
-    border-left: 4px solid var(--c-review);
-    padding-left: 8px;
+    border-left: 3px solid var(--c-review);
+    padding-left: 6px;
 }
 /* 日期行：三页统一为暖褐主色（原 enc_reader 是蓝、text_processor 是靛蓝，
    与 diary_tree 的日期语义色不一致，2026-09-16 一并并到主色）。 */
