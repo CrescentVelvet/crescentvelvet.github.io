@@ -194,6 +194,19 @@ title: "日志时间轴"
         }
         #info-popup .dsec-body .dpara { margin: 0 0 8px; text-indent: 2em; }
         #info-popup .dsec-body .dpara:last-child { margin-bottom: 0; }
+        /* 惰性正文加载态：与 auth-status 的提示语同语言，节奏用细呼吸而非转圈 */
+        #info-popup         .dsec-loading {
+            padding: 18px 4px;
+            font: 400 13px/1 "Segoe UI","Microsoft YaHei",sans-serif;
+            color: rgba(135,125,120,0.85);
+            text-align: center;
+            animation: diary-loading-pulse 1.4s ease-in-out infinite;
+        }
+        #info-popup .dsec-error { animation: none; color: rgba(176, 74, 50, 0.95); }
+        @keyframes diary-loading-pulse {
+            0%, 100% { opacity: 0.55; }
+            50%      { opacity: 1; }
+        }
         /* Diary inline-highlight classes — reuse enc_reader's semantics but map
            them to the tree's category palette so colored spans fit the theme. */
         #info-popup .popup-preview .leisure-highlight { color: #d35f05; font-weight: 600; }
@@ -437,6 +450,12 @@ title: "日志时间轴"
             font-size: 11px; color: rgba(66,44,32,0.62);
             overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 46%;
         }
+        /* 目录摘要的骨架占位线：宽度固定 34 字位，与真摘要同视觉重量 */
+        #month-focus .mf-loading-line {
+            display: inline-block; width: 120px; height: 9px;
+            border-radius: 4px; background: rgba(126,93,73,0.14);
+            animation: diary-loading-pulse 1.4s ease-in-out infinite;
+        }
         #month-focus .mf-foot { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
         #month-focus .mf-foot button {
             border: 0; background: rgba(184, 105, 68, 0.10); color: rgba(150, 82, 54, 0.95);
@@ -540,7 +559,7 @@ title: "日志时间轴"
     <div id="zoom-indicator">100% · 月概览</div>
 </div>
 
-<script src="/assets/js/crypto-js.min.js"></script>
+<script src="/assets/js/diary-crypto.js"></script>
 <script>
 window.files = [
     {% for file in site.static_files %}
@@ -676,6 +695,134 @@ function formatCompactNumber(num) {
     // 单一中文缩写：≥10000 用「万」，否则直接数字。避免「k字」与「万字」混用。
     if (num >= 10000) return (num / 10000).toFixed(num >= 100000 ? 0 : 1) + '万';
     return String(num);
+}
+
+// ═══ 按需解密层（manifest 架构）═══
+// 解锁时只解密 manifest（聚合统计，无正文），时间轴全部即时渲染；
+// 正文在「点开日详情/月聚焦」时才 fetch+解密对应月份文件（WebCrypto 亚秒级）。
+// 桥接策略：manifest 聚合 → 伪 entry 骨架（wordCount/paraCount/category 齐全、
+// text=''）喂给现有 treeData/statsCache 管线，渲染层零改动；
+// 正文懒加载后回填到同一批 entry 对象上（引用共享，statsCache 自动"长出"正文）。
+const monthBodies = new Map();     // 'YYYY-MM' → 明文（已解密缓存）
+const inflightMonths = new Map();  // 'YYYY-MM' → Promise<string>
+let diaryDek = null;               // Uint8Array(32)，解锁后驻内存
+let manifestData = null;           // 解密后的 manifest 对象
+
+// 月份文件名：2026-09.txt（与 Jekyll 静态文件列举一致）
+function monthFileOf(year, month) {
+    return `${year}-${String(month).padStart(2, '0')}.txt`;
+}
+
+// 取某月正文（解密+解析+回填）。缓存命中直接返回，否则 fetch+解密一次。
+// 失败时清理 inflight —— 下次再点该月会重新尝试（网络抖动可自愈）。
+async function loadMonthBody(year, month) {
+    const mk = `${year}-${String(month).padStart(2, '0')}`;
+    if (monthBodies.has(mk)) return monthBodies.get(mk);
+    if (inflightMonths.has(mk)) return inflightMonths.get(mk);
+    const p = (async () => {
+        try {
+            const res = await fetch(`/assets/data/${monthFileOf(year, month)}`);
+            if (!res.ok) throw new Error(`月份文件 ${monthFileOf(year, month)} 拉取失败 (${res.status})`);
+            const ct = await res.text();
+            const pt = await window.DiaryCrypto.decryptData(diaryDek, ct);
+            monthBodies.set(mk, pt);
+            return pt;
+        } finally {
+            inflightMonths.delete(mk);
+        }
+    })();
+    inflightMonths.set(mk, p);
+    return p;
+}
+
+// 解密月正文并把 text 回填到 treeData 里的伪 entry 上（不改 statsCache —— 字数等
+// 聚合字段骨架期就已齐全）。回填后刷新当前打开的弹窗/月聚焦。
+// ⚠️ 调用方不 await（不阻塞首帧）：所有失败在此消化，绝不向上抛 —— 否则
+// 无 await 的调用点会变成 unhandled rejection，弹窗卡在加载态。
+const hydrateFailed = new Set();   // 'YYYY-MM'，拉取/解密失败的月份（可重试：再次点开会重新 load）
+async function hydrateMonth(year, month) {
+    const mk = `${year}-${String(month).padStart(2, '0')}`;
+    try {
+        await loadMonthBody(year, month);
+    } catch (err) {
+        console.error('[diary_tree] 正文解密失败:', monthFileOf(year, month), err.message);
+        hydrateFailed.add(mk);
+        refreshAfterHydrate(year, month);
+        return;
+    }
+    hydrateFailed.delete(mk);
+    const md = treeData[year] && treeData[year][month];
+    if (!md) return;
+    const file = monthFileOf(year, month);
+    for (const day of Object.keys(md).map(Number)) {
+        const skeleton = md[day];       // 伪 entry 数组（引用稳定）
+        const real = parseDecryptedText(monthBodies.get(mk), file).filter(e => e.day === day);
+        // 按序回填：骨架与真实条目按 (day, 顺序) 一一对应（manifest 统计口径 = parseDecryptedText）
+        let ri = 0;
+        for (const e of skeleton) {
+            const r = real[ri];
+            if (!r) break;
+            e.text = r.text;
+            e.suffix = r.suffix;
+            ri++;
+        }
+    }
+    refreshAfterHydrate(year, month);
+}
+
+// 惰性加载完成后刷新当前展示（弹窗或月聚焦），保持位置不跳。
+function refreshAfterHydrate(year, month) {
+    if (selectedNode && selectedNode.type === 'day' && selectedNode.year === year && selectedNode.month === month) {
+        showPopup(selectedNode, parseFloat(popup.style.left) + 40, parseFloat(popup.style.top) + 40);
+    } else if (focusRef && focusRef.year === year && focusRef.month === month) {
+        showMonthFocus(year, month);
+    }
+}
+
+// manifest 聚合 → 伪 entry 骨架。每天 N 篇 = N 个骨架（分段柱需要篇级分段），
+// 每篇 w/p/c 从 manifest.days['YYYY-MM-DD'] 按序取。
+function skeletonFromManifest(mf) {
+    const out = [];
+    for (const dk of Object.keys(mf.days).sort()) {
+        const [y, m, d] = dk.split('-').map(Number);
+        const list = mf.days[dk];
+        for (const it of list) {
+            out.push({
+                year: y, month: m, day: d,
+                text: '', wordCount: it.w, paraCount: it.p,
+                category: it.c, source: `manifest:${dk}`
+            });
+        }
+    }
+    return out;
+}
+
+// 兜底合并（A+B 混合的 B 端）：window.files 里有、manifest 没有的月份，
+// 当场解密合并进骨架。新文件没进 manifest 也不会丢。
+async function mergeMissingMonths() {
+    const known = new Set(Object.keys(manifestData.months || {}));
+    const missing = window.files.filter(f => /^[0-9]{4}-[0-9]{2}\.txt$/.test(f) && !known.has(f.slice(0, -4)));
+    for (const f of missing) {
+        const mk = f.slice(0, -4);
+        const [y, m] = mk.split('-').map(Number);
+        try {
+            await loadMonthBody(y, m);
+            const entries = parseDecryptedText(monthBodies.get(mk), f);
+            for (const e of entries) {
+                allEntries.push(e);
+                if (!treeData[e.year]) treeData[e.year] = {};
+                if (!treeData[e.year][e.month]) treeData[e.year][e.month] = {};
+                if (!treeData[e.year][e.month][e.day]) treeData[e.year][e.month][e.day] = [];
+                treeData[e.year][e.month][e.day].push(e);
+            }
+        } catch (e) {
+            console.warn('[diary_tree] 兜底月份失败:', f, e.message);
+        }
+    }
+    if (missing.length) {
+        rebuildAll();
+        console.log('[diary_tree] 兜底合并了', missing.length, '个 manifest 外月份:', missing.join(', '));
+    }
 }
 
 function getMonthEntries(year, month) {
@@ -1691,31 +1838,47 @@ function showPopup(node, screenX, screenY) {
         popupMeta.innerHTML = `${entries.length} 篇 · ${dayStats.wordCount} 字 · ${dayStats.paraCount} 段`
             + (dots ? `<span class="pdots">${dots}</span>` : '');
 
-        // 单栏长文 + 篇级分节头（定案 2.4）：一天多篇时用分节头隔开，而不是拆成卡片 ——
-        // 日记的阅读是线性的，卡片流会让人"扫"而不是"读"。
-        popupPreview.innerHTML = entries.length > 0
-            ? entries.map((e, i) =>
+        // 惰性正文：骨架期 text 为空 → 先显示加载占位，异步解密回来再回填重渲染。
+        if (entries.length > 0 && !entries[0].text) {
+            const mkFailed = hydrateFailed.has(`${node.year}-${String(node.month).padStart(2, '0')}`);
+            popupPreview.innerHTML = mkFailed
+                ? '<div class="dsec-loading dsec-error">正文解密失败（网络或数据问题），点其他日期重试</div>'
+                : '<div class="dsec-loading">正在解密正文…</div>';
+            if (!mkFailed) hydrateMonth(node.year, node.month);   // 不 await —— hydrate 完成时会自己刷新弹窗
+        } else if (entries.length > 0) {
+            // 单栏长文 + 篇级分节头（定案 2.4）：一天多篇时用分节头隔开，而不是拆成卡片 ——
+            // 日记的阅读是线性的，卡片流会让人"扫"而不是"读"。
+            popupPreview.innerHTML = entries.map((e, i) =>
                 `<div class="dsec">`
                 + `<div class="dsec-head" style="border-left-color:${categoryColor(e.category, 0.9)}">`
                 + `<span class="dsec-no">第 ${i + 1} 篇</span>`
                 + `<span class="dsec-cat" style="color:${categoryColor(e.category, 0.95)}">${categoryLabel(e.category)}</span>`
                 + `<span class="dsec-meta">${e.wordCount} 字 · ${e.paraCount} 段</span></div>`
                 + `<div class="dsec-body">${renderDiaryParagraphs(e.text)}</div></div>`
-            ).join('')
-            : '这一天没有可显示的日志。';
+            ).join('');
+        } else {
+            popupPreview.innerHTML = '这一天没有可显示的日志。';
+        }
     } else if (node.type === 'month') {
         const monthStats = getMonthStats(node.year, node.month);
         popupTitle.textContent = `${node.year}年${node.month}月`;
         popupMeta.textContent = `${monthStats.dayCount}天 · ${monthStats.entryCount}篇 · ${monthStats.wordCount}字 · ${monthStats.paraCount}段`;
-        // Show first 5 entries as previews
+        // Show first 5 entries as previews（惰性：正文未到先占位，解密回来刷新）
         const sorted = [...monthStats.entries].sort((a, b) => a.day - b.day || (a.category === 'normal' ? 1 : -1));
         const previewEntries = sorted.slice(0, 5);
-        popupPreview.innerHTML = previewEntries.length > 0
-            ? renderDiaryPreviewHtml(previewEntries.map(e => ({
-                label: `${node.year}-${String(node.month).padStart(2,'0')}-${String(e.day).padStart(2,'0')}  `,
-                text: e.text, truncate: 120
-              })))
-            : '这个月还没有可显示的日志。';
+        if (previewEntries.length > 0) {
+            if (!previewEntries[0].text) {
+                popupPreview.innerHTML = '<div class="dsec-loading">正在解密正文…</div>';
+                hydrateMonth(node.year, node.month);
+            } else {
+                popupPreview.innerHTML = renderDiaryPreviewHtml(previewEntries.map(e => ({
+                    label: `${node.year}-${String(node.month).padStart(2,'0')}-${String(e.day).padStart(2,'0')}  `,
+                    text: e.text, truncate: 120
+                })));
+            }
+        } else {
+            popupPreview.innerHTML = '这个月还没有可显示的日志。';
+        }
     } else if (node.type === 'year') {
         const yearData = treeData[node.year] || {};
         const yearStats = getYearStats(node.year);
@@ -1730,12 +1893,20 @@ function showPopup(node, screenX, screenY) {
         // Show first 5 entries as previews
         const sorted = allYearEntries.sort((a, b) => a.month - b.month || a.day - b.day);
         const previewEntries = sorted.slice(0, 5);
-        popupPreview.innerHTML = previewEntries.length > 0
-            ? renderDiaryPreviewHtml(previewEntries.map(e => ({
-                label: `${node.year}-${String(e.month).padStart(2,'0')}-${String(e.day).padStart(2,'0')}  `,
-                text: e.text, truncate: 120
-              })))
-            : '这一年还没有可显示的日志。';
+        if (previewEntries.length > 0) {
+            // 年度预览取自多个可能未解密的月份：先占位，再按需解第一个未解密月
+            if (!previewEntries[0].text) {
+                popupPreview.innerHTML = '<div class="dsec-loading">正在解密正文…</div>';
+                hydrateMonth(previewEntries[0].year, previewEntries[0].month);
+            } else {
+                popupPreview.innerHTML = renderDiaryPreviewHtml(previewEntries.map(e => ({
+                    label: `${node.year}-${String(e.month).padStart(2,'0')}-${String(e.day).padStart(2,'0')}  `,
+                    text: e.text, truncate: 120
+                })));
+            }
+        } else {
+            popupPreview.innerHTML = '这一年还没有可显示的日志。';
+        }
     }
 
     popup.classList.add('visible');
@@ -1847,16 +2018,31 @@ function showMonthFocus(year, month) {
         + '<tr>' + '<td></td>'.repeat(firstDow) + cells + '</tr>';
 
     // 当月目录：按日期升序，日期/星期 + 字数 + 首句摘要，可滚动。
-    document.getElementById('mf-list-rows').innerHTML = stats.days.map(d => {
+    // 惰性正文：骨架期首句显示占位线，解密回来 showMonthFocus 被重调刷新。
+    const firstRows = stats.days.map(d => {
         const ds = statsCache.day.get(`${year}-${month}-${d}`);
         const e = ds.entries[0];
         const dow = ['一','二','三','四','五','六','日'][(new Date(year, month - 1, d).getDay() + 6) % 7];
+        const summary = e.text
+            ? escapeHtml(firstDiaryLine(e.text, 34))
+            : '<span class="mf-loading-line"></span>';
         return `<div class="mf-row" data-day="${d}">`
             + `<span class="dot" style="background:${categoryColor(e.category, 0.9)}"></span>`
             + `<span class="d">${month}/${d} 周${dow}</span>`
             + `<span class="w">${ds.entryCount > 1 ? ds.entryCount + '篇 · ' : ''}${ds.wordCount}字</span>`
-            + `<span class="x">${escapeHtml(firstDiaryLine(e.text, 34))}</span></div>`;
-    }).join('') || '这个月没有日志。';
+            + `<span class="x">${summary}</span></div>`;
+    }).join('');
+    document.getElementById('mf-list-rows').innerHTML = firstRows || '这个月没有日志。';
+    if (stats.days.length > 0 && !stats.entries[0].text) {
+        if (hydrateFailed.has(`${year}-${String(month).padStart(2, '0')}`)) {
+            // 失败态：目录行换成错误提示（点行会重触发 showPopup → 重试）
+            document.querySelectorAll('#month-focus .mf-loading-line').forEach(el => {
+                el.outerHTML = '<span style="color:rgba(176,74,50,0.9)">（正文加载失败，点击重试）</span>';
+            });
+        } else {
+            hydrateMonth(year, month);   // 预取：目录/后续日详情共享本次解密
+        }
+    }
 
     document.getElementById('focus-backdrop').classList.add('visible');
     el.classList.add('visible');
@@ -2066,21 +2252,8 @@ document.addEventListener('keydown', (e) => {
 });
 
 // ═══ Auth & data loading ═══
-// Run an async mapper over `items` with a bounded concurrency pool so fetch
-// and AES work overlap instead of running strictly sequentially.
-async function runPool(items, mapper, concurrency) {
-    let next = 0;
-    async function loop() {
-        while (true) {
-            const i = next++;
-            if (i >= items.length) return;
-            await mapper(items[i], i);
-        }
-    }
-    const runners = [];
-    for (let r = 0; r < Math.min(concurrency, items.length); r++) runners.push(loop());
-    await Promise.all(runners);
-}
+// 解锁流（manifest 架构）：PBKDF2 解信封得 DEK → 解 manifest 索引 → 骨架建树
+// 首屏零正文；正文在日详情/月聚焦时按需 fetch+解密（见 hydrateMonth）。
 
 document.getElementById('unlockBtn').onclick = async function() {
     const password = document.getElementById('password').value;
@@ -2090,74 +2263,58 @@ document.getElementById('unlockBtn').onclick = async function() {
         status.className = 'error';
         return;
     }
-    const files = window.files;
-    status.textContent = `正在解密 0/${files.length}...`;
+    status.textContent = '正在派生密钥（PBKDF2 60 万迭代）…';
     status.className = 'loading';
 
-    const loadedEntries = [];
-    let filesFetched = 0;
-    let filesFailed = 0;
-    let emptyCount = 0;
-    let completed = 0;
-    let aborted = false;
-
-    // Concurrency 6: enough to overlap network latency on mobile without
-    // holding too many ciphertext buffers in memory at once.
-    await runPool(files, async function(file) {
-        if (aborted) return;
-        try {
-            const res = await fetch(`/assets/data/${file}`);
-            if (!res.ok) {
-                filesFailed++;
-            } else {
-                const ciphertext = await res.text();
-                let decrypted = '';
-                try {
-                    const bytes = CryptoJS.AES.decrypt(ciphertext, password);
-                    decrypted = bytes.toString(CryptoJS.enc.Utf8);
-                } catch (decErr) {
-                    // Malformed UTF-8 from a wrong-password decrypt → treat as empty.
-                }
-                if (!decrypted) {
-                    emptyCount++;
-                    filesFailed++;
-                } else {
-                    const entries = parseDecryptedText(decrypted, file);
-                    loadedEntries.push(...entries);
-                    filesFetched++;
-                }
-            }
-        } catch (e) {
-            filesFailed++;
-        }
-        completed++;
-        status.textContent = `正在解密 ${completed}/${files.length}...`;
-        // Wrong password makes every file decrypt to empty/garbage. Bail out
-        // early once we've seen enough empties with zero success, instead of
-        // grinding through all files.
-        if (!aborted && filesFetched === 0 && emptyCount >= 3) {
-            aborted = true;
-        }
-    }, 6);
-
-    console.log('[diary_tree] files_fetched:', filesFetched, 'files_failed:', filesFailed, 'entries_parsed:', loadedEntries.length, 'aborted:', aborted);
-
-    // CryptoJS with wrong password returns garbage bytes (non-empty), so we
-    // must check the actual entry count, NOT just whether decryption "succeeded".
-    if (loadedEntries.length === 0) {
-        status.textContent = files.length === 0
-            ? '未找到任何日志数据文件（请确保在 Jekyll 构建后访问）'
-            : '密码错误或未找到可解析的日志条目';
+    // ── ① 拉信封，解出 DEK（GCM tag 校验 = 错口令直接抛错，替代旧「解析 0 条」启发式）──
+    let envelope;
+    try {
+        const res = await fetch('/assets/data/key.envelope');
+        if (!res.ok) throw new Error(`key.envelope 拉取失败 (${res.status})`);
+        envelope = JSON.parse(await res.text());
+    } catch (e) {
+        status.textContent = '信封文件不存在或不可读（迁移前旧数据格式，请先跑 tools/migrate_diary.js）';
         status.className = 'error';
-        console.log('[diary_tree] No entries parsed. window.files count:', files.length);
+        console.error('[diary_tree] envelope fetch:', e);
+        return;
+    }
+    try {
+        diaryDek = await window.DiaryCrypto.openEnvelope(password, envelope);
+    } catch (e) {
+        status.textContent = '密码错误';
+        status.className = 'error';
         return;
     }
 
-    allEntries = loadedEntries;
+    // ── ② 拉 manifest（几 KB 聚合索引），解密后直接建树渲染 —— 首屏不含任何正文 ──
+    status.textContent = '正在解密索引…';
+    let manifestEnc;
+    try {
+        const res = await fetch('/assets/data/manifest.enc');
+        if (!res.ok) throw new Error(`manifest.enc 拉取失败 (${res.status})`);
+        manifestEnc = await res.text();
+    } catch (e) {
+        status.textContent = '索引文件不存在或不可读';
+        status.className = 'error';
+        console.error('[diary_tree] manifest fetch:', e);
+        return;
+    }
+    try {
+        manifestData = JSON.parse(await window.DiaryCrypto.decryptData(diaryDek, manifestEnc));
+    } catch (e) {
+        status.textContent = '索引解密失败（数据可能损坏）';
+        status.className = 'error';
+        console.error('[diary_tree] manifest decrypt:', e);
+        return;
+    }
+
+    allEntries = skeletonFromManifest(manifestData);
     window.allEntries = allEntries;
     treeData = buildTree(allEntries);
 
-    console.log('[diary_tree] years parsed:', Object.keys(treeData).map(Number).sort((a, b) => a - b));
+    console.log('[diary_tree] manifest:', allEntries.length, 'entries,',
+        Object.keys(manifestData.days).length, 'days,',
+        manifestData.years.length, 'years [' + manifestData.years[0] + '-' + manifestData.years[manifestData.years.length - 1] + ']');
 
     document.getElementById('auth-overlay').classList.add('hidden');
     resize();
@@ -2165,7 +2322,11 @@ document.getElementById('unlockBtn').onclick = async function() {
     fitAllYears();
     render();
 
-    status.textContent = `成功解密 ${filesFetched} 个文件，共 ${allEntries.length} 条日志`;
+    const dayCount = Object.keys(manifestData.days).length;
+    status.textContent = `已载入索引：${manifestData.years.length} 年 / ${dayCount} 天 / ${allEntries.length} 篇（正文按需解密）`;
+
+    // ── ③ B 端兜底：window.files 有、manifest 没有的月份，后台静默合并 ──
+    mergeMissingMonths();   // 不 await —— 不挡首屏
 };
 
 // Allow Enter key to submit
