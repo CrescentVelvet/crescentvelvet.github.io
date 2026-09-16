@@ -9,323 +9,89 @@ title: "文本处理工具"
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>文本处理工具</title>
+    <link rel="stylesheet" href="/assets/css/diary-tools.css">
     <style>
-        :root {
-            --primary: #4f6df5;
-            --primary-dark: #3b54d8;
-            --primary-light: #eef1ff;
-            --success: #2ec27e;
-            --success-dark: #25a968;
-            --danger: #ef4f6f;
-            --danger-dark: #d63856;
-            --neutral: #6b7280;
-            --neutral-dark: #4b5563;
-            --bg: #f0f2f8;
-            --card: #ffffff;
-            --border: #e5e7eb;
-            --text: #1f2937;
-            --text-muted: #6b7280;
-            --shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
-            --radius: 10px;
-            --radius-sm: 6px;
-        }
-        * {
-            box-sizing: border-box;
-        }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", Arial, sans-serif;
-            margin: 0;
-            padding: 30px 20px;
-            background: linear-gradient(135deg, #f0f2f8 0%, #e8ebf5 100%);
-            color: var(--text);
-            min-height: 100vh;
-            -webkit-font-smoothing: antialiased;
-        }
-        .container {
-            max-width: 1100px;
-            margin: 0 auto;
-            background: var(--card);
-            padding: 32px;
-            border-radius: var(--radius);
-            box-shadow: var(--shadow);
-            display: flex;
-            flex-direction: column;
-        }
-        h1 {
-            color: var(--primary-dark);
-            text-align: center;
-            margin: 0 0 28px;
-            font-size: 28px;
-            font-weight: 700;
-            letter-spacing: 0.5px;
-        }
-        h2 {
-            color: var(--primary-dark);
-            margin: 0 0 12px;
-            font-size: 16px;
-            font-weight: 600;
-        }
+        /* ── 页面特有：双栏工作区（需要宽容器）────────────────────────
+           三页共享的 token / 控件 / 卡片 / 内容渲染都在
+           /assets/css/diary-tools.css，这里只放本页布局。 */
+        :root { --page-max: 1120px; }
+
+        .container { display: flex; flex-direction: column; }
+
+        /* 输入 / 输出并排 */
         .content-area {
             display: flex;
             flex-wrap: wrap;
-            gap: 24px;
+            gap: 22px;
         }
-        .input-section, .output-section {
-            flex: 1;
-            min-width: 320px;
-        }
+        .input-section,
+        .output-section { flex: 1; min-width: 320px; }
+
         textarea {
-            width: 100%;
             height: 400px;
-            padding: 14px;
-            border: 1px solid var(--border);
-            border-radius: var(--radius-sm);
-            font-size: 14px;
-            font-family: inherit;
+            padding: 14px 16px;
+            line-height: 1.7;
             resize: vertical;
-            background: #fafbfc;
-            transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
         }
-        textarea:focus {
-            outline: none;
-            border-color: var(--primary);
-            background: #fff;
-            box-shadow: 0 0 0 3px rgba(79, 109, 245, 0.15);
+
+        .output-preview {
+            min-height: 400px;
+            max-height: 400px;
+            padding: 16px 18px;
+            overflow-y: auto;
+            font-size: 14px;
+            line-height: 1.7;
+            white-space: pre-wrap;
+            overflow-wrap: break-word;
         }
+
+        /* 步骤 / 工具按钮排 */
         .buttons-section {
             display: flex;
             flex-wrap: wrap;
             gap: 10px;
-            margin: 24px 0 16px;
+            margin: 26px 0 4px;
         }
-        button {
-            background: var(--primary);
-            color: #fff;
-            padding: 10px 16px;
-            border: none;
-            border-radius: var(--radius-sm);
-            cursor: pointer;
-            font-size: 14px;
-            font-family: inherit;
-            flex-grow: 1;
-            min-width: 120px;
-            transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
-            box-shadow: 0 2px 6px rgba(79, 109, 245, 0.2);
-        }
-        button:hover {
-            background: var(--primary-dark);
-            box-shadow: 0 4px 12px rgba(79, 109, 245, 0.3);
-        }
-        button:active {
-            transform: translateY(1px);
-        }
-        .step-button {
-            background: var(--success);
-            box-shadow: 0 2px 6px rgba(46, 194, 126, 0.2);
-        }
-        .step-button:hover {
-            background: var(--success-dark);
-            box-shadow: 0 4px 12px rgba(46, 194, 126, 0.3);
-        }
-        .reset-button {
-            background: var(--danger);
-            box-shadow: 0 2px 6px rgba(239, 79, 111, 0.2);
-        }
-        .reset-button:hover {
-            background: var(--danger-dark);
-            box-shadow: 0 4px 12px rgba(239, 79, 111, 0.3);
-        }
-        .copy-button {
-            background: var(--neutral);
-            box-shadow: 0 2px 6px rgba(107, 114, 128, 0.2);
-        }
-        .copy-button:hover {
-            background: var(--neutral-dark);
-            box-shadow: 0 4px 12px rgba(107, 114, 128, 0.3);
-        }
-        .output-preview {
-            border: 1px solid var(--border);
-            border-radius: var(--radius-sm);
-            padding: 14px;
-            min-height: 400px;
-            max-height: 400px; /* 设置最大高度 */
-            background: #fafbfc;
-            overflow-y: auto; /* 垂直滚动条 */
-            white-space: pre-wrap;
-            word-wrap: break-word;
-            font-size: 14px;
-            transition: border-color 0.2s, box-shadow 0.2s;
-        }
-        .output-preview::-webkit-scrollbar {
-            width: 8px;
-        }
-        .output-preview::-webkit-scrollbar-thumb {
-            background: #c7cdd9;
-            border-radius: 4px;
-        }
-        .output-preview::-webkit-scrollbar-thumb:hover {
-            background: #a9b0c0;
-        }
-        .date-highlight {
-            font-weight: bold;
-            color: var(--primary-dark);
-            padding: 2px 0;
-            font-size: 20px; /* 三号字体 */
-        }
-        .toc {
-            background: var(--primary-light);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-sm);
-            padding: 12px;
-            margin-bottom: 20px;
-        }
-        .toc-title {
-            font-weight: bold;
-            margin-bottom: 5px;
-        }
-        .toc-item {
-            margin-left: 20px;
-        }
-        .status {
-            margin-top: 12px;
-            padding: 12px;
-            border-radius: var(--radius-sm);
-            background: #f3f4f6;
-            text-align: center;
-            font-size: 14px;
-            transition: all 0.2s;
-        }
-        .success {
-            color: var(--success-dark);
-        }
-        .error {
-            color: var(--danger-dark);
-        }
-        .info-box {
-            background: var(--primary-light);
-            border: 1px solid #c7d2fe;
-            border-left: 4px solid var(--primary);
-            border-radius: var(--radius-sm);
-            padding: 18px 20px;
-            margin-top: 24px;
-            font-size: 14px;
-            line-height: 1.7;
-        }
-        .info-title {
-            font-weight: 700;
-            margin-bottom: 10px;
-            color: var(--primary-dark);
-            font-size: 15px;
-        }
-        .info-feature {
-            margin-bottom: 4px;
-        }
-        /* 预览区域样式 */
-        .preview-content {
-            font-family: "幼圆", "圆体-简-细体", "Times New Roman", serif;
-            font-size: 10.5pt; /* 五号字体 */
-            text-indent: 2em; /* 首行缩进 */
-            line-height: 1.0; /* 单倍行距 */
-            margin-top: 0; /* 段前0行 */
-            margin-bottom: 0; /* 段后0行 */
-        }
-        .date-line {
-            color: #6c757d;
-            font-weight: bold;
-            margin: 10px 0;
-        }
-        .leisure-highlight {
-            color: #d35f05; /* 橙红色 */
-            font-weight: bold;
-        }
-        .dream-highlight {
-            color: #8A2BE2; /* 紫罗兰色 */
-            font-weight: bold;
-        }
-        .video-highlight {
-            color: #0056b3; /* 蓝色 */
-            font-weight: bold;
-        }
-        .review-highlight {
-            color: #0d9488; /* 青色高亮，与 diary_tree / enc_reader 一致 */
-            background: #eaf7f4;
-            border-left: 4px solid #0d9488;
-            padding-left: 8px;
-        }
-        /* 站内密钥卡片 */
-        .key-card {
-            background: var(--primary-light);
-            border: 1px solid #c7d2fe;
-            border-left: 4px solid var(--primary);
-            border-radius: var(--radius-sm);
-            padding: 16px 18px;
-            margin-top: 18px;
-            font-size: 14px;
-        }
-        .key-card h2 {
-            margin: 0 0 10px;
-        }
-        .key-row {
-            display: flex;
-            gap: 10px;
-        }
-        .key-row input {
-            flex: 1;
-            padding: 10px 12px;
-            border: 1px solid var(--border);
-            border-radius: var(--radius-sm);
-            font-size: 14px;
-            font-family: inherit;
-            transition: border-color 0.2s, box-shadow 0.2s;
-        }
-        .key-row input:focus {
-            outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(79, 109, 245, 0.15);
-        }
-        .key-btn {
-            flex: 0 0 auto;
-            min-width: 110px;
-        }
+        .buttons-section button { flex: 1 1 auto; min-width: 132px; }
+
+        /* ── 站内密钥卡 ───────────────────────────────────────────── */
+        .key-card { margin-top: 22px; }
+        .key-row { display: flex; gap: 10px; }
+        .key-row input { flex: 1; }
+        .key-btn { flex: 0 0 auto; min-width: 116px; }
         .key-hint {
             margin-top: 10px;
-            color: var(--text-muted);
+            color: var(--muted);
             font-size: 13px;
-            line-height: 1.6;
+            line-height: 1.65;
         }
-        .key-card.unlocked {
-            border-left-color: var(--success);
-        }
-        .key-card.unlocked .key-hint {
-            color: var(--success-dark);
-        }
+        .key-card.unlocked { border-left-color: var(--ok); }
+        .key-card.unlocked .key-hint { color: var(--ok); }
+
         .key-guide {
             margin-top: 12px;
-            border-top: 1px dashed #c7d2fe;
-            padding-top: 10px;
+            padding-top: 11px;
+            border-top: 1px dashed var(--border-strong);
         }
-        .key-guide summary {
-            cursor: pointer;
-            font-weight: 600;
-            color: var(--primary);
-            font-size: 13px;
-            user-select: none;
+
+        /* ── 功能说明卡 ───────────────────────────────────────────── */
+        .info-box { margin-top: 22px; }
+        .info-title {
+            margin-bottom: 10px;
+            color: var(--accent-hover);
+            font-size: 15px;
+            font-weight: 700;
         }
-        .key-guide ol {
-            margin: 8px 0 0;
-            padding-left: 20px;
-            color: var(--text-muted);
-            font-size: 13px;
-            line-height: 1.8;
-        }
-        .key-guide ol li b { color: var(--text); }
-        .key-guide .guide-note {
-            margin-top: 8px;
-            font-size: 12.5px;
-            color: var(--text-muted);
-            background: rgba(255, 255, 255, 0.6);
-            border-radius: var(--radius-sm);
-            padding: 8px 10px;
+        .info-feature { margin-bottom: 5px; color: rgba(47, 42, 40, 0.86); }
+
+        @media (max-width: 760px) {
+            /* 窄屏必须显式堆叠：只写 min-width:0 会让两个 flex:1 硬挤成一排，
+               正文被压成竖条。 */
+            .content-area { flex-direction: column; }
+            .input-section,
+            .output-section { min-width: 0; }
+            textarea { height: 240px; }
+            .output-preview { min-height: 240px; max-height: 320px; }
         }
     </style>
 </head>
@@ -339,25 +105,25 @@ title: "文本处理工具"
             </div>
             <div class="output-section">
                 <h2>处理结果</h2>
-                <div id="outputPreview" class="output-preview"></div>
+                <div id="outputPreview" class="output-preview surface"></div>
             </div>
         </div>
         <div class="buttons-section">
-            <button id="resetText" class="reset-button">清空</button>
-            <button id="formatFont" class="step-button">1. 字体设置</button>
-            <button id="formatParagraph" class="step-button">2. 段落格式</button>
-            <button id="processDates" class="step-button">3. 日期处理</button>
-            <button id="removeExtraLineBreaks" class="step-button">4. 换行撤回</button>
-            <button id="addLeisurePrefix" class="step-button">5. 闲情逸致</button>
-            <button id="processAll" class="step-button">一键处理全部</button>
-            <button id="copyResult" class="copy-button">复制结果</button>
-            <button id="exportEncrypted" class="copy-button">加密导出</button>
-            <button id="importEncrypted" class="copy-button">加密导入</button>
+            <button id="resetText" class="btn-danger">清空</button>
+            <button id="formatFont" class="btn-ghost">1. 字体设置</button>
+            <button id="formatParagraph" class="btn-ghost">2. 段落格式</button>
+            <button id="processDates" class="btn-ghost">3. 日期处理</button>
+            <button id="removeExtraLineBreaks" class="btn-ghost">4. 换行撤回</button>
+            <button id="addLeisurePrefix" class="btn-ghost">5. 闲情逸致</button>
+            <button id="processAll">一键处理全部</button>
+            <button id="copyResult" class="btn-ghost">复制结果</button>
+            <button id="exportEncrypted" class="btn-ghost">加密导出</button>
+            <button id="importEncrypted" class="btn-ghost">加密导入</button>
             <input type="file" id="importFileInput" style="display:none" />
-            <button id="loadExample" class="copy-button">加载示例文本</button>
+            <button id="loadExample" class="btn-ghost">加载示例文本</button>
         </div>
         <div id="status" class="status"></div>
-        <div class="key-card" id="keyCard">
+        <div class="key-card panel panel-accent" id="keyCard">
             <h2>站内密钥（DEK 信封）</h2>
             <div class="key-row">
                 <input type="password" id="dekPassword" placeholder="输入日志口令解锁站内密钥">
@@ -367,7 +133,7 @@ title: "文本处理工具"
                 加密导出前需解锁一次。解锁后 DEK 驻留内存，本页所有加密导出 / 导入直接用它，
                 与 enc_reader / diary_tree 同一把钥匙。口令只解开密钥信封（key.envelope），不接触正文。
             </div>
-            <details class="key-guide">
+            <details class="key-guide guide">
                 <summary>📖 新加密怎么用？（与旧版差异 + 完整流程）</summary>
                 <ol>
                     <li><b>第一步・解锁</b>：输入日志口令点「解锁密钥」。一次解锁，本次打开页面期间有效（刷新/关闭后失效，需重输）。</li>
@@ -381,7 +147,7 @@ title: "文本处理工具"
                 </div>
             </details>
         </div>
-        <div class="info-box">
+        <div class="info-box panel panel-accent">
             <div class="info-title">文本处理工具功能说明</div>
             <div class="info-feature">1. 设置字体：将文本设置为宋体，并调整字体大小。</div>
             <div class="info-feature">2. 设置段落格式：将文本分段并添加段落样式。</div>
@@ -436,7 +202,7 @@ title: "文本处理工具"
             }
             
             // 将输出区域应用字体样式
-            outputPreview.className = 'output-preview preview-content';
+            outputPreview.className = 'output-preview preview-content surface';
             updatePreview(inputText.value);
             showStatus('字体设置完成');
         });
@@ -767,7 +533,7 @@ title: "文本处理工具"
                         return;
                     }
                     outputPreview.innerHTML = decrypted;
-                    outputPreview.className = 'output-preview preview-content';
+                    outputPreview.className = 'output-preview preview-content surface';
                     showStatus('解密导入成功');
                 } catch (err) {
                     showStatus('解密失败：' + err.message, true);
@@ -818,7 +584,7 @@ title: "文本处理工具"
         document.getElementById('resetText').addEventListener('click', () => {
             inputText.value = '';
             outputPreview.innerHTML = '';
-            outputPreview.className = 'output-preview';
+            outputPreview.className = 'output-preview surface';
             showStatus('已清空');
         });
         

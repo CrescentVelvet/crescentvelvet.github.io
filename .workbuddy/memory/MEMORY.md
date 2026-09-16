@@ -71,6 +71,26 @@
   CDP 驱动 `cdp_moon_dev.js`（探针+截图）/ `cdp_moon_deep.js`（像素自证+浮层点击）。
 - 遗留：① `DENOM_RATIO=0.35` 拿真实数据核对（控制台/顶栏显示标尺）；② 真月历写死 6 行（redesign 文档第 4 节）。
 
+## 日志工具页（_pages/text_processor.html · enc_reader.html）
+- **三页共享样式 = `assets/css/diary-tools.css`**（2026-09-16 立）：token / 控件 / 卡片 / 状态 /
+  **内容语义色** / 响应式全在这一个文件；两页 `<link>` 引入，页面 `<style>` 只留各自布局
+  （`--page-max`：text_processor 1120 / enc_reader 880）。改配色改这里，三页同步。
+- 视觉基调 = diary_tree 暖纸：`--accent #b86944` / `--bg #f7f4ee` / `--radius 20px` / 胶囊按钮。
+- **内容语义色唯一来源 = diary_tree 的 `categoryColor()`**：leisure `#d35f05` / dream `#8A2BE2` /
+  video `#0056b3` / review `#0d9488` / normal `#4a90e2`。`.date-highlight` 原本三页三色
+  （暖褐/蓝/靛蓝），已统一到 `var(--accent)`，enc_reader 的 `.btn-date` 同步。
+- 共享语义类：`btn-ghost`(次级描边胶囊) / `btn-danger` / `panel`+`panel-accent` / `surface` / `guide`；
+  取代各页自造的 step-button / copy-button / reset-button。
+- ⚠️ **坑 1**：JS 里 `el.className = '...'` 整体覆写会**静默冲掉**后加的类（text_processor 的
+  `outputPreview` 有 3 处，已补 `surface`）；共享 CSS 的 `.surface` 上有注释提醒。
+- ⚠️ **坑 2**：窄屏只写 `min-width: 0` 会让 `.content-area` 的两个 `flex:1` 硬挤一排（正文成竖条），
+  必须显式 `flex-direction: column`。
+- 验证链路 `.workbuddy/tmp/unify/verify.js`：CDP 自带静态服务，**root=仓库根 + `_pages/` 兜底 +
+  剥 front matter/Liquid**（否则页面在 `_pages/` 下会 404，且直服源文件会漏出 front matter）。
+  两页 19 项计算样式逐项比对 + 桌面/390px 截图。
+- 遗留：`.preview-content` 正文仍是「幼圆 10.5pt / 行高 1.0」，而 diary_tree 弹层正文是
+  「宋体 16px / 行高 1.95」—— 同篇日记两处排版不同；属内容排版而非页面风格，本次未动。
+
 ## 站点 crescentvelvet.github.io（Jekyll + minimal-mistakes 内联）
 - 主题内联（`_config.yml` 无 theme:），**颜色唯一来源 = `_sass/_variables.scss`**。
 - 资产引用：`href`/图片/og:image → `{{ base_path }}`；本地加载 CSS/JS → `{{ '...' | relative_url }}`（别混）。

@@ -9,135 +9,35 @@ title: "加密日志阅读器"
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>加密日志阅读器</title>
+    <link rel="stylesheet" href="/assets/css/diary-tools.css">
     <style>
-        :root {
-            --primary: #4a90e2;
-            --primary-dark: #357ab8;
-            --primary-soft: #eaf2fb;
-            --text: #2d3748;
-            --text-muted: #8a96a8;
-            --border: #e1e7f0;
-            --surface: #ffffff;
-            --surface-2: #f7f9fc;
-            --shadow: 0 10px 40px rgba(60, 72, 120, 0.10), 0 2px 8px rgba(60, 72, 120, 0.05);
-        }
-        * { box-sizing: border-box; }
-        body {
-            font-family: 'Segoe UI', 'Microsoft YaHei', Arial, sans-serif;
-            background: linear-gradient(135deg, #eef2f8 0%, #e2e8f2 100%);
-            margin: 0;
-            padding: 0;
-            color: var(--text);
-            min-height: 100vh;
-            -webkit-font-smoothing: antialiased;
-        }
-        .container {
-            max-width: 820px;
-            margin: 40px auto;
-            background: var(--surface);
-            border-radius: 16px;
-            box-shadow: var(--shadow);
-            padding: 38px 32px 28px 32px;
-        }
-        h1 {
-            text-align: center;
-            color: var(--primary-dark);
-            font-weight: 600;
-            font-size: 26px;
-            margin: 0 0 6px 0;
-            letter-spacing: 0.5px;
-        }
+        /* ── 页面特有：单栏阅读（窄容器）──────────────────────────────
+           三页共享的 token / 控件 / 卡片 / 内容渲染都在
+           /assets/css/diary-tools.css，这里只放本页布局。 */
+        :root { --page-max: 880px; }
+
         .word-count {
-            color: var(--text-muted);
+            margin: 0 0 16px;
+            color: var(--muted);
             font-size: 13px;
-            margin-bottom: 16px;
             text-align: right;
             font-variant-numeric: tabular-nums;
         }
-        #toc-container { margin-bottom: 14px; }
-        .file-list { margin-bottom: 16px; }
+
+        #toc-container { margin-bottom: 10px; }
+        #toggleTocBtn { margin-bottom: 4px; }
+
+        /* ── 文件 / 口令卡 ────────────────────────────────────────── */
+        .form-card { margin-bottom: 16px; }
+        .file-list { margin-bottom: 14px; }
         .file-list label {
             display: block;
             margin-bottom: 8px;
-            font-weight: 600;
-            color: #4a5568;
-            font-size: 14px;
-        }
-        .input-group { margin-bottom: 16px; }
-
-        /* 表单控件 */
-        select,
-        input[type="password"],
-        input[type="text"] {
-            width: 100%;
-            padding: 10px 12px;
-            border: 1px solid #d8dee8;
-            border-radius: 8px;
-            font-size: 14px;
             color: var(--text);
-            background: #fff;
-            font-family: inherit;
-            transition: border-color 0.2s, box-shadow 0.2s;
-        }
-        select:focus,
-        input[type="password"]:focus,
-        input[type="text"]:focus {
-            outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.15);
-        }
-
-        /* 卡片化表单区 */
-        .form-card {
-            background: var(--surface-2);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 18px 20px;
-            margin-bottom: 16px;
-        }
-        .form-card .file-list,
-        .form-card .input-group { margin-bottom: 14px; }
-        .form-card .file-list:last-child,
-        .form-card .input-group:last-child { margin-bottom: 0; }
-
-        /* 按钮基础 */
-        button {
-            background: var(--primary);
-            color: #fff;
-            border: none;
-            border-radius: 8px;
-            padding: 10px 20px;
             font-size: 14px;
-            font-weight: 500;
-            cursor: pointer;
-            font-family: inherit;
-            transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
+            font-weight: 600;
         }
-        button:hover { background: var(--primary-dark); }
-        button:active { transform: translateY(1px); }
-
-        /* 次级按钮 */
-        #copyBtn,
-        #exportBtn,
-        #findNextBtn,
-        #replaceBtn,
-        #replaceAllBtn,
-        #toggleTocBtn {
-            background: #fff;
-            color: var(--primary-dark);
-            border: 1px solid #cdd7e3;
-            box-shadow: none;
-        }
-        #copyBtn:hover,
-        #exportBtn:hover,
-        #findNextBtn:hover,
-        #replaceBtn:hover,
-        #replaceAllBtn:hover,
-        #toggleTocBtn:hover {
-            background: var(--primary-soft);
-            color: var(--primary-dark);
-            border-color: var(--primary);
-        }
+        .input-group { margin-bottom: 0; }
 
         .action-row {
             display: flex;
@@ -145,201 +45,103 @@ title: "加密日志阅读器"
             margin-bottom: 16px;
         }
         .action-row button { flex: 1; }
-        /* 使用指引卡（2026-09-16 DEK 信封体系改造后新增） */
-        .usage-guide {
-            background: var(--surface-2);
-            border: 1px solid var(--border);
-            border-left: 4px solid var(--primary);
-            border-radius: 12px;
-            padding: 14px 18px;
-            margin-bottom: 16px;
-            font-size: 14px;
-        }
-        .usage-guide summary {
-            cursor: pointer;
-            font-weight: 600;
-            color: var(--primary-dark);
-            user-select: none;
-        }
-        .usage-guide ol {
-            margin: 10px 0 0;
-            padding-left: 20px;
-            line-height: 1.9;
-            color: var(--text);
-        }
-        .usage-guide ol li b { color: var(--primary-dark); }
-        .usage-guide .guide-note {
-            margin-top: 10px;
-            font-size: 12.5px;
-            color: var(--text-muted, #667);
-            background: #fff;
-            border-radius: 8px;
-            padding: 8px 10px;
-            line-height: 1.6;
-        }
-        #keyRow button {
-            background: #fff;
-            color: var(--primary-dark);
-            border: 1px solid #cdd7e3;
-            box-shadow: none;
-        }
-        #keyRow button:hover {
-            background: var(--primary-soft);
-            color: var(--primary-dark);
-            border-color: var(--primary);
-        }
 
-        /* 粘性工具区（搜索 + 格式化工具条） */
+        .usage-guide { margin-bottom: 16px; }
+
+        /* ── 粘性工具区（查找替换 + 格式化）──────────────────────── */
         .sticky-wrap {
             position: sticky;
             top: 0;
             z-index: 10;
-            background: #fff;
-            padding: 10px 0 8px;
-            border-bottom: 1px solid #eceff4;
-            margin-bottom: 12px;
+            margin-bottom: 14px;
+            padding: 12px 0 10px;
+            background: rgba(255, 253, 249, 0.92);
+            border-bottom: 1px solid var(--border);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
         }
         .search-bar {
             display: flex;
+            align-items: center;
             gap: 8px;
             margin-bottom: 10px;
-            align-items: center;
         }
+        .search-bar input[type="text"] { flex: 2; }
+        .search-bar label {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            color: var(--muted);
+            font-size: 13.5px;
+            white-space: nowrap;
+        }
+        .search-bar input[type="checkbox"] { margin: 0 2px 0 0; }
         .sticky-toolbar {
             display: flex;
-            gap: 8px;
-            padding-bottom: 4px;
             flex-wrap: wrap;
-        }
-        @media (max-width: 640px) {
-            .search-bar { flex-wrap: wrap; }
-            .search-bar > * { flex: 1 1 auto; }
+            gap: 8px;
+            margin-bottom: 2px;
         }
 
-        /* 状态提示 */
-        .error {
-            color: #e53e3e;
-            margin-top: 10px;
-            font-size: 14px;
+        /* ── 格式化工具 ──────────────────────────────────────────────
+           形状统一为胶囊；颜色仍按内容语义区分，必须与 .xxx-highlight
+           同色（点按钮看到什么色，正文就是什么色）。 */
+        .format-btn {
+            padding: 7px 15px;
+            font-family: inherit;
+            font-size: 13.5px;
+            font-weight: 500;
+            border: 1px solid var(--border-strong);
+            border-radius: var(--pill);
+            box-shadow: none;
+            cursor: pointer;
+            transition: transform 0.16s ease;
         }
-        .success {
-            color: #2f9e6c;
-            margin-top: 10px;
-            font-size: 14px;
+        .format-btn:hover { box-shadow: none; transform: translateY(-1px); }
+        .format-btn:active { transform: translateY(0); }
+        .btn-normal { color: #4a423d; background: rgba(255, 255, 255, 0.82); }
+        .btn-leisure {
+            color: var(--c-leisure);
+            background: rgba(211, 95, 5, 0.10);
+            border-color: rgba(211, 95, 5, 0.30);
+        }
+        .btn-dream {
+            color: var(--c-dream);
+            background: rgba(138, 43, 226, 0.08);
+            border-color: rgba(138, 43, 226, 0.26);
+        }
+        .btn-review {
+            color: var(--c-review);
+            background: rgba(13, 148, 136, 0.10);
+            border-color: rgba(13, 148, 136, 0.30);
+        }
+        .btn-video {
+            color: var(--c-video);
+            background: rgba(0, 86, 179, 0.08);
+            border-color: rgba(0, 86, 179, 0.26);
+        }
+        .btn-date {
+            color: var(--accent);
+            background: rgba(184, 105, 68, 0.10);
+            border-color: rgba(184, 105, 68, 0.30);
         }
 
-        /* 输出区 */
+        /* ── 正文编辑区 ───────────────────────────────────────────── */
         .output {
             margin-top: 18px;
-            background: #fbfcfe;
-            border: 1px solid var(--border);
-            border-radius: 12px;
             padding: 22px 24px;
-            min-height: 200px;
+            min-height: 220px;
             font-size: 15px;
-            color: var(--text);
-            line-height: 1.6;
+            line-height: 1.7;
             white-space: pre-wrap;
-            word-break: break-all;
+            overflow-wrap: break-word;
         }
 
-        /* 目录 */
-        .toc {
-            background: var(--surface-2);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 14px 20px;
-            margin-bottom: 16px;
-            font-size: 14px;
-        }
-        .toc-title {
-            font-weight: 600;
-            margin-bottom: 10px;
-            color: var(--primary-dark);
-        }
-        .toc-list {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-        }
-        .toc-list li { margin-bottom: 6px; }
-        .toc-link {
-            color: var(--primary);
-            text-decoration: none;
-            cursor: pointer;
-            transition: color 0.2s;
-        }
-        .toc-link:hover { color: #d35f05; text-decoration: underline; }
-        .toc-highlight {
-            background: #ffe9b3 !important;
-            transition: background 0.6s;
-        }
-
-        /* 搜索高亮 */
-        .search-highlight {
-            background: #ffe066;
-            color: #d35f05;
-            border-radius: 2px;
-            padding: 0 2px;
-        }
-
-        /* 内容渲染样式（保持不变） */
-        .preview-content {
-            font-family: "幼圆", "圆体-简-细体", "Times New Roman", serif;
-            font-size: 10.5pt;
-            text-indent: 2em;
-            line-height: 1.0;
-            margin-top: 0;
-            margin-bottom: 0;
-        }
-        .leisure-highlight {
-            color: #d35f05;
-            font-weight: bold;
-        }
-        .dream-highlight {
-            color: #8A2BE2;
-            font-weight: bold;
-        }
-        .video-highlight {
-            color: #0056b3;
-            font-weight: bold;
-        }
-        .review-highlight {
-            color: #0d9488;
-            background: #eaf7f4;
-            border-left: 4px solid #0d9488;
-            padding-left: 8px;
-        }
-        .date-highlight {
-            font-weight: bold;
-            color: #0056b3;
-            padding: 2px 0;
-            font-size: 20px;
-        }
-
-        /* 格式化工具按钮 */
-        .format-btn {
-            border: 1px solid transparent;
-            border-radius: 8px;
-            padding: 7px 14px;
-            font-size: 14px;
-            cursor: pointer;
-            font-weight: 500;
-            font-family: inherit;
-            transition: filter 0.2s, transform 0.1s;
-        }
-        .format-btn:hover { filter: brightness(0.96); }
-        .format-btn:active { transform: translateY(1px); }
-        .btn-normal { background: #f4f8fb; color: #222; }
-        .btn-leisure { background: #fffbe6; color: #d35f05; }
-        .btn-dream { background: #f3e6ff; color: #8A2BE2; }
-        .btn-video { background: #e6f0ff; color: #0056b3; }
-        .btn-review { background: #d4f0ec; color: #0d9488; border-left: 4px solid #0d9488; }
-        .btn-date { background: #e7f3ff; color: #0056b3; }
-
-        @media (max-width: 640px) {
-            .container { margin: 16px 12px; padding: 26px 18px 22px; border-radius: 14px; }
-            h1 { font-size: 22px; }
+        @media (max-width: 760px) {
+            .search-bar { flex-wrap: wrap; }
+            .search-bar input[type="text"] { flex: 1 1 140px; }
+            .action-row { flex-wrap: wrap; }
+            .action-row button { flex: 1 1 140px; }
             .output { padding: 16px 14px; }
         }
     </style>
@@ -348,11 +150,11 @@ title: "加密日志阅读器"
     <div class="container">
         <h1>加密日志阅读器</h1>
         <div id="word-count" class="word-count"></div>
-        <div id="toc-container" style="margin-bottom:10px;">
-            <button id="toggleTocBtn" style="margin-bottom:4px;">展开目录</button>
+        <div id="toc-container">
+            <button id="toggleTocBtn" class="btn-ghost">展开目录</button>
             <div id="toc" class="toc" style="display:none;"></div>
         </div>
-        <div class="form-card">
+        <div class="form-card panel">
             <div class="file-list">
                 <label for="fileSelect">选择日志文件：</label>
                 <select id="fileSelect"></select>
@@ -363,14 +165,14 @@ title: "加密日志阅读器"
         </div>
         <div class="action-row">
             <button id="decryptBtn">解密并显示</button>
-            <button id="copyBtn">复制内容</button>
-            <button id="exportBtn">导出加密日志</button>
+            <button id="copyBtn" class="btn-ghost">复制内容</button>
+            <button id="exportBtn" class="btn-ghost">导出加密日志</button>
         </div>
         <div class="action-row" id="keyRow" style="display:none;">
-            <button id="rewrapBtn" title="只换口令，不重加密数据。导出一个几 KB 的新信封文件放回 assets/data/。">换口令（重裹信封）</button>
-            <button id="rotateBtn" title="生成全新数据密钥并全量重加密所有月文件。仅在怀疑口令泄露时使用。">深度轮换（换 DEK 全量重加密）</button>
+            <button id="rewrapBtn" class="btn-ghost" title="只换口令，不重加密数据。导出一个几 KB 的新信封文件放回 assets/data/。">换口令（重裹信封）</button>
+            <button id="rotateBtn" class="btn-danger" title="生成全新数据密钥并全量重加密所有月文件。仅在怀疑口令泄露时使用。">深度轮换（换 DEK 全量重加密）</button>
         </div>
-        <details class="usage-guide">
+        <details class="usage-guide panel panel-accent guide">
             <summary>📖 使用指引（新加密体系怎么用？与旧版有何不同？）</summary>
             <ol>
                 <li><b>日常解锁</b>：选文件 → 输口令 → 「解密并显示」。<b>解锁一次后本次打开期间切文件、导出都不再要口令</b>（口令框变灰提示「已解锁」）。刷新/关闭页面后需重输。</li>
@@ -384,17 +186,17 @@ title: "加密日志阅读器"
             </div>
         </details>
         <div class="sticky-wrap">
-            <div class="search-bar" style="align-items:center;gap:8px;">
-                <input type="text" id="searchInput" placeholder="查找内容..." style="flex:2;" />
-                <input type="text" id="replaceInput" placeholder="替换为..." style="flex:2;" />
-                <label style="font-size:14px;display:flex;align-items:center;gap:2px;">
-                    <input type="checkbox" id="caseSensitive" style="margin:0 4px 0 0;">区分大小写
+            <div class="search-bar">
+                <input type="text" id="searchInput" placeholder="查找内容..." />
+                <input type="text" id="replaceInput" placeholder="替换为..." />
+                <label>
+                    <input type="checkbox" id="caseSensitive">区分大小写
                 </label>
-                <button id="findNextBtn">查找下一个</button>
-                <button id="replaceBtn">替换</button>
-                <button id="replaceAllBtn">全部替换</button>
+                <button id="findNextBtn" class="btn-ghost">查找下一个</button>
+                <button id="replaceBtn" class="btn-ghost">替换</button>
+                <button id="replaceAllBtn" class="btn-ghost">全部替换</button>
             </div>
-            <div class="sticky-toolbar" style="margin-bottom:8px;display:flex;gap:8px;">
+            <div class="sticky-toolbar">
                 <button type="button" class="format-btn btn-normal" onclick="formatSelection('normal')">原始文本</button>
                 <button type="button" class="format-btn btn-leisure" onclick="formatSelection('leisure-highlight')">闲情逸致</button>
                 <button type="button" class="format-btn btn-dream" onclick="formatSelection('dream-highlight')">梦幻空花</button>
@@ -405,7 +207,7 @@ title: "加密日志阅读器"
             </div>
         </div>
         <div id="status"></div>
-        <div class="output" id="output" contenteditable="true" spellcheck="false"></div>
+        <div class="output surface" id="output" contenteditable="true" spellcheck="false"></div>
     </div>
     <script src="/assets/js/diary-crypto.js"></script>
     <script src="/assets/js/diary-parse.js"></script>

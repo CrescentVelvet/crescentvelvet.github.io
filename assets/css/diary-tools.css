@@ -1,0 +1,368 @@
+/* ═══════════════════════════════════════════════════════════════════
+   日志工具页共享样式  ·  assets/css/diary-tools.css
+   ───────────────────────────────────────────────────────────────────
+   服务页面：_pages/text_processor.html  ·  _pages/enc_reader.html
+   设计基准：_pages/diary_tree.html（暖纸基调）
+
+   约定：三页共享的 token 与「内容语义色」只在本文件定义一次，页面特有的
+        布局写各自 <style>。改配色 = 改这里，三页同步，不会再各自漂移。
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── 设计 token ──────────────────────────────────────────────────────
+   与 diary_tree.html 的 :root 严格同值。 */
+:root {
+    /* 底色与面板 */
+    --bg:            #f7f4ee;
+    --panel-bg:      rgba(255, 255, 255, 0.78);
+    --panel-solid:   #fffdf9;
+    --field-bg:      rgba(255, 255, 255, 0.86);
+
+    /* 文字 */
+    --text:          #2f2a28;
+    --muted:         #877d78;
+
+    /* 主色（暖褐） */
+    --accent:        #b86944;
+    --accent-hover:  #965236;
+    --accent-soft:   rgba(184, 105, 68, 0.16);
+
+    /* 描边 / 投影 / 圆角 */
+    --border:        rgba(126, 93, 73, 0.16);
+    --border-strong: rgba(126, 93, 73, 0.30);
+    --shadow:        0 18px 56px rgba(88, 61, 41, 0.13);
+    --radius:        20px;
+    --radius-md:     14px;
+    --radius-sm:     12px;
+    --pill:          999px;
+
+    /* 语义色（成功 / 危险） */
+    --ok:            #2f7d5b;
+    --warn:          #b23f36;
+
+    /* ── 内容语义色 ──
+       与 diary_tree.html 的 categoryColor() 严格同值。这五个值是「内容」
+       的一部分——同一条日记在三个页面必须显示同一个颜色，不要为了
+       单页好看而在这里改。 */
+    --c-normal:      #4a90e2;
+    --c-leisure:     #d35f05;
+    --c-dream:       #8A2BE2;
+    --c-video:       #0056b3;
+    --c-review:      #0d9488;
+    --c-review-bg:   rgba(13, 148, 136, 0.10);
+}
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+    font-family: 'Segoe UI', 'Microsoft YaHei', Arial, sans-serif;
+    color: var(--text);
+    background:
+        radial-gradient(circle at 18% 12%, rgba(255, 206, 161, 0.36), transparent 34%),
+        radial-gradient(circle at 86% 8%, rgba(171, 190, 255, 0.22), transparent 30%),
+        linear-gradient(135deg, #faf7f1 0%, #f2efe9 52%, #f8f3eb 100%);
+    background-attachment: fixed;
+    -webkit-font-smoothing: antialiased;
+}
+
+::selection { background: rgba(184, 105, 68, 0.22); }
+
+/* ── 页面容器 ────────────────────────────────────────────────────────
+   宽度由各页的 --page-max 决定（text_processor 双栏需更宽）。 */
+.container {
+    max-width: var(--page-max, 900px);
+    margin: 36px auto;
+    padding: 34px 32px 30px;
+    background: var(--panel-bg);
+    border: 1px solid rgba(255, 255, 255, 0.72);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+}
+
+/* ── 标题 ────────────────────────────────────────────────────────── */
+h1 {
+    margin: 0 0 4px;
+    color: var(--accent);
+    font-size: 1.7rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-align: center;
+}
+/* 主标题下的暖色短线：纯 CSS 装饰，不占 HTML 结构 */
+h1::after {
+    content: "";
+    display: block;
+    width: 56px;
+    height: 3px;
+    margin: 13px auto 0;
+    border-radius: var(--pill);
+    background: linear-gradient(90deg, #c8754d, #9f5a3f);
+    opacity: 0.5;
+}
+h2 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 11px;
+    color: var(--accent-hover);
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+}
+/* 小节标题左侧短竖线，呼应 diary_tree 的分节头 */
+h2::before {
+    content: "";
+    flex: 0 0 auto;
+    width: 3px;
+    height: 14px;
+    border-radius: 2px;
+    background: var(--accent);
+    opacity: 0.65;
+}
+
+/* ── 按钮：主按钮 = 暖褐渐变胶囊 ─────────────────────────────────── */
+button {
+    padding: 10px 18px;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.2;
+    color: #fff;
+    background: linear-gradient(135deg, #c8754d, #9f5a3f);
+    border: 1px solid transparent;
+    border-radius: var(--pill);
+    box-shadow: 0 8px 20px rgba(184, 105, 68, 0.22);
+    cursor: pointer;
+    transition: transform 0.16s ease, box-shadow 0.2s, background 0.2s,
+                color 0.2s, border-color 0.2s;
+}
+button:hover {
+    box-shadow: 0 12px 26px rgba(184, 105, 68, 0.30);
+    transform: translateY(-1px);
+}
+button:active {
+    box-shadow: 0 6px 14px rgba(184, 105, 68, 0.22);
+    transform: translateY(0);
+}
+button:disabled {
+    opacity: 0.5;
+    box-shadow: none;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* 次级按钮：白底描边胶囊 */
+.btn-ghost {
+    color: var(--accent-hover);
+    background: rgba(255, 255, 255, 0.80);
+    border-color: var(--border-strong);
+    box-shadow: none;
+}
+.btn-ghost:hover {
+    color: var(--accent-hover);
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    box-shadow: none;
+}
+
+/* 危险按钮：红描边胶囊（不抢主按钮的视觉权重） */
+.btn-danger {
+    color: var(--warn);
+    background: rgba(255, 255, 255, 0.80);
+    border-color: rgba(178, 63, 54, 0.34);
+    box-shadow: none;
+}
+.btn-danger:hover {
+    color: var(--warn);
+    background: rgba(178, 63, 54, 0.10);
+    border-color: var(--warn);
+    box-shadow: none;
+}
+
+/* ── 表单控件 ────────────────────────────────────────────────────── */
+input[type="text"],
+input[type="password"],
+select,
+textarea {
+    width: 100%;
+    padding: 10px 13px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 14px;
+    background: var(--field-bg);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+}
+input[type="text"]:focus,
+input[type="password"]:focus,
+select:focus,
+textarea:focus {
+    outline: none;
+    background: #fff;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 4px var(--accent-soft);
+}
+
+/* ── 卡片 ────────────────────────────────────────────────────────── */
+.panel {
+    padding: 17px 19px;
+    font-size: 14px;
+    line-height: 1.75;
+    background: rgba(184, 105, 68, 0.055);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+}
+/* 强调卡：左侧主色条（与 diary_tree 的分节头同一语言） */
+.panel-accent { border-left: 4px solid var(--accent); }
+
+/* ── 可折叠指引（<details class="guide">）────────────────────────── */
+.guide { font-size: 13.5px; }
+.guide > summary {
+    color: var(--accent-hover);
+    font-weight: 600;
+    cursor: pointer;
+    user-select: none;
+}
+.guide > summary:hover { color: var(--accent); }
+.guide ol {
+    margin: 10px 0 0;
+    padding-left: 20px;
+    line-height: 1.85;
+    color: var(--muted);
+}
+.guide ol li { margin-bottom: 2px; }
+.guide ol li b { color: var(--text); }
+.guide .guide-note {
+    margin-top: 11px;
+    padding: 9px 12px;
+    font-size: 12.5px;
+    line-height: 1.7;
+    color: var(--muted);
+    background: rgba(255, 255, 255, 0.80);
+    border-radius: var(--radius-sm);
+}
+
+/* ── 输出面（只给皮肤，尺寸由各页定）──────────────────────────────
+   ⚠️ 有些元素的 className 会被页面 JS 整体覆写（例如 text_processor 的
+      outputPreview），那种地方 JS 里的每一次赋值都必须带上 surface，
+      否则皮肤会被静默冲掉——加类容易漏，改 JS 时留意。 */
+.surface {
+    background: var(--panel-solid);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+}
+.surface:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 4px var(--accent-soft);
+}
+
+/* 滚动条（暖色细条） */
+.surface::-webkit-scrollbar,
+textarea::-webkit-scrollbar { width: 10px; height: 10px; }
+.surface::-webkit-scrollbar-track,
+textarea::-webkit-scrollbar-track { background: transparent; }
+.surface::-webkit-scrollbar-thumb,
+textarea::-webkit-scrollbar-thumb {
+    background: rgba(126, 93, 73, 0.26);
+    background-clip: content-box;
+    border: 3px solid transparent;
+    border-radius: var(--pill);
+}
+.surface::-webkit-scrollbar-thumb:hover,
+textarea::-webkit-scrollbar-thumb:hover {
+    background: rgba(126, 93, 73, 0.42);
+    background-clip: content-box;
+}
+
+/* ── 状态提示 ──────────────────────────────────────────────────────
+   text_processor 用 .status + .error/.success，enc_reader 只设 .error/
+   .success/.loading，两页都靠 #status 兜底，所以基础样式挂 id。 */
+#status {
+    margin-top: 12px;
+    font-size: 13.5px;
+    line-height: 1.6;
+    color: var(--muted);
+    transition: color 0.2s;
+}
+#status:empty { display: none; }
+#status.success { color: var(--ok); }
+#status.error   { color: var(--warn); }
+#status.loading { color: var(--muted); }
+
+/* ── 目录 ────────────────────────────────────────────────────────── */
+.toc {
+    margin-bottom: 16px;
+    padding: 14px 18px;
+    font-size: 13.5px;
+    background: rgba(184, 105, 68, 0.055);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+}
+.toc-title {
+    margin-bottom: 9px;
+    color: var(--accent-hover);
+    font-weight: 600;
+}
+.toc-list { margin: 0; padding: 0; list-style: none; }
+.toc-list li { margin-bottom: 5px; }
+.toc-link {
+    color: var(--accent);
+    text-decoration: none;
+    cursor: pointer;
+    transition: color 0.2s;
+}
+.toc-link:hover { color: var(--accent-hover); text-decoration: underline; }
+.toc-highlight { background: var(--accent-soft) !important; transition: background 0.6s; }
+
+/* ── 查找高亮（蜜色，呼应 diary_tree 的满月盘）──────────────────── */
+.search-highlight {
+    padding: 0 2px;
+    color: #8a4a22;
+    background: rgba(234, 186, 86, 0.50);
+    border-radius: 3px;
+}
+
+/* ═══ 内容渲染 ═══════════════════════════════════════════════════════
+   正文与分类高亮。三页严格同值——这不是「页面风格」而是「内容的一部分」，
+   同一条日记在任何页面都必须长成一样，所以统一放在共享文件里。 */
+.preview-content {
+    margin-top: 0;
+    margin-bottom: 0;
+    font-family: "幼圆", "圆体-简-细体", "Times New Roman", serif;
+    font-size: 10.5pt;
+    line-height: 1.0;
+    text-indent: 2em;
+}
+.leisure-highlight { color: var(--c-leisure); font-weight: bold; }
+.dream-highlight   { color: var(--c-dream);   font-weight: bold; }
+.video-highlight   { color: var(--c-video);   font-weight: bold; }
+.review-highlight {
+    color: var(--c-review);
+    background: var(--c-review-bg);
+    border-left: 4px solid var(--c-review);
+    padding-left: 8px;
+}
+/* 日期行：三页统一为暖褐主色（原 enc_reader 是蓝、text_processor 是靛蓝，
+   与 diary_tree 的日期语义色不一致，2026-09-16 一并并到主色）。 */
+.date-highlight {
+    padding: 2px 0;
+    color: var(--accent);
+    font-size: 20px;
+    font-weight: 700;
+}
+
+/* ── 窄屏 ────────────────────────────────────────────────────────── */
+@media (max-width: 760px) {
+    .container {
+        margin: 16px 12px;
+        padding: 26px 20px 22px;
+        border-radius: 16px;
+    }
+    h1 { font-size: 1.45rem; }
+}
