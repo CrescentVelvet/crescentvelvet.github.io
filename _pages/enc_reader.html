@@ -83,48 +83,8 @@ title: "加密日志阅读器"
             margin-bottom: 2px;
         }
 
-        /* ── 格式化工具 ──────────────────────────────────────────────
-           形状统一为胶囊；颜色仍按内容语义区分，必须与 .xxx-highlight
-           同色（点按钮看到什么色，正文就是什么色）。 */
-        .format-btn {
-            padding: 7px 15px;
-            font-family: inherit;
-            font-size: 13.5px;
-            font-weight: 500;
-            border: 1px solid var(--border-strong);
-            border-radius: var(--pill);
-            box-shadow: none;
-            cursor: pointer;
-            transition: transform 0.16s ease;
-        }
-        .format-btn:hover { box-shadow: none; transform: translateY(-1px); }
-        .format-btn:active { transform: translateY(0); }
-        .btn-normal { color: #4a423d; background: rgba(255, 255, 255, 0.82); }
-        .btn-leisure {
-            color: var(--c-leisure);
-            background: rgba(211, 95, 5, 0.10);
-            border-color: rgba(211, 95, 5, 0.30);
-        }
-        .btn-dream {
-            color: var(--c-dream);
-            background: rgba(138, 43, 226, 0.08);
-            border-color: rgba(138, 43, 226, 0.26);
-        }
-        .btn-review {
-            color: var(--c-review);
-            background: rgba(13, 148, 136, 0.10);
-            border-color: rgba(13, 148, 136, 0.30);
-        }
-        .btn-video {
-            color: var(--c-video);
-            background: rgba(0, 86, 179, 0.08);
-            border-color: rgba(0, 86, 179, 0.26);
-        }
-        .btn-date {
-            color: var(--accent);
-            background: rgba(184, 105, 68, 0.10);
-            border-color: rgba(184, 105, 68, 0.30);
-        }
+        /* 分类标注按钮（.format-btn / .btn-*）与标注工具条（.mark-tools）已移到
+           /assets/css/diary-tools.css，与 text_processor 共用同一套。 */
 
         /* ── 正文编辑区 ───────────────────────────────────────────── */
         .output {
@@ -703,23 +663,19 @@ title: "加密日志阅读器"
         // 只改变颜色的class
         const onlyColorTypes = ['leisure-highlight', 'dream-highlight', 'video-highlight', 'date-highlight'];
         if (onlyColorTypes.includes(type)) {
-            // 多段落选区处理
+            // 逐个文本节点处理（不限于跨段落）
             if (!range.collapsed) {
-                // 遍历选区内所有文本节点
-                let treeWalker = document.createTreeWalker(
-                    range.commonAncestorContainer,
-                    NodeFilter.SHOW_TEXT,
-                    null,
-                    false
-                );
-                let nodes = [];
-                while (treeWalker.nextNode()) {
-                    // 只处理在选区内的文本节点
-                    const node = treeWalker.currentNode;
-                    const nodeRange = document.createRange();
-                    nodeRange.selectNodeContents(node);
-                    if (range.intersectsNode(node)) {
-                        nodes.push(node);
+                const root = range.commonAncestorContainer;
+                const nodes = [];
+                if (root.nodeType === Node.TEXT_NODE) {
+                    // ⚠️ root 自身就是文本节点时必须单独收进来：TreeWalker.nextNode() 只返回
+                    // root **之后**的节点，不含 root。否则"在单个文本节点里选几个字"会完全无效。
+                    nodes.push(root);
+                } else {
+                    const treeWalker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null, false);
+                    while (treeWalker.nextNode()) {
+                        const node = treeWalker.currentNode;
+                        if (range.intersectsNode(node)) nodes.push(node);
                     }
                 }
                 nodes.forEach(node => {

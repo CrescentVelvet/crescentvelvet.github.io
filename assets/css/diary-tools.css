@@ -328,6 +328,63 @@ textarea::-webkit-scrollbar-thumb:hover {
     border-radius: 3px;
 }
 
+/* ── 分类标注按钮（给选中文字刷分类色）───────────────────────────
+   形状统一为胶囊；颜色必须与对应的 .xxx-highlight 同色 ——
+   点了什么色，正文就变什么色。enc_reader / text_processor 共用这一套。 */
+.format-btn {
+    padding: 7px 15px;
+    font-family: inherit;
+    font-size: 13.5px;
+    font-weight: 500;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--pill);
+    box-shadow: none;
+    cursor: pointer;
+    transition: transform 0.16s ease;
+}
+.format-btn:hover { box-shadow: none; transform: translateY(-1px); }
+.format-btn:active { transform: translateY(0); }
+.btn-normal { color: #4a423d; background: rgba(255, 255, 255, 0.82); }
+.btn-leisure {
+    color: var(--c-leisure);
+    background: rgba(211, 95, 5, 0.10);
+    border-color: rgba(211, 95, 5, 0.30);
+}
+.btn-dream {
+    color: var(--c-dream);
+    background: rgba(138, 43, 226, 0.08);
+    border-color: rgba(138, 43, 226, 0.26);
+}
+.btn-review {
+    color: var(--c-review);
+    background: rgba(13, 148, 136, 0.10);
+    border-color: rgba(13, 148, 136, 0.30);
+}
+.btn-video {
+    color: var(--c-video);
+    background: rgba(0, 86, 179, 0.08);
+    border-color: rgba(0, 86, 179, 0.26);
+}
+.btn-date {
+    color: var(--accent);
+    background: rgba(184, 105, 68, 0.10);
+    border-color: rgba(184, 105, 68, 0.30);
+}
+
+/* 标注工具条：作用于可编辑输出区，紧贴它上方 */
+.mark-tools {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 10px;
+}
+.mark-tools-label {
+    margin-right: 2px;
+    color: var(--muted);
+    font-size: 12.5px;
+}
+
 /* ═══ 内容渲染 ═══════════════════════════════════════════════════════
    正文与分类高亮。三页严格同值——这不是「页面风格」而是「内容的一部分」，
    同一条日记在任何页面都必须长成一样，所以统一放在共享文件里。 */

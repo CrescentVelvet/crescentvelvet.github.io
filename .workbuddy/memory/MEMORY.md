@@ -115,6 +115,17 @@
   现由「段落格式」兼挂容器类；按钮编号重排 1–4，说明同步（并删掉早已不存在的「快速导航」条目）。
   ⚠️ 排查同类冗余的原则：按钮的**字面名 ≠ 实际做的事**（"字体设置"从不设置字体，规格一直在 CSS），
   判断依据 = 它改了哪个状态 + 后续步骤从哪读数据。
+- **text_processor 也有一排分类标注按钮**（2026-09-16）：输出区改为 `contenteditable`，移植 enc_reader 的
+  `formatSelection()`；工具条 `.mark-tools` 放在「处理结果」标题下（必须紧贴它作用的输出区）。
+  样式（`.format-btn` / `.btn-*` / `.mark-tools`）**已从 enc_reader 页面抽到共享 `diary-tools.css`** ——
+  两页 6 个按钮配色实测逐属性一致（enc_reader 多一个「一键格式化」，其对应物是 text_processor 步骤区的
+  「一键处理全部」，属预期差异）。
+- ⚠️ **修掉一个两页共有的既存 bug**：`formatSelection` 用 `createTreeWalker(range.commonAncestorContainer)`
+  遍历文本节点，而 **`nextNode()` 只返回 root 之后的节点、不含 root** —— 当选区完全落在**单个文本节点**内
+  （"选中几个字"最典型）时 root 就是那个文本节点，遍历结果为空，整个操作**静默失效**。两页均已显式补收 root。
+- 未改的行为（与 enc_reader 保持一致）：上色是**节点粒度**（选中几个字会把整个文本节点染色）；清色只在
+  选区**包含 span 标签本身**时生效。要精确到选区需重写该函数，本次未做。
+- 注：输出区上方多了工具条，比输入区晚 80px 起算（两栏底部不再齐平），有意保留。
 
 ## 站点 crescentvelvet.github.io（Jekyll + minimal-mistakes 内联）
 - 主题内联（`_config.yml` 无 theme:），**颜色唯一来源 = `_sass/_variables.scss`**。
