@@ -129,8 +129,16 @@
 - **两页容器宽度统一为 1000px**（2026-09-16）：`--page-max` 由 1120 / 880 收敛到一个值。
   取舍要知道：两页结构不同（双栏 / 单栏），**单栏正文本该 ≤900px 才好读、双栏每栏需 ≥500px 才不折行，
   两者本无交集**，1000 是让两边都只小幅让步的折中点（text_processor 每栏 517→457px，
-  enc_reader 正文 51→58 字/行）。若日后更在意单页体验，可改为「容器统一 1080 + enc_reader 的
+  enc_reader 正文 51→58 字/行）。  若日后更在意单页体验，可改为「容器统一 1080 + enc_reader 的
   `.output` 单独限宽居中」——那样正文窄而工具条全宽，但两者宽度就不齐了。
+- **enc_reader 的「选文件 / 输口令 / 解密」合并为一行**（2026-09-17）：`.decrypt-row` 取代原来
+  label+select / input 两行，省约 80px 纵向空间（实测行高 79px）。去掉了可见 label（下拉框里就是
+  文件名、口令框有 placeholder，语义自明），**保留 `aria-label`**；Tab 顺序仍是
+  fileSelect → password → decryptBtn。「解密并显示」已从 `.action-row` 移入此行，action-row 现在
+  只剩「复制内容 / 导出加密日志」。
+- ⚠️ 该行宽度分配：select `flex: 0 1 250px` / input `flex: 1 1 0; min-width: 0` / button `flex: 0 0 auto`。
+  **窄屏 760px 以下必须 `flex-wrap: wrap` + 三者 `flex: 1 1 100%`**，否则一行挤三个控件没法用。
+  注：`input` 上要显式 `min-width: 0` 覆盖共享样式的 `width: 100%`，否则 flex 收缩算不准。
 
 ## 站点 crescentvelvet.github.io（Jekyll + minimal-mistakes 内联）
 - 主题内联（`_config.yml` 无 theme:），**颜色唯一来源 = `_sass/_variables.scss`**。

@@ -28,17 +28,17 @@ title: "加密日志阅读器"
         #toc-container { margin-bottom: 10px; }
         #toggleTocBtn { margin-bottom: 4px; }
 
-        /* ── 文件 / 口令卡 ────────────────────────────────────────── */
+        /* ── 文件 / 口令卡（一行：选文件 → 输口令 → 解密）──────────── */
         .form-card { margin-bottom: 16px; }
-        .file-list { margin-bottom: 14px; }
-        .file-list label {
-            display: block;
-            margin-bottom: 8px;
-            color: var(--text);
-            font-size: 14px;
-            font-weight: 600;
+        .decrypt-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
-        .input-group { margin-bottom: 0; }
+        /* select 固定档位、input 吃剩余宽度、按钮按内容宽 —— 三者不换行 */
+        .decrypt-row > select { flex: 0 1 250px; min-width: 168px; }
+        .decrypt-row > input[type="password"] { flex: 1 1 0; min-width: 0; }
+        .decrypt-row > button { flex: 0 0 auto; min-width: 132px; }
 
         .action-row {
             display: flex;
@@ -106,6 +106,11 @@ title: "加密日志阅读器"
             .search-bar input[type="text"] { flex: 1 1 140px; }
             .action-row { flex-wrap: wrap; }
             .action-row button { flex: 1 1 140px; }
+            /* 窄屏恢复上下堆叠：一行放不下三个控件 */
+            .decrypt-row { flex-wrap: wrap; }
+            .decrypt-row > select,
+            .decrypt-row > input[type="password"],
+            .decrypt-row > button { flex: 1 1 100%; }
             .output { padding: 16px 14px; }
         }
     </style>
@@ -118,17 +123,15 @@ title: "加密日志阅读器"
             <button id="toggleTocBtn" class="btn-ghost">展开目录</button>
             <div id="toc" class="toc" style="display:none;"></div>
         </div>
-        <div class="form-card panel">
-            <div class="file-list">
-                <label for="fileSelect">选择日志文件：</label>
-                <select id="fileSelect"></select>
-            </div>
-            <div class="input-group">
-                <input type="password" id="password" placeholder="请输入解密密码">
-            </div>
+        <!-- 选文件 → 输口令 → 解密是一条动作链，排成一行省纵向空间。
+             下拉框里显示的就是文件名、口令框有 placeholder，语义自明，故省略可见
+             label（保留 aria-label 给读屏）。 -->
+        <div class="form-card panel decrypt-row">
+            <select id="fileSelect" aria-label="选择日志文件"></select>
+            <input type="password" id="password" placeholder="请输入解密密码">
+            <button id="decryptBtn">解密并显示</button>
         </div>
         <div class="action-row">
-            <button id="decryptBtn">解密并显示</button>
             <button id="copyBtn" class="btn-ghost">复制内容</button>
             <button id="exportBtn" class="btn-ghost">导出加密日志</button>
         </div>
