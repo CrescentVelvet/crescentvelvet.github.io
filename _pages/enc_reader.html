@@ -14,7 +14,8 @@ title: "加密日志阅读器"
         /* ── 页面特有：单栏阅读（窄容器）──────────────────────────────
            三页共享的 token / 控件 / 卡片 / 内容渲染都在
            /assets/css/diary-tools.css，这里只放本页布局。 */
-        :root { --page-max: 880px; }
+        /* 与 text_processor 统一容器宽度（为什么是 1000px：见那边的注释）。 */
+        :root { --page-max: 1000px; }
 
         .word-count {
             margin: 0 0 16px;

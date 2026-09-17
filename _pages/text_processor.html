@@ -14,7 +14,10 @@ title: "文本处理工具"
         /* ── 页面特有：双栏工作区（需要宽容器）────────────────────────
            三页共享的 token / 控件 / 卡片 / 内容渲染都在
            /assets/css/diary-tools.css，这里只放本页布局。 */
-        :root { --page-max: 1120px; }
+        /* 与 enc_reader 统一容器宽度。两页结构不同（双栏 / 单栏）：单栏正文本该
+           ≤900px 才好读，双栏每栏要 ≥500px 才不折行，两者本无交集。1000px 是让
+           两边都只小幅让步的折中 —— 本页每栏 457px（原 517），那边正文约 58 字/行（原 51）。 */
+        :root { --page-max: 1000px; }
 
         .container { display: flex; flex-direction: column; }
 
