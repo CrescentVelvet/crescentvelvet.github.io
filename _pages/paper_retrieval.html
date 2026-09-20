@@ -31,9 +31,11 @@ title: 论文调研
     --radius-md:     12px;
     --radius-sm:     8px;
 
-    max-width: 1280px;
-    margin: 0 auto;
-    padding: 14px 16px 20px;
+    /* 铺满：不留居中留白。原来是 max-width:1280px + padding，在大屏上四周围出
+       一圈站点白底，与中间的深色叠成"白窗口套黑窗口"，所以这里直接放开。 */
+    max-width: none;
+    margin: 0;
+    padding: 0;
     color: var(--text);
   }
 
@@ -41,19 +43,37 @@ title: 论文调研
      缺了它 .pr-side 的 1px border-right 会叠在 240px 之外（实测 241px）。 */
   .pr-wrap, .pr-wrap * { box-sizing: border-box; }
 
+  /* 页面级深色。只在本页生效；色值与上面 .pr-wrap 里的 token 同源，改色请一起改。
+     站点页头（masthead）在无 _data/navigation.yml 的 main 时是折叠的（0 高），
+     所以这里只需处理正文底与页脚；日后启用导航，页头也要一并压深。 */
+  html body { background: #0f1419; }
+  html .page__footer {
+    margin-top: 0;
+    background: #0f1419;
+    color: #9aa4b2;
+    border-top: 1px solid #2d3748;
+  }
+  html .page__footer a,
+  html .page__footer .copyright,
+  html .page__footer .site-title,
+  html .page__footer p { color: #9aa4b2; }
+  html .page__footer a:hover { color: #60a5fa; }
+
   /* ── 外壳 ─────────────────────────────────────────────────────────── */
   .pr-shell {
     display: flex;
     flex-direction: column;
     /* 首帧兜底值；加载后由 fitShell() 按 shell 顶边精确算高，
        站点页头高度一变（改字体/加导航）也不会把底部状态栏切掉 */
-    height: calc(100vh - 196px);
+    height: calc(100vh - 140px);
     min-height: 560px;
     overflow: hidden;
+    /* 它已经不是"卡片"了：深色要铺满整页，所以不留边框/圆角/投影，
+       否则会在深色底上再画出一个窗口轮廓，等于把删掉的那层又加回来 */
     background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    box-shadow: 0 18px 56px rgba(0, 0, 0, 0.38);
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
   }
 
   .pr-progress { flex: 0 0 3px; background: rgba(255, 255, 255, 0.05); }
@@ -364,7 +384,7 @@ title: 论文调研
 
   /* ── 响应式 ───────────────────────────────────────────────────────── */
   @media (max-width: 900px) {
-    .pr-shell { height: calc(100vh - 210px); min-height: 460px; }
+    .pr-shell { height: calc(100vh - 140px); min-height: 460px; }
     .pr-icon-btn { display: block; }
     /* ⚠️ span:first-child 选不中分隔符（第一个子元素是 <b>），要按属性选，
        否则窄屏只剩一个孤零零的 "/" */
@@ -386,7 +406,6 @@ title: 论文调研
   }
 
   @media (max-width: 640px) {
-    .pr-wrap { padding: 10px 10px 14px; }
     .pr-btn { padding: 5px 10px; font-size: 12px; }
   }
 </style>
@@ -860,10 +879,11 @@ title: 论文调研
 
   // 按 shell 的文档顶边算高：站点页头高度不是固定值（改动导航/字体就会变），
   // 写死 calc(100vh - N) 迟早把底部状态栏切掉。用文档坐标，滚动时结果也稳定。
+  // 不再留底边距 —— 铺满到视口底，向下滚才看到站点页脚。
   function fitShell() {
     var rect = shell.getBoundingClientRect();
     var docTop = rect.top + (window.scrollY || window.pageYOffset || 0);
-    shell.style.height = Math.max(420, window.innerHeight - docTop - 18) + 'px';
+    shell.style.height = Math.max(420, window.innerHeight - docTop) + 'px';
   }
   window.addEventListener('resize', fitShell);
   window.addEventListener('orientationchange', fitShell);
