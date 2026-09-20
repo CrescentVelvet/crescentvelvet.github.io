@@ -382,6 +382,13 @@ title: 论文调研
   .pr-foot-spacer { flex: 1 1 auto; }
   .pr-foot b { font-weight: 600; color: var(--dim); }
 
+  /* 「最后修改时间」：站点脚本 assets/js/last-updated.js 默认在右下角 fixed 一个角标，
+     页面铺满之后它正好压在底部状态栏上。这里藏掉角标，由页面脚本把文本搬进状态栏，
+     与「Ctrl K 搜索」并排。（只在本页生效，不影响站点其他页面。） */
+  #page-last-modified { display: none !important; }
+  .pr-foot-stampbox { display: inline-flex; align-items: center; gap: 8px; }
+  .pr-foot-stampbox[hidden] { display: none; }
+
   /* ── 响应式 ───────────────────────────────────────────────────────── */
   @media (max-width: 900px) {
     .pr-shell { height: calc(100vh - 140px); min-height: 460px; }
@@ -459,7 +466,11 @@ title: 论文调研
       <span class="pr-foot-sep" aria-hidden="true"></span>
       <span id="prFootNow">—</span>
       <span class="pr-foot-spacer"></span>
-      <span>Ctrl K 搜索</span>
+      <span class="pr-foot-stampbox" id="prFootStampBox" hidden>
+        <span id="prFootStamp"></span>
+        <span class="pr-foot-sep" aria-hidden="true"></span>
+      </span>
+      <span id="prFootHint">Ctrl K 搜索</span>
     </footer>
   </div>
 </div>
@@ -876,6 +887,25 @@ title: 论文调研
   drawerBtn.addEventListener('click', function () {
     shell.classList.toggle('is-side-open');
   });
+
+  // 站点角标（assets/js/last-updated.js）是 fixed 定位的，页面铺满后会压在状态栏上。
+  // 样式里已把它隐藏，这里把它的文本搬进状态栏，与「Ctrl K 搜索」并排。
+  // 时机：那个脚本是 body 尾部的同步脚本，DOMContentLoaded 时必定已执行完。
+  function adoptStamp() {
+    var badge = document.getElementById('page-last-modified');
+    if (!badge) return;
+    var box = document.getElementById('prFootStampBox');
+    var out = document.getElementById('prFootStamp');
+    if (box && out) {
+      var raw = badge.textContent || '';
+      out.textContent = raw.replace(/^最后修改时间[:：]\s*/, '最后修改 ');
+      out.title = raw;
+      box.hidden = false;
+    }
+    if (badge.parentNode) badge.parentNode.removeChild(badge);
+  }
+  document.addEventListener('DOMContentLoaded', adoptStamp);
+  window.addEventListener('load', adoptStamp);
 
   // 按 shell 的文档顶边算高：站点页头高度不是固定值（改动导航/字体就会变），
   // 写死 calc(100vh - N) 迟早把底部状态栏切掉。用文档坐标，滚动时结果也稳定。
