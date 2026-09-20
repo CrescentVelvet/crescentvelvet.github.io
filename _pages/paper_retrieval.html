@@ -5,100 +5,447 @@ title: 论文调研
 ---
 
 <style>
+  /* ── 设计 token ─────────────────────────────────────────────────────
+     与 assets/css/diary-tools.css 的 :root 严格同值（暖纸基调）。
+     ⚠️ 这里没有 <link> 那份共享样式，是因为它的 body 规则会连站点页头
+     一起改掉字体；改色时请两处同步，不要只改一边。 */
   .pr-wrap {
+    --bg:            #f7f4ee;
+    --panel-solid:   #fffdf9;
+    --text:          #2f2a28;
+    --muted:         #877d78;
+    --accent:        #b86944;
+    --accent-hover:  #965236;
+    --accent-soft:   rgba(184, 105, 68, 0.16);
+    --border:        rgba(126, 93, 73, 0.16);
+    --region:        rgba(126, 93, 73, 0.07);
+    --warn:          #b23f36;
+    --radius:        20px;
+    --radius-md:     14px;
+    --radius-sm:     12px;
+
     max-width: 1280px;
     margin: 0 auto;
-    padding: 16px 16px 24px;
+    padding: 14px 16px 20px;
+    color: var(--text);
   }
-  .pr-toolbar {
+
+  /* ── 外壳 ─────────────────────────────────────────────────────────── */
+  .pr-shell {
+    display: flex;
+    flex-direction: column;
+    /* 首帧兜底值；加载后由 fitShell() 按 shell 顶边精确算高，
+       站点页头高度一变（改字体/加导航）也不会把底部状态栏切掉 */
+    height: calc(100vh - 196px);
+    min-height: 560px;
+    overflow: hidden;
+    background: var(--panel-solid);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: 0 18px 56px rgba(88, 61, 41, 0.13);
+  }
+
+  .pr-progress { flex: 0 0 3px; background: rgba(126, 93, 73, 0.10); }
+  .pr-progress i {
+    display: block;
+    width: 0;
+    height: 3px;
+    background: var(--accent);
+    opacity: 0;
+    transition: width .55s ease, opacity .3s ease, background .2s ease;
+  }
+  .pr-progress.is-error i { background: var(--warn); }
+
+  /* ── 顶部 HUD ─────────────────────────────────────────────────────── */
+  .pr-hud {
+    flex: 0 0 auto;
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 10px;
-    margin-bottom: 12px;
+    gap: 9px;
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel-solid);
   }
-  .pr-title {
-    font-size: 1.15em;
-    font-weight: 700;
-    color: #2c3e50;
+  .pr-mark {
+    position: relative;
+    flex: 0 0 auto;
+    width: 18px;
+    height: 18px;
+    border-radius: 5px;
+    background: var(--accent-soft);
+    border: 1px solid rgba(184, 105, 68, 0.45);
   }
-  .pr-actions {
+  .pr-mark::before {
+    content: '';
+    position: absolute;
+    inset: 5px;
+    border-radius: 2px;
+    background: var(--accent);
+  }
+  .pr-title { font-size: 13.5px; font-weight: 700; color: var(--text); }
+  .pr-crumb {
     display: flex;
-    gap: 8px;
+    align-items: center;
+    gap: 5px;
+    min-width: 0;
+    font-size: 11.5px;
+    color: var(--muted);
   }
+  .pr-crumb b { color: #a2988f; font-weight: 400; }
+  .pr-crumb span:last-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: #6f665f;
+  }
+  .pr-hud-spacer { flex: 1 1 auto; min-width: 0; }
+
   .pr-btn {
-    display: inline-block;
-    padding: 6px 14px;
-    font-size: 0.9em;
+    flex: 0 0 auto;
+    padding: 5px 13px;
+    font: inherit;
+    font-size: 12.5px;
     font-weight: 600;
-    color: #4a90e2;
+    line-height: 1.5;
+    color: var(--accent);
     background: #fff;
-    border: 1px solid #d9e2ec;
-    border-radius: 8px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
     cursor: pointer;
     text-decoration: none;
-    transition: all 0.2s ease;
+    transition: background .18s ease, color .18s ease, border-color .18s ease;
   }
   .pr-btn:hover {
-    background: #4a90e2;
     color: #fff;
-    border-color: #4a90e2;
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+  .pr-btn[hidden] { display: none; }
+
+  .pr-icon-btn {
+    flex: 0 0 auto;
+    display: none;
+    width: 30px;
+    height: 30px;
+    font: inherit;
+    font-size: 15px;
+    line-height: 1;
+    color: var(--accent);
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    cursor: pointer;
+  }
+
+  /* ── 主体：侧栏 + 阅读区 ──────────────────────────────────────────── */
+  .pr-body {
+    position: relative;
+    display: flex;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  .pr-side {
+    display: flex;
+    flex: 0 0 240px;
+    flex-direction: column;
+    width: 240px;
+    min-height: 0;
+    background: var(--bg);
+    border-right: 1px solid var(--border);
+  }
+
+  .pr-search {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    flex: 0 0 auto;
+    margin: 10px 10px 6px;
+    padding: 6px 9px;
+    background: var(--panel-solid);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+  }
+  .pr-search:focus-within { border-color: rgba(184, 105, 68, 0.5); }
+  .pr-search-ico {
+    flex: 0 0 auto;
+    width: 10px;
+    height: 10px;
+    border: 1.5px solid var(--muted);
+    border-radius: 50%;
+    position: relative;
+  }
+  .pr-search-ico::after {
+    content: '';
+    position: absolute;
+    right: -4px;
+    bottom: -3px;
+    width: 5px;
+    height: 1.5px;
+    background: var(--muted);
+    transform: rotate(45deg);
+  }
+  .pr-search input {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 0;
+    font: inherit;
+    font-size: 12.5px;
+    color: var(--text);
+    background: transparent;
+    border: 0;
+    outline: none;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  .pr-search input::placeholder { color: #b3a9a1; }
+  .pr-search input::-webkit-search-cancel-button { -webkit-appearance: none; }
+  .pr-search kbd {
+    flex: 0 0 auto;
+    padding: 1px 5px;
+    font: inherit;
+    font-size: 10.5px;
+    color: #b3a9a1;
+    background: var(--region);
+    border-radius: 5px;
+  }
+
+  .pr-side-meta {
+    flex: 0 0 auto;
+    padding: 0 13px 7px;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .pr-list {
+    flex: 1 1 auto;
+    min-height: 0;
+    padding: 0 6px 10px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .pr-list::-webkit-scrollbar { width: 8px; }
+  .pr-list::-webkit-scrollbar-thumb {
+    background: rgba(126, 93, 73, 0.22);
+    border: 2px solid transparent;
+    border-radius: 999px;
+    background-clip: content-box;
+  }
+
+  .pr-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 11px 7px 5px;
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: .02em;
+  }
+  .pr-group i {
+    font-style: normal;
+    font-weight: 600;
+    color: #b3a9a1;
+  }
+
+  .pr-item {
+    display: block;
+    width: 100%;
+    padding: 5px 8px 6px 8px;
+    font: inherit;
+    text-align: left;
+    background: transparent;
+    border: 0;
+    border-left: 2px solid transparent;
+    border-radius: 0 8px 8px 0;
+    cursor: pointer;
+    transition: background .15s ease;
+  }
+  .pr-item:hover { background: rgba(184, 105, 68, 0.07); }
+  .pr-item.is-active {
+    background: var(--accent-soft);
+    border-left-color: var(--accent);
+  }
+  .pr-item-t {
+    display: block;
+    font-size: 12.5px;
+    font-weight: 600;
+    line-height: 1.45;
+    color: #3b3532;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .pr-item.is-active .pr-item-t { color: var(--accent-hover); }
+  .pr-item-d {
+    display: block;
+    margin-top: 1px;
+    font-size: 10.5px;
+    line-height: 1.4;
+    color: #a89e96;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .pr-empty {
+    padding: 16px 10px;
+    font-size: 12px;
+    color: var(--muted);
+    text-align: center;
+  }
+
+  /* ── 阅读区 ───────────────────────────────────────────────────────── */
+  .pr-main {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    background: #fff;
   }
   .pr-status {
-    padding: 8px 12px;
-    margin-bottom: 10px;
-    font-size: 0.9em;
-    color: #6c757d;
-    background: #f8f9fa;
-    border-radius: 8px;
+    display: none;
+    flex: 0 0 auto;
+    padding: 7px 13px;
+    font-size: 12px;
+    color: var(--muted);
+    background: var(--region);
+    border-bottom: 1px solid var(--border);
   }
+  .pr-status.is-on { display: block; }
   .pr-status.is-error {
-    color: #c0392b;
-    background: #fdeeec;
+    color: var(--warn);
+    background: rgba(178, 63, 54, 0.08);
   }
   .pr-frame {
     display: block;
+    flex: 1 1 auto;
     width: 100%;
-    height: calc(100vh - 190px);
-    min-height: 560px;
-    border: 1px solid #e9ecef;
-    border-radius: 12px;
+    min-height: 0;
+    border: 0;
     background: #fff;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
   }
+
+  /* ── 底部状态栏 ───────────────────────────────────────────────────── */
+  .pr-foot {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 0 0 auto;
+    padding: 6px 13px;
+    font-size: 11.5px;
+    color: var(--muted);
+    background: var(--panel-solid);
+    border-top: 1px solid var(--border);
+  }
+  .pr-foot-sep { width: 1px; height: 11px; background: rgba(126, 93, 73, 0.22); }
+  .pr-foot-spacer { flex: 1 1 auto; }
+  .pr-foot b { font-weight: 600; color: #6f665f; }
+
+  /* ── 响应式 ───────────────────────────────────────────────────────── */
+  @media (max-width: 900px) {
+    .pr-shell { height: calc(100vh - 210px); min-height: 460px; }
+    .pr-icon-btn { display: block; }
+    /* ⚠️ span:first-child 选不中分隔符（第一个子元素是 <b>），要按属性选，
+       否则窄屏只剩一个孤零零的 "/" */
+    .pr-crumb b, .pr-crumb span[aria-hidden="true"] { display: none; }
+    .pr-side {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      z-index: 20;
+      box-shadow: 12px 0 40px rgba(88, 61, 41, 0.18);
+      /* ⚠️ 只写 -100%/-102% 会把侧栏推到自己容器的左侧，而容器本身还有
+         内边距，右沿仍会露出几个像素；必须多推一段 */
+      transform: translateX(calc(-100% - 24px));
+      transition: transform .22s ease;
+    }
+    .pr-shell.is-side-open .pr-side { transform: none; }
+    .pr-title { display: none; }
+  }
+
   @media (max-width: 640px) {
-    .pr-frame { height: calc(100vh - 230px); min-height: 420px; }
+    .pr-wrap { padding: 10px 10px 14px; }
+    .pr-btn { padding: 5px 10px; font-size: 12px; }
   }
 </style>
 
 <div class="pr-wrap">
-  <div class="pr-toolbar">
-    <div class="pr-title">📄 论文调研 · media_paper 知识库</div>
-    <div class="pr-actions">
-      <button id="prBack" class="pr-btn" hidden>← 返回索引</button>
-      <button id="prReload" class="pr-btn">刷新</button>
-      <a id="prOpen" class="pr-btn" target="_blank" rel="noopener">新窗口打开 ↗</a>
+  <div class="pr-shell" id="prShell">
+    <div class="pr-progress" id="prProgress"><i id="prBar"></i></div>
+
+    <header class="pr-hud">
+      <button id="prDrawer" class="pr-icon-btn" type="button" aria-label="切换目录">☰</button>
+      <span class="pr-mark" aria-hidden="true"></span>
+      <span class="pr-title">论文调研</span>
+      <span class="pr-crumb">
+        <b>media_paper</b>
+        <span aria-hidden="true">/</span>
+        <span id="prCrumb">index.html</span>
+      </span>
+      <span class="pr-hud-spacer"></span>
+      <button id="prBack" class="pr-btn" type="button" hidden>返回索引</button>
+      <button id="prReload" class="pr-btn" type="button">刷新</button>
+      <a id="prOpen" class="pr-btn" target="_blank" rel="noopener">新窗口</a>
+    </header>
+
+    <div class="pr-body">
+      <aside class="pr-side" id="prSide" aria-label="报告目录">
+        <div class="pr-search">
+          <span class="pr-search-ico" aria-hidden="true"></span>
+          <input id="prSearch" type="search" placeholder="搜索报告标题 / 领域" aria-label="搜索报告" autocomplete="off">
+          <kbd>Ctrl K</kbd>
+        </div>
+        <div class="pr-side-meta" id="prSideMeta">正在读取索引…</div>
+        <nav class="pr-list" id="prList"></nav>
+      </aside>
+
+      <main class="pr-main">
+        <div id="prStatus" class="pr-status">正在加载知识库索引…</div>
+        <iframe id="prFrame" class="pr-frame" title="media_paper 知识库"></iframe>
+      </main>
     </div>
+
+    <footer class="pr-foot">
+      <span id="prFootInfo">—</span>
+      <span class="pr-foot-sep" aria-hidden="true"></span>
+      <span id="prFootNow">—</span>
+      <span class="pr-foot-spacer"></span>
+      <span>Ctrl K 搜索</span>
+    </footer>
   </div>
-  <div id="prStatus" class="pr-status">正在加载知识库索引…</div>
-  <iframe id="prFrame" class="pr-frame" title="media_paper 知识库"></iframe>
 </div>
 
 <script>
 (function () {
   // media_paper 仓库（raw 支持 CORS，图片等资源按正确类型返回）
   var RAW = 'https://raw.githubusercontent.com/CrescentVelvet/media_paper/main/';
+  var INDEX = 'index.html';
+  var DOMAIN_ORDER = ['3D', 'VideoGen', 'SR', 'CV-AI'];
 
-  var frame   = document.getElementById('prFrame');
-  var status  = document.getElementById('prStatus');
-  var backBtn = document.getElementById('prBack');
+  var shell    = document.getElementById('prShell');
+  var frame    = document.getElementById('prFrame');
+  var statusEl = document.getElementById('prStatus');
+  var crumb    = document.getElementById('prCrumb');
+  var progress = document.getElementById('prProgress');
+  var bar      = document.getElementById('prBar');
+  var listEl   = document.getElementById('prList');
+  var sideMeta = document.getElementById('prSideMeta');
+  var searchEl = document.getElementById('prSearch');
+  var footInfo = document.getElementById('prFootInfo');
+  var footNow  = document.getElementById('prFootNow');
+  var backBtn  = document.getElementById('prBack');
   var reloadBtn = document.getElementById('prReload');
   var openLink  = document.getElementById('prOpen');
+  var drawerBtn = document.getElementById('prDrawer');
 
   // 导航历史：stack 保存上一页，便于"返回索引"
   var stack = [];      // [{ url, html }]
   var current = null;  // { url, html }
+  var reports = [];     // [{ file, domain, date, title, cardTitle }]
+  var activeFile = '';
 
   // 注入 base（让相对图片/资源指向 raw）和点击拦截脚本（站内 .html 跳转交给外层接管）
   var INJECT =
@@ -116,9 +463,157 @@ title: 论文调研
     '}, true);' +
     '<\/script>';
 
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function decodeName(file) {
+    try { return decodeURIComponent(file); } catch (e) { return file; }
+  }
+
+  // 报告文件名规范：<领域>-<YYYYMMDD>-<标题>.html（如 3D-20260810-微动人体三维重建调研.html）
+  // ⚠️ 领域名可能以数字开头（3D），所以首字符类必须含 0-9，否则会整组掉进「其他」
+  function parseFileName(file) {
+    var name = decodeName(file).replace(/^\.\//, '').replace(/\.html?$/i, '');
+    var m = /^([A-Za-z0-9][A-Za-z0-9_-]*?)-(\d{4})(\d{2})(\d{2})-(.+)$/.exec(name);
+    if (m) {
+      return {
+        domain: m[1],
+        date: m[2] + '-' + m[3] + '-' + m[4],
+        title: m[5],
+        cardTitle: ''
+      };
+    }
+    return { domain: '其他', date: '', title: name, cardTitle: '' };
+  }
+
+  // 从索引页 HTML 里收集报告清单（只看站内 .html 链接）
+  function collectReports(text) {
+    var doc;
+    try {
+      doc = new DOMParser().parseFromString(text, 'text/html');
+    } catch (e) {
+      return [];
+    }
+    var as = doc.querySelectorAll('a[href]');
+    var out = [];
+    var seen = {};
+    for (var i = 0; i < as.length; i++) {
+      var href = as[i].getAttribute('href') || '';
+      if (/^[a-z][a-z0-9+.-]*:/i.test(href)) continue;   // 带协议的绝对链接
+      if (href.charAt(0) === '/' || href.charAt(0) === '#') continue;
+      var file = href.split('#')[0];
+      if (!/\.html?$/i.test(file)) continue;
+      file = file.replace(/^\.\//, '');
+      if (file.toLowerCase() === INDEX || seen[file]) continue;
+      seen[file] = 1;
+      var item = parseFileName(file);
+      item.file = file;
+      var card = as[i].closest ? as[i].closest('.note-card') : null;
+      if (card) {
+        var h = card.querySelector('h1, h2, h3, h4, strong');
+        if (h) {
+          var t = (h.textContent || '').replace(/\s+/g, ' ').trim();
+          if (t && t !== item.title) item.cardTitle = t;
+        }
+      }
+      out.push(item);
+    }
+    return out;
+  }
+
+  function domainRank(d) {
+    var i = DOMAIN_ORDER.indexOf(d);
+    return i < 0 ? DOMAIN_ORDER.length : i;
+  }
+
+  function renderList() {
+    var q = (searchEl.value || '').trim().toLowerCase();
+    var hit = reports.filter(function (r) {
+      if (!q) return true;
+      return (r.title + ' ' + r.file + ' ' + r.domain + ' ' + r.date + ' ' + r.cardTitle)
+        .toLowerCase().indexOf(q) >= 0;
+    });
+
+    var groups = [];
+    var byDomain = {};
+    hit.forEach(function (r) {
+      if (!byDomain[r.domain]) {
+        byDomain[r.domain] = [];
+        groups.push(r.domain);
+      }
+      byDomain[r.domain].push(r);
+    });
+    groups.sort(function (a, b) {
+      return domainRank(a) - domainRank(b) || a.localeCompare(b, 'zh');
+    });
+
+    var html = '';
+    groups.forEach(function (g) {
+      var items = byDomain[g];
+      html += '<div class="pr-group"><span>' + esc(g) + '</span><i>' + items.length + '</i></div>';
+      items.forEach(function (r) {
+        var sub = r.date || '—';
+        html +=
+          '<button type="button" class="pr-item' + (r.file === activeFile ? ' is-active' : '') +
+          '" data-file="' + esc(r.file) + '" title="' + esc(r.file) + '">' +
+          '<span class="pr-item-t">' + esc(r.title) + '</span>' +
+          '<span class="pr-item-d">' + esc(sub) + '</span>' +
+          '</button>';
+      });
+    });
+
+    if (!html) {
+      html = '<div class="pr-empty">没有匹配的报告</div>';
+    }
+    listEl.innerHTML = html;
+    sideMeta.textContent = q
+      ? ('命中 ' + hit.length + ' / ' + reports.length + ' 份')
+      : (reports.length + ' 份报告 · ' + groups.length + ' 个领域');
+  }
+
+  function setActiveFromUrl(url) {
+    var file = decodeName(url).replace(RAW, '');
+    activeFile = '';
+    for (var i = 0; i < reports.length; i++) {
+      if (reports[i].file === file) { activeFile = file; break; }
+    }
+    renderList();
+    if (activeFile) {
+      var el = listEl.querySelector('.pr-item.is-active');
+      if (el && el.scrollIntoView) el.scrollIntoView({ block: 'nearest' });
+    }
+  }
+
   function setStatus(text, isError) {
-    status.textContent = text;
-    status.classList.toggle('is-error', !!isError);
+    statusEl.textContent = text || '';
+    statusEl.classList.toggle('is-on', !!text);
+    statusEl.classList.toggle('is-error', !!isError);
+  }
+
+  function progressStart() {
+    progress.classList.remove('is-error');
+    bar.style.transition = 'none';
+    bar.style.opacity = '1';
+    bar.style.width = '0';
+    requestAnimationFrame(function () {
+      bar.style.transition = 'width .55s ease, opacity .3s ease';
+      bar.style.width = '70%';
+    });
+  }
+
+  function progressEnd(isError) {
+    bar.style.width = '100%';
+    if (isError) {
+      progress.classList.add('is-error');
+      return;
+    }
+    setTimeout(function () {
+      bar.style.opacity = '0';
+      setTimeout(function () { bar.style.width = '0'; }, 300);
+    }, 220);
   }
 
   function render(doc) {
@@ -126,49 +621,106 @@ title: 论文调研
     frame.srcdoc = doc.html;
     backBtn.hidden = stack.length === 0;
     openLink.href = 'https://htmlpreview.github.io/?' + doc.url;
+    crumb.textContent = decodeName(doc.url.replace(RAW, '')) || INDEX;
+    footNow.textContent = decodeName(doc.url.replace(RAW, ''));
+    footInfo.textContent = reports.length
+      ? ('共 ' + reports.length + ' 份报告 · 浏览 ' + (stack.length + 1) + ' 页')
+      : ('浏览 ' + (stack.length + 1) + ' 页');
   }
 
   function fetchDoc(url) {
-    setStatus('正在加载：' + url.replace(RAW, ''));
     return fetch(url, { cache: 'no-cache' }).then(function (res) {
       if (!res.ok) throw new Error('HTTP ' + res.status);
       return res.text().then(function (text) {
-        // 在 <head> 后注入 base 与拦截脚本
         var html = /<head[^>]*>/i.test(text)
           ? text.replace(/<head[^>]*>/i, function (m) { return m + INJECT; })
           : INJECT + text;
-        return { url: url, html: html };
+        return { url: url, html: html, text: text };
       });
     });
   }
 
-  function navigate(url, push) {
+  function navigate(url, push, useAsIndex) {
+    setStatus('正在加载：' + decodeName(url.replace(RAW, '')), false);
+    progressStart();
     fetchDoc(url).then(function (doc) {
       if (push && current) stack.push(current);
+      if (useAsIndex) {
+        var found = collectReports(doc.text);
+        if (found.length) {
+          reports = found;
+        } else if (!reports.length) {
+          setStatus('索引页里没有解析到报告条目，左侧目录为空。', true);
+        }
+      }
       render(doc);
-      setStatus('共 ' + (stack.length + 1) + ' 页浏览记录 · 当前：' +
-        decodeURIComponent(url.replace(RAW, '')));
+      setActiveFromUrl(url);
+      setStatus('', false);
+      progressEnd(false);
     }).catch(function (err) {
       setStatus('加载失败（' + err.message + '），请检查网络或点击"刷新"重试。', true);
+      progressEnd(true);
     });
   }
 
   // 接收 iframe 内的站内跳转请求
   window.addEventListener('message', function (e) {
-    if (e.data && e.data.type === 'pr-navigate') navigate(e.data.href, true);
+    if (e.data && e.data.type === 'pr-navigate') navigate(e.data.href, true, false);
+  });
+
+  listEl.addEventListener('click', function (e) {
+    var btn = e.target.closest ? e.target.closest('.pr-item') : null;
+    if (!btn) return;
+    var file = btn.getAttribute('data-file');
+    if (!file) return;
+    navigate(RAW + file, true, false);
+    if (window.matchMedia('(max-width: 900px)').matches) shell.classList.remove('is-side-open');
+  });
+
+  searchEl.addEventListener('input', renderList);
+  searchEl.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') { searchEl.value = ''; renderList(); searchEl.blur(); }
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
+      e.preventDefault();
+      shell.classList.add('is-side-open');
+      searchEl.focus();
+      searchEl.select();
+    }
   });
 
   backBtn.addEventListener('click', function () {
     var prev = stack.pop();
-    if (prev) render(prev);
+    if (prev) {
+      render(prev);
+      setActiveFromUrl(prev.url);
+    }
   });
 
   reloadBtn.addEventListener('click', function () {
     stack = [];
-    navigate(RAW + 'index.html', false);
+    navigate(RAW + INDEX, false, true);
   });
 
-  // 初始加载索引页
-  navigate(RAW + 'index.html', false);
+  drawerBtn.addEventListener('click', function () {
+    shell.classList.toggle('is-side-open');
+  });
+
+  // 按 shell 的文档顶边算高：站点页头高度不是固定值（改动导航/字体就会变），
+  // 写死 calc(100vh - N) 迟早把底部状态栏切掉。用文档坐标，滚动时结果也稳定。
+  function fitShell() {
+    var rect = shell.getBoundingClientRect();
+    var docTop = rect.top + (window.scrollY || window.pageYOffset || 0);
+    shell.style.height = Math.max(420, window.innerHeight - docTop - 18) + 'px';
+  }
+  window.addEventListener('resize', fitShell);
+  window.addEventListener('orientationchange', fitShell);
+  fitShell();
+  requestAnimationFrame(fitShell);
+
+  // 初始加载索引页（同时用它构建左侧目录）
+  navigate(RAW + INDEX, false, true);
 })();
 </script>
