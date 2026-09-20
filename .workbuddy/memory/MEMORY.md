@@ -51,5 +51,8 @@
 - ⚠️ `main.min.js` greedy-nav：`#site-nav` 缺席 ⇒ 每次加载必栈溢出。做法：保留节点，`height:0;overflow:hidden` 折叠页头。
 
 ## 子页：论文调研（_pages/paper_retrieval.html）
-- iframe 壳：往 `srcdoc` 注入 `<base href=raw...>` + 站内 `.html` 链接拦截（`postMessage` 交外层 navigate），外层维护 history `stack` 支持「返回索引」；源 = `raw.githubusercontent.com/CrescentVelvet/media_paper/main/`。
-- 关联仓库 `media_paper`：`papers.json` 有 `topics` 数组（14 个主题，字段含 `name`）；**是否另含报告清单/文件路径未确认**（WebFetch 返回被截断，本机 node fetch 网络不通）。若要做侧栏目录需先落实这个数据源。
+- **深色阅读器**：token 抄 media_paper **报告页**的 `:root`（`#0f1419`/`#1a2029`/`#2d3748`/`#60a5fa`/`#e6edf3`），**不是**站点暖纸体系（索引页本身反而是浅色 iOS 风）。改色对着报告页 `:root` 改、两处同值。
+- 结构：HUD（面包屑 + 返回/刷新/新窗口）+ 左栏 240px（搜索 + 固定「总索引」条目 + 领域分组列表，窄屏抽屉）+ iframe + 底部状态栏；`fitShell()` 按文档顶边算高，**别写死 `calc(100vh - N)`**（实测会被切 24px）。
+- **目录数据源 = 解析索引页里的站内 `.html` 链接**（不用 `papers.json`——它是单页配置不是全库清单）。领域/日期/标题全从文件名 `<领域>-<YYYYMMDD>-<标题>.html` 解析，**领域名可能以数字开头（3D）**。默认落点 = 文件名日期最大者；索引页只是侧栏一个条目。
+- ⚠️ 本页**不引入** `diary-tools.css`（其 body 规则会连站点页头字体一起改）⇒ 必须自己声明 `box-sizing: border-box`，否则 1px 边框叠在宽度外（侧栏实测变 241px）。
+- ⚠️ **`raw.githubusercontent.com` / `cdn.jsdelivr.net` 在本机时常超时**（`api.github.com` 通），真实链路验证不可靠 ⇒ 回归走 `.workbuddy/tmp/dev/verify_mock.js`（离线 mock，30 断言；`verify_dark.js` 是联网版，网络差时会输出大面积假失败）。

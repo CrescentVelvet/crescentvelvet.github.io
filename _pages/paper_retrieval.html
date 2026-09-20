@@ -6,29 +6,40 @@ title: 论文调研
 
 <style>
   /* ── 设计 token ─────────────────────────────────────────────────────
-     与 assets/css/diary-tools.css 的 :root 严格同值（暖纸基调）。
-     ⚠️ 这里没有 <link> 那份共享样式，是因为它的 body 规则会连站点页头
-     一起改掉字体；改色时请两处同步，不要只改一边。 */
+     取自 media_paper 报告页自身的 :root（ArtiFixer / Lyra 那套 GitHub-dark），
+     目的是让外壳与 iframe 里的正文几乎无缝：同一套 bg / panel / border / accent。
+     ⚠️ 这与站点其他页面的暖纸体系（assets/css/diary-tools.css）是两套颜色。
+     本页是"深色阅读器"性质，**不要**为了跟站点一致而改回暖纸；
+     若要改，请对着 media_paper 报告页的 :root 改，保持两边同值。 */
   .pr-wrap {
-    --bg:            #f7f4ee;
-    --panel-solid:   #fffdf9;
-    --text:          #2f2a28;
-    --muted:         #877d78;
-    --accent:        #b86944;
-    --accent-hover:  #965236;
-    --accent-soft:   rgba(184, 105, 68, 0.16);
-    --border:        rgba(126, 93, 73, 0.16);
-    --region:        rgba(126, 93, 73, 0.07);
-    --warn:          #b23f36;
-    --radius:        20px;
-    --radius-md:     14px;
-    --radius-sm:     12px;
+    --bg:            #0f1419;
+    --panel:         #1a2029;
+    --panel-2:       #222a36;
+    --code-bg:       #0d1117;
+    --text:          #e6edf3;
+    --dim:           #9aa4b2;
+    --faint:         #6b7688;
+    --border:        #2d3748;
+    --border-strong: #3d4a5c;
+    --accent:        #60a5fa;
+    --accent-2:      #a78bfa;
+    --accent-soft:   rgba(96, 165, 250, 0.14);
+    --region:        rgba(255, 255, 255, 0.035);
+    --warn:          #f87171;
+    --ok:            #34d399;
+    --radius:        16px;
+    --radius-md:     12px;
+    --radius-sm:     8px;
 
     max-width: 1280px;
     margin: 0 auto;
     padding: 14px 16px 20px;
     color: var(--text);
   }
+
+  /* 本页不引入 diary-tools.css，box-sizing 得自己声明。
+     缺了它 .pr-side 的 1px border-right 会叠在 240px 之外（实测 241px）。 */
+  .pr-wrap, .pr-wrap * { box-sizing: border-box; }
 
   /* ── 外壳 ─────────────────────────────────────────────────────────── */
   .pr-shell {
@@ -39,13 +50,13 @@ title: 论文调研
     height: calc(100vh - 196px);
     min-height: 560px;
     overflow: hidden;
-    background: var(--panel-solid);
+    background: var(--panel);
     border: 1px solid var(--border);
     border-radius: var(--radius);
-    box-shadow: 0 18px 56px rgba(88, 61, 41, 0.13);
+    box-shadow: 0 18px 56px rgba(0, 0, 0, 0.38);
   }
 
-  .pr-progress { flex: 0 0 3px; background: rgba(126, 93, 73, 0.10); }
+  .pr-progress { flex: 0 0 3px; background: rgba(255, 255, 255, 0.05); }
   .pr-progress i {
     display: block;
     width: 0;
@@ -64,7 +75,7 @@ title: 论文调研
     gap: 9px;
     padding: 9px 12px;
     border-bottom: 1px solid var(--border);
-    background: var(--panel-solid);
+    background: var(--panel);
   }
   .pr-mark {
     position: relative;
@@ -72,8 +83,8 @@ title: 论文调研
     width: 18px;
     height: 18px;
     border-radius: 5px;
-    background: var(--accent-soft);
-    border: 1px solid rgba(184, 105, 68, 0.45);
+    background: rgba(96, 165, 250, 0.16);
+    border: 1px solid rgba(96, 165, 250, 0.45);
   }
   .pr-mark::before {
     content: '';
@@ -89,14 +100,14 @@ title: 论文调研
     gap: 5px;
     min-width: 0;
     font-size: 11.5px;
-    color: var(--muted);
+    color: var(--faint);
   }
-  .pr-crumb b { color: #a2988f; font-weight: 400; }
+  .pr-crumb b { color: var(--faint); font-weight: 400; }
   .pr-crumb span:last-child {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    color: #6f665f;
+    color: var(--dim);
   }
   .pr-hud-spacer { flex: 1 1 auto; min-width: 0; }
 
@@ -108,7 +119,7 @@ title: 论文调研
     font-weight: 600;
     line-height: 1.5;
     color: var(--accent);
-    background: #fff;
+    background: var(--panel-2);
     border: 1px solid var(--border);
     border-radius: 999px;
     cursor: pointer;
@@ -116,7 +127,7 @@ title: 论文调研
     transition: background .18s ease, color .18s ease, border-color .18s ease;
   }
   .pr-btn:hover {
-    color: #fff;
+    color: var(--bg);
     background: var(--accent);
     border-color: var(--accent);
   }
@@ -131,7 +142,7 @@ title: 论文调研
     font-size: 15px;
     line-height: 1;
     color: var(--accent);
-    background: #fff;
+    background: var(--panel-2);
     border: 1px solid var(--border);
     border-radius: 999px;
     cursor: pointer;
@@ -163,18 +174,18 @@ title: 论文调研
     flex: 0 0 auto;
     margin: 10px 10px 6px;
     padding: 6px 9px;
-    background: var(--panel-solid);
+    background: var(--panel-2);
     border: 1px solid var(--border);
     border-radius: 999px;
   }
-  .pr-search:focus-within { border-color: rgba(184, 105, 68, 0.5); }
+  .pr-search:focus-within { border-color: rgba(96, 165, 250, 0.55); }
   .pr-search-ico {
+    position: relative;
     flex: 0 0 auto;
     width: 10px;
     height: 10px;
-    border: 1.5px solid var(--muted);
+    border: 1.5px solid var(--faint);
     border-radius: 50%;
-    position: relative;
   }
   .pr-search-ico::after {
     content: '';
@@ -183,7 +194,7 @@ title: 论文调研
     bottom: -3px;
     width: 5px;
     height: 1.5px;
-    background: var(--muted);
+    background: var(--faint);
     transform: rotate(45deg);
   }
   .pr-search input {
@@ -199,23 +210,31 @@ title: 论文调研
     -webkit-appearance: none;
     appearance: none;
   }
-  .pr-search input::placeholder { color: #b3a9a1; }
+  .pr-search input::placeholder { color: var(--faint); }
   .pr-search input::-webkit-search-cancel-button { -webkit-appearance: none; }
   .pr-search kbd {
     flex: 0 0 auto;
     padding: 1px 5px;
     font: inherit;
     font-size: 10.5px;
-    color: #b3a9a1;
+    color: var(--faint);
     background: var(--region);
     border-radius: 5px;
+  }
+
+  /* 总索引：从默认落点降级的普通条目，固定在列表之上、不随列表滚动 */
+  .pr-index-row {
+    flex: 0 0 auto;
+    margin: 0 10px 8px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
   }
 
   .pr-side-meta {
     flex: 0 0 auto;
     padding: 0 13px 7px;
     font-size: 11px;
-    color: var(--muted);
+    color: var(--faint);
   }
 
   .pr-list {
@@ -227,7 +246,7 @@ title: 论文调研
   }
   .pr-list::-webkit-scrollbar { width: 8px; }
   .pr-list::-webkit-scrollbar-thumb {
-    background: rgba(126, 93, 73, 0.22);
+    background: rgba(255, 255, 255, 0.14);
     border: 2px solid transparent;
     border-radius: 999px;
     background-clip: content-box;
@@ -246,7 +265,7 @@ title: 论文调研
   .pr-group i {
     font-style: normal;
     font-weight: 600;
-    color: #b3a9a1;
+    color: var(--faint);
   }
 
   .pr-item {
@@ -258,11 +277,11 @@ title: 论文调研
     background: transparent;
     border: 0;
     border-left: 2px solid transparent;
-    border-radius: 0 8px 8px 0;
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
     cursor: pointer;
     transition: background .15s ease;
   }
-  .pr-item:hover { background: rgba(184, 105, 68, 0.07); }
+  .pr-item:hover { background: rgba(255, 255, 255, 0.05); }
   .pr-item.is-active {
     background: var(--accent-soft);
     border-left-color: var(--accent);
@@ -272,18 +291,18 @@ title: 论文调研
     font-size: 12.5px;
     font-weight: 600;
     line-height: 1.45;
-    color: #3b3532;
+    color: var(--text);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .pr-item.is-active .pr-item-t { color: var(--accent-hover); }
+  .pr-item.is-active .pr-item-t { color: var(--accent); }
   .pr-item-d {
     display: block;
     margin-top: 1px;
     font-size: 10.5px;
     line-height: 1.4;
-    color: #a89e96;
+    color: var(--faint);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -291,7 +310,7 @@ title: 论文调研
   .pr-empty {
     padding: 16px 10px;
     font-size: 12px;
-    color: var(--muted);
+    color: var(--dim);
     text-align: center;
   }
 
@@ -302,21 +321,21 @@ title: 论文调研
     flex-direction: column;
     min-width: 0;
     min-height: 0;
-    background: #fff;
+    background: var(--code-bg);
   }
   .pr-status {
     display: none;
     flex: 0 0 auto;
     padding: 7px 13px;
     font-size: 12px;
-    color: var(--muted);
+    color: var(--dim);
     background: var(--region);
     border-bottom: 1px solid var(--border);
   }
   .pr-status.is-on { display: block; }
   .pr-status.is-error {
     color: var(--warn);
-    background: rgba(178, 63, 54, 0.08);
+    background: rgba(248, 113, 113, 0.10);
   }
   .pr-frame {
     display: block;
@@ -324,7 +343,7 @@ title: 论文调研
     width: 100%;
     min-height: 0;
     border: 0;
-    background: #fff;
+    background: var(--code-bg);
   }
 
   /* ── 底部状态栏 ───────────────────────────────────────────────────── */
@@ -335,13 +354,13 @@ title: 论文调研
     flex: 0 0 auto;
     padding: 6px 13px;
     font-size: 11.5px;
-    color: var(--muted);
-    background: var(--panel-solid);
+    color: var(--faint);
+    background: var(--panel);
     border-top: 1px solid var(--border);
   }
-  .pr-foot-sep { width: 1px; height: 11px; background: rgba(126, 93, 73, 0.22); }
+  .pr-foot-sep { width: 1px; height: 11px; background: var(--border-strong); }
   .pr-foot-spacer { flex: 1 1 auto; }
-  .pr-foot b { font-weight: 600; color: #6f665f; }
+  .pr-foot b { font-weight: 600; color: var(--dim); }
 
   /* ── 响应式 ───────────────────────────────────────────────────────── */
   @media (max-width: 900px) {
@@ -356,7 +375,7 @@ title: 论文调研
       bottom: 0;
       left: 0;
       z-index: 20;
-      box-shadow: 12px 0 40px rgba(88, 61, 41, 0.18);
+      box-shadow: 12px 0 40px rgba(0, 0, 0, 0.5);
       /* ⚠️ 只写 -100%/-102% 会把侧栏推到自己容器的左侧，而容器本身还有
          内边距，右沿仍会露出几个像素；必须多推一段 */
       transform: translateX(calc(-100% - 24px));
@@ -383,10 +402,10 @@ title: 论文调研
       <span class="pr-crumb">
         <b>media_paper</b>
         <span aria-hidden="true">/</span>
-        <span id="prCrumb">index.html</span>
+        <span id="prCrumb">—</span>
       </span>
       <span class="pr-hud-spacer"></span>
-      <button id="prBack" class="pr-btn" type="button" hidden>返回索引</button>
+      <button id="prBack" class="pr-btn" type="button" hidden>返回</button>
       <button id="prReload" class="pr-btn" type="button">刷新</button>
       <a id="prOpen" class="pr-btn" target="_blank" rel="noopener">新窗口</a>
     </header>
@@ -398,6 +417,14 @@ title: 论文调研
           <input id="prSearch" type="search" placeholder="搜索报告标题 / 领域" aria-label="搜索报告" autocomplete="off">
           <kbd>Ctrl K</kbd>
         </div>
+
+        <div class="pr-index-row">
+          <button id="prIndexBtn" class="pr-item pr-item--index" type="button">
+            <span class="pr-item-t">总索引</span>
+            <span class="pr-item-d">media_paper 全库索引页</span>
+          </button>
+        </div>
+
         <div class="pr-side-meta" id="prSideMeta">正在读取索引…</div>
         <nav class="pr-list" id="prList"></nav>
       </aside>
@@ -440,8 +467,9 @@ title: 论文调研
   var reloadBtn = document.getElementById('prReload');
   var openLink  = document.getElementById('prOpen');
   var drawerBtn = document.getElementById('prDrawer');
+  var indexBtn  = document.getElementById('prIndexBtn');
 
-  // 导航历史：stack 保存上一页，便于"返回索引"
+  // 导航历史：stack 保存上一页，便于"返回"
   var stack = [];      // [{ url, html }]
   var current = null;  // { url, html }
   var reports = [];     // [{ file, domain, date, title, cardTitle }]
@@ -490,6 +518,7 @@ title: 论文调研
   }
 
   // 从索引页 HTML 里收集报告清单（只看站内 .html 链接）
+  // 索引页自身不进清单——它已降级为侧栏顶部的固定条目
   function collectReports(text) {
     var doc;
     try {
@@ -555,12 +584,11 @@ title: 论文调研
       var items = byDomain[g];
       html += '<div class="pr-group"><span>' + esc(g) + '</span><i>' + items.length + '</i></div>';
       items.forEach(function (r) {
-        var sub = r.date || '—';
         html +=
           '<button type="button" class="pr-item' + (r.file === activeFile ? ' is-active' : '') +
           '" data-file="' + esc(r.file) + '" title="' + esc(r.file) + '">' +
           '<span class="pr-item-t">' + esc(r.title) + '</span>' +
-          '<span class="pr-item-d">' + esc(sub) + '</span>' +
+          '<span class="pr-item-d">' + esc(r.date || '—') + '</span>' +
           '</button>';
       });
     });
@@ -580,6 +608,7 @@ title: 论文调研
     for (var i = 0; i < reports.length; i++) {
       if (reports[i].file === file) { activeFile = file; break; }
     }
+    indexBtn.classList.toggle('is-active', file === INDEX);
     renderList();
     if (activeFile) {
       var el = listEl.querySelector('.pr-item.is-active');
@@ -640,19 +669,11 @@ title: 论文调研
     });
   }
 
-  function navigate(url, push, useAsIndex) {
+  function navigate(url, push) {
     setStatus('正在加载：' + decodeName(url.replace(RAW, '')), false);
     progressStart();
     fetchDoc(url).then(function (doc) {
       if (push && current) stack.push(current);
-      if (useAsIndex) {
-        var found = collectReports(doc.text);
-        if (found.length) {
-          reports = found;
-        } else if (!reports.length) {
-          setStatus('索引页里没有解析到报告条目，左侧目录为空。', true);
-        }
-      }
       render(doc);
       setActiveFromUrl(url);
       setStatus('', false);
@@ -663,9 +684,41 @@ title: 论文调研
     });
   }
 
+  // 只读索引页、更新目录，不改变当前阅读页
+  function loadIndex() {
+    return fetchDoc(RAW + INDEX).then(function (doc) {
+      var found = collectReports(doc.text);
+      if (found.length) reports = found;
+      return reports;
+    });
+  }
+
+  // 默认落点：全库日期最新的那份报告（索引页已降级，不再作为首页）
+  function pickDefault() {
+    var best = '', bestDate = '';
+    for (var i = 0; i < reports.length; i++) {
+      var r = reports[i];
+      if (r.date && r.date > bestDate) { bestDate = r.date; best = r.file; }
+    }
+    if (best) return best;
+    return (reports[0] && reports[0].file) || INDEX;
+  }
+
+  function boot() {
+    setStatus('正在读取索引…', false);
+    progressStart();
+    loadIndex().then(function () {
+      renderList();
+      navigate(RAW + pickDefault(), false);
+    }).catch(function (err) {
+      setStatus('索引读取失败（' + err.message + '），可点左侧「总索引」重试。', true);
+      progressEnd(true);
+    });
+  }
+
   // 接收 iframe 内的站内跳转请求
   window.addEventListener('message', function (e) {
-    if (e.data && e.data.type === 'pr-navigate') navigate(e.data.href, true, false);
+    if (e.data && e.data.type === 'pr-navigate') navigate(e.data.href, true);
   });
 
   listEl.addEventListener('click', function (e) {
@@ -673,7 +726,12 @@ title: 论文调研
     if (!btn) return;
     var file = btn.getAttribute('data-file');
     if (!file) return;
-    navigate(RAW + file, true, false);
+    navigate(RAW + file, true);
+    if (window.matchMedia('(max-width: 900px)').matches) shell.classList.remove('is-side-open');
+  });
+
+  indexBtn.addEventListener('click', function () {
+    navigate(RAW + INDEX, true);
     if (window.matchMedia('(max-width: 900px)').matches) shell.classList.remove('is-side-open');
   });
 
@@ -699,9 +757,19 @@ title: 论文调研
     }
   });
 
+  // 刷新 = 重读目录 + 重载当前页（不把用户踢回默认落点）
   reloadBtn.addEventListener('click', function () {
+    var url = current ? current.url : null;
     stack = [];
-    navigate(RAW + INDEX, false, true);
+    setStatus('正在刷新…', false);
+    progressStart();
+    loadIndex().then(function () {
+      renderList();
+      navigate(url || (RAW + pickDefault()), false);
+    }).catch(function (err) {
+      setStatus('刷新失败（' + err.message + '）', true);
+      progressEnd(true);
+    });
   });
 
   drawerBtn.addEventListener('click', function () {
@@ -720,7 +788,7 @@ title: 论文调研
   fitShell();
   requestAnimationFrame(fitShell);
 
-  // 初始加载索引页（同时用它构建左侧目录）
-  navigate(RAW + INDEX, false, true);
+  // 先读目录，再落到默认报告（索引页只是侧栏里的一个条目）
+  boot();
 })();
 </script>
