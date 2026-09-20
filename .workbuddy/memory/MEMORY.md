@@ -55,4 +55,5 @@
 - 结构：HUD（面包屑 + 返回/刷新/新窗口）+ 左栏 240px（搜索 + 固定「总索引」条目 + 领域分组列表，窄屏抽屉）+ iframe + 底部状态栏；`fitShell()` 按文档顶边算高，**别写死 `calc(100vh - N)`**（实测会被切 24px）。
 - **目录数据源 = 解析索引页里的站内 `.html` 链接**（不用 `papers.json`——它是单页配置不是全库清单）。领域/日期/标题全从文件名 `<领域>-<YYYYMMDD>-<标题>.html` 解析，**领域名可能以数字开头（3D）**。默认落点 = 文件名日期最大者；索引页只是侧栏一个条目。
 - ⚠️ 本页**不引入** `diary-tools.css`（其 body 规则会连站点页头字体一起改）⇒ 必须自己声明 `box-sizing: border-box`，否则 1px 边框叠在宽度外（侧栏实测变 241px）。
-- ⚠️ **`raw.githubusercontent.com` / `cdn.jsdelivr.net` 在本机时常超时**（`api.github.com` 通），真实链路验证不可靠 ⇒ 回归走 `.workbuddy/tmp/dev/verify_mock.js`（离线 mock，30 断言；`verify_dark.js` 是联网版，网络差时会输出大面积假失败）。
+- **镜像回退**：`MIRRORS = [raw, jsdelivr]` 依次试，单次 **8s 超时**（raw 挂掉是「连接挂起」不是快速失败），成功者记 `localStorage['pr-mirror-idx']`；**base href 必须随实际镜像注入**，否则正文里的相对图片会去挂掉的那条链路取。**内部一律用解码后的相对路径 `file`**，URL 只在 fetch 时 `encodeURI(file)` 拼；iframe 传来的 `a.href` 用 `toFile()` 剥镜像前缀。
+- ⚠️ raw / jsdelivr 在本机时常超时（`api.github.com` 通），真实链路验证不可靠 ⇒ 回归走 `.workbuddy/tmp/dev/verify_mock.js`（离线 mock，双镜像含「首选挂起」实测，33 断言）。

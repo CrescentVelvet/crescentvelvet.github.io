@@ -447,8 +447,24 @@ title: 论文调研
 
 <script>
 (function () {
-  // media_paper 仓库（raw 支持 CORS，图片等资源按正确类型返回）
-  var RAW = 'https://raw.githubusercontent.com/CrescentVelvet/media_paper/main/';
+  // media_paper 镜像。raw 在国内会整段超时（实测与 cdn.jsdelivr 可能同时挂），
+  // 所以按顺序回退；首个成功的镜像记进 localStorage，下次直接用，省掉等待。
+  // 两者都支持 CORS，也都按正确 Content-Type 返回图片等资源。
+  var MIRRORS = [
+    'https://raw.githubusercontent.com/CrescentVelvet/media_paper/main/',
+    'https://cdn.jsdelivr.net/gh/CrescentVelvet/media_paper@main/'
+  ];
+  var MIRROR_NAMES = ['raw', 'jsdelivr'];
+  var MIRROR_KEY = 'pr-mirror-idx';
+  // 单次尝试上限。raw 挂掉时是「连接挂起」而不是快速失败，
+  // 不设它就等于让用户等浏览器默认的几十秒。
+  var MIRROR_TIMEOUT = 8000;
+  var mirrorIdx = 0;
+  try {
+    var savedIdx = parseInt(window.localStorage.getItem(MIRROR_KEY), 10);
+    if (savedIdx >= 0 && savedIdx < MIRRORS.length) mirrorIdx = savedIdx;
+  } catch (e) { /* 隐私模式/禁用存储时会抛错，退回默认镜像即可 */ }
+
   var INDEX = 'index.html';
   var DOMAIN_ORDER = ['3D', 'VideoGen', 'SR', 'CV-AI'];
 
@@ -475,9 +491,10 @@ title: 论文调研
   var reports = [];     // [{ file, domain, date, title, cardTitle }]
   var activeFile = '';
 
-  // 注入 base（让相对图片/资源指向 raw）和点击拦截脚本（站内 .html 跳转交给外层接管）
-  var INJECT =
-    '<base href="' + RAW + '">' +
+  // 点击拦截脚本：站内 .html 跳转交给外层接管。
+  // base href 不能写死 —— 它必须指向**本次真正取到这份文档的那个镜像**，
+  // 否则正文里的相对图片会去另一个（可能正挂着的）镜像取。
+  var INTERCEPT =
     '<script>' +
     'document.addEventListener("click", function (e) {' +
     '  var a = e.target.closest && e.target.closest("a[href]");' +
@@ -490,6 +507,13 @@ title: 论文调研
     '  }' +
     '}, true);' +
     '<\/script>';
+
+  function injectInto(text, base) {
+    var inject = '<base href="' + base + '">' + INTERCEPT;
+    return /<head[^>]*>/i.test(text)
+      ? text.replace(/<head[^>]*>/i, function (m) { return m + inject; })
+      : inject + text;
+  }
 
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -535,7 +559,7 @@ title: 论文调研
       if (href.charAt(0) === '/' || href.charAt(0) === '#') continue;
       var file = href.split('#')[0];
       if (!/\.html?$/i.test(file)) continue;
-      file = file.replace(/^\.\//, '');
+      file = decodeName(file.replace(/^\.\//, ''));   // 统一存解码后的相对路径
       if (file.toLowerCase() === INDEX || seen[file]) continue;
       seen[file] = 1;
       var item = parseFileName(file);
@@ -602,8 +626,7 @@ title: 论文调研
       : (reports.length + ' 份报告 · ' + groups.length + ' 个领域');
   }
 
-  function setActiveFromUrl(url) {
-    var file = decodeName(url).replace(RAW, '');
+  function setActive(file) {
     activeFile = '';
     for (var i = 0; i < reports.length; i++) {
       if (reports[i].file === file) { activeFile = file; break; }
@@ -650,33 +673,92 @@ title: 论文调研
     frame.srcdoc = doc.html;
     backBtn.hidden = stack.length === 0;
     openLink.href = 'https://htmlpreview.github.io/?' + doc.url;
-    crumb.textContent = decodeName(doc.url.replace(RAW, '')) || INDEX;
-    footNow.textContent = decodeName(doc.url.replace(RAW, ''));
-    footInfo.textContent = reports.length
+    crumb.textContent = doc.file || INDEX;
+    footNow.textContent = doc.file || INDEX;
+    var base = reports.length
       ? ('共 ' + reports.length + ' 份报告 · 浏览 ' + (stack.length + 1) + ' 页')
       : ('浏览 ' + (stack.length + 1) + ' 页');
+    // 非首选镜像时常驻显示，让用户一眼看出"现在其实走的是备用线路"
+    footInfo.textContent = base + (mirrorIdx === 0 ? '' : (' · ' + MIRROR_NAMES[mirrorIdx] + ' 镜像'));
   }
 
-  function fetchDoc(url) {
-    return fetch(url, { cache: 'no-cache' }).then(function (res) {
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      return res.text().then(function (text) {
-        var html = /<head[^>]*>/i.test(text)
-          ? text.replace(/<head[^>]*>/i, function (m) { return m + INJECT; })
-          : INJECT + text;
-        return { url: url, html: html, text: text };
-      });
+  function withTimeout(url, ms) {
+    var ctrl = window.AbortController ? new AbortController() : null;
+    var timer = setTimeout(function () { if (ctrl) ctrl.abort(); }, ms);
+    var opt = { cache: 'no-cache' };
+    if (ctrl) opt.signal = ctrl.signal;
+    return fetch(url, opt).then(function (res) {
+      clearTimeout(timer);
+      return res;
+    }, function (err) {
+      clearTimeout(timer);
+      throw err;
     });
   }
 
-  function navigate(url, push) {
-    setStatus('正在加载：' + decodeName(url.replace(RAW, '')), false);
+  // 当前镜像优先（上一次成功过的那个），其余按序回退
+  function mirrorOrder() {
+    var o = [mirrorIdx];
+    for (var i = 0; i < MIRRORS.length; i++) {
+      if (i !== mirrorIdx) o.push(i);
+    }
+    return o;
+  }
+
+  function tryMirror(file, order, k) {
+    if (k >= order.length) {
+      return Promise.reject(new Error('所有镜像均不可用（' + MIRROR_NAMES.join(' / ') + '）'));
+    }
+    var idx = order[k];
+    var base = MIRRORS[idx];
+    var url = base + encodeURI(file);
+    return withTimeout(url, MIRROR_TIMEOUT).then(function (res) {
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res.text().then(function (text) {
+        var switched = (idx !== mirrorIdx);
+        if (switched) {
+          mirrorIdx = idx;
+          try { window.localStorage.setItem(MIRROR_KEY, String(idx)); } catch (e) {}
+          setStatus('首选镜像不可用，已切到 ' + MIRROR_NAMES[idx] + ' 镜像。', false);
+          setTimeout(function () {
+            if (statusEl.textContent.indexOf('已切到') >= 0) setStatus('', false);
+          }, 5000);
+        }
+        return {
+          file: file, url: url, base: base,
+          html: injectInto(text, base), text: text, switched: switched
+        };
+      });
+    }).catch(function () {
+      return tryMirror(file, order, k + 1);
+    });
+  }
+
+  function fetchDoc(file) {
+    return tryMirror(file, mirrorOrder(), 0);
+  }
+
+  // iframe 里的 a.href 是**基于 base 的绝对 URL**（且可能来自上一次使用的镜像），
+  // 要剥掉任一镜像前缀才回到相对路径。
+  function toFile(href) {
+    var u = String(href || '');
+    for (var i = 0; i < MIRRORS.length; i++) {
+      if (u.indexOf(MIRRORS[i]) === 0) {
+        return decodeName(u.slice(MIRRORS[i].length).split('#')[0].split('?')[0]);
+      }
+    }
+    var tail = u.split('#')[0].split('?')[0].split('/').pop() || INDEX;
+    return decodeName(tail);
+  }
+
+  function navigate(file, push) {
+    setStatus('正在加载：' + file, false);
     progressStart();
-    fetchDoc(url).then(function (doc) {
+    fetchDoc(file).then(function (doc) {
       if (push && current) stack.push(current);
       render(doc);
-      setActiveFromUrl(url);
-      setStatus('', false);
+      setActive(doc.file);
+      if (!doc.switched) setStatus('', false);   // 切过镜像时保留那句提示
       progressEnd(false);
     }).catch(function (err) {
       setStatus('加载失败（' + err.message + '），请检查网络或点击"刷新"重试。', true);
@@ -686,7 +768,7 @@ title: 论文调研
 
   // 只读索引页、更新目录，不改变当前阅读页
   function loadIndex() {
-    return fetchDoc(RAW + INDEX).then(function (doc) {
+    return fetchDoc(INDEX).then(function (doc) {
       var found = collectReports(doc.text);
       if (found.length) reports = found;
       return reports;
@@ -709,7 +791,7 @@ title: 论文调研
     progressStart();
     loadIndex().then(function () {
       renderList();
-      navigate(RAW + pickDefault(), false);
+      navigate(pickDefault(), false);
     }).catch(function (err) {
       setStatus('索引读取失败（' + err.message + '），可点左侧「总索引」重试。', true);
       progressEnd(true);
@@ -718,7 +800,7 @@ title: 论文调研
 
   // 接收 iframe 内的站内跳转请求
   window.addEventListener('message', function (e) {
-    if (e.data && e.data.type === 'pr-navigate') navigate(e.data.href, true);
+    if (e.data && e.data.type === 'pr-navigate') navigate(toFile(e.data.href), true);
   });
 
   listEl.addEventListener('click', function (e) {
@@ -726,12 +808,12 @@ title: 论文调研
     if (!btn) return;
     var file = btn.getAttribute('data-file');
     if (!file) return;
-    navigate(RAW + file, true);
+    navigate(file, true);
     if (window.matchMedia('(max-width: 900px)').matches) shell.classList.remove('is-side-open');
   });
 
   indexBtn.addEventListener('click', function () {
-    navigate(RAW + INDEX, true);
+    navigate(INDEX, true);
     if (window.matchMedia('(max-width: 900px)').matches) shell.classList.remove('is-side-open');
   });
 
@@ -753,19 +835,19 @@ title: 论文调研
     var prev = stack.pop();
     if (prev) {
       render(prev);
-      setActiveFromUrl(prev.url);
+      setActive(prev.file);
     }
   });
 
   // 刷新 = 重读目录 + 重载当前页（不把用户踢回默认落点）
   reloadBtn.addEventListener('click', function () {
-    var url = current ? current.url : null;
+    var file = current ? current.file : null;
     stack = [];
     setStatus('正在刷新…', false);
     progressStart();
     loadIndex().then(function () {
       renderList();
-      navigate(url || (RAW + pickDefault()), false);
+      navigate(file || pickDefault(), false);
     }).catch(function (err) {
       setStatus('刷新失败（' + err.message + '）', true);
       progressEnd(true);
