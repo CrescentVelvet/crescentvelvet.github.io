@@ -20,6 +20,7 @@ title: "待办清单"
             --todo: #64748b;
             --doing: #ea580c;
             --done: #16a34a;
+            --dropped: #94a3b8;
         }
         * { box-sizing: border-box; }
         html, body { height: 100%; }
@@ -99,6 +100,18 @@ title: "待办清单"
         .bubble.parent:hover, .bubble.root:hover { stroke: #ffffff; stroke-width: 2.5; }
         .node.collapsed > .bubble { stroke: #d1d5db; stroke-dasharray: 3 3; }
         .node.leaf.done .lbl { text-decoration: line-through; opacity: .55; }
+        /* 已放弃：空心虚线轮廓 + 深灰文字。用「形状」而非仅色相与「已完成」的实心绿区分，
+           避免缩小时只剩色相差（对色觉障碍也不友好）。 */
+        .node.leaf.dropped > .bubble {
+            fill: #ffffff;
+            stroke: var(--dropped);
+            stroke-width: 1.6;
+            stroke-dasharray: 4 3;
+        }
+        .node.leaf.dropped .lbl {
+            fill: #6b7280;
+            text-decoration: line-through;
+        }
 
         /* labels */
         .lbl {
@@ -134,6 +147,7 @@ title: "待办清单"
         .legend .i-todo { background: var(--todo); }
         .legend .i-doing { background: var(--doing); }
         .legend .i-done { background: var(--done); }
+        .legend .i-dropped { background: transparent; border: 1.5px dashed var(--dropped); }
         .legend .hint { margin-left: auto; }
 
         /* selected node + editor */
@@ -260,6 +274,7 @@ title: "待办清单"
                 <span><i class="i-todo"></i>待办</span>
                 <span><i class="i-doing"></i>进行中</span>
                 <span><i class="i-done"></i>已完成</span>
+                <span><i class="i-dropped"></i>已放弃</span>
             </div>
             <div class="notice" id="notice" style="display:none">
                 <p id="noticeMsg"><strong>⚠️ 明文模式</strong>：数据以明文 <code>todo_list.json</code> 存放，公网可直接读取，建议尽快加密迁移。</p>
@@ -286,6 +301,7 @@ title: "待办清单"
                         <option value="todo">待办</option>
                         <option value="doing">进行中</option>
                         <option value="done">已完成</option>
+                        <option value="dropped">已放弃</option>
                     </select>
                 </div>
                 <div class="ed-row">
@@ -318,7 +334,7 @@ title: "待办清单"
         // 待办数据优先取密文 /assets/data/todo_list.enc，缺失时回退明文 todo_list.json
         var tasks = [];
 
-        var STATUS = { todo: "#64748b", doing: "#ea580c", done: "#16a34a" };
+        var STATUS = { todo: "#64748b", doing: "#ea580c", done: "#16a34a", dropped: "#94a3b8" };
 
         // 父节点颜色：按到根的距离在 蓝→紫 间渐变（depth 越深越偏紫）
         function lerpHex(c1, c2, t) {

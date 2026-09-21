@@ -44,6 +44,7 @@
 - 验证脚本在 `.workbuddy/tmp/unify/`（`verify.js` / `verify_hl.js` / `verify_body.js`）：CDP 静态服务 root = 仓库根 + `_pages/` 兜底 + 剥 front matter；`captureScreenshot` 的 `clip.scale` 必须为 1。
 
 ## 待办清单（_pages/todo_list.html）
+- **四态**：`todo` / `doing` / `done` / `dropped`（已放弃，**仅叶子、可逆**，下拉与图例各 4 项）。dropped 用**空心虚线**而非色相与 done 区分 —— 红 vs 绿对红绿色盲不友好，紫会撞父节点渐变紫端。**父节点仍无状态**（父子联动未定义，属未做）。
 - 数据加密复用 `assets/js/diary-crypto.js` + 日志同一个 `assets/data/key.envelope`（只记一个口令）；密文 `assets/data/todo_list.enc`（单行 `DIARYENC1:iv:ct`），明文 `todo_list.json` **不进 git**（本地保留供编辑与本地预览）。
 - `boot()`：`.enc` 200 → 加密模式（`body.locked` + 整页遮罩，**解锁前不渲染任何节点、DOM 无任务文本**）；404 → 回退明文并出警示条。**该 404 是「无密文」的设计信号，回归须放行**。
 - 明文模式**故意不加锁**（内容本已公网可读，加锁=安全剧场），只出警示条 + 「加密迁移」按钮；导出按钮文案与底部提示随模式切换。
