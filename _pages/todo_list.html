@@ -53,6 +53,36 @@ title: "待办清单"
             box-shadow: 0 4px 18px rgba(0,0,0,.10);
             z-index: 10;
         }
+        .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+        .panel-head h1 { margin: 0; }
+        .panel-toggle {
+            flex: 0 0 auto;
+            width: 22px; height: 22px;
+            padding: 0;
+            display: flex; align-items: center; justify-content: center;
+            border: 1px solid #d0d4da;
+            border-radius: 6px;
+            background: #fff;
+            color: var(--text-muted);
+            font-size: 14px;
+            line-height: 1;
+            font-family: inherit;
+            cursor: pointer;
+        }
+        .panel-toggle:hover { background: #f3f4f6; color: var(--text); }
+        /* 收起：只留标题行缩成小胶囊，其余内容整体隐藏 —— 画布不再被挡 */
+        .panel.collapsed { width: auto; max-width: none; overflow: visible; padding: 7px 10px; }
+        .panel.collapsed > *:not(.panel-head) { display: none; }
+        .panel.collapsed .panel-head h1 { font-size: 1em; }
+        .panel.collapsed.has-notice .panel-head h1::after {
+            content: '';
+            display: inline-block;
+            width: 6px; height: 6px;
+            margin-left: 6px;
+            border-radius: 50%;
+            background: #f59e0b;
+            vertical-align: middle;
+        }
         h1 { font-size: 1.2em; margin: 0 0 2px; }
         .subtitle { color: var(--text-muted); font-size: 12px; margin: 12px 0 0; line-height: 1.5; }
         a.home {
@@ -262,14 +292,37 @@ title: "待办清单"
         .notice .ed-btn { padding: 5px 12px; font-size: 12px; }
         .notice .ed-btn.primary { background: #b45309; border-color: #b45309; }
         .notice .ed-btn.primary:hover { background: #92400e; }
+
+        /* 快捷键/操作的短暂反馈 */
+        .flash {
+            position: absolute;
+            left: 50%;
+            bottom: 24px;
+            transform: translateX(-50%);
+            max-width: calc(100vw - 40px);
+            padding: 7px 14px;
+            border-radius: 999px;
+            background: rgba(31, 35, 41, .88);
+            color: #fff;
+            font-size: 12px;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity .2s ease;
+            z-index: 20;
+        }
+        .flash.on { opacity: 1; }
     </style>
 </head>
 <body>
     <div class="wrap">
         <svg class="mindmap" id="mindmap" xmlns="http://www.w3.org/2000/svg"></svg>
-        <div class="panel">
+        <div class="panel" id="panel">
             <a href="/" class="home">&larr; 返回首页</a>
-            <h1>待办清单</h1>
+            <div class="panel-head">
+                <h1>待办清单</h1>
+                <button id="btnTogglePanel" class="panel-toggle" type="button" aria-expanded="true" title="收起面板（P）">&minus;</button>
+            </div>
             <div class="legend">
                 <span><i class="i-todo"></i>待办</span>
                 <span><i class="i-doing"></i>进行中</span>
@@ -580,6 +633,8 @@ title: "待办清单"
             btnMoveDown.disabled = isRoot || idx < 0 || idx >= sibs.length - 1;
         }
 
+        // 进入编辑前记一次快照，Ctrl+Z 可回到「开始编辑时」
+        selTitle.addEventListener("focus", snapshot);
         selTitle.addEventListener("input", function () {
             var n = findNode(selectedId);
             if (!n) return;
@@ -589,11 +644,11 @@ title: "待办清单"
         selStatus.addEventListener("change", function () {
             var n = findNode(selectedId);
             if (!n || !isLeaf(n)) return;
+            snapshot();
             n.status = selStatus.value;
             render(root);
         });
-        btnAddChild.addEventListener("click", function () {
-            var n = findNode(selectedId);
+        function addChildTo(n) {
             if (!n) return;
             n.children = n.children || [];
             var child = { title: "新节点", status: "todo", _parent: n, _id: nextId++ };
@@ -602,15 +657,27 @@ title: "待办清单"
             render(root);
             selTitle.focus();
             selTitle.select();
+        }
+        function deleteNode(id) {
+            var n = findNode(id);
+            if (!n || n === root) return false;
+            var p = n._parent;
+            var i = p.children.indexOf(n);
+            if (i < 0) return false;
+            p.children.splice(i, 1);
+            selectedId = p._id;
+            render(root);
+            return true;
+        }
+        btnAddChild.addEventListener("click", function () {
+            snapshot();
+            addChildTo(findNode(selectedId));
         });
         btnDelete.addEventListener("click", function () {
             var n = findNode(selectedId);
             if (!n || n === root) return;
-            var p = n._parent;
-            var i = p.children.indexOf(n);
-            if (i >= 0) p.children.splice(i, 1);
-            selectedId = p._id;
-            render(root);
+            snapshot();
+            deleteNode(selectedId);
         });
         btnCollapse.addEventListener("click", function () {
             var n = findNode(selectedId);
@@ -627,6 +694,7 @@ title: "待办清单"
             var i = p.children.indexOf(n);
             var j = i + dir;
             if (j < 0 || j >= p.children.length) return false;
+            snapshot();
             p.children[i] = p.children[j];
             p.children[j] = n;
             render(root);
@@ -691,6 +759,7 @@ title: "待办清单"
             document.getElementById("hintTail").textContent = isEnc
                 ? "（assets/data/todo_list.enc）"
                 : "（当前明文模式：assets/data/todo_list.json）";
+            syncPanelNotice();
         }
 
         async function boot() {
@@ -825,6 +894,11 @@ title: "待办清单"
                 if (n) toggleCollapse(n);
             }
             applyState();
+            // 面板收起时选中节点没有任何可视反馈，首次选中提示一次快捷键用法
+            if (panelEl.classList.contains("collapsed") && !hintedPanel) {
+                hintedPanel = true;
+                flash("面板已收起 · 按 P 展开，或直接用快捷键（1-4 改状态 / Tab 加子节点 / Del 删除）");
+            }
         });
         svg.addEventListener("mouseover", function (e) {
             var bubble = e.target.closest(".bubble.parent, .bubble.root");
@@ -835,6 +909,132 @@ title: "待办清单"
             var bubble = e.target.closest(".bubble.parent, .bubble.root");
             if (!bubble) return;
             bubble.closest(".node").classList.remove("lit");
+        });
+
+        // ───────── 面板收起：只留标题行，画布不再被挡 ─────────
+        var PANEL_KEY = "todo.panel.collapsed";
+        var panelEl = document.getElementById("panel");
+        var btnTogglePanel = document.getElementById("btnTogglePanel");
+        var flashEl = null, flashTimer = null, hintedPanel = false;
+
+        function flash(msg) {
+            if (!flashEl) {
+                flashEl = document.createElement("div");
+                flashEl.className = "flash";
+                document.querySelector(".wrap").appendChild(flashEl);
+            }
+            flashEl.textContent = msg;
+            flashEl.classList.add("on");
+            clearTimeout(flashTimer);
+            flashTimer = setTimeout(function () { flashEl.classList.remove("on"); }, 1600);
+        }
+        function setPanelCollapsed(collapsed, persist) {
+            panelEl.classList.toggle("collapsed", collapsed);
+            btnTogglePanel.textContent = collapsed ? "\uFF0B" : "\u2212";
+            btnTogglePanel.setAttribute("aria-expanded", String(!collapsed));
+            btnTogglePanel.title = (collapsed ? "展开面板" : "收起面板") + "（P）";
+            if (persist) { try { localStorage.setItem(PANEL_KEY, collapsed ? "1" : "0"); } catch (e) { /* 隐私模式写不了 */ } }
+        }
+        function syncPanelNotice() { panelEl.classList.toggle("has-notice", MODE === "plain"); }
+        btnTogglePanel.addEventListener("click", function () {
+            setPanelCollapsed(!panelEl.classList.contains("collapsed"), true);
+        });
+        (function initPanel() {
+            var saved = null;
+            try { saved = localStorage.getItem(PANEL_KEY); } catch (e) { /* 同上 */ }
+            setPanelCollapsed(saved === "1", false);
+        })();
+
+        // ───────── 撤销：改动前存快照，Ctrl+Z 回退（最多 50 步） ─────────
+        var undoStack = [], UNDO_MAX = 50;
+        function snapshot() {
+            try {
+                var s = JSON.stringify(cleanNode(root));
+                if (undoStack.length && undoStack[undoStack.length - 1] === s) return;
+                undoStack.push(s);
+                if (undoStack.length > UNDO_MAX) undoStack.shift();
+            } catch (e) { /* 数据异常时不阻断正常操作 */ }
+        }
+        function undo() {
+            if (!undoStack.length) return false;
+            var s = undoStack.pop();
+            try {
+                root = JSON.parse(s);
+                nextId = 1;
+                assignIds(root, null);
+                selectedId = root._id;
+                render(root);        // 不调 fitView：撤销不该让人迷失视图位置
+            } catch (e) { return false; }
+            return true;
+        }
+
+        // ───────── 节点级快捷键（选中后生效；输入焦点下让位） ─────────
+        var STATUS_KEYS = { "1": "todo", "2": "doing", "3": "done", "4": "dropped" };
+        var STATUS_TEXT = { todo: "待办", doing: "进行中", done: "已完成", dropped: "已放弃" };
+        document.addEventListener("keydown", function (e) {
+            var ae = document.activeElement;
+            var tag = (ae && ae.tagName) || "";
+            // ⚠️ 只把「文本类」算作输入焦点：鼠标点过按钮后焦点会留在 <button> 上，
+            // 若把 BUTTON 也算进来，用户点一次按钮就会导致后续所有快捷键失效。
+            var typing = tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA"
+                || !!(ae && ae.isContentEditable);
+
+            if ((e.ctrlKey || e.metaKey) && (e.key === "z" || e.key === "Z")) {
+                if (typing) return;                      // 输入框内交给浏览器原生撤销
+                e.preventDefault();
+                flash(undo() ? "已撤销上一步" : "没有可撤销的操作");
+                return;
+            }
+            if (typing || e.ctrlKey || e.metaKey || e.altKey) return;   // Alt+↑↓ 归原有处理器
+
+            if (e.key === "p" || e.key === "P") {
+                e.preventDefault();
+                setPanelCollapsed(!panelEl.classList.contains("collapsed"), true);
+                return;
+            }
+            if (e.key === "Escape") {
+                selectedId = null;
+                applyState();
+                return;
+            }
+            var n = selectedId == null ? null : findNode(selectedId);
+            if (!n) return;
+
+            if (STATUS_KEYS[e.key]) {
+                if (!isLeaf(n)) { flash("父节点没有状态"); return; }
+                e.preventDefault();
+                snapshot();
+                n.status = STATUS_KEYS[e.key];
+                render(root);
+                flash("状态 → " + STATUS_TEXT[STATUS_KEYS[e.key]]);
+                return;
+            }
+            if (e.key === "Tab") {
+                e.preventDefault();
+                snapshot();
+                addChildTo(n);
+                return;
+            }
+            if (e.key === "Enter") {
+                e.preventDefault();
+                selTitle.focus();
+                selTitle.select();
+                return;
+            }
+            if (e.key === "Backspace" || e.key === "Delete") {
+                if (n === root) { flash("根节点不能删除"); return; }
+                e.preventDefault();
+                snapshot();
+                deleteNode(n._id);
+                flash("已删除 · Ctrl+Z 可撤销");
+                return;
+            }
+            if (e.key === " ") {
+                if (tag === "BUTTON") return;    // 按钮焦点下空格用于激活按钮，让位
+                if (isLeaf(n)) return;
+                e.preventDefault();
+                toggleCollapse(n);
+            }
         });
 
         boot();
