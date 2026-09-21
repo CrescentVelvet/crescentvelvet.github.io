@@ -4,3 +4,6 @@ _site/
 .DS_Store
 .workbuddy/tmp/
 .playwright-cli/
+
+# 待办清单明文 —— 数据以 assets/data/todo_list.enc（DIARYENC1 密文）入库
+assets/data/todo_list.json
