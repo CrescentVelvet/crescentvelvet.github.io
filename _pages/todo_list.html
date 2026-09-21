@@ -312,6 +312,70 @@ title: "待办清单"
             z-index: 20;
         }
         .flash.on { opacity: 1; }
+
+        /* ── 节点右键菜单（屏幕坐标浮层，视图变换时自动关闭） ── */
+        .ctxmenu {
+            position: absolute;
+            z-index: 30;
+            min-width: 178px;
+            padding: 5px;
+            background: #fff;
+            border: 1px solid #e3e6eb;
+            border-radius: 10px;
+            box-shadow: 0 6px 22px rgba(0,0,0,.14);
+            font-size: 13px;
+            display: none;
+        }
+        .ctxmenu.on { display: block; }
+        .ctx-item {
+            display: flex;
+            align-items: center;
+            width: 100%;
+            gap: 6px;
+            padding: 6px 9px;
+            border: 0;
+            border-radius: 6px;
+            background: none;
+            color: var(--text);
+            font-family: inherit;
+            font-size: 13px;
+            text-align: left;
+            cursor: pointer;
+        }
+        .ctx-item::before {
+            content: '\25CF';
+            font-size: 8px;
+            color: transparent;
+            flex: 0 0 auto;
+        }
+        .ctx-item.cur::before { color: #2563eb; }
+        .ctx-item:hover { background: #f3f4f6; }
+        .ctx-item kbd {
+            margin-left: auto;
+            font-family: inherit;
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+        .ctx-item.danger { color: #dc2626; }
+        .ctx-item.danger:hover { background: #fef2f2; }
+        .ctx-item:disabled { opacity: .4; cursor: default; }
+        .ctx-item:disabled:hover { background: none; }
+        .ctx-sep { height: 1px; margin: 5px 6px; background: #eceef1; }
+
+        /* ── 双击就地改名：绝对定位浮在节点上，编辑期间锁住视图变换 ── */
+        .inline-edit {
+            position: absolute;
+            z-index: 25;
+            padding: 0 10px;
+            border: 2px solid #2563eb;
+            border-radius: 999px;
+            background: #fff;
+            color: var(--text);
+            font-family: inherit;
+            text-align: center;
+            box-shadow: 0 0 0 4px rgba(37,99,235,.15);
+        }
+        .inline-edit:focus { outline: none; }
     </style>
 </head>
 <body>
@@ -368,6 +432,8 @@ title: "待办清单"
             <p class="subtitle">滚轮缩放 · 拖拽平移 · 双击空白复位 · 单击节点折叠（父）并选中编辑 · Alt+↑/↓ 或「↑ 上移/↓ 下移」按钮交换同级顺序 · 改完点导出按钮下载，覆盖对应的数据文件 <span id="hintTail"></span></p>
         </div>
     </div>
+
+    <div class="ctxmenu" id="ctxmenu" role="menu"></div>
 
     <div class="lock" id="lock">
         <div class="lock-card">
@@ -545,6 +611,8 @@ title: "待办清单"
         }
         svg.addEventListener("wheel", function (e) {
             e.preventDefault();
+            hideMenu();                       // 视图一变换，屏幕坐标的菜单就与节点脱节
+            if (viewLocked) return;
             var v = getView(); if (!v || !homeBox) return;
             interacted = true;
             var rect = svg.getBoundingClientRect();
@@ -556,7 +624,9 @@ title: "待办清单"
         }, { passive: false });
 
         var pan = { active: false, moved: false, x: 0, y: 0, vx: 0, vy: 0, w: 0, h: 0 };
+        var viewLocked = false;   // 就地编辑期间锁住平移/缩放：否则浮层输入框会与节点错位
         svg.addEventListener("mousedown", function (e) {
+            if (e.button !== 0 || viewLocked) return;   // 只让左键拖拽，右键留给上下文菜单
             var v = getView(); if (!v) return;
             pan.active = true; pan.moved = false;
             pan.x = e.clientX; pan.y = e.clientY;
@@ -566,14 +636,21 @@ title: "待办清单"
             if (!pan.active) return;
             var rect = svg.getBoundingClientRect();
             var dx = e.clientX - pan.x, dy = e.clientY - pan.y;
-            if (!pan.moved && Math.hypot(dx, dy) > 4) { pan.moved = true; svg.classList.add("panning"); interacted = true; }
+            if (!pan.moved && Math.hypot(dx, dy) > 4) { pan.moved = true; svg.classList.add("panning"); interacted = true; hideMenu(); }
             if (!pan.moved) return;
             var nv = clampView({ x: pan.vx - dx / rect.width * pan.w, y: pan.vy - dy / rect.height * pan.h, w: pan.w, h: pan.h });
             setView(nv);
         });
         window.addEventListener("mouseup", function () { pan.active = false; svg.classList.remove("panning"); });
         svg.addEventListener("dblclick", function (e) {
-            if (e.target.closest(".bubble")) return;
+            var bubble = e.target.closest(".bubble");
+            if (bubble) {                         // 节点上的双击 → 就地改名
+                var g0 = bubble.closest(".node");
+                var n0 = findNode(parseInt(g0.getAttribute("data-id"), 10));
+                if (n0) startInlineEdit(n0);
+                return;
+            }
+            if (viewLocked) return;
             fitView();
         });
 
@@ -971,6 +1048,7 @@ title: "待办清单"
         // ───────── 节点级快捷键（选中后生效；输入焦点下让位） ─────────
         var STATUS_KEYS = { "1": "todo", "2": "doing", "3": "done", "4": "dropped" };
         var STATUS_TEXT = { todo: "待办", doing: "进行中", done: "已完成", dropped: "已放弃" };
+        var STATUS_ORDER = ["todo", "doing", "done", "dropped"];
         document.addEventListener("keydown", function (e) {
             var ae = document.activeElement;
             var tag = (ae && ae.tagName) || "";
@@ -993,6 +1071,7 @@ title: "待办清单"
                 return;
             }
             if (e.key === "Escape") {
+                hideMenu();
                 selectedId = null;
                 applyState();
                 return;
@@ -1015,10 +1094,9 @@ title: "待办清单"
                 addChildTo(n);
                 return;
             }
-            if (e.key === "Enter") {
+            if (e.key === "Enter" || e.key === "F2") {
                 e.preventDefault();
-                selTitle.focus();
-                selTitle.select();
+                startInlineEdit(n);      // 就地改名，不再需要把鼠标挪到面板
                 return;
             }
             if (e.key === "Backspace" || e.key === "Delete") {
@@ -1036,6 +1114,148 @@ title: "待办清单"
                 toggleCollapse(n);
             }
         });
+
+        // ───────── 双击 / Enter 就地改名 ─────────
+        var inlineInput = null, inlineNodeId = null;
+
+        function cancelInlineEdit() {
+            if (!inlineInput) return;
+            var el = inlineInput;
+            inlineInput = null;
+            inlineNodeId = null;
+            viewLocked = false;
+            if (el.parentNode) el.parentNode.removeChild(el);
+        }
+        function commitInlineEdit(save) {
+            if (!inlineInput) return;            // 已被取消或二次触发，直接忽略
+            var id = inlineNodeId, val = inlineInput.value;
+            cancelInlineEdit();
+            if (!save) return;
+            var n = findNode(id);
+            if (!n || (n.title || "") === val) return;
+            snapshot();
+            n.title = val;
+            render(root);
+        }
+        function startInlineEdit(node) {
+            if (!node) return;
+            hideMenu();
+            cancelInlineEdit();
+            var g = svg.querySelector('[data-id="' + node._id + '"]');
+            if (!g) return;
+            // ⚠️ 必须限定直接子元素：renderNode 先渲染 kids 再渲染自身，
+            // 所以父节点上的后代查询会命中**子节点**的 pill/label，导致输入框跑到子节点上。
+            var bubble = g.querySelector(":scope > .bubble");
+            var lbl = g.querySelector(":scope > .lbl");
+            if (!bubble || !lbl) return;
+
+            var br = bubble.getBoundingClientRect();
+            var wr = document.querySelector(".wrap").getBoundingClientRect();
+            var cs = getComputedStyle(lbl);
+
+            var el = document.createElement("input");
+            el.type = "text";
+            el.className = "inline-edit";
+            el.value = node.title || "";
+            el.style.left = (br.left - wr.left) + "px";
+            el.style.top = (br.top - wr.top) + "px";
+            el.style.width = Math.max(br.width, 96) + "px";
+            el.style.height = br.height + "px";
+            el.style.fontSize = cs.fontSize;
+            el.style.letterSpacing = cs.letterSpacing;
+            document.querySelector(".wrap").appendChild(el);
+            inlineInput = el;
+            inlineNodeId = node._id;
+            viewLocked = true;                    // 编辑期间锁视图，浮层才不会与节点错位
+            el.focus();
+            el.select();
+
+            el.addEventListener("keydown", function (e) {
+                e.stopPropagation();              // 编辑时不让全局快捷键抢键
+                if (e.key === "Enter") { e.preventDefault(); commitInlineEdit(true); }
+                else if (e.key === "Escape") { e.preventDefault(); commitInlineEdit(false); }
+            });
+            el.addEventListener("blur", function () { commitInlineEdit(true); });
+        }
+
+        // ───────── 节点右键菜单 ─────────
+        var menuEl = document.getElementById("ctxmenu");
+
+        function hideMenu() { if (menuEl) menuEl.classList.remove("on"); }
+        function sepEl() { var d = document.createElement("div"); d.className = "ctx-sep"; return d; }
+        function menuItem(act, label, kbd, opts) {
+            opts = opts || {};
+            var b = document.createElement("button");
+            b.type = "button";
+            b.className = "ctx-item" + (opts.cur ? " cur" : "") + (opts.danger ? " danger" : "");
+            b.dataset.act = act;
+            if (opts.val) b.dataset.val = opts.val;
+            if (opts.disabled) b.disabled = true;
+            b.appendChild(document.createTextNode(label));
+            if (kbd) { var k = document.createElement("kbd"); k.textContent = kbd; b.appendChild(k); }
+            return b;
+        }
+        function showMenu(node, x, y) {
+            var leaf = isLeaf(node), isRoot = node === root;
+            menuEl.innerHTML = "";
+            if (leaf) {
+                STATUS_ORDER.forEach(function (s, i) {
+                    menuEl.appendChild(menuItem("status", STATUS_TEXT[s], String(i + 1),
+                        { val: s, cur: (node.status || "todo") === s }));
+                });
+                menuEl.appendChild(sepEl());
+            }
+            menuEl.appendChild(menuItem("addchild", "新增子节点", "Tab"));
+            menuEl.appendChild(menuItem("rename", "重命名", "Enter"));
+            var p = node._parent;
+            var idx = p ? p.children.indexOf(node) : -1;
+            menuEl.appendChild(menuItem("up", "上移", "Alt ↑", { disabled: isRoot || idx <= 0 }));
+            menuEl.appendChild(menuItem("down", "下移", "Alt ↓", { disabled: isRoot || idx < 0 || idx >= p.children.length - 1 }));
+            if (!leaf) menuEl.appendChild(menuItem("collapse", node.collapsed ? "展开" : "折叠", "空格"));
+            menuEl.appendChild(sepEl());
+            menuEl.appendChild(menuItem("delete", "删除", "Del", { danger: true, disabled: isRoot }));
+
+            // 先挪出视口再量尺寸，避免用上一次的位置闪一下
+            menuEl.style.left = "-9999px";
+            menuEl.style.top = "-9999px";
+            menuEl.classList.add("on");
+            var w = menuEl.offsetWidth, h = menuEl.offsetHeight;
+            var vw = window.innerWidth, vh = window.innerHeight;
+            menuEl.style.left = (x + w + 8 > vw ? Math.max(8, x - w) : x) + "px";
+            menuEl.style.top = (y + h + 8 > vh ? Math.max(8, y - h) : y) + "px";
+        }
+        menuEl.addEventListener("click", function (e) {
+            var btn = e.target.closest(".ctx-item");
+            if (!btn || btn.disabled) return;
+            var n = selectedId == null ? null : findNode(selectedId);
+            var act = btn.dataset.act;
+            hideMenu();
+            if (!n) return;
+            if (act === "status") {
+                snapshot();
+                n.status = btn.dataset.val;
+                render(root);
+                flash("状态 → " + STATUS_TEXT[btn.dataset.val]);
+            } else if (act === "addchild") { snapshot(); addChildTo(n); }
+            else if (act === "rename") { startInlineEdit(n); }
+            else if (act === "up") { swapSibling(-1); }
+            else if (act === "down") { swapSibling(1); }
+            else if (act === "collapse") { toggleCollapse(n); }
+            else if (act === "delete") { snapshot(); if (deleteNode(n._id)) flash("已删除 · Ctrl+Z 可撤销"); }
+        });
+        svg.addEventListener("contextmenu", function (e) {
+            var bubble = e.target.closest(".bubble");
+            if (!bubble) { hideMenu(); return; }        // 空白处的右键保留浏览器默认菜单
+            e.preventDefault();
+            selectedId = parseInt(bubble.closest(".node").getAttribute("data-id"), 10);
+            applyState();
+            var n = findNode(selectedId);
+            if (n) showMenu(n, e.clientX, e.clientY);
+        });
+        document.addEventListener("pointerdown", function (e) {
+            if (menuEl.classList.contains("on") && !menuEl.contains(e.target)) hideMenu();
+        }, true);
+        window.addEventListener("resize", hideMenu);
 
         boot();
     })();

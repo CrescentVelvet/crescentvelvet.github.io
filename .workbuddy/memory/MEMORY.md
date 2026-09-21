@@ -51,7 +51,7 @@
 - ⚠️ 页面「加密迁移」导的是**页面渲染的数据**，线上 json 可能落后于本地未提交改动 ⇒ 权威迁移走 `tools/encrypt_todo.js`（直接读磁盘 + 解密回读逐字自校验；路径可用 `TODO_ENVELOPE`/`TODO_PLAIN`/`TODO_ENC_OUT` 覆盖以便测试，非 TTY 从管道读口令）。
 - 回归：`.workbuddy/tmp/todo_enc_e2e.js`（CDP 三链路，27 断言，canary 假数据）/ `test_encrypt_tool.js`（8 断言）/ `check_enc_file.js`（密文结构体检，提交前跑）/ `verify_commit.js`（提交后核验明文已退出跟踪）。⚠️ 测这类页面前须 `Network.setBlockedURLs` 断 Google Fonts，否则 `readyState` 卡 loading 造成「零异常」假通过。
 - 未清理：git 历史中的明文（峰哥选「只保护未来」，追溯清除需重写历史强推）。
-- **交互（第一轮已做）**：面板可收成胶囊 `localStorage['todo.panel.collapsed']`（340 → 116px）+ 节点级快捷键（`1-4` 状态 / `Tab` 加子节点 / `Enter` 编辑 / `Del` 删除 / `空格` 折叠 / `Esc` 取消 / `P` 切面板 / `Ctrl+Z` 撤销，快照栈 50）。⚠️ `typing` 判断**绝不能含 BUTTON**（否则点过按钮后快捷键全废）。撤销重建后**不调 `fitView`**。第二轮待做：右键菜单（须先补 `mousedown` 的 `e.button === 0`）+ 双击节点改名（`dblclick` 已排除 `.bubble`，是现成空位）。
+- **交互（两轮已完成）**：面板可收成胶囊 `localStorage['todo.panel.collapsed']`（340 → 116px）；节点级快捷键（`1-4` 状态 / `Tab` 加子节点 / `Enter`·`F2` 就地改名 / `Del` 删除 / `空格` 折叠 / `Esc` 取消 / `P` 切面板 / `Ctrl+Z` 撤销，快照栈 50）；右键菜单（状态/增删/移动/折叠，边缘翻转，**视图变换即关闭**）；双击就地改名（`viewLocked` 锁视图）。⚠️ `typing` 判断**绝不能含 BUTTON**。⚠️ 在父节点上取 `.bubble`/`.lbl` **必须用 `:scope >`** —— `renderNode` 先渲染子树，后代查询会命中子节点（曾导致输入框偏 1141px）。撤销重建后**不调 `fitView`**。面板展开时会盖住左上角根节点，右键它无效（点击落在面板上）。
 
 ## 站点 crescentvelvet.github.io（Jekyll + minimal-mistakes 内联）
 - 主题内联（`_config.yml` 无 `theme:`），**颜色唯一来源 = `_sass/_variables.scss`**。
