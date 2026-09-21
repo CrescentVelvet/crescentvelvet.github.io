@@ -8,7 +8,7 @@
 - 只 `git add` 明确路径，**禁止 `git add -A`**（`assets/data/todo_list.json` 长期脏）。
 - **同一文件禁止在同一条消息里并发多个 Edit**（会互相覆盖）；串行改，改完 Grep 确认。
 - 托管 Node：`C:/Users/wangyufeng/.workbuddy/binaries/node/versions/22.22.2-3/node.exe`。
-- ⚠️ 本机无 coreutils（grep/head/ls/cp → 127）⇒ 用 Glob/Read/Grep/Node。⚠️ **PowerShell 工具不回传 stdout** ⇒ 让 Node 自己写文件，或 `| Set-Content <文件>` 后 Read。
+- ⚠️ 本机无 coreutils（grep/head/ls/cp → 127）⇒ 用 Glob/Read/Grep/Node。⚠️ **PowerShell 工具不回传 stdout** ⇒ 让 Node 自己写文件后再 Read。⚠️ **取 git 对象/任何 UTF-8 内容禁止经 PowerShell 管道**（按 cp936 解码再重编码 ⇒ 中文全乱，`| Set-Content` 同样中招）：一律 `execSync('git show …', {encoding:'utf8'})`；commit message 用 `-F <UTF-8 文件>`。
 - 重构 memory 文件前先确认 `git status --porcelain` 为空（`.workbuddy/memory/` 被 git 跟踪，旧版即 HEAD，不必手工留档）。
 
 ## 无头验证
