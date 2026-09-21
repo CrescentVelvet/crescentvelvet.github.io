@@ -182,6 +182,72 @@ title: "待办清单"
             background: #fff;
             font-family: inherit;
         }
+
+        /* ── 口令锁：加密模式下遮挡整页，解锁前不渲染任何数据 ── */
+        body.locked .panel, body.locked svg.mindmap { visibility: hidden; }
+        .lock {
+            position: fixed;
+            inset: 0;
+            z-index: 100;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg);
+            padding: 20px;
+        }
+        body.locked .lock { display: flex; }
+        .lock-card {
+            width: 100%;
+            max-width: 360px;
+            background: #fff;
+            border: 1px solid #e3e6eb;
+            border-radius: 12px;
+            padding: 22px 20px;
+            box-shadow: 0 4px 18px rgba(0,0,0,.10);
+            text-align: center;
+        }
+        .lock-card h2 { margin: 0 0 6px; font-size: 1.15em; }
+        .lock-card > p { margin: 0 0 14px; font-size: 12px; color: var(--text-muted); }
+        .lock-row { display: flex; gap: 8px; }
+        .lock-row input {
+            flex: 1; min-width: 0;
+            padding: 8px 10px;
+            border: 1px solid #d0d4da;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+        }
+        .lock-row input:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,.15); }
+        .lock-status { margin: 12px 0 0; font-size: 12px; min-height: 1em; color: var(--text-muted); }
+        .lock-status.error { color: #dc2626; }
+
+        /* ── 明文模式警示条 ── */
+        .notice {
+            margin-top: 12px;
+            padding: 10px 12px;
+            background: #fffbeb;
+            border: 1px solid #fde68a;
+            border-radius: 10px;
+            font-size: 12px;
+            color: #92400e;
+            line-height: 1.6;
+        }
+        .notice p { margin: 0; }
+        .notice code { font-size: 11px; }
+        .notice-row { display: flex; gap: 8px; margin-top: 8px; }
+        .notice-row input {
+            flex: 1; min-width: 0;
+            padding: 6px 10px;
+            border: 1px solid #fcd34d;
+            border-radius: 8px;
+            font-size: 13px;
+            font-family: inherit;
+            background: #fff;
+        }
+        .notice-row input:focus { outline: none; border-color: #b45309; }
+        .notice .ed-btn { padding: 5px 12px; font-size: 12px; }
+        .notice .ed-btn.primary { background: #b45309; border-color: #b45309; }
+        .notice .ed-btn.primary:hover { background: #92400e; }
     </style>
 </head>
 <body>
@@ -195,8 +261,19 @@ title: "待办清单"
                 <span><i class="i-doing"></i>进行中</span>
                 <span><i class="i-done"></i>已完成</span>
             </div>
+            <div class="notice" id="notice" style="display:none">
+                <p id="noticeMsg"><strong>⚠️ 明文模式</strong>：数据以明文 <code>todo_list.json</code> 存放，公网可直接读取，建议尽快加密迁移。</p>
+                <div class="toolbar" style="margin-top:8px">
+                    <button id="btnMigrate" class="ed-btn primary" type="button">加密迁移</button>
+                </div>
+                <div class="notice-row" id="migrateRow" style="display:none">
+                    <input type="password" id="migratePw" placeholder="输入口令以生成 todo_list.enc">
+                    <button id="migrateGo" class="ed-btn primary" type="button">生成</button>
+                </div>
+            </div>
             <div class="toolbar">
                 <button id="btnExport" class="ed-btn primary" type="button">导出 JSON</button>
+                <button id="btnPlain" class="ed-btn" type="button" style="display:none">导出明文备份</button>
                 <button id="btnReset" class="ed-btn" type="button">重置（重载文件）</button>
             </div>
             <div class="editor" id="editor" style="display:none">
@@ -219,13 +296,26 @@ title: "待办清单"
                     <button id="btnDelete" class="ed-btn danger" type="button">删除</button>
                 </div>
             </div>
-            <p class="subtitle">滚轮缩放 · 拖拽平移 · 双击空白复位 · 单击节点折叠（父）并选中编辑 · Alt+↑/↓ 或「↑ 上移/↓ 下移」按钮交换同级顺序 · 改完点「导出 JSON」下载覆盖 <code>assets/data/todo_list.json</code></p>
+            <p class="subtitle">滚轮缩放 · 拖拽平移 · 双击空白复位 · 单击节点折叠（父）并选中编辑 · Alt+↑/↓ 或「↑ 上移/↓ 下移」按钮交换同级顺序 · 改完点导出按钮下载，覆盖对应的数据文件 <span id="hintTail"></span></p>
         </div>
     </div>
 
+    <div class="lock" id="lock">
+        <div class="lock-card">
+            <h2>待办清单</h2>
+            <p>该页面已加密，请输入口令解锁</p>
+            <div class="lock-row">
+                <input type="password" id="pw" placeholder="请输入口令" autocomplete="current-password">
+                <button id="unlockBtn" class="ed-btn primary" type="button">解锁</button>
+            </div>
+            <p class="lock-status" id="lockStatus"></p>
+        </div>
+    </div>
+
+    <script src="/assets/js/diary-crypto.js"></script>
     <script>
     (function () {
-        // 待办数据已外置到 /assets/data/todo_list.json，下方通过 fetch 加载
+        // 待办数据优先取密文 /assets/data/todo_list.enc，缺失时回退明文 todo_list.json
         var tasks = [];
 
         var STATUS = { todo: "#64748b", doing: "#ea580c", done: "#16a34a" };
@@ -545,18 +635,163 @@ title: "待办清单"
             if (n.children && n.children.length) o.children = n.children.map(cleanNode);
             return o;
         }
-        document.getElementById("btnExport").addEventListener("click", function () {
-            var blob = new Blob([JSON.stringify(cleanNode(root), null, 2)], { type: "application/json" });
+        // ── 模式：'enc' 读密文 todo_list.enc（需口令）· 'plain' 回退明文 todo_list.json ──
+        var ENC_URL = "/assets/data/todo_list.enc";
+        var PLAIN_URL = "/assets/data/todo_list.json";
+        var ENVELOPE_URL = "/assets/data/key.envelope";
+        var MODE = null;
+        var dek = null;         // 解锁后仅驻内存，不写任何存储
+        var pendingEnc = null;  // 探测阶段读到的密文，解锁时复用，避免重复请求
+
+        function download(name, text, mime) {
+            var blob = new Blob([text], { type: mime || "text/plain" });
             var url = URL.createObjectURL(blob);
             var a = document.createElement("a");
             a.href = url;
-            a.download = "todo_list.json";
+            a.download = name;
             document.body.appendChild(a);
             a.click();
             a.remove();
             URL.revokeObjectURL(url);
+        }
+        function cleanJson() { return JSON.stringify(cleanNode(root), null, 2); }
+
+        function adopt(text) {
+            root = JSON.parse(text.replace(/,\s*([}\]])/g, "$1"));
+            nextId = 1;
+            assignIds(root, null);
+            selectedId = root._id;
+            interacted = false;
+            render(root);
+            requestAnimationFrame(fitView);
+            if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { if (!interacted) fitView(); });
+        }
+
+        function applyMode() {
+            var isEnc = MODE === "enc";
+            document.getElementById("notice").style.display = isEnc ? "none" : "";
+            document.getElementById("btnExport").textContent = isEnc ? "导出 .enc" : "导出明文 JSON";
+            document.getElementById("btnPlain").style.display = isEnc ? "" : "none";
+            document.getElementById("hintTail").textContent = isEnc
+                ? "（assets/data/todo_list.enc）"
+                : "（当前明文模式：assets/data/todo_list.json）";
+        }
+
+        async function boot() {
+            try {
+                var r = await fetch(ENC_URL, { cache: "no-store" });
+                if (r.ok) pendingEnc = await r.text();
+            } catch (e) { /* 网络异常按「无密文」处理，走明文回退 */ }
+            if (pendingEnc) {
+                MODE = "enc";
+                document.body.classList.add("locked");
+                applyMode();
+                document.getElementById("pw").focus();
+                return;
+            }
+            var plainText = null;
+            try {
+                var r2 = await fetch(PLAIN_URL, { cache: "no-store" });
+                if (r2.ok) plainText = await r2.text();
+            } catch (e) { /* 同上 */ }
+            if (plainText) {
+                MODE = "plain";
+                applyMode();
+                try { adopt(plainText); }
+                catch (e) { svg.textContent = "待办数据解析失败：" + e.message; }
+                return;
+            }
+            svg.textContent = "未找到待办数据：todo_list.enc 与 todo_list.json 均不可读";
+        }
+
+        async function unlock() {
+            var pwEl = document.getElementById("pw");
+            var st = document.getElementById("lockStatus");
+            if (!pwEl.value) { st.className = "lock-status error"; st.textContent = "请输入口令"; return; }
+            st.className = "lock-status";
+            st.textContent = "正在派生密钥（PBKDF2 60 万迭代）…";
+            try {
+                var env = JSON.parse(await window.DiaryCrypto.fetchText(ENVELOPE_URL));
+                dek = await window.DiaryCrypto.openEnvelope(pwEl.value, env);
+            } catch (e) {
+                dek = null;
+                st.className = "lock-status error";
+                st.textContent = "口令错误（或信封文件损坏）";
+                return;
+            }
+            try {
+                var ct = pendingEnc || await window.DiaryCrypto.fetchText(ENC_URL);
+                adopt(await window.DiaryCrypto.decryptData(dek, ct));
+            } catch (e) {
+                dek = null;
+                st.className = "lock-status error";
+                st.textContent = "密文解密失败：" + (e.message || e);
+                return;
+            }
+            pwEl.value = "";
+            st.textContent = "";
+            document.body.classList.remove("locked");
+        }
+        document.getElementById("unlockBtn").addEventListener("click", unlock);
+        document.getElementById("pw").addEventListener("keydown", function (e) {
+            if (e.key === "Enter") unlock();
         });
-        document.getElementById("btnReset").addEventListener("click", load);
+
+        // 明文 → 密文迁移：口令解信封拿 DEK（与日志同一信封、同一口令）
+        async function migrate() {
+            var msg = document.getElementById("noticeMsg");
+            var pwEl = document.getElementById("migratePw");
+            if (!pwEl.value) { msg.textContent = "请输入口令"; return; }
+            msg.textContent = "正在派生密钥（PBKDF2 60 万迭代）…";
+            if (!dek) {
+                try {
+                    var env = JSON.parse(await window.DiaryCrypto.fetchText(ENVELOPE_URL));
+                    dek = await window.DiaryCrypto.openEnvelope(pwEl.value, env);
+                } catch (e) {
+                    msg.textContent = "口令错误（或信封文件损坏），请重试";
+                    return;
+                }
+            }
+            pwEl.value = "";
+            try {
+                download("todo_list.enc", await window.DiaryCrypto.encryptData(dek, cleanJson()));
+            } catch (e) {
+                msg.textContent = "生成密文失败：" + (e.message || e);
+                return;
+            }
+            document.getElementById("migrateRow").style.display = "none";
+            msg.innerHTML = "<strong>已生成 todo_list.enc</strong>：放入 <code>assets/data/</code>，随后删除 <code>todo_list.json</code> 并提交；上线后本页自动进入加密模式。";
+        }
+        document.getElementById("btnMigrate").addEventListener("click", function () {
+            document.getElementById("migrateRow").style.display = "";
+            document.getElementById("migratePw").focus();
+        });
+        document.getElementById("migrateGo").addEventListener("click", migrate);
+        document.getElementById("migratePw").addEventListener("keydown", function (e) {
+            if (e.key === "Enter") migrate();
+        });
+
+        document.getElementById("btnExport").addEventListener("click", async function () {
+            if (MODE !== "enc" || !dek) { download("todo_list.json", cleanJson(), "application/json"); return; }
+            try {
+                download("todo_list.enc", await window.DiaryCrypto.encryptData(dek, cleanJson()));
+            } catch (e) {
+                svg.textContent = "导出密文失败：" + (e.message || e);
+            }
+        });
+        document.getElementById("btnPlain").addEventListener("click", function () {
+            download("todo_list.json", cleanJson(), "application/json");
+        });
+        document.getElementById("btnReset").addEventListener("click", function () {
+            if (MODE === "enc" && dek) {
+                window.DiaryCrypto.fetchText(ENC_URL)
+                    .then(function (t) { return window.DiaryCrypto.decryptData(dek, t); })
+                    .then(adopt)
+                    .catch(function (e) { svg.textContent = "重载失败：" + (e.message || e); });
+            } else {
+                boot();
+            }
+        });
 
         function toggleCollapse(n) {
             n.collapsed = !n.collapsed;
@@ -586,30 +821,7 @@ title: "待办清单"
             bubble.closest(".node").classList.remove("lit");
         });
 
-        function load() {
-            fetch("assets/data/todo_list.json")
-                .then(function (r) {
-                    if (!r.ok) throw new Error("HTTP " + r.status);
-                    return r.text();
-                })
-                .then(function (text) {
-                    return JSON.parse(text.replace(/,\s*([}\]])/g, "$1"));
-                })
-                .then(function (data) {
-                    root = data;
-                    nextId = 1;
-                    assignIds(root, null);
-                    selectedId = root._id;
-                    interacted = false;
-                    render(root);
-                    requestAnimationFrame(fitView);
-                    if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { if (!interacted) fitView(); });
-                })
-                .catch(function (e) {
-                    svg.textContent = "加载待办数据失败：" + e.message;
-                });
-        }
-        load();
+        boot();
     })();
     </script>
 <script src="/assets/js/last-updated.js" data-corner="top-right"></script>

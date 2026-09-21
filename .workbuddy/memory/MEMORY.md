@@ -43,6 +43,14 @@
 - 已修：`formatSelection` 的 `createTreeWalker` 不含 root ⇒ 选区落在**单个文本节点**内时静默失效（两页补收 root）。未改：上色是节点粒度。⚠️ 未修隐患：enc_reader `oneKeyFormat()` 用游离 div 的 `innerText` 分行 ⇒ 多段可能粘成一行。
 - 验证脚本在 `.workbuddy/tmp/unify/`（`verify.js` / `verify_hl.js` / `verify_body.js`）：CDP 静态服务 root = 仓库根 + `_pages/` 兜底 + 剥 front matter；`captureScreenshot` 的 `clip.scale` 必须为 1。
 
+## 待办清单（_pages/todo_list.html）
+- 数据加密复用 `assets/js/diary-crypto.js` + 日志同一个 `assets/data/key.envelope`（只记一个口令）；密文 `assets/data/todo_list.enc`（单行 `DIARYENC1:iv:ct`），明文 `todo_list.json` **不进 git**（本地保留供编辑与本地预览）。
+- `boot()`：`.enc` 200 → 加密模式（`body.locked` + 整页遮罩，**解锁前不渲染任何节点、DOM 无任务文本**）；404 → 回退明文并出警示条。**该 404 是「无密文」的设计信号，回归须放行**。
+- 明文模式**故意不加锁**（内容本已公网可读，加锁=安全剧场），只出警示条 + 「加密迁移」按钮；导出按钮文案与底部提示随模式切换。
+- ⚠️ 页面「加密迁移」导的是**页面渲染的数据**，线上 json 可能落后于本地未提交改动 ⇒ 权威迁移走 `tools/encrypt_todo.js`（直接读磁盘 + 解密回读逐字自校验；路径可用 `TODO_ENVELOPE`/`TODO_PLAIN`/`TODO_ENC_OUT` 覆盖以便测试，非 TTY 从管道读口令）。
+- 回归：`.workbuddy/tmp/todo_enc_e2e.js`（CDP 三链路，27 断言，canary 假数据）/ `.workbuddy/tmp/test_encrypt_tool.js`（8 断言）。⚠️ 测这类页面前须 `Network.setBlockedURLs` 断 Google Fonts，否则 `readyState` 卡 loading 造成「零异常」假通过。
+- 未清理：git 历史中的明文（峰哥选「只保护未来」，追溯清除需重写历史强推）。
+
 ## 站点 crescentvelvet.github.io（Jekyll + minimal-mistakes 内联）
 - 主题内联（`_config.yml` 无 `theme:`），**颜色唯一来源 = `_sass/_variables.scss`**。
 - 资产引用：`href`/图片/og:image → `{{ base_path }}`；本地 CSS/JS → `{{ '...' | relative_url }}`。
