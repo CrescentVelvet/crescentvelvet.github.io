@@ -92,6 +92,48 @@ title: "双刃武者"
     100% { transform: scale(1); }
   }
 
+  /* ── 手感校准面板（默认隐藏；按 ` 或 URL 加 ?debug=1 打开） ──────────
+     刻意放在 #frame **之外**并 fixed 到视口：否则会随画布缩放把字缩得没法读。 */
+  #tune {
+    position: fixed; top: 0; right: 0; bottom: 0; width: 272px;
+    display: none; flex-direction: column; z-index: 60;
+    background: rgba(11,10,9,.95); border-left: 1px solid rgba(184,105,68,.38);
+    color: #e8e0d4;
+    font: 11px/1.5 ui-monospace, Menlo, Consolas, "Microsoft YaHei", monospace;
+  }
+  #tune.on { display: flex; }
+  #tune header { padding: 9px 11px 7px; border-bottom: 1px solid rgba(255,255,255,.10); }
+  #tune header b { color: var(--accent); font-size: 12.5px; }
+  #tune #tune-inv { margin-left: 7px; color: var(--ok); }
+  #tune .hint { color: #7c8894; margin-top: 2px; }
+  #tune .body { flex: 1; overflow-y: auto; padding: 4px 11px 10px; }
+  #tune .grp { margin-top: 11px; border-top: 1px dashed rgba(255,255,255,.08); padding-top: 7px; }
+  #tune .grp:first-child { border-top: 0; }
+  #tune .gt { color: var(--accent); font-weight: 700; }
+  #tune .row { display: flex; align-items: center; gap: 7px; }
+  #tune .row label { flex: 0 0 84px; color: #a89d8c; }
+  #tune .row input[type=range] { flex: 1; min-width: 0; height: 15px; accent-color: var(--accent); }
+  #tune .row .val { flex: 0 0 38px; text-align: right; color: var(--paper); }
+  #tune .band { display: flex; height: 7px; margin: 3px 0 2px; border-radius: 3px; overflow: hidden; }
+  #tune .band i { display: block; }
+  #tune .band .su { background: #5a6472; }
+  #tune .band .ac { background: var(--hp); }
+  #tune .band .rc { background: #39404a; }
+  #tune .ms { color: #7c8894; margin-bottom: 3px; }
+  #tune textarea {
+    height: 104px; margin: 0 11px 7px; padding: 5px; resize: vertical;
+    background: #080706; color: #cfe3cf;
+    border: 1px solid rgba(255,255,255,.14); border-radius: 6px;
+    font: inherit; white-space: pre;
+  }
+  #tune footer { display: flex; gap: 6px; padding: 0 11px 11px; }
+  #tune button {
+    flex: 1; padding: 6px 4px; cursor: pointer; font: inherit;
+    background: rgba(184,105,68,.18); color: var(--paper);
+    border: 1px solid rgba(184,105,68,.5); border-radius: 6px;
+  }
+  #tune button:active { background: rgba(184,105,68,.36); }
+
   /* 中央提示：教学与结果 */
   #toast {
     position: absolute; left: 50%; top: 76px; transform: translateX(-50%);
@@ -161,6 +203,22 @@ title: "双刃武者"
   </div>
 </div>
 
+<!-- 手感校准面板：默认隐藏。按 ` 或 URL 加 ?debug=1 打开。
+     放在 #frame 之外并 fixed 到视口 —— 否则会随画布缩放把字缩得没法读。 -->
+<div id="tune">
+  <header>
+    <b>手感校准</b><span id="tune-inv">—</span>
+    <div class="hint">拖动即时生效 · 按 <b>`</b> 开关 · 「复制参数」给我即可落地</div>
+  </header>
+  <div class="body" id="tune-body"></div>
+  <textarea id="tune-out" readonly spellcheck="false"
+    placeholder="点「复制参数」后，这里会出现可直接粘贴的基准值"></textarea>
+  <footer>
+    <button id="tune-reset" type="button">重置基准</button>
+    <button id="tune-copy" type="button">复制参数</button>
+  </footer>
+</div>
+
 <script>
 (() => {
 'use strict';
@@ -198,14 +256,20 @@ const COMBAT = {
 // HUD 用 5 颗爱心表示（1 心 = 2 滴 ⇒ 扣 1 滴显示半心）。
 // ⚠️ 因此**敌人 atk.dmg 必须恒为 1** —— 谁改成别的值，爱心就会开始「一次掉一整颗」或「卡住不减」。
 const PLAYER_HP = 10;
-const PLAYER_SPEED_X = 118;
-const PLAYER_SPEED_Z = 78;
-const JUMP_V0 = -330;
-const GRAVITY = 980;
-const IFRAMES = 48;               // 受击后无敌 0.8s（规格 §3.5 起始值 0.6~1.0s）
-const INPUT_BUFFER = 8;           // 攻击输入缓冲 6~8 帧
-const HITSTOP_BASE = 3, HITSTOP_HEAVY = 5;
-const DEAD_LINGER = 46;           // 死亡后仍留 46 帧 —— 让「被打飞到屏边」这件事看得见
+/* ── 手感旋钮（**全部可写**：校准面板直接改这里，改完即时生效） ────────
+   为什么收成一个对象：这些值原先是各自独立的 const，校准面板没法改；
+   集中之后「哪些数属于手感」一目了然，导出基准也只需序列化一个对象。 */
+const TUNING = {
+  hitstopBase: 3,        // 轻击顿帧
+  hitstopHeavy: 5,       // 重击（战锤）顿帧
+  iframes: 48,           // 受击后无敌帧（规格 §3.5 起始值 0.6~1.0s）
+  inputBuffer: 8,        // 攻击输入缓冲（规格 6~8 帧）
+  deadLinger: 46,        // 死亡后仍留帧数 —— 让「被打飞到屏边」看得见
+  speedX: 118,           // 玩家横向速度（世界单位/秒）
+  speedZ: 78,            // 玩家纵深速度
+  jumpV0: -330,          // 起跳初速（负 = 向上）
+  gravity: 980,          // 重力
+};
 
 /* ════════════════════════════════════════════════════════════════════
    §1  内容定义表（规格 §3.4：内容与逻辑分离，行为用标签组合描述）
@@ -522,17 +586,17 @@ function damage(a, t, spec) {
   t.flash = 2;                                   // 白闪 2 帧（规格 §3.8）
   t.squash = 1.15;                               // 受击方 1.15× 挤压
   const heavy = applyOnHit(a, t, spec);
-  S.hitstop = Math.max(S.hitstop, heavy ? HITSTOP_HEAVY : HITSTOP_BASE);
+  S.hitstop = Math.max(S.hitstop, heavy ? TUNING.hitstopHeavy : TUNING.hitstopBase);
   S.shake = Math.max(S.shake, heavy ? 7 : 3);
   spawnSpark(t, heavy);
-  if (t.isPlayer) t.iframes = IFRAMES;
+  if (t.isPlayer) t.iframes = TUNING.iframes;
   if (t.hp <= 0) killActor(t);
 }
 
 function killActor(t) {
   t.dead = true;
   t.hp = 0;
-  t.deadT = DEAD_LINGER;
+  t.deadT = TUNING.deadLinger;
   if (t.isPlayer) return;
   S.kills++;
   // 掉落手上的武器（士兵空手 ⇒ 不掉；角斗士持战锤 ⇒ 掉）
@@ -646,13 +710,13 @@ function updatePlayer(p, dt) {
   // 攻击（含输入缓冲）
   if (p.state === 'attack') {
     const spec = p.atk;
-    if (ed.attack) p.buf = INPUT_BUFFER;
+    if (ed.attack) p.buf = TUNING.inputBuffer;
     p.asp++;
     const ph = phaseOf(p, spec);
     if (ph === 'active') resolveSwing(p);
     if (ph === 'recover') {                    // 收招期可缓慢移动
-      if (inp.left)  { p.x -= PLAYER_SPEED_X * 0.35 * dt; p.facing = -1; }
-      if (inp.right) { p.x += PLAYER_SPEED_X * 0.35 * dt; p.facing = 1; }
+      if (inp.left)  { p.x -= TUNING.speedX * 0.35 * dt; p.facing = -1; }
+      if (inp.right) { p.x += TUNING.speedX * 0.35 * dt; p.facing = 1; }
     }
     if (p.asp >= attackTotal(spec)) {
       p.state = 'idle'; p.atk = null; p.reachNow = 0;
@@ -667,7 +731,7 @@ function updatePlayer(p, dt) {
   if (ed.attack) { beginAttack(p, specFor(p)); return; }
 
   // 跳跃（仅在地面）
-  if (ed.jump && p.h <= 0.001) { p.vy = JUMP_V0; p.h = 0.01; }
+  if (ed.jump && p.h <= 0.001) { p.vy = TUNING.jumpV0; p.h = 0.01; }
 
   let mvx = 0, mvz = 0;
   if (inp.left)  { mvx -= 1; p.facing = -1; }
@@ -675,8 +739,8 @@ function updatePlayer(p, dt) {
   if (inp.up)    { mvz -= 1; }
   if (inp.down)  { mvz += 1; }
   if (p.h > 0.001) mvz = 0;                    // 空中不改纵深（纵深是地面轴）
-  p.x += mvx * PLAYER_SPEED_X * dt;
-  p.z += mvz * PLAYER_SPEED_Z * dt;
+  p.x += mvx * TUNING.speedX * dt;
+  p.z += mvz * TUNING.speedZ * dt;
   if (mvx || mvz) p.anim += dt * 9;
 }
 
@@ -759,7 +823,7 @@ function physics(a, dt) {
 
   // 重力 / 跳跃（h 向上为正，vy 取负值表示向上）
   if (a.h > 0 || a.vy !== 0) {
-    a.vy += GRAVITY * dt;
+    a.vy += TUNING.gravity * dt;
     a.h -= a.vy * dt;
     if (a.h <= 0) { a.h = 0; a.vy = 0; a.kb = null; }   // 落地即中断击退
   }
@@ -1100,10 +1164,10 @@ function drawActor(a) {
 
   ctx.save();
   ctx.translate(px, feetY);
-  if (a.dead) ctx.globalAlpha = Math.max(0.05, a.deadT / DEAD_LINGER);
+  if (a.dead) ctx.globalAlpha = Math.max(0.05, a.deadT / TUNING.deadLinger);
   ctx.scale(a.facing >= 0 ? 1 : -1, 1);
   ctx.scale(bs * a.squash, bs / a.squash);
-  if (a.dead) ctx.rotate((Math.PI / 2) * Math.min(1, (DEAD_LINGER - a.deadT) / 12));  // 倒地
+  if (a.dead) ctx.rotate((Math.PI / 2) * Math.min(1, (TUNING.deadLinger - a.deadT) / 12));  // 倒地
 
   const tint = a.flash > 0 ? '#ffffff' : a.tint;
   const trim = a.flash > 0 ? '#ffffff' : a.trim;
@@ -1537,6 +1601,11 @@ function frame(now) {
    ════════════════════════════════════════════════════════════════════ */
 
 window.addEventListener('keydown', (e) => {
+  // ⚠️ 校准面板的滑杆/文本域聚焦时，方向键属于它们 —— 不加这道闸，
+  //    调一下「收招」滑杆就会同时把角色推着走，面板根本没法用。
+  const tag = (e.target && e.target.tagName) || '';
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+  if (e.code === 'Backquote') { toggleTune(); e.preventDefault(); return; }
   if (e.code === 'KeyR') { reset(); e.preventDefault(); return; }
   if (e.code === 'KeyP') { paused = !paused; e.preventDefault(); return; }
   if (e.code === 'Comma' || e.code === 'Period' || e.code === 'Space') e.preventDefault();
@@ -1546,15 +1615,170 @@ window.addEventListener('keyup', (e) => heldKeys.delete(e.code));
 window.addEventListener('blur', () => heldKeys.clear());
 
 /* ════════════════════════════════════════════════════════════════════
+   §12.5  手感校准面板
+   为什么要有它：手感是**感知**问题。「起手再快两帧」这种描述来回猜要好几轮；
+   让峰哥直接拖滑杆、即时生效、一键导出参数 ⇒ 一轮就能定案。
+   ⚠️ 面板改 `reach` 时会**同步改 `handLen`** —— 否则「视觉 reach ≡ 判定 reach」
+      当场破掉（断言 18 那条硬约束）。
+   ════════════════════════════════════════════════════════════════════ */
+
+const TUNE_ROOTS = { WEAPONS: WEAPONS, ENEMIES: ENEMIES, TUNING: TUNING };
+const tuneAt = (p) => p.reduce((o, k) => o[k], TUNE_ROOTS);
+
+const TUNE_GROUPS = [
+  { title: '剑 · 两段连击', path: ['WEAPONS', 'sword'], band: true,
+    knobs: [['startup', 1, 24], ['active', 1, 12], ['recover', 1, 30], ['reach', 24, 60]] },
+  { title: '战锤', path: ['WEAPONS', 'hammer'], band: true,
+    knobs: [['startup', 1, 30], ['active', 1, 12], ['recover', 1, 40], ['reach', 24, 70]] },
+  { title: '敌人 · 士兵', path: ['ENEMIES', 'soldier', 'atk'], band: true,
+    knobs: [['startup', 1, 40], ['active', 1, 12], ['recover', 1, 40], ['reach', 12, 60]] },
+  { title: '敌人 · 角斗士', path: ['ENEMIES', 'gladiator', 'atk'], band: true,
+    knobs: [['startup', 1, 40], ['active', 1, 12], ['recover', 1, 40], ['reach', 12, 60]] },
+  { title: '士兵 AI', path: ['ENEMIES', 'soldier', 'ai'],
+    knobs: [['aggro', 80, 620], ['standoff', 0, 80], ['zAlign', 0, 40], ['think', 4, 80]] },
+  { title: '角斗士 AI', path: ['ENEMIES', 'gladiator', 'ai'],
+    knobs: [['aggro', 80, 620], ['standoff', 0, 80], ['zAlign', 0, 40], ['think', 4, 80]] },
+  { title: '全局', path: ['TUNING'],
+    knobs: [['hitstopBase', 0, 12], ['hitstopHeavy', 0, 16], ['iframes', 0, 120],
+            ['inputBuffer', 0, 20], ['speedX', 40, 260], ['speedZ', 30, 200],
+            ['jumpV0', -520, -140], ['gravity', 400, 2000]] },
+];
+
+// 基准快照（面板打开那一刻的值），供「重置基准」用
+const TUNE_BASE = JSON.parse(JSON.stringify({ W: WEAPONS, E: ENEMIES, T: TUNING }));
+let tuneOn = false;
+
+/** 写旋钮。reach 与 handLen 必须差 3（= 半身宽 9 − 枢轴 6），否则视觉与判定脱钩 */
+function setKnob(obj, key, v) {
+  if (key === 'reach') {
+    obj.reach = v;
+    obj.handLen = v + WORLD.actorW * 0.5 - HAND_PIVOT.x;
+  } else obj[key] = v;
+}
+
+function refreshBand(sec, obj) {
+  const el = sec.querySelector('.band');
+  if (!el) return;
+  const su = obj.startup, ac = obj.active, rc = obj.recover, tot = su + ac + rc;
+  el.querySelector('.su').style.width = (su / tot * 100) + '%';
+  el.querySelector('.ac').style.width = (ac / tot * 100) + '%';
+  el.querySelector('.rc').style.width = (rc / tot * 100) + '%';
+  sec.querySelector('.ms').textContent =
+    '起 ' + su + ' · 出 ' + ac + ' · 收 ' + rc + ' = ' + tot + ' 帧（' +
+    (tot / 60 * 1000).toFixed(0) + 'ms）　判定 ' + obj.reach;
+}
+
+function refreshInvariant() {
+  const broken = [];
+  for (const w of Object.values(WEAPONS)) {
+    if (!w || !w.reach) continue;
+    const n = w.comboCount || 1;
+    for (let c = 1; c <= n; c++)
+      if (Math.abs(bladeReach(w, c) - w.reach) > 0.01) broken.push(w.id + '#' + c);
+  }
+  const el = document.getElementById('tune-inv');
+  el.textContent = broken.length ? '⚠ 视觉≠判定 ' + broken.join(',') : '✓ 视觉 ≡ 判定';
+  el.style.color = broken.length ? 'var(--hp)' : 'var(--ok)';
+}
+
+function buildTune() {
+  const body = document.getElementById('tune-body');
+  body.innerHTML = '';
+  for (const g of TUNE_GROUPS) {
+    const obj = tuneAt(g.path);
+    if (!obj) continue;
+    const sec = document.createElement('div');
+    sec.className = 'grp';
+    sec.innerHTML = '<div class="gt">' + g.title + '</div>';
+    if (g.band) {
+      sec.insertAdjacentHTML('beforeend',
+        '<div class="band"><i class="su"></i><i class="ac"></i><i class="rc"></i></div>' +
+        '<div class="ms"></div>');
+    }
+    for (const [key, min, max] of g.knobs) {
+      const v = obj[key];
+      if (typeof v !== 'number') continue;
+      // 端点必须包住基准值，否则浏览器会把 value 夹到端点 —— 打开面板就看不见基准值了
+      const lo = Math.min(min, v), hi = Math.max(max, v);
+      const row = document.createElement('div');
+      row.className = 'row';
+      row.innerHTML = '<label>' + key + '</label>' +
+        '<input type="range" min="' + lo + '" max="' + hi + '" step="1" value="' + v + '">' +
+        '<span class="val">' + v + '</span>';
+      const inp = row.querySelector('input');
+      const out = row.querySelector('.val');
+      inp.addEventListener('input', () => {
+        const n = +inp.value;
+        setKnob(obj, key, n);
+        out.textContent = n;
+        refreshBand(sec, obj);
+        refreshInvariant();
+      });
+      sec.appendChild(row);
+    }
+    body.appendChild(sec);
+    if (g.band) refreshBand(sec, obj);
+  }
+  refreshInvariant();
+}
+
+function tuneReset() {
+  for (const id of Object.keys(TUNE_BASE.W))
+    if (WEAPONS[id]) Object.assign(WEAPONS[id], TUNE_BASE.W[id]);
+  for (const id of Object.keys(TUNE_BASE.E)) {
+    Object.assign(ENEMIES[id], TUNE_BASE.E[id]);
+    ENEMIES[id].atk = JSON.parse(JSON.stringify(TUNE_BASE.E[id].atk));
+    ENEMIES[id].ai = JSON.parse(JSON.stringify(TUNE_BASE.E[id].ai));
+  }
+  Object.assign(TUNING, TUNE_BASE.T);
+  buildTune();
+}
+
+function tuneExport() {
+  const L = ['手感基准（试玩校准 ' + new Date().toISOString().slice(0, 10) + '）'];
+  for (const id of Object.keys(WEAPONS)) {
+    const w = WEAPONS[id];
+    if (!w || !w.reach) continue;
+    L.push('WEAPONS.' + id + ' = { reach: ' + w.reach + ', handLen: ' + w.handLen +
+      ', startup: ' + w.startup + ', active: ' + w.active + ', recover: ' + w.recover + ' }');
+  }
+  for (const id of Object.keys(ENEMIES)) {
+    const a = ENEMIES[id].atk;
+    L.push('ENEMIES.' + id + '.atk = { reach: ' + a.reach + ', startup: ' + a.startup +
+      ', active: ' + a.active + ', recover: ' + a.recover + ', dmg: ' + a.dmg + ' }');
+    L.push('ENEMIES.' + id + '.ai = ' + JSON.stringify(ENEMIES[id].ai));
+  }
+  L.push('TUNING = ' + JSON.stringify(TUNING));
+  L.push('// 帧 = 60Hz；reach/handLen 相差必须恒为 3（= 半身宽 9 − 手部枢轴 6）');
+  return L.join('\n');
+}
+
+function toggleTune(force) {
+  tuneOn = (force === undefined) ? !tuneOn : !!force;
+  document.getElementById('tune').classList.toggle('on', tuneOn);
+  if (tuneOn) buildTune();
+}
+
+document.getElementById('tune-reset').addEventListener('click', tuneReset);
+document.getElementById('tune-copy').addEventListener('click', () => {
+  const ta = document.getElementById('tune-out');
+  ta.value = tuneExport();
+  ta.focus(); ta.select();
+  try { document.execCommand('copy'); } catch (e) {}
+});
+
+/* ════════════════════════════════════════════════════════════════════
    §13  探针（规格 §4 断言用）
         ⚠️ 探针会改状态，断言之间请先 reset()。
    ════════════════════════════════════════════════════════════════════ */
 
 window.__dbg = {
   version: 'dual_blade.slice1',
-  consts: { FIXED_DT, WORLD, COMBAT, WEAPONS, ENEMIES, LEVEL, INPUT_MAPS, PLAYER_HP, PLAYER_START, HAND_PIVOT, REST_ANG },
+  consts: { FIXED_DT, WORLD, COMBAT, WEAPONS, ENEMIES, LEVEL, INPUT_MAPS, PLAYER_HP, PLAYER_START,
+            HAND_PIVOT, REST_ANG, TUNING },
   GROUND_Y, canHit, probeZHit, probeYHit, phaseOf, attackTotal, specFor,
   specHandLen, specArc, tipMaxForward, bladeReach, swingAngleAt, swingAngle,
+  toggleTune, tuneExport, tuneReset, buildTune,
 
   step(n) { const k = n || 1; for (let i = 0; i < k; i++) stepLogic(FIXED_DT); return S.tick; },
   setInput(o) {
@@ -1712,7 +1936,7 @@ window.__dbg = {
     snapCamera();
     this.setInput({ right: 1 });
     // 帧数由几何算出，不写死魔法数字（坑的 x0/x1 一改，写死的帧数就会静默失效）
-    const need = Math.ceil((hz.x1 + 20 - p.x) / PLAYER_SPEED_X * 60) + 10;
+    const need = Math.ceil((hz.x1 + 20 - p.x) / TUNING.speedX * 60) + 10;
     this.step(need);
     const passed = p.x > hz.x1;
     const stunned = p.stun > 0;
@@ -1881,6 +2105,8 @@ function reset() {
 
 buildHearts();                            // 爱心：DOM 结构只建一次，之后只改 clip-path
 S = newState();
+buildTune();                              // 校准面板先建好（隐藏状态也建，切开关不卡）
+if (/[?&]debug=1/.test(location.search)) toggleTune(true);   // ?debug=1 直接打开面板
 resize();
 snapCamera();
 toast('「←→」移动 ·「↑↓」纵深 ·「.」跳跃 ·「,」攻击', 340);
