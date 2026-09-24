@@ -1,0 +1,1622 @@
+---
+layout: null
+permalink: /dual_blade.html
+title: "双刃武者"
+---
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>双刃武者 · 切片一</title>
+<!--
+  ⚠️ 本页是「复刻《Double Edged》骨与手感、重做皮」的切片一实现。
+  定案规格见 _design/dual_blade_slice1.md —— 改本页前先读那份规格。
+
+  三条不可协商的前提（规格 §3.3 / §3.2）：
+    1. 逻辑走【固定 60Hz 步长】，禁止可变 dt。帧数据是手感的载体。
+    2. 三轴世界：X 左右（卷轴）/ Z 纵深（走位·躲避·包夹）/ Y 高度（仅躲地面 AoE 与空中攻击）。
+    3. 攻击判定是【两轴对齐】—— |Δz| 阈值，不是一条线。这是「打空」的来源。
+
+  版权：本页不复刻原版任何美术、名称、角色形象与剧情（机制不受版权保护）。
+  对外名称待定，「双刃武者」仅为页面暂名。
+-->
+<style>
+  :root {
+    --ink:      #171512;
+    --accent:   #b86944;
+    --paper:    #f2ece1;
+    --dim:      #a89d8c;
+    --hp:       #d94a3d;
+    --hp-bg:    #4a2620;
+    --ok:       #7fa36b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    width: 100%; height: 100%;
+    background: var(--ink);
+    overflow: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+                 "Hiragino Sans GB", "Microsoft YaHei", "Heiti SC", sans-serif;
+    color: var(--paper);
+  }
+
+  /* 舞台：画布按视口等比缩放居中，HUD 绝对定位在同一坐标系上 */
+  #stage { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
+  #frame { position: relative; }
+  #cv { display: block; background: #1a1816; }
+
+  /* ── HUD（规格 §3.3：DOM 只做 HUD/菜单） ───────────────────────── */
+  #hud {
+    position: absolute; inset: 0;
+    pointer-events: none;
+    font-size: 13px; line-height: 1.5;
+    letter-spacing: .02em;
+  }
+  .hud-block { position: absolute; }
+
+  #hud-left  { top: 14px; left: 16px; }
+  #hud-right { top: 14px; right: 16px; text-align: right; }
+  #hud-keys  { bottom: 12px; left: 16px; color: var(--dim); font-size: 12px; }
+  #hud-keys b { color: var(--paper); }
+
+  .name-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .tag {
+    font-size: 11px; padding: 1px 7px; border-radius: 999px;
+    border: 1px solid rgba(184,105,68,.6); color: var(--accent);
+  }
+  #weapon-name { font-size: 14px; font-weight: 600; }
+
+  .bar {
+    width: 190px; height: 9px; border-radius: 999px;
+    background: var(--hp-bg); overflow: hidden;
+    border: 1px solid rgba(255,255,255,.12);
+  }
+  .bar > i { display: block; height: 100%; width: 100%; background: var(--hp); transition: width .08s linear; }
+  .bar.slim { width: 130px; height: 5px; background: rgba(255,255,255,.10); }
+  .bar.slim > i { background: var(--accent); }
+  .small { font-size: 11px; color: var(--dim); margin-top: 4px; }
+
+  /* 中央提示：教学与结果 */
+  #toast {
+    position: absolute; left: 50%; top: 76px; transform: translateX(-50%);
+    padding: 8px 18px; border-radius: 10px;
+    background: rgba(20,18,16,.82); border: 1px solid rgba(184,105,68,.45);
+    font-size: 14px; max-width: 78%; text-align: center;
+    opacity: 0; transition: opacity .16s linear;
+  }
+  #toast.on { opacity: 1; }
+
+  /* 交互提示：拾取 */
+  #prompt {
+    position: absolute; left: 50%; bottom: 74px; transform: translateX(-50%);
+    padding: 5px 14px; border-radius: 8px;
+    background: rgba(20,18,16,.88); border: 1px solid rgba(127,163,107,.55);
+    font-size: 13px; white-space: nowrap; display: none;
+  }
+  #prompt.on { display: block; }
+  #prompt b { color: var(--ok); }
+
+  /* 结算覆盖层 */
+  #over {
+    position: absolute; inset: 0; display: none;
+    align-items: center; justify-content: center; flex-direction: column; gap: 10px;
+    background: rgba(15,13,12,.78);
+  }
+  #over.on { display: flex; }
+  #over h2 { font-size: 26px; font-weight: 700; letter-spacing: .08em; }
+  #over p  { color: var(--dim); font-size: 13px; }
+  #over .k { color: var(--accent); }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="frame">
+    <canvas id="cv"></canvas>
+
+    <div id="hud">
+      <div class="hud-block" id="hud-left">
+        <div class="name-row">
+          <span class="tag">切片一</span>
+          <span id="weapon-name">剑</span>
+        </div>
+        <div class="bar"><i id="hp-fill"></i></div>
+        <div class="small" id="hp-text">100 / 100</div>
+      </div>
+
+      <div class="hud-block" id="hud-right">
+        <div class="small" style="margin-top:0">推进</div>
+        <div class="bar slim"><i id="prog-fill" style="width:0%"></i></div>
+        <div class="small" id="kill-text">击倒 0</div>
+      </div>
+
+      <div class="hud-block" id="hud-keys">
+        <b>←→</b> 移动 &nbsp;·&nbsp; <b>↑↓</b> 纵深 &nbsp;·&nbsp; <b>.</b> 跳跃 &nbsp;·&nbsp;
+        <b>,</b> 攻击 / 拾取 &nbsp;·&nbsp; <b>K</b> 丢弃武器 &nbsp;·&nbsp; <b>R</b> 重来
+      </div>
+
+      <div id="toast"></div>
+      <div id="prompt"></div>
+      <div id="over">
+        <h2 id="over-title">—</h2>
+        <p id="over-sub">—</p>
+        <p>按 <span class="k">R</span> 重新开始</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+'use strict';
+
+/* ════════════════════════════════════════════════════════════════════
+   §0  常量
+   ════════════════════════════════════════════════════════════════════ */
+
+const FIXED_DT = 1 / 60;          // 逻辑步长，恒 60Hz（规格 §3.3，禁止改成可变 dt）
+const MAX_CATCHUP = 5;            // 单帧最多补几步，防止后台回来一次性追帧爆炸
+const VIEW_W = 960, VIEW_H = 540;
+
+const WORLD = {
+  left: 0, right: 2400,
+  zMin: 0, zMax: 46,              // 纵深范围（世界单位）
+  zScale: 5.4,                    // 1 世界单位 → 5.4 屏幕像素（纵向）
+  baseY: 252,                     // z=0 处的地面屏幕 y
+  actorW: 18, actorH: 44,
+};
+
+// 地面投影：纵深 z → 屏幕 y。z 越大越靠近镜头（画面上越靠下）。
+const GROUND_Y = (z) => WORLD.baseY + z * WORLD.zScale;
+// 极轻微透视：远处略小。幅度刻意压小，避免剪影失真。
+const DEPTH_SCALE = (z) => 1 + z * 0.0032;
+
+const COMBAT = {
+  hitZTol: 15,      // ★ 两轴对齐阈值：|Δz| >= 此值必然打空（边界为开区间）
+  hitYUp: 26,       // 目标比攻击者高超过此值 → 打不到（于是「跳起来躲」成立）
+  hitYDown: 62,     // 攻击者比目标高不超过此值 → 跳劈可中
+  airThreshold: 6,  // h 超过此值算「在空中」（用于绕过角斗士的正面格挡）
+  edgeMargin: 30,   // 战锤把人打飞到屏边时的留白
+};
+
+const PLAYER_HP = 100;
+const PLAYER_SPEED_X = 118;
+const PLAYER_SPEED_Z = 78;
+const JUMP_V0 = -330;
+const GRAVITY = 980;
+const IFRAMES = 48;               // 受击后无敌 0.8s（规格 §3.5 起始值 0.6~1.0s）
+const INPUT_BUFFER = 8;           // 攻击输入缓冲 6~8 帧
+const HITSTOP_BASE = 3, HITSTOP_HEAVY = 5;
+const DEAD_LINGER = 46;           // 死亡后仍留 46 帧 —— 让「被打飞到屏边」这件事看得见
+
+/* ════════════════════════════════════════════════════════════════════
+   §1  内容定义表（规格 §3.4：内容与逻辑分离，行为用标签组合描述）
+       —— 想加一种武器/敌人，只加一条数据，不碰下面的逻辑。
+   ════════════════════════════════════════════════════════════════════ */
+
+const WEAPONS = {
+  sword: {
+    id: 'sword', name: '剑', tint: '#cfd6df',
+    reach: 40,
+    startup: 9, active: 4, recover: 11,     // 起手 9 帧（规格 §3.5：8~10 帧）
+    dmg: 1,
+    comboCount: 2,                          // 两段连击（原版 1-1：一次剑连击可击杀士兵）
+    comboReach: [1, 1.12],                  // 第二段挥击略远，让连击有手感差别
+    onHit: [{ knockback: 0.5 }],            // 0.5 倍身高 ≈ 22px
+    dropWhenSwapped: false,                 // 默认/回退武器：换武器时不落地
+  },
+  hammer: {
+    id: 'hammer', name: '战锤', tint: '#b86944',
+    reach: 46,
+    startup: 12, active: 5, recover: 19,
+    dmg: 2,
+    comboCount: 1,
+    onHit: [{ stun: 30 }, { knockback: 'toEdge' }],
+    dropWhenSwapped: true,
+  },
+};
+
+const ENEMIES = {
+  soldier: {
+    id: 'soldier', name: '士兵', tint: '#7d8896', trim: '#5c6672',
+    hp: 2,                                  // 剑 2 下死（规格 §1.5 锚点）
+    speedX: 56, speedZ: 40,
+    bodyScale: 1.0, headgear: 'helm',
+    weapon: null,                           // 空手（不落武器）
+    facingLock: false,                      // 持续转向玩家
+    guardFront: false,
+    atk: { reach: 32, startup: 16, active: 4, recover: 16, dmg: 14,
+           onHit: [{ knockback: 0.4 }] },
+    ai: { aggro: 320, standoff: 30, zAlign: 12, think: 26, turn: 18 },
+  },
+  gladiator: {
+    id: 'gladiator', name: '角斗士', tint: '#4f5b66', trim: '#b86944',
+    hp: 6,                                  // 耐久高
+    speedX: 48, speedZ: 34,
+    bodyScale: 1.16, headgear: 'crest',
+    weapon: 'hammer',                       // 持战锤 → 击倒后掉落，让玩家能体验第二把武器
+    facingLock: true,                       // ★ 只在出招瞬间转向 ⇒「绕到背后打」成为可能
+    guardFront: true,                       // ★ 正面格挡：「空中打或从背后打」才有效
+    atk: { reach: 38, startup: 20, active: 5, recover: 20, dmg: 18,
+           onHit: [{ knockback: 0.5 }] },
+    ai: { aggro: 360, standoff: 34, zAlign: 12, think: 34, turn: 40 },
+  },
+};
+
+// 关卡：手写 spawn 时间轴数组（规格 §3.7）。at = 推进线（玩家 x 越过即触发）。
+// ⚠️ 尖刺坑的几何有观感约束：z 带宽 24 单位 × zScale 5.4 = 130px，而 x 向只有 110px
+//    ⇒ 比宽还高，渲染出来读成「一扇黑门」而不是「地面上的坑」。
+//    现在 z 0~14（76px 高）× x 160px 宽 ≈ 2:1，才读成横向的坑。
+//    玩家出生 z = 30，安全区是 z > 14。
+const LEVEL = {
+  width: WORLD.right,
+  goalX: 2320,
+  hazards: [
+    { type: 'spike', x0: 760, x1: 920, z0: 0, z1: 10, stun: 42 },
+  ],
+  waves: [
+    { at: 180,  spawns: [
+      { type: 'soldier', from: 'right', z: 20 },
+      { type: 'soldier', from: 'right', z: 34 } ] },
+    { at: 700,  spawns: [
+      { type: 'soldier', from: 'left',  z: 12 },
+      { type: 'soldier', from: 'right', z: 36 },
+      { type: 'soldier', from: 'left',  z: 30 } ] },
+    { at: 1240, spawns: [
+      { type: 'gladiator', from: 'right', z: 26 } ] },
+    { at: 1760, spawns: [
+      { type: 'soldier',   from: 'left',  z: 12 },
+      { type: 'soldier',   from: 'right', z: 30 },
+      { type: 'gladiator', from: 'right', z: 38, weapon: null } ] },
+  ],
+};
+
+const PLAYER_START = { x: 120, z: 30 };
+
+/* ════════════════════════════════════════════════════════════════════
+   §2  输入（规格 §3.6：players 数组 + 输入映射表，为双人预留）
+   ════════════════════════════════════════════════════════════════════ */
+
+const INPUT_MAPS = [
+  { left: ['ArrowLeft'], right: ['ArrowRight'], up: ['ArrowUp'], down: ['ArrowDown'],
+    attack: ['Comma'], jump: ['Period'], drop: ['KeyK'] },
+  // 地图 1 预留给第二人（双人模式后期扩展，规格 §3.6）
+  { left: ['KeyA'], right: ['KeyD'], up: ['KeyW'], down: ['KeyS'],
+    attack: ['KeyG'], jump: ['KeyH'], drop: ['KeyT'] },
+];
+
+const heldKeys = new Set();      // 记录 e.code
+let inputOverride = null;        // 无头探针用：直接注入输入状态
+
+function readInput(pi) {
+  if (inputOverride) return inputOverride;
+  const m = INPUT_MAPS[pi];
+  const down = (arr) => arr.some((c) => heldKeys.has(c));
+  return {
+    left: down(m.left), right: down(m.right),
+    up: down(m.up), down: down(m.down),
+    attack: down(m.attack), jump: down(m.jump), drop: down(m.drop),
+  };
+}
+// 边沿检测：本帧刚按下
+const prevInput = [];
+function edge(pi, cur) {
+  const p = prevInput[pi] || {};
+  const r = { attack: cur.attack && !p.attack, jump: cur.jump && !p.jump, drop: cur.drop && !p.drop };
+  prevInput[pi] = cur;
+  return r;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   §3  运行时状态
+   ════════════════════════════════════════════════════════════════════ */
+
+let S = null;
+let uid = 0;
+
+function newState() {
+  return {
+    tick: 0,
+    players: [makePlayer(0)],           // ★ 数组（规格 §3.6：加第二人时不重构）
+    enemies: [],
+    drops: [],                          // 地上的武器
+    fx: [],                             // 粒子
+    camera: { x: 0 },
+    hitstop: 0,
+    shake: 0,
+    waveFired: LEVEL.waves.map(() => false),
+    kills: 0,
+    phase: 'play',                      // play | win | lose
+    toast: { text: '', t: 0 },
+    flags: { sawSpike: false, sawGladiator: false, sawHammer: false, usedHammer: false },
+    lastKnock: null,                    // 供断言 #3
+  };
+}
+
+function toast(text, frames = 200) {
+  S.toast.text = text;
+  S.toast.t = frames;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   §4  角色工厂
+   ════════════════════════════════════════════════════════════════════ */
+
+function baseActor(x, z) {
+  return {
+    id: ++uid,
+    x, z, h: 0, vy: 0,
+    facing: 1,
+    hp: 1, maxHp: 1,
+    state: 'idle',                      // idle | attack | dead
+    dead: false, deadT: 0,
+    asp: 0,                             // 攻击步数计数
+    combo: 0,
+    buf: 0,                             // 攻击输入缓冲
+    stun: 0,
+    iframes: 0,
+    spikeCd: 0,
+    kb: null,                           // { dir, toEdge, speed, remain }
+    hitSet: new Set(),                  // 本次挥击已命中的目标 id
+    turnCd: 0,
+    thinkCd: 0,
+    anim: 0,
+    flash: 0,                           // 命中白闪剩余帧
+    squash: 1,                          // 挤压（>1 表示被打扁）
+    atk: null, reachNow: 0,             // 当前生效的攻击描述与判定距离
+    weapon: null, def: null,
+    tint: '#888', trim: '#444', bodyScale: 1, headgear: 'helm',
+  };
+}
+
+function makePlayer(i) {
+  const a = baseActor(PLAYER_START.x, PLAYER_START.z);
+  a.kind = 'player';
+  a.playerIndex = i;
+  a.isPlayer = true;
+  a.hp = a.maxHp = PLAYER_HP;
+  a.defaultWeapon = 'sword';
+  a.weapon = 'sword';
+  a.tint = '#d94a3d'; a.trim = '#f0a08c';
+  a.bodyScale = 1.0;
+  a.headgear = 'douli';               // ★ 靠头饰形状区分，不靠颜色（红绿盲友好）
+  return a;
+}
+
+function makeEnemy(type, opts) {
+  const def = ENEMIES[type];
+  const a = baseActor(0, opts.z);
+  a.kind = 'enemy'; a.type = type; a.def = def;
+  a.hp = a.maxHp = def.hp;
+  a.tint = def.tint; a.trim = def.trim;
+  a.bodyScale = def.bodyScale;
+  a.headgear = def.headgear;
+  a.weapon = opts.weapon !== undefined ? opts.weapon : def.weapon;
+  a.facing = opts.from === 'left' ? 1 : -1;
+  return a;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   §5  ★ 两轴对齐判定（规格 §3.2 / §4 断言 #2）
+       这是整个游戏手感的核心：判定盒是扁平的，|Δz| 超了就是打空。
+   ════════════════════════════════════════════════════════════════════ */
+
+function canHit(a, t) {
+  if (!a || !t || t.dead) return false;
+  // Z 轴对齐：边界为开区间（|Δz| === hitZTol 判为打空）
+  if (Math.abs(a.z - t.z) >= COMBAT.hitZTol) return false;
+  // Y 轴：非对称。目标在头顶过高 → 打空（于是「跳起来躲」成立）。
+  if (t.h - a.h > COMBAT.hitYUp) return false;
+  if (a.h - t.h > COMBAT.hitYDown) return false;
+  // X 轴：朝向前方的 reach 范围
+  const halfW = WORLD.actorW * 0.5;
+  const dx = (t.x - a.x) * a.facing;
+  if (dx < -halfW) return false;
+  if (dx - halfW > a.reachNow) return false;
+  return true;
+}
+
+/* 探针：只按 Δz（同道高度）构造一对标准对手 —— 断言 #2 用 */
+function probeZHit(dz) {
+  const A = { x: 500, z: 20, h: 0, facing: 1, reachNow: WEAPONS.sword.reach, dead: false };
+  const T = { x: 520, z: 20 + dz, h: 0, dead: false };
+  return canHit(A, T);
+}
+/* 探针：只按两方高度差（同道纵深）构造 —— 「跳劈可中 / 跳躲可避」用 */
+function probeYHit(attackerH, targetH) {
+  const A = { x: 500, z: 20, h: attackerH, facing: 1, reachNow: WEAPONS.sword.reach, dead: false };
+  const T = { x: 520, z: 20, h: targetH, dead: false };
+  return canHit(A, T);
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   §6  战斗
+   ════════════════════════════════════════════════════════════════════ */
+
+function beginAttack(a, spec) {
+  a.state = 'attack';
+  a.asp = 0;
+  a.hitSet = new Set();
+  a.atk = spec;
+  a.combo = (a.combo || 0) + 1;
+  if (a.combo > (spec.comboCount || 1)) a.combo = 1;
+  const mul = (spec.comboReach && spec.comboReach[a.combo - 1]) || 1;
+  a.reachNow = spec.reach * mul;
+  a.buf = 0;
+}
+
+function specFor(a) {
+  if (a.isPlayer) return WEAPONS[a.weapon] || WEAPONS[a.defaultWeapon];
+  return a.def.atk;
+}
+
+function attackTotal(spec) { return spec.startup + spec.active + spec.recover; }
+
+function phaseOf(a, spec) {
+  if (a.state !== 'attack') return null;
+  if (a.asp < spec.startup) return 'startup';
+  if (a.asp < spec.startup + spec.active) return 'active';
+  return 'recover';
+}
+
+/* ★ 角斗士的正面格挡：攻击者落地 + 站在其「面朝的一侧」⇒ 不受伤。
+   判据：sign(攻击者.x - 目标.x) === 目标.facing
+   （正负号写反过一次：写反时「正面无敌」会变成「背面无敌」，且实测不易察觉） */
+function isGuarded(a, t) {
+  if (!t.def || !t.def.guardFront) return false;
+  if (a.h >= COMBAT.airThreshold) return false;             // 空中攻击无视格挡
+  return Math.sign(a.x - t.x) === t.facing;
+}
+
+function applyOnHit(a, t, spec) {
+  let heavy = false;
+  const dir = a.facing >= 0 ? 1 : -1;
+  for (const tag of spec.onHit || []) {
+    if (tag.stun) t.stun = Math.max(t.stun, tag.stun);
+    if (tag.knockback === 'toEdge') {
+      // ★ 战锤：朝攻击方向把人打飞到屏幕边缘（断言 #3）
+      t.kb = { dir, toEdge: true, speed: 620, remain: Infinity, from: t.x, to: null };
+      heavy = true;
+    } else if (typeof tag.knockback === 'number') {
+      t.kb = { dir, toEdge: false, speed: 330, remain: tag.knockback * WORLD.actorH, from: t.x, to: null };
+    }
+  }
+  return heavy;
+}
+
+function damage(a, t, spec) {
+  t.hp -= spec.dmg;
+  t.flash = 2;                                   // 白闪 2 帧（规格 §3.8）
+  t.squash = 1.15;                               // 受击方 1.15× 挤压
+  const heavy = applyOnHit(a, t, spec);
+  S.hitstop = Math.max(S.hitstop, heavy ? HITSTOP_HEAVY : HITSTOP_BASE);
+  S.shake = Math.max(S.shake, heavy ? 7 : 3);
+  spawnSpark(t, heavy);
+  if (t.isPlayer) t.iframes = IFRAMES;
+  if (t.hp <= 0) killActor(t);
+}
+
+function killActor(t) {
+  t.dead = true;
+  t.hp = 0;
+  t.deadT = DEAD_LINGER;
+  if (t.isPlayer) return;
+  S.kills++;
+  // 掉落手上的武器（士兵空手 ⇒ 不掉；角斗士持战锤 ⇒ 掉）
+  if (t.weapon && WEAPONS[t.weapon]) {
+    S.drops.push({ id: ++uid, weapon: t.weapon, x: t.x, z: t.z, h: 0, life: 900 });
+    if (!S.flags.sawHammer && t.weapon === 'hammer') {
+      S.flags.sawHammer = true;
+      toast('「,」拾取战锤 —— 命中会把人击晕并打飞到屏边', 260);
+    }
+  }
+  spawnDust(t.x, t.z, 6);
+}
+
+function resolveSwing(a) {
+  const spec = a.atk;
+  const targets = a.isPlayer ? S.enemies : S.players;
+  for (const t of targets) {
+    if (t.dead || a.hitSet.has(t.id)) continue;
+    if (t.iframes > 0) continue;
+    if (!canHit(a, t)) continue;
+    a.hitSet.add(t.id);
+    if (isGuarded(a, t)) {
+      // 格挡：不扣血，出火花 + 轻微顿帧，把「正面无效」这件事讲清楚
+      S.hitstop = Math.max(S.hitstop, 2);
+      S.shake = Math.max(S.shake, 2);
+      spawnSpark(t, false, '#b86944');
+      toast('角斗士正面架住了 —— 跳到空中打，或绕到背后打', 160);
+      continue;
+    }
+    damage(a, t, spec);
+    if (a.isPlayer && a.weapon === 'hammer' && !S.flags.usedHammer) {
+      S.flags.usedHammer = true;
+      toast('战锤命中：击晕 + 击飞到屏幕边缘', 200);
+    }
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   §7  粒子
+   ════════════════════════════════════════════════════════════════════ */
+
+function spawnSpark(t, heavy, color) {
+  const n = heavy ? 10 : 5;
+  for (let i = 0; i < n; i++) {
+    const ang = -0.9 + Math.random() * 1.8;
+    const sp = (heavy ? 260 : 150) * (0.5 + Math.random());
+    S.fx.push({ kind: 'spark', x: t.x, z: t.z, h: WORLD.actorH * 0.55,
+      vx: Math.cos(ang) * sp, vh: Math.sin(ang) * sp - 40,
+      life: heavy ? 14 : 9, max: heavy ? 14 : 9,
+      color: color || (t.isPlayer ? '#ffd9c9' : '#fff3c4') });
+  }
+}
+function spawnDust(x, z, n) {
+  for (let i = 0; i < n; i++) {
+    S.fx.push({ kind: 'dust', x, z, h: 4,
+      vx: (Math.random() - 0.5) * 90, vh: 40 + Math.random() * 60,
+      life: 18, max: 18, color: '#8b7f70' });
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   §8  逻辑步（固定 dt，唯一入口）
+   ════════════════════════════════════════════════════════════════════ */
+
+function stepLogic(dt) {
+  S.tick++;
+
+  // 顿帧（hitstop）：世界冻结，但 tick 继续走 —— 这是打击感的来源
+  if (S.hitstop > 0) { S.hitstop--; if (S.toast.t > 0) S.toast.t--; return; }
+
+  if (S.toast.t > 0) S.toast.t--;
+  if (S.shake > 0) S.shake *= 0.86;
+
+  updateWaves();
+  for (const p of S.players) updatePlayer(p, dt);
+  for (const e of S.enemies) updateEnemy(e, dt);
+
+  const all = [...S.players, ...S.enemies];
+  for (const t of all) physics(t, dt);
+  for (const t of all) hazardCheck(t);
+
+  resolveOverlaps();
+  updateDrops();
+  updateFx(dt);
+  cleanup();
+  updateCamera();
+  updateTutorial();
+
+  if (S.phase === 'play') {
+    const p = S.players[0];
+    if (p.dead) { S.phase = 'lose'; showOver('倒下了', '关卡的节奏还没掌握'); }
+    else if (p.x >= LEVEL.goalX) { S.phase = 'win'; showOver('切片一完成', '通用战斗 · 武器拾取 · 两轴判定 均成立'); }
+  }
+}
+
+/* ── 玩家 ─────────────────────────────────────────────────────────── */
+function updatePlayer(p, dt) {
+  if (p.dead) return;
+  const inp = readInput(p.playerIndex);
+  const ed = edge(p.playerIndex, inp);         // 边沿检测必须在任何提前 return 之前
+
+  if (p.buf > 0) p.buf--;
+  if (p.iframes > 0) p.iframes--;
+  if (p.spikeCd > 0) p.spikeCd--;
+  if (p.stun > 0) { p.stun--; return; }
+  if (p.kb) return;                            // 被击退期间不可操作
+
+  // 丢弃武器：交出当前武器，回退到默认武器（断言 #5）
+  if (ed.drop) dropWeapon(p);
+
+  // 攻击（含输入缓冲）
+  if (p.state === 'attack') {
+    const spec = p.atk;
+    if (ed.attack) p.buf = INPUT_BUFFER;
+    p.asp++;
+    const ph = phaseOf(p, spec);
+    if (ph === 'active') resolveSwing(p);
+    if (ph === 'recover') {                    // 收招期可缓慢移动
+      if (inp.left)  { p.x -= PLAYER_SPEED_X * 0.35 * dt; p.facing = -1; }
+      if (inp.right) { p.x += PLAYER_SPEED_X * 0.35 * dt; p.facing = 1; }
+    }
+    if (p.asp >= attackTotal(spec)) {
+      p.state = 'idle'; p.atk = null; p.reachNow = 0;
+      if (p.buf > 0) beginAttack(p, specFor(p));   // 缓冲兑现 → 连段
+    }
+    return;
+  }
+
+  // 拾取优先于出招：站在可拾取物上按攻击键 = 拾取（原版行为）
+  const drop = nearestPickup(p);
+  if (ed.attack && drop && canPickup(p, drop)) { pickUp(p, drop); return; }
+  if (ed.attack) { beginAttack(p, specFor(p)); return; }
+
+  // 跳跃（仅在地面）
+  if (ed.jump && p.h <= 0.001) { p.vy = JUMP_V0; p.h = 0.01; }
+
+  let mvx = 0, mvz = 0;
+  if (inp.left)  { mvx -= 1; p.facing = -1; }
+  if (inp.right) { mvx += 1; p.facing = 1; }
+  if (inp.up)    { mvz -= 1; }
+  if (inp.down)  { mvz += 1; }
+  if (p.h > 0.001) mvz = 0;                    // 空中不改纵深（纵深是地面轴）
+  p.x += mvx * PLAYER_SPEED_X * dt;
+  p.z += mvz * PLAYER_SPEED_Z * dt;
+  if (mvx || mvz) p.anim += dt * 9;
+}
+
+/* ── 敌人 AI ──────────────────────────────────────────────────────── */
+function updateEnemy(e, dt) {
+  if (e.dead) return;
+  if (e.stun > 0) { e.stun--; return; }
+  if (e.kb) return;                            // 被击退期间不做决策
+  if (e.turnCd > 0) e.turnCd--;
+
+  if (e.state === 'attack') {
+    const spec = e.atk;
+    e.asp++;
+    if (phaseOf(e, spec) === 'active') resolveSwing(e);
+    if (e.asp >= attackTotal(spec)) { e.state = 'idle'; e.atk = null; e.reachNow = 0; }
+    return;
+  }
+
+  const p = S.players[0];
+  if (p.dead) return;
+
+  const dxs = p.x - e.x, dzs = p.z - e.z;
+  const adx = Math.abs(dxs), adz = Math.abs(dzs);
+  const ai = e.def.ai;
+
+  // 朝向：持续型（士兵）每 turn 帧跟一次；锁定型（角斗士）只在出招瞬间转
+  if (!e.def.facingLock && e.turnCd <= 0) { e.facing = dxs >= 0 ? 1 : -1; e.turnCd = ai.turn; }
+
+  if (adx + adz > ai.aggro) return;
+
+  // 先对齐纵深，再接近（清版动作的标准走位）
+  let mvx = 0, mvz = 0;
+  if (adz > ai.zAlign) mvz = Math.sign(dzs);
+  else if (adx > e.def.atk.reach * 0.75) mvx = Math.sign(dxs);
+  if (mvx !== 0 && !e.def.facingLock) e.facing = Math.sign(mvx);
+
+  if (mvz === 0 && adx <= e.def.atk.reach + 8 && adz <= ai.zAlign) {
+    if (e.thinkCd > 0) { e.thinkCd--; }
+    else {
+      e.thinkCd = ai.think;
+      e.facing = dxs >= 0 ? 1 : -1;             // 出招瞬间转向（锁定型的唯一转向时机）
+      beginAttack(e, e.def.atk);
+      return;
+    }
+  }
+
+  e.x += mvx * e.def.speedX * dt;
+  e.z += mvz * e.def.speedZ * dt;
+  if (mvx || mvz) e.anim += dt * 8;
+}
+
+/* ── 物理 ─────────────────────────────────────────────────────────── */
+function physics(a, dt) {
+  // ★ 击退先于死亡判定：死亡也要继续飞，否则「打飞到屏边」看不见（也断不了断言 #3）
+  if (a.kb) {
+    let stop = false;
+    if (a.kb.toEdge) {
+      const camL = S.camera.x, camR = S.camera.x + VIEW_W;
+      const edge = a.kb.dir > 0 ? camR - COMBAT.edgeMargin : camL + COMBAT.edgeMargin;
+      a.x += a.kb.dir * a.kb.speed * dt;
+      if ((a.kb.dir > 0 && a.x >= edge) || (a.kb.dir < 0 && a.x <= edge)) { a.x = edge; stop = true; }
+    } else {
+      const use = Math.min(a.kb.speed * dt, Math.max(0, a.kb.remain));
+      a.x += a.kb.dir * use;
+      a.kb.remain -= use;
+      if (a.kb.remain <= 0.001) stop = true;
+    }
+    if (a.x <= WORLD.left + 8 || a.x >= WORLD.right - 8) {
+      a.x = Math.max(WORLD.left + 8, Math.min(WORLD.right - 8, a.x));
+      stop = true;
+    }
+    if (stop) {
+      S.lastKnock = { from: +a.kb.from.toFixed(2), to: +a.x.toFixed(2),
+                      toEdge: !!a.kb.toEdge, id: a.id, tick: S.tick };
+      a.kb = null;
+    }
+  }
+
+  if (a.dead) { a.deadT--; return; }
+
+  // 重力 / 跳跃（h 向上为正，vy 取负值表示向上）
+  if (a.h > 0 || a.vy !== 0) {
+    a.vy += GRAVITY * dt;
+    a.h -= a.vy * dt;
+    if (a.h <= 0) { a.h = 0; a.vy = 0; a.kb = null; }   // 落地即中断击退
+  }
+
+  a.x = Math.max(WORLD.left + 8, Math.min(WORLD.right - 8, a.x));
+  a.z = Math.max(WORLD.zMin, Math.min(WORLD.zMax, a.z));
+
+  if (a.squash > 1) a.squash = Math.max(1, a.squash - dt * 1.5);
+  if (a.flash > 0) a.flash--;
+}
+
+/* ── 角色互相推挤（同 z 才推，纯观感） ───────────────────────────── */
+function resolveOverlaps() {
+  const all = [];
+  for (const a of S.players) if (!a.dead) all.push(a);
+  for (const a of S.enemies) if (!a.dead) all.push(a);
+  for (let i = 0; i < all.length; i++) {
+    for (let j = i + 1; j < all.length; j++) {
+      const a = all[i], b = all[j];
+      if (Math.abs(a.z - b.z) > 8) continue;     // 纵深差够大 = 不算撞在一起
+      const d = b.x - a.x;
+      if (Math.abs(d) < WORLD.actorW) {
+        const push = (WORLD.actorW - Math.abs(d)) * 0.2 * (d >= 0 ? 1 : -1);
+        a.x -= push; b.x += push;
+      }
+    }
+  }
+}
+
+/* ── 掉落与拾取 ───────────────────────────────────────────────────── */
+function nearestPickup(p) {
+  let best = null, bd = 1e9;
+  for (const d of S.drops) {
+    const dist = Math.abs(d.x - p.x) + Math.abs(d.z - p.z) * 1.2;
+    if (dist < 34 && dist < bd) { bd = dist; best = d; }
+  }
+  return best;
+}
+function canPickup(p, d) {
+  // 原版规则：手持同类型武器时无法拾取同类武器
+  return p.weapon !== d.weapon;
+}
+function pickUp(p, d) {
+  const old = p.weapon;
+  p.weapon = d.weapon;
+  S.drops = S.drops.filter((x) => x !== d);
+  const oldDef = WEAPONS[old];
+  if (oldDef && oldDef.dropWhenSwapped) {
+    S.drops.push({ id: ++uid, weapon: old, x: p.x + (p.facing > 0 ? -24 : 24), z: p.z, h: 0, life: 900 });
+  }
+  toast('拾取：' + WEAPONS[p.weapon].name, 90);
+}
+function dropWeapon(p) {
+  if (!p.weapon || p.weapon === p.defaultWeapon) return;
+  const w = p.weapon;
+  S.drops.push({ id: ++uid, weapon: w, x: p.x, z: p.z, h: 0, life: 900 });
+  p.weapon = p.defaultWeapon;               // ★ 回退到默认武器（断言 #5）
+  toast('丢弃' + WEAPONS[w].name + ' → 回到' + WEAPONS[p.defaultWeapon].name, 120);
+}
+function updateDrops() {
+  for (const d of S.drops) d.life--;
+  S.drops = S.drops.filter((d) => d.life > 0);
+  const p = S.players[0];
+  const near = nearestPickup(p);
+  if (near && !p.dead && S.phase === 'play' && p.state !== 'attack') {
+    elPrompt.innerHTML = canPickup(p, near)
+      ? '按 <b>,</b> 拾取 ' + WEAPONS[near.weapon].name
+      : '同类武器不可重复拾取';
+    elPrompt.classList.add('on');
+  } else elPrompt.classList.remove('on');
+}
+
+/* ── 粒子 ─────────────────────────────────────────────────────────── */
+function updateFx(dt) {
+  for (const f of S.fx) {
+    f.life--;
+    f.x += f.vx * dt;
+    f.h += f.vh * dt;
+    f.vh -= 900 * dt;
+    if (f.h < 0) { f.h = 0; f.vh *= -0.3; }
+  }
+  S.fx = S.fx.filter((f) => f.life > 0);
+}
+
+/* ── 清理 ─────────────────────────────────────────────────────────── */
+function cleanup() {
+  S.enemies = S.enemies.filter((e) => !e.dead || e.deadT > 0);
+}
+
+/* ── 关卡推进（线性推进：越过 at 即触发该波） ────────────────────── */
+function updateWaves() {
+  const p = S.players[0];
+  for (let i = 0; i < LEVEL.waves.length; i++) {
+    const w = LEVEL.waves[i];
+    if (S.waveFired[i] || p.x < w.at) continue;
+    S.waveFired[i] = true;
+    for (const sp of w.spawns) {
+      const e = makeEnemy(sp.type, sp);
+      e.x = sp.from === 'left' ? S.camera.x + 26 : S.camera.x + VIEW_W - 26;
+      e.x = Math.max(WORLD.left + 12, Math.min(WORLD.right - 12, e.x));
+      S.enemies.push(e);
+      if (sp.type === 'gladiator' && !S.flags.sawGladiator) {
+        S.flags.sawGladiator = true;
+        toast('角斗士：跳到空中打，或绕到背后打', 260);
+      }
+    }
+  }
+}
+
+/* ── 危险物：尖刺坑（接触 = 眩晕，可从 z 轴绕过） ────────────────── */
+function hazardCheck(a) {
+  if (a.dead || a.h > 0.5 || a.spikeCd > 0) return;
+  for (const hz of LEVEL.hazards) {
+    if (hz.type !== 'spike') continue;
+    if (a.x < hz.x0 || a.x > hz.x1) continue;
+    if (a.z < hz.z0 || a.z > hz.z1) continue;
+    a.stun = Math.max(a.stun, hz.stun);
+    a.kb = null;
+    a.spikeCd = hz.stun + 60;              // 避免眩晕锁死
+    if (a.isPlayer) {
+      toast('踩到尖刺 —— 眩晕。用「↓」绕到下沿通过', 180);
+      spawnDust(a.x, a.z, 5);
+    }
+    return;
+  }
+}
+
+/* ── 教学提示 ─────────────────────────────────────────────────────── */
+function updateTutorial() {
+  const p = S.players[0];
+  const hz = LEVEL.hazards[0];
+  // ⚠️ 必须限定在坑前的一个「窗口」内：只判 p.x > x0-190 的话，玩家一旦越过就永远成立，
+  //    后续任何时刻都会被这条过期的提示顶上来（实测把角斗士的教学提示盖掉了）。
+  if (!S.flags.sawSpike && p.x > hz.x0 - 200 && p.x < hz.x1 + 140) {
+    S.flags.sawSpike = true;
+    toast('前方尖刺坑：z 轴只占上沿 —— 用「↓」绕到下沿通过', 300);
+  }
+}
+
+/* ── 相机：线性推进 + 屏边约束 ───────────────────────────────────── */
+function camTarget() {
+  const p = S.players[0];
+  return Math.max(0, Math.min(LEVEL.width - VIEW_W, p.x - VIEW_W * 0.42));
+}
+function snapCamera() { S.camera.x = camTarget(); }
+function updateCamera() {
+  const target = camTarget();
+  S.camera.x += (target - S.camera.x) * 0.14;
+  if (Math.abs(target - S.camera.x) < 0.3) S.camera.x = target;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   §9  渲染（Canvas 2D，零位图 —— 全部几何绘制）
+   ════════════════════════════════════════════════════════════════════ */
+
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+
+function resize() {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const s = Math.min(window.innerWidth / VIEW_W, window.innerHeight / VIEW_H);
+  const w = Math.round(VIEW_W * s), h = Math.round(VIEW_H * s);
+  cv.style.width = w + 'px';
+  cv.style.height = h + 'px';
+  cv.width = Math.round(w * dpr);
+  cv.height = Math.round(h * dpr);
+  document.getElementById('frame').style.width = w + 'px';
+  document.getElementById('frame').style.height = h + 'px';
+}
+window.addEventListener('resize', resize);
+
+const sx = (x) => x - S.camera.x;
+
+function render() {
+  const k = cv.width / VIEW_W;
+  ctx.setTransform(k, 0, 0, k, 0, 0);
+  ctx.clearRect(0, 0, VIEW_W, VIEW_H);
+
+  const sh = S.shake > 0.4 ? S.shake : 0;
+  if (sh) ctx.translate((Math.random() - 0.5) * sh, (Math.random() - 0.5) * sh);
+
+  drawBackdrop();
+  drawGround();
+  drawHazards();
+
+  // ★ z 深度排序：z 小的先画（远），z 大的后画（近，压在别人身上）
+  const drawables = [];
+  for (const e of S.enemies) drawables.push(e);
+  for (const p of S.players) if (!p.dead) drawables.push(p);
+  for (const d of S.drops) drawables.push({ __drop: d, z: d.z });
+  drawables.sort((a, b) => a.z - b.z);
+  for (const o of drawables) {
+    if (o.__drop) drawDrop(o.__drop); else drawActor(o);
+  }
+
+  drawFx();
+  drawSwingArcs();
+
+  ctx.setTransform(k, 0, 0, k, 0, 0);
+  drawVignette();
+}
+
+function drawBackdrop() {
+  const g = ctx.createLinearGradient(0, 0, 0, VIEW_H);
+  g.addColorStop(0, '#241f1b');
+  g.addColorStop(0.55, '#2e2823');
+  g.addColorStop(1, '#1b1815');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+
+  // 远景山脊（视差 0.15 / 0.32 / 0.55）
+  // ⚠️ 每段 step 再取中点会画成锯齿状。用固定细步长 20px + 两条正弦叠加，
+  //    山脊才是连绵的轮廓而不是折线。
+  const layers = [
+    { p: 0.15, y: 216, amp: 52, col: '#29231e' },
+    { p: 0.32, y: 238, amp: 38, col: '#312a23' },
+    { p: 0.55, y: 254, amp: 24, col: '#38302a' },
+  ];
+  const STEP = 20;
+  for (const L of layers) {
+    const par = -S.camera.x * L.p;
+    const off = ((par % STEP) + STEP) % STEP;
+    const base = Math.floor(par / STEP);
+    ctx.fillStyle = L.col;
+    ctx.beginPath();
+    ctx.moveTo(-STEP, VIEW_H);
+    const n = Math.ceil(VIEW_W / STEP) + 3;
+    for (let i = -1; i <= n; i++) {
+      const k = base + i;
+      const prof = Math.abs(Math.sin(k * 0.37)) * 0.66 + Math.abs(Math.sin(k * 0.13 + 1.7)) * 0.34;
+      ctx.lineTo(i * STEP + off, L.y - prof * L.amp);
+    }
+    ctx.lineTo(VIEW_W + STEP, VIEW_H);
+    ctx.closePath();
+    ctx.fill();
+  }
+}
+
+function drawGround() {
+  const yTop = GROUND_Y(WORLD.zMin), yBot = GROUND_Y(WORLD.zMax);
+  const g = ctx.createLinearGradient(0, yTop, 0, yBot + 60);
+  g.addColorStop(0, '#3a332c');
+  g.addColorStop(1, '#2a2521');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, yTop, VIEW_W, VIEW_H - yTop);
+
+  // 纵深参考线（让 z 轴在画面上可读）
+  ctx.strokeStyle = 'rgba(255,255,255,.045)';
+  ctx.lineWidth = 1;
+  for (let z = WORLD.zMin + 8; z <= WORLD.zMax; z += 9) {
+    const y = GROUND_Y(z);
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(VIEW_W, y); ctx.stroke();
+  }
+
+  // 地面纵向刻痕（跟着相机滚动）
+  ctx.strokeStyle = 'rgba(0,0,0,.16)';
+  for (let wx = 0; wx < LEVEL.width; wx += 96) {
+    const x = sx(wx);
+    if (x < -60 || x > VIEW_W + 60) continue;
+    ctx.beginPath();
+    ctx.moveTo(x, yTop);
+    ctx.lineTo(x + (yBot + 60 - yTop) * 0.28, yBot + 60);
+    ctx.stroke();
+  }
+
+  // 关卡右端墙
+  const xr = sx(LEVEL.width);
+  if (xr < VIEW_W) {
+    ctx.fillStyle = 'rgba(0,0,0,.4)';
+    ctx.fillRect(Math.max(0, xr), 0, VIEW_W, VIEW_H);
+  }
+}
+
+function drawHazards() {
+  for (const hz of LEVEL.hazards) {
+    const x0 = sx(hz.x0), x1 = sx(hz.x1);
+    if (x1 < -20 || x0 > VIEW_W + 20) continue;
+    const yT = GROUND_Y(hz.z0), yB = GROUND_Y(hz.z1);
+
+    // 坑体：不能是纯黑方块（实测读成「黑门」而不是「地面上的坑」）。
+    // 关键三点：① 宽高比 ≥ 2:1（几何层面，见 LEVEL 处的注释）；
+    //          ② 填充用下沉渐变而非纯黑；③ 近边（下沿）压一条暖色高光当「坑沿」。
+    const g = ctx.createLinearGradient(0, yT, 0, yB);
+    g.addColorStop(0, '#2b241d');
+    g.addColorStop(0.22, '#191411');
+    g.addColorStop(1, '#0d0a09');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.moveTo(x0, yT); ctx.lineTo(x1, yT); ctx.lineTo(x1, yB); ctx.lineTo(x0, yB);
+    ctx.closePath(); ctx.fill();
+
+    // 远边暗影（上沿） + 近边坑沿高光（下沿）
+    ctx.fillStyle = 'rgba(0,0,0,.5)';
+    ctx.fillRect(x0, yT, x1 - x0, 3);
+    ctx.fillStyle = 'rgba(184,105,68,.30)';
+    ctx.fillRect(x0, yB - 2, x1 - x0, 2);
+
+    // ⚠️ 尖刺必须「基座贴近边、尖顶留在坑内」。基座贴远边时尖顶会冒出远边之外，
+    //    整块读成「平台上插了一排栅栏」，而不是「坑里的尖刺」（已实测踩过）。
+    const step = 14, hh = 16, baseY = yB - 5;
+    for (let x = x0 + 6; x < x1 - 6; x += step) {
+      ctx.fillStyle = '#5a5348';
+      ctx.beginPath();
+      ctx.moveTo(x, baseY); ctx.lineTo(x + step * 0.5, baseY - hh); ctx.lineTo(x + step, baseY);
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#c4bcac';
+      ctx.beginPath();
+      ctx.moveTo(x + step * 0.3, baseY - hh * 0.4);
+      ctx.lineTo(x + step * 0.5, baseY - hh);
+      ctx.lineTo(x + step * 0.7, baseY - hh * 0.4);
+      ctx.closePath(); ctx.fill();
+    }
+
+    // 危险描边 + 上沿警示刻度（「这一带不能走」）
+    ctx.strokeStyle = 'rgba(184,105,68,.55)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x0, yT, x1 - x0, yB - yT);
+    ctx.fillStyle = 'rgba(184,105,68,.45)';
+    for (let x = x0 + 3; x < x1 - 3; x += 11) ctx.fillRect(x, yT - 4, 5, 2);
+  }
+}
+
+/* ── 角色：实心剪影 + 亮边（规格 §3.8） ─────────────────────────── */
+function drawActor(a) {
+  const zy = GROUND_Y(a.z);
+  const bs = (a.bodyScale || 1) * DEPTH_SCALE(a.z);
+  const px = sx(a.x);
+  const feetY = zy - a.h;
+
+  // 投影
+  ctx.save();
+  ctx.globalAlpha = a.dead ? 0.16 : 0.34;
+  ctx.fillStyle = '#000';
+  ctx.beginPath();
+  ctx.ellipse(px, zy, 15 * bs, 4.6 * bs, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  ctx.save();
+  ctx.translate(px, feetY);
+  if (a.dead) ctx.globalAlpha = Math.max(0.05, a.deadT / DEAD_LINGER);
+  ctx.scale(a.facing >= 0 ? 1 : -1, 1);
+  ctx.scale(bs * a.squash, bs / a.squash);
+  if (a.dead) ctx.rotate((Math.PI / 2) * Math.min(1, (DEAD_LINGER - a.deadT) / 12));  // 倒地
+
+  const tint = a.flash > 0 ? '#ffffff' : a.tint;
+  const trim = a.flash > 0 ? '#ffffff' : a.trim;
+  const walk = Math.abs((a.anim % 2) - 1);          // 0..1 摆腿
+  const inAir = a.h > 2;
+  const ang = swingAngle(a) * Math.PI / 180;
+
+  ctx.lineJoin = 'round';
+  ctx.strokeStyle = 'rgba(0,0,0,.55)';
+  ctx.lineWidth = 1.6;
+
+  // 腿
+  ctx.fillStyle = shade(tint, -0.34);
+  drawLeg(-4, inAir ? 6 : walk * 9);
+  drawLeg(4, inAir ? -6 : -walk * 9);
+
+  // 躯干
+  ctx.fillStyle = tint;
+  roundRect(-8.5, -38, 17, 22, 5);
+  ctx.fill(); ctx.stroke();
+
+  // 腰带
+  ctx.fillStyle = trim;
+  ctx.fillRect(-8.5, -22.5, 17, 3.6);
+
+  // 头
+  ctx.fillStyle = shade(tint, 0.22);
+  ctx.beginPath(); ctx.arc(0, -44, 6.4, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+
+  // ★ 头饰形状区分（不靠颜色）
+  drawHeadgear(a.headgear, trim);
+
+  // 手臂 + 武器（按挥击角度旋转）
+  ctx.save();
+  ctx.translate(6, -32);
+  ctx.rotate(ang);
+  ctx.fillStyle = shade(tint, 0.1);
+  roundRect(0, -3, 13, 6, 3);
+  ctx.fill(); ctx.stroke();
+  drawWeaponOnHand(a);
+  ctx.restore();
+
+  ctx.restore();
+
+  // 眩晕星（不随挤压/镜像变换）
+  if (a.stun > 0 && !a.dead) {
+    ctx.save();
+    ctx.fillStyle = '#f5c84c';
+    for (let i = 0; i < 3; i++) {
+      const t2 = S.tick * 0.09 + i * 2.1;
+      ctx.beginPath();
+      ctx.arc(px + Math.cos(t2) * 10, feetY - 58 * bs + Math.sin(t2) * 3.5, 1.8, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  // 敌人血条（未满血时才显示）
+  if (a.kind === 'enemy' && !a.dead && a.hp < a.maxHp) {
+    const w = 26 * bs, yy = feetY - 62 * bs;
+    ctx.fillStyle = 'rgba(0,0,0,.6)';
+    ctx.fillRect(px - w / 2, yy, w, 3);
+    ctx.fillStyle = a.type === 'gladiator' ? '#b86944' : '#cfd6df';
+    ctx.fillRect(px - w / 2, yy, w * Math.max(0, a.hp / a.maxHp), 3);
+  }
+
+  function drawLeg(ox, sw) {
+    ctx.save();
+    ctx.translate(ox, -18);
+    ctx.rotate(sw * Math.PI / 180);
+    roundRect(-3, 0, 6, 19, 2.4);
+    ctx.fill(); ctx.stroke();
+    ctx.restore();
+  }
+}
+
+function drawHeadgear(kind, trim) {
+  ctx.fillStyle = trim;
+  ctx.strokeStyle = 'rgba(0,0,0,.55)';
+  ctx.lineWidth = 1.6;
+  if (kind === 'douli') {                 // 玩家：斗笠（大三角）
+    ctx.beginPath();
+    ctx.moveTo(-13, -47); ctx.lineTo(0, -58); ctx.lineTo(13, -47);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+  } else if (kind === 'helm') {           // 士兵：方盔
+    roundRect(-7, -52, 14, 8, 2);
+    ctx.fill(); ctx.stroke();
+  } else if (kind === 'crest') {          // 角斗士：双角盔
+    roundRect(-7.6, -52, 15.2, 8, 2.6);
+    ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-7, -52); ctx.lineTo(-14, -58); ctx.lineTo(-6, -54); ctx.closePath();
+    ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(7, -52); ctx.lineTo(14, -58); ctx.lineTo(6, -54); ctx.closePath();
+    ctx.fill(); ctx.stroke();
+  }
+}
+
+function drawWeaponOnHand(a) {
+  const wid = a.isPlayer ? a.weapon : (a.weapon || 'fist');
+  const def = WEAPONS[wid];
+  ctx.fillStyle = def ? def.tint : '#8d8377';
+  ctx.strokeStyle = 'rgba(0,0,0,.6)';
+  ctx.lineWidth = 1.4;
+  const ext = swingExtend(a);
+  if (wid === 'hammer') {
+    ctx.fillRect(2, -2, 30, 4);
+    ctx.fillRect(30 + ext * 4, -9, 11, 18);
+    ctx.strokeRect(30 + ext * 4, -9, 11, 18);
+  } else if (wid === 'sword') {
+    ctx.fillRect(-2, -2, 8, 4);
+    ctx.fillStyle = '#cfd6df';
+    ctx.fillRect(6, -2.6, 34, 5.2);
+    ctx.beginPath();
+    ctx.moveTo(40, -2.6); ctx.lineTo(46, 0); ctx.lineTo(40, 2.6);
+    ctx.closePath(); ctx.fill();
+  } else if (wid === 'fist') {
+    ctx.beginPath(); ctx.arc(13, 0, 4, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  } else {
+    ctx.fillRect(0, -2.4, 26, 4.8);
+  }
+}
+
+/* 挥击角度：起手向后拉、命中帧向前挥、收招回位 */
+function swingAngle(a) {
+  if (!a.atk) return -12;
+  const spec = a.atk, p = a.asp;
+  if (p < spec.startup) return -70 * (p / spec.startup);
+  if (p < spec.startup + spec.active) return -70 + 145 * ((p - spec.startup) / spec.active);
+  const t = (p - spec.startup - spec.active) / Math.max(1, spec.recover);
+  return 75 - 87 * t;
+}
+function swingExtend(a) {
+  if (!a.atk) return 0;
+  const p = a.asp;
+  if (p < a.atk.startup) return -0.5;
+  if (p < a.atk.startup + a.atk.active) return 1;
+  return 0.5;
+}
+/* 命中帧的弧光 */
+function drawSwingArcs() {
+  const all = [...S.players, ...S.enemies];
+  for (const a of all) {
+    if (a.dead || !a.atk) continue;
+    if (phaseOf(a, a.atk) !== 'active') continue;
+    const px = sx(a.x), py = GROUND_Y(a.z) - a.h - 32;
+    ctx.save();
+    ctx.translate(px, py);
+    ctx.scale(a.facing >= 0 ? 1 : -1, 1);
+    ctx.strokeStyle = 'rgba(255,255,255,.42)';
+    ctx.lineWidth = 3.4;
+    ctx.beginPath();
+    ctx.arc(4, 0, a.reachNow * 0.86, -1.05, 0.5);
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
+function drawDrop(d) {
+  const px = sx(d.x), zy = GROUND_Y(d.z);
+  const def = WEAPONS[d.weapon];
+  const blink = d.life < 180 && Math.floor(S.tick / 6) % 2 === 0;
+  const bob = Math.sin(S.tick * 0.09) * 2;
+  ctx.save();
+  ctx.globalAlpha = blink ? 0.32 : 1;
+  ctx.translate(px, zy - 4);
+  ctx.fillStyle = def ? def.tint : '#8d8377';
+  ctx.strokeStyle = 'rgba(0,0,0,.6)';
+  ctx.lineWidth = 1.5;
+  if (d.weapon === 'hammer') {
+    ctx.fillRect(-13, -2 + bob, 26, 4);
+    ctx.fillRect(13, -8 + bob, 10, 16);
+    ctx.strokeRect(13, -8 + bob, 10, 16);
+  } else {
+    ctx.fillRect(-14, -2.4 + bob, 28, 4.8);
+    ctx.beginPath(); ctx.moveTo(14, -2.4 + bob); ctx.lineTo(20, bob); ctx.lineTo(14, 2.4 + bob);
+    ctx.closePath(); ctx.fill();
+  }
+  ctx.globalAlpha = 0.28;
+  ctx.strokeStyle = '#f5c84c';
+  ctx.lineWidth = 1.2;
+  ctx.beginPath(); ctx.ellipse(0, 4, 16, 5, 0, 0, Math.PI * 2); ctx.stroke();
+  ctx.restore();
+}
+
+function drawFx() {
+  for (const f of S.fx) {
+    const px = sx(f.x), py = GROUND_Y(f.z) - f.h;
+    const al = Math.max(0, f.life / f.max);
+    ctx.globalAlpha = al;
+    if (f.kind === 'spark') {
+      ctx.strokeStyle = f.color;
+      ctx.lineWidth = 2;
+      const len = 7 * al + 2;
+      const ang = Math.atan2(f.vh, f.vx);
+      ctx.beginPath();
+      ctx.moveTo(px, py);
+      ctx.lineTo(px + Math.cos(ang) * len, py - Math.sin(ang) * len);
+      ctx.stroke();
+    } else {
+      ctx.fillStyle = f.color;
+      ctx.beginPath(); ctx.arc(px, py, 2.4 * al + 1, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawVignette() {
+  const g = ctx.createRadialGradient(VIEW_W / 2, VIEW_H / 2, VIEW_H * 0.42,
+                                     VIEW_W / 2, VIEW_H / 2, VIEW_H * 0.92);
+  g.addColorStop(0, 'rgba(0,0,0,0)');
+  g.addColorStop(1, 'rgba(0,0,0,.42)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+}
+
+/* ── 小工具 ───────────────────────────────────────────────────────── */
+function roundRect(x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+function shade(hex, amt) {
+  const n = parseInt(hex.slice(1), 16);
+  let r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  if (amt >= 0) { r += (255 - r) * amt; g += (255 - g) * amt; b += (255 - b) * amt; }
+  else { r *= (1 + amt); g *= (1 + amt); b *= (1 + amt); }
+  return 'rgb(' + (r | 0) + ',' + (g | 0) + ',' + (b | 0) + ')';
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   §10  HUD
+   ════════════════════════════════════════════════════════════════════ */
+
+const elHpFill   = document.getElementById('hp-fill');
+const elHpText   = document.getElementById('hp-text');
+const elWeapon   = document.getElementById('weapon-name');
+const elProg     = document.getElementById('prog-fill');
+const elKill     = document.getElementById('kill-text');
+const elToast    = document.getElementById('toast');
+const elPrompt   = document.getElementById('prompt');
+const elOver     = document.getElementById('over');
+const elOverTitle = document.getElementById('over-title');
+const elOverSub  = document.getElementById('over-sub');
+
+function updateHud() {
+  const p = S.players[0];
+  elHpFill.style.width = Math.max(0, p.hp / p.maxHp) * 100 + '%';
+  elHpText.textContent = Math.max(0, Math.round(p.hp)) + ' / ' + p.maxHp;
+  const wdef = WEAPONS[p.weapon];
+  elWeapon.textContent = wdef ? wdef.name : '—';
+  elWeapon.style.color = p.weapon === p.defaultWeapon ? '#f2ece1' : '#b86944';
+  elProg.style.width = Math.min(100, p.x / LEVEL.goalX * 100) + '%';
+  elKill.textContent = '击倒 ' + S.kills;
+  if (S.toast.t > 0 && S.toast.text) {
+    elToast.textContent = S.toast.text;
+    elToast.classList.add('on');
+  } else elToast.classList.remove('on');
+}
+
+function showOver(title, sub) {
+  elOverTitle.textContent = title;
+  elOverSub.textContent = sub;
+  elOver.classList.add('on');
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   §11  主循环（固定步长 accumulator）
+   ════════════════════════════════════════════════════════════════════ */
+
+let acc = 0, lastT = 0, paused = false;
+
+function frame(now) {
+  if (!lastT) lastT = now;
+  let dt = (now - lastT) / 1000;
+  lastT = now;
+  if (dt > 0.25) dt = 0.25;                 // 后台回来后不要一次追一大堆帧
+  if (!paused) {
+    acc += dt;
+    let guard = 0;
+    while (acc >= FIXED_DT && guard++ < MAX_CATCHUP) {
+      stepLogic(FIXED_DT);
+      acc -= FIXED_DT;
+    }
+    if (guard >= MAX_CATCHUP) acc = 0;
+  }
+  render();
+  updateHud();
+  requestAnimationFrame(frame);
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   §12  键盘
+   ════════════════════════════════════════════════════════════════════ */
+
+window.addEventListener('keydown', (e) => {
+  if (e.code === 'KeyR') { reset(); e.preventDefault(); return; }
+  if (e.code === 'KeyP') { paused = !paused; e.preventDefault(); return; }
+  if (e.code === 'Comma' || e.code === 'Period' || e.code === 'Space') e.preventDefault();
+  heldKeys.add(e.code);
+}, { passive: false });
+window.addEventListener('keyup', (e) => heldKeys.delete(e.code));
+window.addEventListener('blur', () => heldKeys.clear());
+
+/* ════════════════════════════════════════════════════════════════════
+   §13  探针（规格 §4 断言用）
+        ⚠️ 探针会改状态，断言之间请先 reset()。
+   ════════════════════════════════════════════════════════════════════ */
+
+window.__dbg = {
+  version: 'dual_blade.slice1',
+  consts: { FIXED_DT, WORLD, COMBAT, WEAPONS, ENEMIES, LEVEL, INPUT_MAPS, PLAYER_HP, PLAYER_START },
+  GROUND_Y, canHit, probeZHit, probeYHit, phaseOf, attackTotal, specFor,
+
+  step(n) { const k = n || 1; for (let i = 0; i < k; i++) stepLogic(FIXED_DT); return S.tick; },
+  setInput(o) {
+    inputOverride = o ? Object.assign(
+      { left: 0, right: 0, up: 0, down: 0, attack: 0, jump: 0, drop: 0 }, o) : null;
+  },
+  clearInput() { inputOverride = null; },
+  ticks() { return S.tick; },
+
+  snapshot() {
+    const mk = (a) => ({
+      id: a.id, kind: a.kind, type: a.type || null,
+      x: +a.x.toFixed(3), z: +a.z.toFixed(3), h: +a.h.toFixed(3),
+      hp: a.hp, maxHp: a.maxHp, facing: a.facing, state: a.state,
+      weapon: a.weapon || null, stun: a.stun, iframes: a.iframes,
+      spikeCd: a.spikeCd, dead: !!a.dead, deadT: a.deadT,
+      kb: a.kb ? { dir: a.kb.dir, toEdge: !!a.kb.toEdge } : null,
+    });
+    return {
+      tick: S.tick, phase: S.phase, hitstop: S.hitstop,
+      cameraX: +S.camera.x.toFixed(2),
+      players: S.players.map(mk), playerCount: S.players.length,
+      enemies: S.enemies.map(mk),
+      drops: S.drops.map((d) => ({ weapon: d.weapon, x: +d.x.toFixed(2), z: +d.z.toFixed(2) })),
+      kills: S.kills, lastKnock: S.lastKnock,
+      toast: S.toast.t > 0 ? S.toast.text : '',
+    };
+  },
+
+  /** 静音关卡波次 —— 探针期间绝不能刷出小兵：它们会推挤玩家 → 相机漂移
+      → 战锤击退的「屏边」跟着漂 → 断言不再确定。所有探针都必须先调它。 */
+  silenceWaves() { for (let i = 0; i < LEVEL.waves.length; i++) S.waveFired[i] = true; },
+
+  /** 真实走一遍命中判定（不是只调 canHit）：给出 Δz 与两方高度差，返回血量变化 */
+  duelTest(o) {
+    o = o || {};
+    S = newState(); this.silenceWaves(); snapCamera();
+    const p = S.players[0];
+    p.x = 600; p.z = 30; p.h = o.ph || 0; p.facing = 1; p.iframes = 99999;
+    p.weapon = o.weapon || 'sword';
+    const e = makeEnemy('gladiator', { z: 30 + (o.dz || 0), from: 'right' });
+    e.x = 632;
+    e.facing = (o.gladFacing === undefined) ? 1 : o.gladFacing;
+    e.h = o.eh || 0;
+    e.stun = 9999;
+    S.enemies.push(e);
+    const hpBefore = e.hp;
+    this.setInput({ attack: 1 });
+    this.step(1);
+    this.setInput({});
+    this.step(20);
+    return { hpBefore, hpAfter: e.hp, damage: hpBefore - e.hp,
+             dz: o.dz || 0, ph: o.ph || 0, eh: o.eh || 0 };
+  },
+
+  /** 40 实体压力：逻辑步进均耗时（帧预算 16.67ms） */
+  stressTest(n, frames) {
+    S = newState(); this.silenceWaves(); snapCamera();
+    S.players[0].x = 300; S.players[0].z = 30; S.players[0].iframes = 99999;
+    S.enemies = [];
+    for (let i = 0; i < (n || 40); i++) {
+      const e = makeEnemy(i % 3 === 0 ? 'gladiator' : 'soldier', { z: 8, from: i % 2 ? 'left' : 'right' });
+      e.x = 340 + (i % 10) * 22;
+      e.z = 6 + (i % 7) * 5;
+      S.enemies.push(e);
+    }
+    const count = S.enemies.length;
+    const f = frames || 120;
+    const t0 = performance.now();
+    this.step(f);
+    const ms = performance.now() - t0;
+    return { entities: count, frames: f, totalMs: +ms.toFixed(2), perStepMs: +(ms / f).toFixed(4) };
+  },
+
+  goto(x) { S.players[0].x = x; snapCamera(); this.step(1); },
+  snapCamera, reset() { reset(); }, lastKnock() { return S.lastKnock; },
+  forceClearEnemies() { S.enemies = []; S.lastKnock = null; },
+
+  /** 断言 #3：战锤 toEdge 击退。
+      靶子 z 与玩家差 10（> 8 ⇒ 不触发推挤，> 15 才算打空 ⇒ 命中）；
+      这样相机不会被推挤带偏，击退终点才可精确断言。 */
+  hammerKnockTest() {
+    const p = S.players[0];
+    p.x = 600; p.z = 20; p.h = 0; p.facing = 1; p.stun = 0; p.kb = null;
+    p.iframes = 9999; p.state = 'idle'; p.asp = 0; p.weapon = 'hammer';
+    S.enemies = []; S.lastKnock = null; S.hitstop = 0;
+    this.silenceWaves();
+    snapCamera();
+
+    const e = makeEnemy('gladiator', { z: 30, from: 'right' });   // hp 6 ⇒ 一击不死，能飞完
+    e.x = 632; e.facing = 1;         // 背对玩家 ⇒ 不触发正面格挡
+    e.stun = 9999;                   // 冻住 AI，保证测量确定性
+    S.enemies.push(e);
+
+    const camR = S.camera.x + VIEW_W;
+    this.setInput({ attack: 1 });
+    this.step(1);
+    this.setInput({});
+    this.step(90);
+    return {
+      camR: +camR.toFixed(2),
+      expectedEdge: +(camR - COMBAT.edgeMargin).toFixed(2),
+      lastKnock: S.lastKnock,
+      enemy: { x: +e.x.toFixed(2), z: +e.z.toFixed(2), hp: e.hp, stun: e.stun, dead: e.dead },
+    };
+  },
+
+  /** 断言 #3b：正面格挡 —— 落地正面打角斗士必须不掉血；背后打必须掉血 */
+  guardTest() {
+    const p = S.players[0];
+    const run = (gladFacing) => {
+      S = newState(); this.silenceWaves(); snapCamera();
+      const pp = S.players[0];
+      pp.x = 600; pp.z = 20; pp.h = 0; pp.facing = 1; pp.iframes = 9999;
+      const e = makeEnemy('gladiator', { z: 20, from: 'right' });
+      e.x = 632; e.facing = gladFacing; e.stun = 9999;
+      S.enemies.push(e);
+      this.setInput({ attack: 1 }); this.step(1); this.setInput({});
+      this.step(20);
+      return { hp: e.hp, maxHp: e.maxHp };
+    };
+    const front = run(-1);   // 角斗士朝左（面朝玩家）⇒ 格挡
+    const back  = run(1);    // 角斗士朝右（背对玩家）⇒ 掉血
+    return { front, back };
+  },
+
+  /** 断言 #4：尖刺坑眩晕（眩晕期间位移必须为 0） */
+  spikeTest() {
+    S.enemies = []; S.hitstop = 0;
+    const p = S.players[0];
+    const hz = LEVEL.hazards[0];
+    this.silenceWaves();
+    p.x = hz.x0 + 4; p.z = (hz.z0 + hz.z1) / 2; p.h = 0;
+    p.stun = 0; p.spikeCd = 0; p.kb = null; p.iframes = 9999;
+    snapCamera();
+    this.setInput({ right: 1 });
+    this.step(1);                   // 本帧踩中 → 生效
+    const stunApplied = p.stun > 0;
+    const stunFrames = p.stun;
+    const x1 = p.x;                 // 以「已眩晕」为起点量位移
+    this.step(30);
+    const moved = Math.abs(p.x - x1);
+    this.setInput({});
+    return { stunApplied, stunFrames, movedWhileStunned: +moved.toFixed(4) };
+  },
+
+  /** 断言 #4b：贴在尖刺坑下沿（安全区）走，必须无事通过 */
+  spikeSafeLaneTest() {
+    S.enemies = []; S.hitstop = 0;
+    const p = S.players[0];
+    const hz = LEVEL.hazards[0];
+    this.silenceWaves();
+    p.x = hz.x0 - 30; p.z = hz.z1 + 2; p.h = 0;   // 下沿外侧
+    p.stun = 0; p.spikeCd = 0; p.kb = null; p.iframes = 9999;
+    snapCamera();
+    this.setInput({ right: 1 });
+    // 帧数由几何算出，不写死魔法数字（坑的 x0/x1 一改，写死的帧数就会静默失效）
+    const need = Math.ceil((hz.x1 + 20 - p.x) / PLAYER_SPEED_X * 60) + 10;
+    this.step(need);
+    const passed = p.x > hz.x1;
+    const stunned = p.stun > 0;
+    this.setInput({});
+    return { passed, stunned, x: +p.x.toFixed(1), steps: need, z: +p.z.toFixed(1) };
+  },
+
+  /** 断言 #5：交出武器后默认武器回到手上 */
+  dropTest() {
+    const p = S.players[0];
+    p.weapon = 'hammer';
+    const before = S.drops.length;
+    dropWeapon(p);
+    return {
+      weaponNow: p.weapon, defaultWeapon: p.defaultWeapon,
+      droppedToGround: S.drops.length - before,
+      groundWeapons: S.drops.map((d) => d.weapon),
+    };
+  },
+
+  /** 断言 #6：数据驱动 —— 新增一条武器定义即生效，逻辑代码一行未改 */
+  addWeaponTest() {
+    WEAPONS.__probe = { id: '__probe', name: '探针武器', tint: '#00ff00', reach: 99,
+      startup: 1, active: 1, recover: 1, dmg: 1, comboCount: 1, onHit: [], dropWhenSwapped: true };
+    const p = S.players[0];
+    const bak = p.weapon;
+    p.weapon = '__probe';
+    const spec = specFor(p);
+    const ok = !!spec && spec.reach === 99;
+    p.weapon = bak;
+    delete WEAPONS.__probe;
+    return { ok, resolvedReach: spec && spec.reach };
+  },
+
+  /** 清场并走到终点（验证关卡可达与胜利判定） */
+  marchToGoal() {
+    const p = S.players[0];
+    this.forceClearEnemies();
+    for (let i = 0; i < LEVEL.waves.length; i++) S.waveFired[i] = true;
+    p.z = LEVEL.hazards[0].z1 + 4;
+    this.setInput({ right: 1 });
+    let n = 0;
+    while (p.x < LEVEL.goalX && n < 3000) { this.step(1); n++; }
+    this.setInput({});
+    return { reached: p.x >= LEVEL.goalX, steps: n, phase: S.phase, x: +p.x.toFixed(1) };
+  },
+};
+
+/* ════════════════════════════════════════════════════════════════════
+   §14  启动
+   ════════════════════════════════════════════════════════════════════ */
+
+function reset() {
+  S = newState();
+  inputOverride = null;
+  heldKeys.clear();
+  prevInput.length = 0;
+  acc = 0; lastT = 0;
+  elOver.classList.remove('on');
+  snapCamera();
+  toast('「←→」移动 ·「↑↓」纵深 ·「.」跳跃 ·「,」攻击', 340);
+  updateHud();
+}
+
+S = newState();
+resize();
+snapCamera();
+toast('「←→」移动 ·「↑↓」纵深 ·「.」跳跃 ·「,」攻击', 340);
+requestAnimationFrame(frame);
+
+})();
+</script>
+</body>
+</html>
