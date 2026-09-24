@@ -78,6 +78,20 @@ title: "双刃武者"
   .bar.slim > i { background: var(--accent); }
   .small { font-size: 11px; color: var(--dim); margin-top: 4px; }
 
+  /* 生命：5 颗爱心 = 10 滴（1 心 = 2 滴 ⇒ 扣 1 滴显示半心）。
+     半心用 clip-path 切亮面，不引入任何素材；掉血时该心弹一下。 */
+  .hearts { display: flex; gap: 5px; height: 19px; }
+  .heart { position: relative; width: 20px; height: 19px; transform-origin: 50% 60%; }
+  .heart svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .heart .dim path { fill: rgba(255,255,255,.10); stroke: rgba(255,255,255,.20); stroke-width: 1.2; }
+  .heart .lit path { fill: var(--hp); stroke: rgba(0,0,0,.5); stroke-width: .9; }
+  .heart.hit { animation: heartHit .24s ease-out; }
+  @keyframes heartHit {
+    0%   { transform: scale(1.42); }
+    55%  { transform: scale(.9); }
+    100% { transform: scale(1); }
+  }
+
   /* 中央提示：教学与结果 */
   #toast {
     position: absolute; left: 50%; top: 76px; transform: translateX(-50%);
@@ -121,8 +135,8 @@ title: "双刃武者"
           <span class="tag">切片一</span>
           <span id="weapon-name">剑</span>
         </div>
-        <div class="bar"><i id="hp-fill"></i></div>
-        <div class="small" id="hp-text">100 / 100</div>
+        <div class="hearts" id="hearts"></div>
+        <div class="small" id="hp-text">10 / 10 滴</div>
       </div>
 
       <div class="hud-block" id="hud-right">
@@ -180,7 +194,10 @@ const COMBAT = {
   edgeMargin: 30,   // 战锤把人打飞到屏边时的留白
 };
 
-const PLAYER_HP = 100;
+// 血量口径（峰哥 2026-09-24 定）：初始 10 滴，被打一下扣 1 滴，
+// HUD 用 5 颗爱心表示（1 心 = 2 滴 ⇒ 扣 1 滴显示半心）。
+// ⚠️ 因此**敌人 atk.dmg 必须恒为 1** —— 谁改成别的值，爱心就会开始「一次掉一整颗」或「卡住不减」。
+const PLAYER_HP = 10;
 const PLAYER_SPEED_X = 118;
 const PLAYER_SPEED_Z = 78;
 const JUMP_V0 = -330;
@@ -202,7 +219,20 @@ const WEAPONS = {
     startup: 9, active: 4, recover: 11,     // 起手 9 帧（规格 §3.5：8~10 帧）
     dmg: 1,
     comboCount: 2,                          // 两段连击（原版 1-1：一次剑连击可击杀士兵）
-    comboReach: [1, 1.12],                  // 第二段挥击略远，让连击有手感差别
+    // ⚠️ 连击差别**不靠加长判定**。`comboReach` 原写成 [1, 1.12]，那是错的：
+    //    判定边界 = reach + 半身宽(9)；而刀尖能伸多远由「手部枢轴 + 刀刃长度」决定。
+    //    给第二段单独加 reach ⇒ 判定比刀锋长出一截 =「刀没碰到却算中」。
+    //    差别改由**弧线方向**承担（下劈 / 撩），这才是玩家真能感知的差别。
+    comboReach: [1, 1],
+    handLen: 43,                            // 手部枢轴 → 刀尖
+    // 挥击弧线（度，0 = 水平向前）：① 斜下劈 ② 反手撩。三个数各有分工：
+    //   wind = 预备的过冲角度（**比出招起点拉得更远**，读作蓄力）
+    //   from→to = 出招区间，刀锋匀速扫过。★★ 区间**必须跨过 0°**。
+    //   为什么要拆出 wind：判定是「水平向前 reach+9 = 49px 的固定盒」，
+    //   而 active 只有 4 帧。若出招起点就在 -58°（第一版），首帧刀尖水平只到 28.8px，
+    //   判定却已经亮着 ⇒ 那 1 帧是「挥空也算中」。把出招起点收到 -30°、
+    //   让**预备**去过冲（-72°），首帧刀锋就已经贴在 43.2px，最差只差 5.8px。
+    comboArc: [{ wind: -72, from: -30, to: 38 }, { wind: 44, from: 33, to: -40 }],
     onHit: [{ knockback: 0.5 }],            // 0.5 倍身高 ≈ 22px
     dropWhenSwapped: false,                 // 默认/回退武器：换武器时不落地
   },
@@ -212,6 +242,8 @@ const WEAPONS = {
     startup: 12, active: 5, recover: 19,
     dmg: 2,
     comboCount: 1,
+    handLen: 49,                            // 枢轴 → 锤头外缘（= 46 + 9 − 6）
+    comboArc: [{ wind: -58, from: -26, to: 30 }],   // 单段：抡下去
     onHit: [{ stun: 30 }, { knockback: 'toEdge' }],
     dropWhenSwapped: true,
   },
@@ -226,7 +258,7 @@ const ENEMIES = {
     weapon: null,                           // 空手（不落武器）
     facingLock: false,                      // 持续转向玩家
     guardFront: false,
-    atk: { reach: 32, startup: 16, active: 4, recover: 16, dmg: 14,
+    atk: { reach: 32, startup: 16, active: 4, recover: 16, dmg: 1,
            onHit: [{ knockback: 0.4 }] },
     ai: { aggro: 320, standoff: 30, zAlign: 12, think: 26, turn: 18 },
   },
@@ -238,7 +270,7 @@ const ENEMIES = {
     weapon: 'hammer',                       // 持战锤 → 击倒后掉落，让玩家能体验第二把武器
     facingLock: true,                       // ★ 只在出招瞬间转向 ⇒「绕到背后打」成为可能
     guardFront: true,                       // ★ 正面格挡：「空中打或从背后打」才有效
-    atk: { reach: 38, startup: 20, active: 5, recover: 20, dmg: 18,
+    atk: { reach: 38, startup: 20, active: 5, recover: 20, dmg: 1,
            onHit: [{ knockback: 0.5 }] },
     ai: { aggro: 360, standoff: 34, zAlign: 12, think: 34, turn: 40 },
   },
@@ -1104,13 +1136,10 @@ function drawActor(a) {
   // ★ 头饰形状区分（不靠颜色）
   drawHeadgear(a.headgear, trim);
 
-  // 手臂 + 武器（按挥击角度旋转）
+  // 手臂 + 武器：绕**手部枢轴**整体旋转（该枢轴是绘制与判定的共同基准）
   ctx.save();
-  ctx.translate(6, -32);
+  ctx.translate(HAND_PIVOT.x, HAND_PIVOT.y);
   ctx.rotate(ang);
-  ctx.fillStyle = shade(tint, 0.1);
-  roundRect(0, -3, 13, 6, 3);
-  ctx.fill(); ctx.stroke();
   drawWeaponOnHand(a);
   ctx.restore();
 
@@ -1169,62 +1198,165 @@ function drawHeadgear(kind, trim) {
   }
 }
 
+/* 手臂 + 武器：以手部枢轴为原点沿 +x 展开，**打击面外缘必须落在 specHandLen 上**。
+   ⚠️ 这个长度不能临时改 —— 判定半径是按它反推的（bladeReach()）。
+   敌我共用一个函数：敌人用自己的 atk 作为 spec，空手时手臂伸到打击距离，
+   于是「拳头离人 13px 却能打到 41px」这类不一致也一并消失。 */
 function drawWeaponOnHand(a) {
   const wid = a.isPlayer ? a.weapon : (a.weapon || 'fist');
   const def = WEAPONS[wid];
-  ctx.fillStyle = def ? def.tint : '#8d8377';
-  ctx.strokeStyle = 'rgba(0,0,0,.6)';
+  // 玩家按武器表；敌人按自己的 atk（那才是它判定的来源）
+  const spec = (a.isPlayer && def) ? def : ((a.def && a.def.atk) || def || a.atk || { reach: 18 });
+  const R = specHandLen(spec);
+
+  ctx.lineJoin = 'round';
+  ctx.strokeStyle = 'rgba(0,0,0,.62)';
   ctx.lineWidth = 1.4;
-  const ext = swingExtend(a);
+
+  // 前臂：枢轴就在肩处，所以持械手只有一小截；空手则要把手臂伸到打击距离
+  const armLen = wid === 'fist' ? Math.max(8, R - 13) : 10;
+  ctx.fillStyle = shade(a.tint, 0.08);
+  roundRect(-3.5, -3.5, armLen, 7, 3.5);
+  ctx.fill(); ctx.stroke();
+
   if (wid === 'hammer') {
-    ctx.fillRect(2, -2, 30, 4);
-    ctx.fillRect(30 + ext * 4, -9, 11, 18);
-    ctx.strokeRect(30 + ext * 4, -9, 11, 18);
+    ctx.fillStyle = shade(def.tint, -0.42);                    // 杆
+    ctx.fillRect(2, -2.1, R - 13, 4.2);
+    ctx.fillStyle = def.tint;                                  // 锤头（外缘正好在 R）
+    ctx.fillRect(R - 11, -9, 11, 18);
+    ctx.strokeRect(R - 11, -9, 11, 18);
+    ctx.fillStyle = 'rgba(255,255,255,.24)';                   // 亮边
+    ctx.fillRect(R - 11, -9, 11, 2.4);
   } else if (wid === 'sword') {
-    ctx.fillRect(-2, -2, 8, 4);
-    ctx.fillStyle = '#cfd6df';
-    ctx.fillRect(6, -2.6, 34, 5.2);
-    ctx.beginPath();
-    ctx.moveTo(40, -2.6); ctx.lineTo(46, 0); ctx.lineTo(40, 2.6);
-    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = shade(def.tint, -0.55);                    // 缠柄
+    roundRect(-7, -2.2, 11.5, 4.4, 2.2);
+    ctx.fill(); ctx.stroke();
+    ctx.fillStyle = a.trim || '#b86944';                       // 刀镡
+    roundRect(4.4, -4.8, 3.4, 9.6, 1.2);
+    ctx.fill(); ctx.stroke();
+    ctx.beginPath();                                           // 刃：收腰 + 收锋
+    ctx.moveTo(8.6, -2.8);
+    ctx.lineTo(R - 5.5, -2.0);
+    ctx.lineTo(R, -0.4);
+    ctx.lineTo(R, 0.9);
+    ctx.lineTo(R - 5.5, 2.1);
+    ctx.lineTo(8.6, 2.8);
+    ctx.closePath();
+    ctx.fillStyle = def.tint;
+    ctx.fill(); ctx.stroke();
+    ctx.beginPath();                                           // 刃线（规格 §3.8「亮边」）
+    ctx.moveTo(9.6, -1.6); ctx.lineTo(R - 4.6, -1.1);
+    ctx.strokeStyle = 'rgba(255,255,255,.85)';
+    ctx.lineWidth = 1.05;
+    ctx.stroke();
   } else if (wid === 'fist') {
-    ctx.beginPath(); ctx.arc(13, 0, 4, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = shade(a.tint, 0.14);
+    ctx.beginPath(); ctx.arc(R - 4.5, 0, 4.8, 0, Math.PI * 2);
+    ctx.fill(); ctx.stroke();
   } else {
-    ctx.fillRect(0, -2.4, 26, 4.8);
+    ctx.fillStyle = def ? def.tint : '#8d8377';
+    ctx.fillRect(0, -2.4, R, 4.8);
   }
 }
 
-/* 挥击角度：起手向后拉、命中帧向前挥、收招回位 */
-function swingAngle(a) {
-  if (!a.atk) return -12;
-  const spec = a.atk, p = a.asp;
-  if (p < spec.startup) return -70 * (p / spec.startup);
-  if (p < spec.startup + spec.active) return -70 + 145 * ((p - spec.startup) / spec.active);
-  const t = (p - spec.startup - spec.active) / Math.max(1, spec.recover);
-  return 75 - 87 * t;
+/* ── 刀锋几何：**绘制与判定共用的唯一口径** ──────────────────────────
+   判定边界 = 身体中心向前 reach + 半身宽(9)
+   刀尖能伸多远 = 手部枢轴(HAND_PIVOT.x) + 刃长(handLen)
+   两者必须相等。否则就是「看得到够不着 / 够不着却算中」——
+   切片一第一版正是后者：弧线 0→−70→+75 几乎全程近垂直，刀尖水平只伸到
+   18~22px，而判定给到 49px ⇒ 玩家完全读不出攻击距离。 */
+
+const REST_ANG = -12;                       // 待机：剑指向前上方 12°
+const HAND_PIVOT = { x: 6, y: -32 };        // 手部枢轴（身体局部坐标，y 向下为正）
+
+/** 枢轴 → 打击面外缘的长度。未声明 handLen 的按 reach 反推，保证与判定一致。 */
+function specHandLen(spec) {
+  if (spec.handLen) return spec.handLen;
+  return spec.reach + WORLD.actorW * 0.5 - HAND_PIVOT.x;
 }
-function swingExtend(a) {
-  if (!a.atk) return 0;
-  const p = a.asp;
-  if (p < a.atk.startup) return -0.5;
-  if (p < a.atk.startup + a.atk.active) return 1;
-  return 0.5;
+// 未声明 comboArc 者（例如敌人的 atk）用这条默认弧：预备过冲到 −68°，
+// 出招 −30° → +38°，同样跨过水平面 ⇒ 敌人的空手判定也与其手臂长度自洽。
+const DEFAULT_ARC = { wind: -68, from: -30, to: 38 };
+
+function specArc(spec, combo) {
+  const arcs = spec.comboArc || [DEFAULT_ARC];
+  const ci = Math.min(arcs.length, Math.max(1, combo || 1)) - 1;
+  return arcs[ci] || arcs[0];
 }
-/* 命中帧的弧光 */
+/** 出招区间是否跨过 0°（水平）。⚠️ 判据必须与符号无关：
+    写成 `from<=0 && to>=0` 时，{46,-52} 这种「从下往上撩」会被误判为「不跨」，
+    于是 bladeReach 取到 26.87 而不是 40 —— 我第一版就是这么错的。 */
+function arcCrossesHorizon(arc) {
+  return Math.min(arc.from, arc.to) <= 0 && Math.max(arc.from, arc.to) >= 0;
+}
+/** 该弧线**出招区间内**刀尖向前最远能到多少（区间跨 0° 就取 0°，否则取更近 0° 的端点） */
+function tipMaxForward(spec, combo) {
+  const arc = specArc(spec, combo);
+  const ang = arcCrossesHorizon(arc) ? 0
+            : (Math.abs(arc.from) < Math.abs(arc.to) ? arc.from : arc.to);
+  return HAND_PIVOT.x + specHandLen(spec) * Math.cos(ang * Math.PI / 180);
+}
+/** 该武器「视觉上」能达到的判定半径 —— 应恒等于 spec.reach */
+function bladeReach(spec, combo) {
+  return tipMaxForward(spec, combo) - WORLD.actorW * 0.5;
+}
+
+/* 挥击角度。⭐ 把 asp 当**显式参数**（纯函数）：弧光拖尾要回看前几帧的角度，
+   角度一旦藏在 a.asp 里就没法回看。 */
+function swingAngleAt(a, pos) {
+  const spec = a.atk;
+  if (!spec) return REST_ANG;
+  const arc = specArc(spec, a.combo);
+  const wind = (arc.wind === undefined) ? arc.from : arc.wind;
+  const w1 = spec.startup, w2 = spec.startup + spec.active;
+  if (pos < w1) {
+    // 预备分两拍：先前 62% 过冲到 wind（蓄力），再回一点到出招起点（起势）。
+    // 若让 startup 直接停在 wind，出招首帧会从 wind「跳」到 from（曾达 42°），肉眼是一记抽帧。
+    const t = pos / Math.max(1, w1);
+    if (t < 0.62) {
+      const u = t / 0.62;
+      return REST_ANG + (wind - REST_ANG) * (1 - (1 - u) * (1 - u));
+    }
+    const u = (t - 0.62) / 0.38;
+    return wind + (arc.from - wind) * (u * u);
+  }
+  if (pos < w2) {                            // 出招：from → to 匀速（刀速恒定才像真砍）
+    return arc.from + (arc.to - arc.from) * ((pos - w1) / Math.max(1, spec.active));
+  }
+  const t = (pos - w2) / Math.max(1, spec.recover);   // 收招：快速回位后缓落
+  return arc.to + (REST_ANG - arc.to) * (1 - (1 - t) * (1 - t));
+}
+function swingAngle(a) { return swingAngleAt(a, a.atk ? a.asp : 0); }
+
+/* 弧光 = 沿轨迹的渐隐拖尾。
+   半径直接用 specHandLen（刀尖绕枢轴画出的圆）⇒ 弧光与刀锋**天然同长**。
+   上一版写死 a.reachNow*0.86：半径 34.4，而刀尖在 52 —— 观感与判定两边都不对。 */
 function drawSwingArcs() {
   const all = [...S.players, ...S.enemies];
+  const TRAIL = 5;
   for (const a of all) {
     if (a.dead || !a.atk) continue;
     if (phaseOf(a, a.atk) !== 'active') continue;
-    const px = sx(a.x), py = GROUND_Y(a.z) - a.h - 32;
+    const spec = a.atk, R = specHandLen(spec);
+    const dir = a.facing >= 0 ? 1 : -1;
+    const px = sx(a.x) + HAND_PIVOT.x * dir;
+    const py = GROUND_Y(a.z) - a.h + HAND_PIVOT.y;
     ctx.save();
     ctx.translate(px, py);
-    ctx.scale(a.facing >= 0 ? 1 : -1, 1);
-    ctx.strokeStyle = 'rgba(255,255,255,.42)';
-    ctx.lineWidth = 3.4;
-    ctx.beginPath();
-    ctx.arc(4, 0, a.reachNow * 0.86, -1.05, 0.5);
-    ctx.stroke();
+    ctx.scale(dir, 1);
+    ctx.lineCap = 'round';
+    for (let k = 0; k < TRAIL; k++) {
+      const pos = a.asp - k;
+      if (pos < spec.startup) break;
+      const a1 = swingAngleAt(a, pos - 0.4) * Math.PI / 180;
+      const a0 = swingAngleAt(a, Math.max(spec.startup, pos - 1.5)) * Math.PI / 180;
+      if (Math.abs(a1 - a0) < 0.02) continue;
+      ctx.strokeStyle = 'rgba(255,250,240,' + (0.52 * (1 - k / TRAIL)).toFixed(3) + ')';
+      ctx.lineWidth = 3.9 - k * 0.62;
+      ctx.beginPath();
+      ctx.arc(0, 0, R, Math.min(a0, a1), Math.max(a0, a1));
+      ctx.stroke();
+    }
     ctx.restore();
   }
 }
@@ -1309,7 +1441,6 @@ function shade(hex, amt) {
    §10  HUD
    ════════════════════════════════════════════════════════════════════ */
 
-const elHpFill   = document.getElementById('hp-fill');
 const elHpText   = document.getElementById('hp-text');
 const elWeapon   = document.getElementById('weapon-name');
 const elProg     = document.getElementById('prog-fill');
@@ -1320,10 +1451,45 @@ const elOver     = document.getElementById('over');
 const elOverTitle = document.getElementById('over-title');
 const elOverSub  = document.getElementById('over-sub');
 
+/* ── 生命：5 颗爱心 = 10 滴（峰哥 2026-09-24 定） ─────────────────────
+   每颗心 = 2 滴 ⇒「被打一下扣 1 滴」正好显示为半心：
+   心形路径只定义一次，暗底 + 亮面两层叠放，亮面用 clip-path 从右往左切。 */
+const HEARTS = 5;
+const HEART_PATH = 'M12 20.6C12 20.6 1.9 14.1 1.9 7.7 1.9 4.1 4.6 1.4 7.7 1.4c2 0 3.4 1.1 4.3 2.5.9-1.4 2.3-2.5 4.3-2.5 3.1 0 5.8 2.7 5.8 6.3 0 6.4-10.1 12.9-10.1 12.9Z';
+const elHearts = [];
+let lastHpShown = null;
+
+function buildHearts() {
+  elHearts.length = 0;
+  const box = document.getElementById('hearts');
+  box.innerHTML = '';
+  for (let i = 0; i < HEARTS; i++) {
+    const cell = document.createElement('i');
+    cell.className = 'heart';
+    cell.innerHTML =
+      '<svg viewBox="0 0 24 22"><path class="dim" d="' + HEART_PATH + '"/></svg>' +
+      '<svg viewBox="0 0 24 22" class="lit"><path d="' + HEART_PATH + '"/></svg>';
+    box.appendChild(cell);
+    elHearts.push(cell);
+  }
+}
+
 function updateHud() {
   const p = S.players[0];
-  elHpFill.style.width = Math.max(0, p.hp / p.maxHp) * 100 + '%';
-  elHpText.textContent = Math.max(0, Math.round(p.hp)) + ' / ' + p.maxHp;
+  const hp = Math.max(0, p.hp);
+  for (let i = 0; i < elHearts.length; i++) {
+    const f = Math.max(0, Math.min(1, (hp - i * 2) / 2));           // 0 / 0.5 / 1
+    elHearts[i].querySelector('.lit').style.clipPath =
+      'inset(0 ' + ((1 - f) * 100).toFixed(1) + '% 0 0)';
+  }
+  // 掉血时弹一下「丢掉的那一滴」所在的心（第 n 滴归属 floor((n−1)/2) 号心）
+  if (lastHpShown !== null && hp < lastHpShown) {
+    const idx = Math.min(HEARTS - 1, Math.max(0, Math.floor((lastHpShown - 1) / 2)));
+    const el = elHearts[idx];
+    if (el) { el.classList.remove('hit'); void el.offsetWidth; el.classList.add('hit'); }
+  }
+  lastHpShown = hp;
+  elHpText.textContent = hp + ' / ' + p.maxHp + ' 滴';
   const wdef = WEAPONS[p.weapon];
   elWeapon.textContent = wdef ? wdef.name : '—';
   elWeapon.style.color = p.weapon === p.defaultWeapon ? '#f2ece1' : '#b86944';
@@ -1386,8 +1552,9 @@ window.addEventListener('blur', () => heldKeys.clear());
 
 window.__dbg = {
   version: 'dual_blade.slice1',
-  consts: { FIXED_DT, WORLD, COMBAT, WEAPONS, ENEMIES, LEVEL, INPUT_MAPS, PLAYER_HP, PLAYER_START },
+  consts: { FIXED_DT, WORLD, COMBAT, WEAPONS, ENEMIES, LEVEL, INPUT_MAPS, PLAYER_HP, PLAYER_START, HAND_PIVOT, REST_ANG },
   GROUND_Y, canHit, probeZHit, probeYHit, phaseOf, attackTotal, specFor,
+  specHandLen, specArc, tipMaxForward, bladeReach, swingAngleAt, swingAngle,
 
   step(n) { const k = n || 1; for (let i = 0; i < k; i++) stepLogic(FIXED_DT); return S.tick; },
   setInput(o) {
@@ -1580,6 +1747,107 @@ window.__dbg = {
     return { ok, resolvedReach: spec && spec.reach };
   },
 
+  /** 断言 #18：刀锋**视觉**与**判定**必须一致。
+      判定边界 = reach + 半身宽；刀尖能伸多远 = 枢轴 + handLen。两者必须相等，
+      否则就是「看着够不到却算中」（切片一第一版：弧线全程近垂直，
+      刀尖水平只到 18~22px，判定却给 49px ⇒ 玩家读不出攻击距离）。
+      另外每段弧**必须扫过 0°（水平）**，否则刀尖永远到不了判定距离。 */
+  reachTest() {
+    const rows = [];
+    for (const w of Object.values(WEAPONS)) {
+      const n = w.comboCount || 1;
+      for (let c = 1; c <= n; c++) {
+        rows.push({ id: w.id, combo: c, declared: w.reach,
+          visual: +bladeReach(w, c).toFixed(3), handLen: +specHandLen(w).toFixed(2) });
+      }
+    }
+    for (const e of Object.values(ENEMIES)) {
+      rows.push({ id: e.id, combo: 1, declared: e.atk.reach,
+        visual: +bladeReach(e.atk, 1).toFixed(3), handLen: +specHandLen(e.atk).toFixed(2) });
+    }
+    const swept = [];
+    for (const w of Object.values(WEAPONS)) {
+      const n = w.comboCount || 1;
+      for (let c = 1; c <= n; c++) {
+        const arc = specArc(w, c);
+        swept.push({ id: w.id, combo: c, wind: arc.wind === undefined ? arc.from : arc.wind,
+          from: arc.from, to: arc.to, crossesHorizon: arcCrossesHorizon(arc) });
+      }
+    }
+    let maxErr = 0;
+    for (const r of rows) maxErr = Math.max(maxErr, Math.abs(r.visual - r.declared));
+    return {
+      rows, swept, maxErr: +maxErr.toFixed(3),
+      allConsistent: maxErr < 0.01 && swept.every((s) => s.crossesHorizon),
+      horizonOk: swept.every((s) => s.crossesHorizon),
+    };
+  },
+
+  /** 挥击分解：把一段攻击从第 1 帧到结束逐帧的「角度 / 刀尖向前偏移 / 刀尖离地」列出来。
+      用于人工核对「刀有没有穿地」「刀尖什么时候真正到达判定距离」。 */
+  swingBreakdown(o) {
+    o = o || {};
+    const spec = o.weapon ? WEAPONS[o.weapon] : WEAPONS.sword;
+    const combo = o.combo || 1;
+    const R = specHandLen(spec);
+    const fake = { atk: spec, combo: combo, h: 0, z: 0, facing: 1, x: 0, asp: 0, state: 'attack' };
+    const out = [];
+    for (let p = 0; p < attackTotal(spec); p++) {
+      const ang = swingAngleAt(fake, p);
+      const rad = ang * Math.PI / 180;
+      out.push({
+        p, phase: p < spec.startup ? 'startup'
+          : (p < spec.startup + spec.active ? 'active' : 'recover'),
+        ang: +ang.toFixed(1),
+        tipFwd: +(HAND_PIVOT.x + R * Math.cos(rad)).toFixed(1),
+        tipDy: +(HAND_PIVOT.y + R * Math.sin(rad)).toFixed(1),   // < 0 = 在地面之上
+      });
+    }
+    return { weapon: spec.id, combo: combo, handLen: R, reach: spec.reach,
+      hitEdge: spec.reach + WORLD.actorW * 0.5, frames: out };
+  },
+
+  /** 断言 #19：生命口径 —— 10 滴 / 5 颗爱心 / 扣 1 滴显示半心（亮面 50%） */
+  hpProbe(n) {
+    const p = S.players[0];
+    if (n !== undefined) p.hp = n;
+    updateHud();
+    const fillPct = elHearts.map((el) => {
+      // ⚠️ 读**计算值**并容错解析：浏览器会把 `inset(0 50% 0 0)` 规范化成
+      //    `inset(0px 50% 0px 0px)`，用 /inset\(0\s+([\d.]+)%/ 会匹配不到 →
+      //    探针回退成 100%，于是「爱心全满」看起来像通过（第一版就是这么假通过的）。
+      const cp = getComputedStyle(el.querySelector('.lit')).clipPath || '';
+      const m = /inset\(([^)]*)\)/.exec(cp);
+      if (!m) return null;
+      const parts = m[1].trim().split(/\s+/).map((t) => parseFloat(t));
+      const cut = parts.length >= 2 ? parts[1] : 0;
+      return Number.isFinite(cut) ? +(100 - cut).toFixed(1) : null;
+    });
+    return { hp: p.hp, maxHp: p.maxHp, hearts: elHearts.length,
+      fillPct: fillPct, text: elHpText.textContent,
+      enemyDmg: Object.values(ENEMIES).map((e) => e.atk.dmg) };
+  },
+
+  /** 摆拍：把玩家钉在某一挥击帧上（逐帧核对刀锋位置用）。
+      ⚠️ 先按 P 暂停再调 —— 否则 rAF 主循环每帧都会把 asp 往前推。 */
+  poseAt(pos, combo) {
+    const p = S.players[0];
+    this.silenceWaves();
+    S.enemies = []; S.drops = []; S.hitstop = 0; S.fx = [];
+    p.state = 'attack'; p.atk = specFor(p); p.combo = combo || 1;
+    p.asp = pos; p.h = 0; p.vy = 0; p.stun = 0; p.dead = false; p.iframes = 9999;
+    p.reachNow = p.atk.reach * ((p.atk.comboReach && p.atk.comboReach[p.combo - 1]) || 1);
+    snapCamera();
+    // 顺带给出「脚底在视口里的坐标」——取证截图要靠它裁切到角色身上
+    const rect = document.getElementById('cv').getBoundingClientRect();
+    const sc = rect.width / VIEW_W;
+    return { pos: pos, combo: p.combo, ang: +swingAngle(p).toFixed(1),
+             phase: phaseOf(p, p.atk), reachNow: p.reachNow,
+             anchor: { x: +(rect.left + (p.x - S.camera.x) * sc).toFixed(1),
+                       y: +(rect.top + (GROUND_Y(p.z) - p.h) * sc).toFixed(1),
+                       scale: +sc.toFixed(3) } };
+  },
+
   /** 清场并走到终点（验证关卡可达与胜利判定） */
   marchToGoal() {
     const p = S.players[0];
@@ -1604,12 +1872,14 @@ function reset() {
   heldKeys.clear();
   prevInput.length = 0;
   acc = 0; lastT = 0;
+  lastHpShown = null;                    // 重开时不要弹出「掉血」动画
   elOver.classList.remove('on');
   snapCamera();
   toast('「←→」移动 ·「↑↓」纵深 ·「.」跳跃 ·「,」攻击', 340);
   updateHud();
 }
 
+buildHearts();                            // 爱心：DOM 结构只建一次，之后只改 clip-path
 S = newState();
 resize();
 snapCamera();
