@@ -17,6 +17,14 @@
 - ⚠️ 合成 `PointerEvent` 不被 OrbitControls 接受 ⇒ 交互必须 `Input.dispatchMouseEvent`；`mouseWheel` 对部分面板不可靠 ⇒ 走状态钩子。
 - ⚠️ **断言禁「非零即过」**：拿对照实现的实测值当期望。测量前 `settle()`，oracle 与成立条件**同帧**。像素自证（`getImageData` 读关键点颜色）比截图 diff 便宜。
 
+## 算法框图（_pages/flow_chart.html）
+- **风格按 paper-framework-figure-studio-pro v3.2.15f 规范**（zip 内 references/*.md，未安装只读）：line-art schematic——图内标注**无衬线**（Arial/Helvetica 类，中文 ≥2 候选回退）、白底细线（节点 1px / 连线 1px）、**颜色只作 10% 淡染的亮度冗余编码、语义由形状承载**、线稿默认（`btn-ink` 可切彩色描边）。
+- 画布渲染与导出共用真值源常量 `FIG_FONT`/`FIG_INK`/`FIG_LINE`/`FIG_TINT`；⚠️ **测量字体必须与渲染字体一致**（改 `--font-fig` 必同步 `getTextMeasureCtx()`），否则换行错判文字溢出。
+- 数据模型：`state.nodes/conns/groups` + `capNo/capText` + `inkMode`。分组 = containment 细实线边界 + `(A)/(B)/(C)` 标签（GROUP_PAD 20），拖框创建/手柄改尺寸/移动只动边界；图注贴图下方、编号 tspan 加粗；`runSpecCheck()` 7 条规范门禁进右侧面板。
+- ⚠️ 交互：`add-group` 工具每次按下画布都新建分组（与 add-node 一致），改尺寸/移动前先切回 `select`。连线 = 正交折线 elbow（ELBOW_STUB 18 / ELBOW_R 6）；节点吸附 24px 网格（Alt 微调）。
+- 回归探针 `window.__flow`（state/buildExportSVG/…，本仓既有约定）；验证 `.workbuddy/tmp/paperify/verify_spec.js`+`_part2.js`（33 断言）+ `raster.js`（CDP 光栅化替代静默失败的 `--headless --screenshot`）。
+- ⚠️ 响应被截断 ≠ 改动未落盘：续作前先 `git status --porcelain` + diff 摸清真实基线（曾因此误以为字体还是衬线）。
+
 ## 沙盘战争（_pages/sandbox_war_game.html）
 - 单位是 DOM+CSS：`.unit` → `.unit-body`（`scale(var(--scale))`）→ 配件 div，两层均无 `overflow:hidden`；1 个 body 单位 = `--scale` 屏幕像素（士兵 .636 / 坦克 .611）；配件坐标相对 **padding box**。
 - 地形配色跨度大 ⇒ 移动物一律**暗色轮廓**。无朝向载具 `fixedHeading=true` 生效 3 处，**保留 `isTracked=true`**。

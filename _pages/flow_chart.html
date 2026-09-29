@@ -38,11 +38,11 @@ title: "算法框图绘制"
 
             /* —— 图形排版（画布 + 导出共用同一真值源）—— */
             --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", Arial, sans-serif;
-            --font-fig: "Times New Roman", "Nimbus Roman", "Liberation Serif", "Songti SC", "SimSun", Georgia, serif;
+            --font-fig: "Arial", "Helvetica Neue", Helvetica, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
             --fig-stroke: #22252b;         /* 图内描边 */
             --fig-line: #3a3f47;           /* 连线 */
             --fig-text: #16181d;           /* 图内文字 */
-            --fig-tint: 0.075;             /* 节点填充饱和度 */
+            --fig-tint: 0.10;              /* 节点淡染：颜色只作「亮度冗余」编码，语义由形状承载 */
 
             --shadow-sm: 0 1px 2px rgba(20,24,32,0.06);
             --shadow: 0 3px 14px rgba(20,24,32,0.09);
@@ -221,7 +221,8 @@ title: "算法框图绘制"
         .canvas-wrap.tool-add-decision,
         .canvas-wrap.tool-add-data,
         .canvas-wrap.tool-add-start,
-        .canvas-wrap.tool-add-end {
+        .canvas-wrap.tool-add-end,
+        .canvas-wrap.tool-add-group {
             cursor: crosshair;
         }
         .canvas-wrap.tool-pan { cursor: grab; }
@@ -290,11 +291,13 @@ title: "算法框图绘制"
             display: flex;
             flex-direction: column;
             flex-shrink: 0;
-            overflow: hidden;
+            overflow-x: hidden;
+            overflow-y: auto;
         }
         .panel-section {
             padding: 14px 16px;
             border-bottom: 1px solid var(--border-soft);
+            flex: 0 0 auto;
         }
         .panel-section h3 {
             font-size: 13px;
@@ -398,20 +401,18 @@ title: "算法框图绘制"
         }
         .stats b { color: var(--text); font-weight: 600; }
         /* SVG node styles */
+        /* 规范：图内禁用投影/辉光/渐变；悬停与选中改用线宽 + 描边色表达 */
         .node-shape {
             cursor: move;
-            transition: filter 0.15s;
+            transition: stroke-width 0.15s;
         }
-        .node-group:hover .node-shape { filter: drop-shadow(0 2px 4px rgba(20,24,32,0.22)); }
-        .node-group.selected .node-shape {
-            filter: drop-shadow(0 0 0 2px var(--primary));
-        }
+        .node-group:hover .node-shape { stroke-width: 1.6; }
         .node-group.selected .node-outline {
             stroke: var(--primary);
-            stroke-width: 2.5;
+            stroke-width: 1.9;
         }
         .node-text {
-            font-size: 13px;
+            font-size: 12px;
             font-family: var(--font-fig);
             text-anchor: middle;
             dominant-baseline: central;
@@ -420,24 +421,60 @@ title: "算法框图绘制"
         }
         .conn-path {
             fill: none;
-            stroke-width: 1.4;
+            stroke-width: 1.0;
             stroke-linecap: round;
             cursor: pointer;
             transition: stroke-width 0.15s;
         }
-        .conn-group:hover .conn-path { stroke-width: 2.4; }
-        .conn-group.selected .conn-path { stroke-width: 2.4; }
+        .conn-group:hover .conn-path { stroke-width: 1.7; }
+        .conn-group.selected .conn-path { stroke-width: 1.7; }
         .conn-label-bg {
             cursor: pointer;
         }
         .conn-label {
-            font-size: 11.5px;
+            font-size: 11px;
             font-family: var(--font-fig);
             text-anchor: middle;
             dominant-baseline: central;
             pointer-events: none;
             user-select: none;
         }
+        /* —— 模块分组容器：论文的 module boundary ——
+           规范：分组关系用 containment（细实线边界 + 组名）表达，
+           不用装饰性虚线与箭头（虚/点线必须承载唯一语义且带端点标签）。 */
+        .group-boundary { cursor: move; }
+        .group-rect { transition: stroke-width 0.15s; }
+        .group-boundary:hover .group-rect { stroke-width: 1.4; }
+        .group-boundary.selected .group-rect {
+            stroke: var(--primary);
+            stroke-width: 1.4;
+            stroke-opacity: 1;
+        }
+        .group-label {
+            font-family: var(--font-fig);
+            font-size: 10.5px;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            dominant-baseline: central;
+            pointer-events: none;
+            user-select: none;
+        }
+        .group-handle {
+            fill: var(--card);
+            stroke: var(--primary);
+            stroke-width: 1.5;
+            cursor: nwse-resize;
+        }
+        /* —— 图注：规范要求 figure-caption symbiosis ——
+           图内只放短模块名，定义 / 约束 / 「为什么重要」一律留给图注。 */
+        .caption-text {
+            font-family: var(--font-fig);
+            font-size: 11px;
+            fill: var(--text);
+            user-select: none;
+        }
+        .caption-no { font-weight: 700; }
+
         .selection-box {
             fill: none;
             stroke: var(--primary);
@@ -465,9 +502,9 @@ title: "算法框图绘制"
         .edit-overlay input {
             border: none;
             outline: none;
-            font-size: 13px;
+            font-size: 12px;
+            /* 就地编辑器必须与图内文字同族同号，否则所见非所得 */
             font-family: var(--font-fig);
-            font-family: inherit;
             background: transparent;
             color: var(--text);
             text-align: center;
@@ -498,6 +535,7 @@ title: "算法框图绘制"
             <button id="btn-export-json" title="导出为 JSON 文件">导出 JSON</button>
             <button id="btn-import-json" title="从 JSON 文件导入">导入 JSON</button>
             <button id="btn-clear" class="btn-neutral" title="清空画布">清空</button>
+            <button id="btn-ink" class="accent" title="线稿模式：描边统一墨色（论文出版默认）。点击切换彩色描边">线稿</button>
             <button id="btn-export-svg" class="accent">导出 SVG</button>
             <button id="btn-export-png" class="accent">导出 PNG</button>
             <button id="btn-fit" title="适应内容">适应</button>
@@ -537,6 +575,11 @@ title: "算法框图绘制"
                 <span>数据</span>
             </button>
             <div class="tool-divider"></div>
+            <button class="tool-btn" data-tool="add-group" title="模块分组容器：框住一组节点，带组名（论文的 module boundary）">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 8V4h4M20 8V4h-4M4 16v4h4M20 16v4h-4"/><rect x="9.5" y="9.5" width="5" height="5"/></svg>
+                <span>分组</span>
+            </button>
+            <div class="tool-divider"></div>
             <button class="tool-btn" data-tool="delete" title="删除元素 (Del)">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>
                 <span>删除</span>
@@ -553,9 +596,11 @@ title: "算法框图绘制"
                     </marker>
                 </defs>
                 <g id="viewport-group">
+                    <g id="groups-layer"></g>
                     <g id="connections-layer"></g>
                     <g id="nodes-layer"></g>
                     <g id="overlay-layer"></g>
+                    <g id="caption-layer"></g>
                 </g>
             </svg>
             <div class="hint" id="hint"></div>
@@ -601,21 +646,42 @@ title: "算法框图绘制"
                 <div class="stats">
                     节点数：<b id="stat-nodes">0</b><br>
                     连接数：<b id="stat-conns">0</b><br>
+                    分组数：<b id="stat-groups">0</b><br>
                     缩放：<b id="stat-zoom">100%</b>
                 </div>
             </div>
-            <div class="panel-section" style="flex:1; overflow-y:auto;">
-                <h3><span class="dot" style="background:var(--warning)"></span>使用说明</h3>
+            <div class="panel-section">
+                <h3><span class="dot" style="background:var(--primary)"></span>图注 Figure caption</h3>
+                <div class="panel-field">
+                    <label>编号</label>
+                    <input type="text" id="input-cap-no" value="Figure 1" />
+                </div>
+                <div class="panel-field" style="margin-bottom:0;">
+                    <label>说明（图内只留短模块名，定义与解释写这里）</label>
+                    <textarea id="input-cap-text" rows="3" placeholder="例：本文方法整体框架。虚线表示监督信号回流。"></textarea>
+                </div>
+            </div>
+            <div class="panel-section">
+                <h3><span class="dot" style="background:var(--accent-spec, var(--warning))"></span>框图规范自检</h3>
+                <div class="stats" id="spec-check" style="line-height:1.75;"></div>
+            </div>
+            <div class="panel-section">
+                <h3><span class="dot" style="background:var(--text-muted)"></span>使用说明</h3>
                 <div class="stats" style="line-height:1.8;">
-                    · 点击左侧工具选择模式<br>
+                    <b>操作</b><br>
                     · 处理/判断/数据：点击画布添加节点<br>
-                    · 选择：拖动节点移动，点击空白取消<br>
-                    · 连接：先点起点节点，再点终点节点<br>
-                    · 双击节点或连线可编辑文字<br>
+                    · 分组：点击画布放置模块边界，拖右下角改尺寸<br>
+                    · 连接：先点起点，再点终点；双击可改文字<br>
+                    · 节点吸附 24px 栅格（按住 Alt 微调）<br>
                     · 滚轮缩放，平移模式拖动画布<br>
-                    · Delete 键删除选中元素<br>
-                    · 保存/加载使用浏览器本地存储<br>
-                    · 导出 SVG/PNG 为图片文件<br>
+                    <br>
+                    <b>论文框图口径</b><br>
+                    · 大框＝模块/操作；变量与中间产物写在<b>线上</b>，不做小方块<br>
+                    · 形状承载语义，颜色只是冗余编码（灰度打印仍可读）<br>
+                    · 一种线型只表达一个含义；虚线必须带标签<br>
+                    · 分组用边界框，不用装饰性虚线／箭头<br>
+                    · 图内只留短模块名，定义写进图注<br>
+                    <br>
                     · 样例存于 assets/data/flow_chart_*.json
                 </div>
             </div>
@@ -631,16 +697,22 @@ title: "算法框图绘制"
     const SVG_NS = 'http://www.w3.org/2000/svg';
 
     // —— 论文插图排版真值源：画布渲染与导出共用，改这里即可全局生效 ——
-    // 衬线字体栈：中文回退必须 ≥2 候选（本机无 Songti SC，靠 SimSun / Georgia 兜底）
-    const FIG_FONT = '"Times New Roman", "Nimbus Roman", "Liberation Serif", "Songti SC", "SimSun", Georgia, serif';
+    // 字体：ACM/IEEE/AAAI 双栏论文 line-art schematic 规范要求 Arial/Helvetica 类无衬线；
+    // 中文回退必须 ≥2 候选（本机无 PingFang SC，靠 Hiragino / 微软雅黑兜底）。
+    const FIG_FONT = 'Arial, "Helvetica Neue", Helvetica, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
+    const EXPORT_FONT = FIG_FONT.replace(/"/g, "'");   // SVG 属性里用单引号
     const FIG_TEXT = '#16181d';   // 图内文字（近黑）
+    const FIG_INK = '#22252b';    // 线稿墨色：规范要求含义不单靠颜色 ⇒ 形状承载语义
     const FIG_LINE = '#3a3f47';   // 连线
-    const FIG_TINT = 0.075;       // 节点填充不透明度（越低越接近单色线稿）
+    const FIG_TINT = 0.10;        // 节点淡染（颜色仅作亮度冗余编码）
     const svg = document.getElementById('svg-canvas');
     const viewportGroup = document.getElementById('viewport-group');
     const nodesLayer = document.getElementById('nodes-layer');
     const connsLayer = document.getElementById('connections-layer');
     const overlayLayer = document.getElementById('overlay-layer');
+    const groupsLayer = document.getElementById('groups-layer');
+    const captionLayer = document.getElementById('caption-layer');
+    const statGroupsEl = document.getElementById('stat-groups');
     const canvasWrap = document.getElementById('canvas-wrap');
     const hintEl = document.getElementById('hint');
     const zoomValueEl = document.getElementById('zoom-value');
@@ -661,17 +733,30 @@ title: "算法框图绘制"
     };
     const TOOL_SHAPE = { 'add-start': 'start', 'add-node': 'process', 'add-decision': 'decision', 'add-data': 'data', 'add-end': 'end' };
 
+    // 版式栅格：规范要求「模块对齐到网格或明显路径」，避免离散微块岛。
+    // 只作用于交互（新建 / 拖动）；样例与导入数据保持作者原始坐标。
+    // 按住 Alt 可临时绕过吸附，做像素级微调。
+    const GRID = 24;
+    function snapTo(v, free) { return free ? v : Math.round(v / GRID) * GRID; }
+
     let state = {
         nodes: [],
         conns: [],
+        groups: [],           // 模块分组容器（论文的 module boundary）
+        capNo: 'Figure 1',    // 图注编号
+        capText: '',          // 图注正文：定义 / 约束 / 为什么重要
         selectedId: null,
         selectedType: null,
         tool: 'select',
+        inkMode: true,        // 线稿模式：描边统一墨色（规范默认）。false = 彩色描边
         pan: { x: 0, y: 0 },
         zoom: 1,
         nextId: 1,
         connectSourceId: null,
         dragging: null,
+        groupDraft: null,
+        movingGroup: null,
+        resizingGroup: null,
         panning: null,
         spaceDown: false
     };
@@ -704,6 +789,7 @@ title: "算法框图绘制"
             'add-node': '点击画布添加处理节点',
             'add-decision': '点击画布添加判断节点',
             'add-data': '点击画布添加数据节点',
+            'add-group': '拖动框选一组模块，创建分组边界（选中后可改尺寸 / 组名）',
             'delete': '点击要删除的元素'
         };
         showHint(hints[tool]);
@@ -718,7 +804,7 @@ title: "算法框图绘制"
         hintTimer = setTimeout(() => hintEl.classList.remove('show'), 3500);
     }
 
-    function createNode(shape, x, y, text, color, w, h) {
+    function createNode(shape, x, y, text, color, w, h, free) {
         const def = SHAPE_DEFAULTS[shape];
         const nw = w || def.w;
         const nh = h || def.h;
@@ -726,8 +812,8 @@ title: "算法框图绘制"
             id: newId(),
             type: 'node',
             shape: shape,
-            x: x - nw / 2,
-            y: y - nh / 2,
+            x: snapTo(x - nw / 2, free),
+            y: snapTo(y - nh / 2, free),
             w: nw,
             h: nh,
             text: text != null ? text : def.label,
@@ -798,8 +884,8 @@ title: "算法框图绘制"
             shapeEl.setAttribute('y', n.y);
             shapeEl.setAttribute('width', n.w);
             shapeEl.setAttribute('height', n.h);
-            shapeEl.setAttribute('rx', 4);
-            shapeEl.setAttribute('ry', 4);
+            shapeEl.setAttribute('rx', 3);
+            shapeEl.setAttribute('ry', 3);
         } else if (n.shape === 'start' || n.shape === 'end') {
             shapeEl = document.createElementNS(SVG_NS, 'ellipse');
             shapeEl.setAttribute('cx', n.x + n.w / 2);
@@ -812,8 +898,8 @@ title: "算法框图绘制"
         }
         shapeEl.classList.add('node-shape', 'node-outline');
         shapeEl.setAttribute('fill', hexToRgba(n.color, FIG_TINT));
-        shapeEl.setAttribute('stroke', n.color);
-        shapeEl.setAttribute('stroke-width', 1.25);
+        shapeEl.setAttribute('stroke', state.inkMode ? FIG_INK : n.color);
+        shapeEl.setAttribute('stroke-width', 1.0);
         g.appendChild(shapeEl);
 
         const lines = wrapText(n.text, n.w - 16);
@@ -868,7 +954,7 @@ title: "算法框图绘制"
         if (!_measureCtx) {
             const c = document.createElement('canvas');
             _measureCtx = c.getContext('2d');
-            _measureCtx.font = '13px ' + FIG_FONT;
+            _measureCtx.font = '12px ' + FIG_FONT;
         }
         return _measureCtx;
     }
@@ -905,55 +991,109 @@ title: "算法框图绘制"
         return { from: getNodeEdgePoint(from, fromDir), to: getNodeEdgePoint(to, toDir), fromDir, toDir };
     }
 
-    function bezierPath(p1, p2, fromDir, toDir) {
-        const offset = 60;
-        let c1x = p1.x, c1y = p1.y, c2x = p2.x, c2y = p2.y;
-        switch (fromDir) {
-            case 'top': c1y -= offset; break;
-            case 'bottom': c1y += offset; break;
-            case 'left': c1x -= offset; break;
-            case 'right': c1x += offset; break;
+    // —— 正交折线（elbow）：ACM/IEEE 线稿图的标准连线几何 ——
+    // 规范要求连接线「精确、可溯源、易追踪」；直角走线比贝塞尔曲线更少视觉歧义。
+    const ELBOW_STUB = 18;   // 出/入端口的直线段长度（保证箭头垂直于边界）
+    const ELBOW_R = 6;       // 拐角圆角半径
+
+    function shiftPt(p, dir, d) {
+        switch (dir) {
+            case 'top': return { x: p.x, y: p.y - d };
+            case 'bottom': return { x: p.x, y: p.y + d };
+            case 'left': return { x: p.x - d, y: p.y };
+            case 'right': return { x: p.x + d, y: p.y };
         }
-        switch (toDir) {
-            case 'top': c2y -= offset; break;
-            case 'bottom': c2y += offset; break;
-            case 'left': c2x -= offset; break;
-            case 'right': c2x += offset; break;
+        return { x: p.x, y: p.y };
+    }
+
+    function isHorizDir(dir) { return dir === 'left' || dir === 'right'; }
+
+    // 折线顶点序列：已去重，首尾恒为真实端点
+    function elbowPoints(p1, p2, fromDir, toDir) {
+        const a = shiftPt(p1, fromDir, ELBOW_STUB);
+        const b = shiftPt(p2, toDir, ELBOW_STUB);
+        const pts = [p1, a];
+        const hFrom = isHorizDir(fromDir), hTo = isHorizDir(toDir);
+        if (hFrom && hTo) {
+            const mx = (a.x + b.x) / 2;
+            pts.push({ x: mx, y: a.y }, { x: mx, y: b.y });
+        } else if (!hFrom && !hTo) {
+            const my = (a.y + b.y) / 2;
+            pts.push({ x: a.x, y: my }, { x: b.x, y: my });
+        } else if (hFrom) {
+            pts.push({ x: b.x, y: a.y });
+        } else {
+            pts.push({ x: a.x, y: b.y });
         }
-        return `M${p1.x},${p1.y} C${c1x},${c1y} ${c2x},${c2y} ${p2.x},${p2.y}`;
+        pts.push(b, p2);
+        const out = [];
+        pts.forEach(p => {
+            const last = out[out.length - 1];
+            if (!last || Math.abs(last.x - p.x) > 0.01 || Math.abs(last.y - p.y) > 0.01) out.push(p);
+        });
+        return out;
+    }
+
+    // 折线 → 带小圆角的 path d
+    function polylineToPath(pts, r) {
+        if (pts.length < 2) return '';
+        if (pts.length === 2) return `M${pts[0].x},${pts[0].y} L${pts[1].x},${pts[1].y}`;
+        let d = `M${pts[0].x},${pts[0].y}`;
+        for (let i = 1; i < pts.length - 1; i++) {
+            const p0 = pts[i - 1], p1 = pts[i], p2 = pts[i + 1];
+            const v1 = { x: p1.x - p0.x, y: p1.y - p0.y };
+            const v2 = { x: p2.x - p1.x, y: p2.y - p1.y };
+            const l1 = Math.hypot(v1.x, v1.y) || 1, l2 = Math.hypot(v2.x, v2.y) || 1;
+            const rr = Math.min(r, l1 / 2, l2 / 2);
+            const sa = { x: p1.x - v1.x / l1 * rr, y: p1.y - v1.y / l1 * rr };
+            const sb = { x: p1.x + v2.x / l2 * rr, y: p1.y + v2.y / l2 * rr };
+            d += ` L${sa.x},${sa.y} Q${p1.x},${p1.y} ${sb.x},${sb.y}`;
+        }
+        const last = pts[pts.length - 1];
+        return d + ` L${last.x},${last.y}`;
+    }
+
+    // 折线 → 按弧长取中点（连线标签落点，避免压在拐角或箭头附近）
+    function polylineMidpoint(pts) {
+        if (!pts.length) return { x: 0, y: 0 };
+        if (pts.length === 1) return pts[0];
+        let total = 0;
+        const segs = [];
+        for (let i = 1; i < pts.length; i++) {
+            const len = Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
+            segs.push(len);
+            total += len;
+        }
+        let target = total / 2;
+        for (let i = 0; i < segs.length; i++) {
+            if (target <= segs[i] || i === segs.length - 1) {
+                const t = segs[i] ? Math.min(1, target / segs[i]) : 0;
+                return {
+                    x: pts[i].x + (pts[i + 1].x - pts[i].x) * t,
+                    y: pts[i].y + (pts[i + 1].y - pts[i].y) * t
+                };
+            }
+            target -= segs[i];
+        }
+        return pts[0];
+    }
+
+    function getConnGeometry(c) {
+        const from = state.nodes.find(n => n.id === c.from);
+        const to = state.nodes.find(n => n.id === c.to);
+        if (!from || !to) return null;
+        const pts = computeConnPoints(from, to);
+        return elbowPoints(pts.from, pts.to, pts.fromDir, pts.toDir);
     }
 
     function getConnPathD(c) {
-        const from = state.nodes.find(n => n.id === c.from);
-        const to = state.nodes.find(n => n.id === c.to);
-        if (!from || !to) return '';
-        const pts = computeConnPoints(from, to);
-        return bezierPath(pts.from, pts.to, pts.fromDir, pts.toDir);
+        const pts = getConnGeometry(c);
+        return pts ? polylineToPath(pts, ELBOW_R) : '';
     }
 
     function getConnMidPoint(c) {
-        const from = state.nodes.find(n => n.id === c.from);
-        const to = state.nodes.find(n => n.id === c.to);
-        if (!from || !to) return { x: 0, y: 0 };
-        const pts = computeConnPoints(from, to);
-        const offset = 60;
-        let c1x = pts.from.x, c1y = pts.from.y, c2x = pts.to.x, c2y = pts.to.y;
-        switch (pts.fromDir) {
-            case 'top': c1y -= offset; break;
-            case 'bottom': c1y += offset; break;
-            case 'left': c1x -= offset; break;
-            case 'right': c1x += offset; break;
-        }
-        switch (pts.toDir) {
-            case 'top': c2y -= offset; break;
-            case 'bottom': c2y += offset; break;
-            case 'left': c2x -= offset; break;
-            case 'right': c2x += offset; break;
-        }
-        const t = 0.5;
-        const mx = Math.pow(1 - t, 3) * pts.from.x + 3 * Math.pow(1 - t, 2) * t * c1x + 3 * (1 - t) * t * t * c2x + t * t * t * pts.to.x;
-        const my = Math.pow(1 - t, 3) * pts.from.y + 3 * Math.pow(1 - t, 2) * t * c1y + 3 * (1 - t) * t * t * c2y + t * t * t * pts.to.y;
-        return { x: mx, y: my };
+        const pts = getConnGeometry(c);
+        return pts ? polylineMidpoint(pts) : { x: 0, y: 0 };
     }
 
     function renderConn(c) {
@@ -969,10 +1109,10 @@ title: "算法框图绘制"
         const path = document.createElementNS(SVG_NS, 'path');
         path.classList.add('conn-path');
         path.setAttribute('d', d);
-        path.setAttribute('stroke', state.selectedId === c.id ? '#1f4e79' : c.color);
+        path.setAttribute('stroke', state.selectedId === c.id ? '#1f4e79' : (state.inkMode ? FIG_LINE : c.color));
         path.setAttribute('marker-end', state.selectedId === c.id ? 'url(#arrow-selected)' : 'url(#arrow)');
-        if (c.style === 'dashed') path.setAttribute('stroke-dasharray', '8 5');
-        else if (c.style === 'dotted') path.setAttribute('stroke-dasharray', '2 4');
+        if (c.style === 'dashed') path.setAttribute('stroke-dasharray', '6 4');
+        else if (c.style === 'dotted') path.setAttribute('stroke-dasharray', '1.5 3.5');
         g.appendChild(path);
 
         if (c.text) {
@@ -986,7 +1126,7 @@ title: "算法框图绘制"
             bg.setAttribute('y', mid.y - th / 2);
             bg.setAttribute('width', tw);
             bg.setAttribute('height', th);
-            bg.setAttribute('rx', 4);
+            bg.setAttribute('rx', 2);
             bg.setAttribute('fill', '#ffffff');
             bg.setAttribute('stroke', 'none');
             g.appendChild(bg);
@@ -1001,29 +1141,269 @@ title: "算法框图绘制"
         connsLayer.appendChild(g);
     }
 
+    // ==== 模块分组容器（论文 module boundary）====
+    // 规范：分组用 containment 表达（细实线边界 + 组名）；不用装饰性虚线或长辅助导轨。
+    const GROUP_PAD = 20;      // 拖框创建时给内容留的内边距
+    const GROUP_HANDLE = 9;    // 右下角缩放手柄边长
+
+    function groupTag(i) { return String.fromCharCode(65 + ((i % 26) + 26) % 26); }
+
+    function createGroup(x, y, w, h, label) {
+        const g = {
+            id: newId(),
+            type: 'group',
+            x: Math.min(x, x + w),
+            y: Math.min(y, y + h),
+            w: Math.max(40, Math.abs(w)),
+            h: Math.max(30, Math.abs(h)),
+            label: label || ''
+        };
+        state.groups.push(g);
+        return g;
+    }
+
+    function renderGroup(g) {
+        let el = document.getElementById(g.id);
+        if (el) el.remove();
+        el = document.createElementNS(SVG_NS, 'g');
+        el.id = g.id;
+        el.classList.add('group-boundary');
+        if (state.selectedId === g.id) el.classList.add('selected');
+        el.dataset.groupId = g.id;
+
+        const rect = document.createElementNS(SVG_NS, 'rect');
+        rect.classList.add('group-rect');
+        rect.setAttribute('x', g.x);
+        rect.setAttribute('y', g.y);
+        rect.setAttribute('width', g.w);
+        rect.setAttribute('height', g.h);
+        rect.setAttribute('rx', 4);
+        rect.setAttribute('ry', 4);
+        rect.setAttribute('fill', 'rgba(20,24,32,0.03)');
+        rect.setAttribute('stroke', '#c8ccd2');
+        rect.setAttribute('stroke-width', 1);
+        el.appendChild(rect);
+
+        const idx = state.groups.indexOf(g);
+        const tag = groupTag(idx < 0 ? 0 : idx);
+        const label = String(g.label || '').trim();
+        const t = document.createElementNS(SVG_NS, 'text');
+        t.classList.add('group-label');
+        t.setAttribute('x', g.x + 10);
+        t.setAttribute('y', g.y + 12);
+        t.setAttribute('text-anchor', 'start');
+        t.setAttribute('fill', '#5b6270');
+        t.textContent = label ? '(' + tag + ') ' + label : '(' + tag + ')';
+        el.appendChild(t);
+
+        if (state.selectedId === g.id) {
+            const hd = document.createElementNS(SVG_NS, 'rect');
+            hd.classList.add('group-handle');
+            hd.setAttribute('x', g.x + g.w - GROUP_HANDLE / 2);
+            hd.setAttribute('y', g.y + g.h - GROUP_HANDLE / 2);
+            hd.setAttribute('width', GROUP_HANDLE);
+            hd.setAttribute('height', GROUP_HANDLE);
+            hd.setAttribute('rx', 1.5);
+            el.appendChild(hd);
+        }
+        groupsLayer.appendChild(el);
+    }
+
+    function findGroupAt(pt) {
+        for (let i = state.groups.length - 1; i >= 0; i--) {
+            const g = state.groups[i];
+            if (pt.x >= g.x && pt.x <= g.x + g.w && pt.y >= g.y && pt.y <= g.y + g.h) return g;
+        }
+        return null;
+    }
+
+    function findGroupHandleAt(pt) {
+        if (state.selectedType !== 'group') return null;
+        const g = state.groups.find(x => x.id === state.selectedId);
+        if (!g) return null;
+        if (Math.abs(pt.x - (g.x + g.w)) <= GROUP_HANDLE && Math.abs(pt.y - (g.y + g.h)) <= GROUP_HANDLE) return g;
+        return null;
+    }
+
+    function nodesInGroup(g) {
+        return state.nodes.filter(n => {
+            const c = nodeCenter(n);
+            return c.x >= g.x && c.x <= g.x + g.w && c.y >= g.y && c.y <= g.y + g.h;
+        });
+    }
+
+    function drawGroupDraft() {
+        overlayLayer.innerHTML = '';
+        const d = state.groupDraft;
+        if (!d) return;
+        const r = document.createElementNS(SVG_NS, 'rect');
+        r.classList.add('selection-box');
+        r.setAttribute('x', Math.min(d.x0, d.x1));
+        r.setAttribute('y', Math.min(d.y0, d.y1));
+        r.setAttribute('width', Math.abs(d.x1 - d.x0));
+        r.setAttribute('height', Math.abs(d.y1 - d.y0));
+        r.setAttribute('rx', 4);
+        overlayLayer.appendChild(r);
+    }
+
+    // ==== 图注：图内只留短模块名，定义 / 约束 / 「为什么重要」写这里 ====
+    const CAP_FONT = 11;
+    const CAP_LEAD = 15;
+
+    function contentBounds() {
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity, any = false;
+        const acc = (x, y, w, h) => {
+            any = true;
+            minX = Math.min(minX, x); minY = Math.min(minY, y);
+            maxX = Math.max(maxX, x + w); maxY = Math.max(maxY, y + h);
+        };
+        state.nodes.forEach(n => acc(n.x, n.y, n.w, n.h));
+        state.groups.forEach(g => acc(g.x, g.y, g.w, g.h));
+        return any ? { minX, minY, maxX, maxY, w: maxX - minX, h: maxY - minY } : null;
+    }
+
+    function measureFig(s, font) {
+        const ctx = getTextMeasureCtx();
+        if (font) ctx.font = font;
+        return ctx.measureText(s).width;
+    }
+
+    // 按测量宽度折行（图注允许换行，但只换行、不缩字）
+    function wrapByMeasure(text, maxW, font) {
+        const lines = [];
+        let cur = '';
+        Array.from(text).forEach(ch => {
+            const test = cur + ch;
+            if (cur && measureFig(test, font) > maxW) { lines.push(cur); cur = ch; }
+            else cur = test;
+        });
+        if (cur) lines.push(cur);
+        return lines.length ? lines : [''];
+    }
+
+    function captionBody() {
+        const no = String(state.capNo || '').trim();
+        const text = String(state.capText || '').trim();
+        if (!text) return '';
+        return (no ? no + '. ' : '') + text;
+    }
+
+    function renderCaption() {
+        captionLayer.innerHTML = '';
+        const body = captionBody();
+        if (!body) return;
+        const bb = contentBounds();
+        if (!bb) return;
+        const font = CAP_FONT + 'px ' + FIG_FONT;
+        const maxW = Math.max(bb.w, 560);
+        const lines = wrapByMeasure(body, maxW, font);
+        const x = bb.minX;
+        let y = bb.maxY + 30;
+        const no = String(state.capNo || '').trim();
+        const noPrefix = no ? no + '. ' : '';
+        lines.forEach((line, i) => {
+            const t = document.createElementNS(SVG_NS, 'text');
+            t.classList.add('caption-text');
+            t.setAttribute('x', x);
+            t.setAttribute('y', y + i * CAP_LEAD);
+            t.setAttribute('text-anchor', 'start');
+            t.setAttribute('fill', '#1b1f27');
+            if (i === 0 && noPrefix) {
+                // 首行「Figure N.」加粗：用 tspan 承接，避免整行变粗
+                const a = document.createElementNS(SVG_NS, 'tspan');
+                a.setAttribute('font-weight', '700');
+                a.textContent = noPrefix;
+                const b = document.createElementNS(SVG_NS, 'tspan');
+                b.textContent = line.slice(noPrefix.length);
+                t.appendChild(a);
+                t.appendChild(b);
+            } else {
+                t.textContent = line;
+            }
+            captionLayer.appendChild(t);
+        });
+    }
+
+    // ==== 框图规范自检：把技能规范里的硬门禁变成可点开就看的清单 ====
+    function specRow(ok, warn, text) { return { ok: ok, warn: warn, text: text }; }
+
+    function runSpecCheck() {
+        const el = document.getElementById('spec-check');
+        if (!el) return;
+        const rows = [];
+        const dashed = state.conns.filter(c => c.style === 'dashed' || c.style === 'dotted');
+        const unlabeled = dashed.filter(c => !String(c.text || '').trim());
+        rows.push(unlabeled.length
+            ? specRow(false, true, '虚/点线缺标签 ' + unlabeled.length + ' 条：一种线型只表一个含义，且必须带端点语义')
+            : specRow(true, false, '虚/点线均有语义标签'));
+
+        const fams = new Set(dashed.map(c => c.style));
+        rows.push(fams.size > 2
+            ? specRow(false, true, '虚/点线语义族 ' + fams.size + ' 类：超出上限 2（线型语义过载）')
+            : specRow(true, false, '虚/点线语义族 ' + fams.size + ' 类（上限 2）'));
+
+        const emptyG = state.groups.filter(g => nodesInGroup(g).length === 0);
+        rows.push(emptyG.length
+            ? specRow(false, true, '空分组 ' + emptyG.length + ' 个：分组框内应含 ≥1 个模块')
+            : specRow(true, false, '分组框均非空（共 ' + state.groups.length + ' 个）'));
+
+        const longEdges = state.conns.filter(c => String(c.text || '').length > 16);
+        rows.push(longEdges.length
+            ? specRow(false, true, '边标签过长 ' + longEdges.length + ' 条（>16 字）：应移入图注')
+            : specRow(true, false, '边标签长度合规'));
+
+        const crowded = state.nodes.filter(n => wrapText(n.text, n.w - 16).length > 3);
+        rows.push(crowded.length
+            ? specRow(false, true, '图内文字 >3 行的节点 ' + crowded.length + ' 个：定义类文字应移入图注')
+            : specRow(true, false, '节点内文字行数合规（≤3）'));
+
+        const linked = new Set();
+        state.conns.forEach(c => { linked.add(c.from); linked.add(c.to); });
+        const iso = state.nodes.filter(n => !linked.has(n.id));
+        rows.push(iso.length
+            ? specRow(false, true, '孤立节点 ' + iso.length + ' 个：无任何连线，确认是否为遗留块')
+            : specRow(true, false, '无孤立节点'));
+
+        rows.push(captionBody()
+            ? specRow(true, false, '已写图注')
+            : specRow(false, true, '图注为空：定义 / 约束 / 为什么重要应写进图注'));
+
+        el.innerHTML = rows.map(r =>
+            '<div><span style="color:' + (r.ok ? 'var(--success)' : 'var(--warning)') +
+            ';font-weight:700">' + (r.ok ? '&#10003;' : '&#33;') + '</span> ' + r.text + '</div>'
+        ).join('');
+    }
+
     function rerenderAll() {
         nodesLayer.innerHTML = '';
         connsLayer.innerHTML = '';
+        groupsLayer.innerHTML = '';
         overlayLayer.innerHTML = '';
+        captionLayer.innerHTML = '';
+        state.groups.forEach(renderGroup);
         state.conns.forEach(renderConn);
         state.nodes.forEach(renderNode);
+        renderCaption();
         updateStats();
     }
 
     function updateStats() {
         statNodesEl.textContent = state.nodes.length;
         statConnsEl.textContent = state.conns.length;
+        statGroupsEl.textContent = state.groups.length;
+        runSpecCheck();
     }
 
     function selectElement(id, type) {
         state.selectedId = id;
         state.selectedType = type;
-        document.querySelectorAll('.node-group, .conn-group').forEach(el => el.classList.remove('selected'));
+        document.querySelectorAll('.node-group, .conn-group, .group-boundary').forEach(el => el.classList.remove('selected'));
         if (id) {
             const el = document.getElementById(id);
             if (el) el.classList.add('selected');
         }
         updatePanel();
+        renderCaption();
         rerenderAll();
     }
 
@@ -1035,6 +1415,8 @@ title: "算法框图绘制"
             state.conns = state.conns.filter(c => c.from !== id && c.to !== id);
         } else if (state.selectedType === 'conn') {
             state.conns = state.conns.filter(c => c.id !== id);
+        } else if (state.selectedType === 'group') {
+            state.groups = state.groups.filter(g => g.id !== id);
         }
         selectElement(null, null);
         rerenderAll();
@@ -1117,11 +1499,20 @@ title: "算法框图绘制"
             const c = state.conns.find(x => x.id === state.selectedId);
             if (!c) { selectElement(null, null); return; }
             panelTitle.textContent = '连线属性';
-            document.getElementById('label-text').textContent = '操作名称';
+            document.getElementById('label-text').textContent = '操作名称（写在线上，不套方框）';
             inputText.value = c.text;
             fieldColor.style.display = 'none';
             fieldEdgeStyle.style.display = '';
             selectEdgeStyle.value = c.style;
+        } else if (state.selectedType === 'group') {
+            const g = state.groups.find(x => x.id === state.selectedId);
+            if (!g) { selectElement(null, null); return; }
+            const idx = state.groups.indexOf(g);
+            panelTitle.textContent = '分组属性 — (' + groupTag(idx < 0 ? 0 : idx) + ')';
+            document.getElementById('label-text').textContent = '组名（论文里的 stage / module 名）';
+            inputText.value = g.label || '';
+            fieldColor.style.display = 'none';
+            fieldEdgeStyle.style.display = 'none';
         }
     }
 
@@ -1142,11 +1533,39 @@ title: "算法框图绘制"
             if (!c) return;
             c.text = inputText.value;
             c.style = selectEdgeStyle.value;
+        } else if (state.selectedType === 'group') {
+            const g = state.groups.find(x => x.id === state.selectedId);
+            if (!g) return;
+            g.label = inputText.value;
         }
         selectElement(state.selectedId, state.selectedType);
     });
 
     document.getElementById('btn-delete-elem').addEventListener('click', deleteSelected);
+
+    // ---- 图注 / 线稿模式 接线 ----
+    const inputCapNo = document.getElementById('input-cap-no');
+    const inputCapText = document.getElementById('input-cap-text');
+    inputCapNo.addEventListener('input', () => { state.capNo = inputCapNo.value; renderCaption(); runSpecCheck(); });
+    inputCapText.addEventListener('input', () => { state.capText = inputCapText.value; renderCaption(); runSpecCheck(); });
+
+    const btnInk = document.getElementById('btn-ink');
+    function applyInkLabel() {
+        btnInk.textContent = state.inkMode ? '线稿' : '彩色';
+        btnInk.classList.toggle('accent', state.inkMode);
+    }
+    btnInk.addEventListener('click', () => {
+        state.inkMode = !state.inkMode;
+        applyInkLabel();
+        rerenderAll();
+        showHint(state.inkMode ? '线稿模式：描边统一墨色（论文出版默认）' : '彩色描边模式');
+    });
+    applyInkLabel();
+
+    function syncCaptionInputs() {
+        inputCapNo.value = state.capNo || '';
+        inputCapText.value = state.capText || '';
+    }
 
     colorRow.addEventListener('click', (e) => {
         const s = e.target.closest('.color-swatch');
@@ -1180,17 +1599,33 @@ title: "算法框图绘制"
                 selectElement(node.id, 'node');
                 state.dragging = { id: node.id, startPt: pt, origX: node.x, origY: node.y, moved: false, cx: e.clientX, cy: e.clientY };
             } else {
+                const gHandle = findGroupHandleAt(pt);
                 const conn = findConnAt(e);
-                if (conn) {
+                if (gHandle) {
+                    state.resizingGroup = { id: gHandle.id, startPt: pt, origW: gHandle.w, origH: gHandle.h };
+                } else if (conn) {
                     selectElement(conn.id, 'conn');
                 } else {
-                    selectElement(null, null);
-                    if (e.button === 0) {
-                        state.panning = { startX: e.clientX, startY: e.clientY, panX: state.pan.x, panY: state.pan.y };
-                        canvasWrap.classList.add('panning');
+                    const grp = findGroupAt(pt);
+                    if (grp) {
+                        selectElement(grp.id, 'group');
+                        state.movingGroup = { id: grp.id, startPt: pt, origX: grp.x, origY: grp.y, moved: false, cx: e.clientX, cy: e.clientY };
+                    } else {
+                        selectElement(null, null);
+                        if (e.button === 0) {
+                            state.panning = { startX: e.clientX, startY: e.clientY, panX: state.pan.x, panY: state.pan.y };
+                            canvasWrap.classList.add('panning');
+                        }
                     }
                 }
             }
+            e.preventDefault();
+            return;
+        }
+
+        if (tool === 'add-group') {
+            state.groupDraft = { x0: pt.x, y0: pt.y, x1: pt.x, y1: pt.y };
+            drawGroupDraft();
             e.preventDefault();
             return;
         }
@@ -1237,7 +1672,7 @@ title: "算法框图绘制"
         if (tool.startsWith('add-')) {
             const shape = TOOL_SHAPE[tool];
             if (shape) {
-                const n = createNode(shape, pt.x, pt.y);
+                const n = createNode(shape, pt.x, pt.y, null, null, null, null, e.altKey);
                 selectElement(n.id, 'node');
             }
             e.preventDefault();
@@ -1246,6 +1681,39 @@ title: "算法框图绘制"
     });
 
     window.addEventListener('mousemove', (e) => {
+        if (state.groupDraft) {
+            const p = getPoint(e);
+            state.groupDraft.x1 = p.x;
+            state.groupDraft.y1 = p.y;
+            drawGroupDraft();
+            return;
+        }
+        if (state.movingGroup) {
+            if (!state.movingGroup.moved) {
+                const sdx = e.clientX - state.movingGroup.cx;
+                const sdy = e.clientY - state.movingGroup.cy;
+                if (sdx * sdx + sdy * sdy < 9) return;
+                state.movingGroup.moved = true;
+            }
+            const p = getPoint(e);
+            const g = state.groups.find(x => x.id === state.movingGroup.id);
+            if (g) {
+                g.x = snapTo(state.movingGroup.origX + (p.x - state.movingGroup.startPt.x), e.altKey);
+                g.y = snapTo(state.movingGroup.origY + (p.y - state.movingGroup.startPt.y), e.altKey);
+                renderGroup(g);
+            }
+            return;
+        }
+        if (state.resizingGroup) {
+            const p = getPoint(e);
+            const g = state.groups.find(x => x.id === state.resizingGroup.id);
+            if (g) {
+                g.w = Math.max(80, snapTo(state.resizingGroup.origW + (p.x - state.resizingGroup.startPt.x), e.altKey));
+                g.h = Math.max(60, snapTo(state.resizingGroup.origH + (p.y - state.resizingGroup.startPt.y), e.altKey));
+                renderGroup(g);
+            }
+            return;
+        }
         if (state.panning) {
             state.pan.x = state.panning.panX + (e.clientX - state.panning.startX);
             state.pan.y = state.panning.panY + (e.clientY - state.panning.startY);
@@ -1264,8 +1732,8 @@ title: "算法框图绘制"
             const dy = pt.y - state.dragging.startPt.y;
             const node = state.nodes.find(n => n.id === state.dragging.id);
             if (node) {
-                node.x = state.dragging.origX + dx;
-                node.y = state.dragging.origY + dy;
+                node.x = snapTo(state.dragging.origX + dx, e.altKey);
+                node.y = snapTo(state.dragging.origY + dy, e.altKey);
                 renderNode(node);
                 state.conns.filter(c => c.from === node.id || c.to === node.id).forEach(renderConn);
             }
@@ -1273,11 +1741,27 @@ title: "算法框图绘制"
     });
 
     window.addEventListener('mouseup', () => {
+        if (state.groupDraft) {
+            const d = state.groupDraft;
+            state.groupDraft = null;
+            overlayLayer.innerHTML = '';
+            const x = Math.min(d.x0, d.x1), y = Math.min(d.y0, d.y1);
+            const w = Math.abs(d.x1 - d.x0), h = Math.abs(d.y1 - d.y0);
+            if (w >= 60 && h >= 40) {
+                const g = createGroup(x - GROUP_PAD, y - GROUP_PAD, w + GROUP_PAD * 2, h + GROUP_PAD * 2, '');
+                selectElement(g.id, 'group');
+                showHint('已创建分组 ' + groupTag(state.groups.length - 1) + '，可在右侧写组名');
+            } else {
+                showHint('拖动范围太小，已取消分组');
+            }
+        }
         if (state.panning) {
             state.panning = null;
             canvasWrap.classList.remove('panning');
         }
         if (state.dragging) state.dragging = null;
+        if (state.movingGroup) state.movingGroup = null;
+        if (state.resizingGroup) state.resizingGroup = null;
     });
 
     svg.addEventListener('dblclick', (e) => {
@@ -1292,28 +1776,40 @@ title: "算法框图绘制"
         if (conn) {
             selectElement(conn.id, 'conn');
             startInlineEdit(conn, 'conn', e);
+            return;
+        }
+        const grp = findGroupAt(pt);
+        if (grp) {
+            selectElement(grp.id, 'group');
+            startInlineEdit(grp, 'group', e);
         }
     });
 
     function startInlineEdit(elem, type, evt) {
         const svgRect = svg.getBoundingClientRect();
-        const cx = svgRect.left + state.pan.x + (elem.type === 'node' ? (elem.x + elem.w / 2) : getConnMidPoint(elem).x) * state.zoom;
-        const cy = svgRect.top + state.pan.y + (elem.type === 'node' ? (elem.y + elem.h / 2) : getConnMidPoint(elem).y) * state.zoom;
+        const isGroup = type === 'group';
+        const px = isGroup ? (elem.x + elem.w / 2) : (elem.type === 'node' ? (elem.x + elem.w / 2) : getConnMidPoint(elem).x);
+        const py = isGroup ? (elem.y + 12) : (elem.type === 'node' ? (elem.y + elem.h / 2) : getConnMidPoint(elem).y);
+        const cx = svgRect.left + state.pan.x + px * state.zoom;
+        const cy = svgRect.top + state.pan.y + py * state.zoom;
         editOverlay.style.left = (cx - 80) + 'px';
         editOverlay.style.top = (cy - 14) + 'px';
         editOverlay.style.display = 'block';
         editOverlay.className = 'edit-overlay' + (type === 'conn' ? ' edge' : '');
-        editInput.value = elem.text || '';
+        editInput.value = (isGroup ? (elem.label || '') : (elem.text || ''));
         editInput.focus();
         editInput.select();
 
         function commit() {
-            elem.text = editInput.value;
+            if (type === 'group') elem.label = editInput.value;
+            else elem.text = editInput.value;
             editOverlay.style.display = 'none';
             editInput.removeEventListener('blur', onBlur);
             editInput.removeEventListener('keydown', onKey);
             if (type === 'node') renderNode(elem);
+            else if (type === 'group') renderGroup(elem);
             else renderConn(elem);
+            runSpecCheck();
             updatePanel();
         }
         function cancel() {
@@ -1360,6 +1856,7 @@ title: "算法框图绘制"
         } else if (e.key.toLowerCase() === 'v') setTool('select');
         else if (e.key.toLowerCase() === 'h') setTool('pan');
         else if (e.key.toLowerCase() === 'c') setTool('connect');
+        else if (e.key.toLowerCase() === 'g') setTool('add-group');
     });
     window.addEventListener('keyup', (e) => {
         if (e.code === 'Space') {
@@ -1389,23 +1886,21 @@ title: "算法框图绘制"
     });
 
     function fitContent() {
-        if (state.nodes.length === 0) {
+        const bb = contentBounds();
+        if (!bb) {
             state.pan = { x: 0, y: 0 };
             state.zoom = 1;
             applyTransform();
             return;
         }
-        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-        state.nodes.forEach(n => {
-            minX = Math.min(minX, n.x);
-            minY = Math.min(minY, n.y);
-            maxX = Math.max(maxX, n.x + n.w);
-            maxY = Math.max(maxY, n.y + n.h);
-        });
         const pad = 60;
         const cw = canvasWrap.clientWidth;
         const ch = canvasWrap.clientHeight;
-        const bw = maxX - minX, bh = maxY - minY;
+        // 图注在图下方：计入可用高度，否则「适应」会把图注切掉
+        const capBody = captionBody();
+        const capH = capBody ? (wrapByMeasure(capBody, Math.max(bb.w, 560), CAP_FONT + 'px ' + FIG_FONT).length * CAP_LEAD + 20) : 0;
+        const bw = bb.w, bh = bb.h + capH;
+        const minX = bb.minX, minY = bb.minY;
         const zoomX = (cw - pad * 2) / bw;
         const zoomY = (ch - pad * 2) / bh;
         state.zoom = Math.max(0.2, Math.min(2, Math.min(zoomX, zoomY)));
@@ -1422,6 +1917,10 @@ title: "算法框图绘制"
         return JSON.stringify({
             nodes: state.nodes,
             conns: state.conns,
+            groups: state.groups,
+            capNo: state.capNo,
+            capText: state.capText,
+            inkMode: state.inkMode,
             nextId: state.nextId,
             pan: state.pan,
             zoom: state.zoom
@@ -1432,11 +1931,17 @@ title: "算法框图绘制"
         const data = JSON.parse(str);
         state.nodes = data.nodes || [];
         state.conns = data.conns || [];
-        state.nextId = data.nextId || (state.nodes.length + state.conns.length + 1);
+        state.groups = data.groups || [];
+        state.capNo = data.capNo != null ? data.capNo : 'Figure 1';
+        state.capText = data.capText != null ? data.capText : '';
+        state.inkMode = data.inkMode !== false;
+        state.nextId = data.nextId || (state.nodes.length + state.conns.length + state.groups.length + 1);
         state.pan = data.pan || { x: 0, y: 0 };
         state.zoom = data.zoom || 1;
         state.selectedId = null;
         state.selectedType = null;
+        applyInkLabel();
+        syncCaptionInputs();
         rerenderAll();
         applyTransform();
     }
@@ -1464,6 +1969,7 @@ title: "算法框图绘制"
         if (!confirm('确定清空画布？此操作不可撤销（可先保存）。')) return;
         state.nodes = [];
         state.conns = [];
+        state.groups = [];
         state.selectedId = null;
         state.selectedType = null;
         rerenderAll();
@@ -1498,13 +2004,19 @@ title: "算法框图绘制"
     // ---- Export ----
     function buildExportSVG() {
         let minX = 0, minY = 0, maxX = 0, maxY = 0;
-        if (state.nodes.length) {
+        if (state.nodes.length || state.groups.length) {
             minX = Infinity; minY = Infinity; maxX = -Infinity; maxY = -Infinity;
             state.nodes.forEach(n => {
                 minX = Math.min(minX, n.x);
                 minY = Math.min(minY, n.y);
                 maxX = Math.max(maxX, n.x + n.w);
                 maxY = Math.max(maxY, n.y + n.h);
+            });
+            state.groups.forEach(g => {
+                minX = Math.min(minX, g.x);
+                minY = Math.min(minY, g.y);
+                maxX = Math.max(maxX, g.x + g.w);
+                maxY = Math.max(maxY, g.y + g.h);
             });
             state.conns.forEach(c => {
                 const m = getConnMidPoint(c);
@@ -1514,53 +2026,78 @@ title: "算法框图绘制"
                 maxY = Math.max(maxY, m.y + 20);
             });
         }
+        const capBody = captionBody();
+        const capLines = capBody ? wrapByMeasure(capBody, Math.max(maxX - minX, 560), CAP_FONT + 'px ' + FIG_FONT) : [];
+        const capH = capLines.length ? capLines.length * CAP_LEAD + 22 : 0;
         const pad = 30;
         const w = (maxX - minX) + pad * 2;
-        const h = (maxY - minY) + pad * 2;
+        const h = (maxY - minY) + pad * 2 + capH;
         const offX = -minX + pad;
         const offY = -minY + pad;
 
         const parts = [];
         parts.push(`<?xml version="1.0" encoding="UTF-8"?>`);
-        parts.push(`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" font-family="'Times New Roman', 'Nimbus Roman', 'Liberation Serif', 'Songti SC', SimSun, Georgia, serif">`);
+        parts.push(`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" font-family="${EXPORT_FONT}">`);
         parts.push(`<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 Z" fill="#3a3f47"/></marker></defs>`);
         parts.push(`<rect width="${w}" height="${h}" fill="#ffffff"/>`);
         parts.push(`<g transform="translate(${offX} ${offY})">`);
+
+        // groups —— 模块分组容器（论文的 module boundary，先画在最底层）
+        state.groups.forEach((g, gi) => {
+            const tag = groupTag(gi);
+            const gLabel = String(g.label || '').trim();
+            parts.push(`<rect x="${g.x}" y="${g.y}" width="${g.w}" height="${g.h}" rx="4" ry="4" fill="#f7f8f9" stroke="#c8ccd2" stroke-width="1"/>`);
+            parts.push(`<text x="${g.x + 10}" y="${g.y + 12}" font-size="10.5" font-weight="600" letter-spacing="0.04em" text-anchor="start" dominant-baseline="central" fill="#5b6270">${escapeXml(gLabel ? '(' + tag + ') ' + gLabel : '(' + tag + ')')}</text>`);
+        });
 
         // connections
         state.conns.forEach(c => {
             const d = getConnPathD(c);
             let dash = '';
-            if (c.style === 'dashed') dash = ' stroke-dasharray="8 5"';
-            else if (c.style === 'dotted') dash = ' stroke-dasharray="2 4"';
-            parts.push(`<path d="${d}" fill="none" stroke="${c.color}" stroke-width="1.4" stroke-linecap="round" marker-end="url(#arrow)"${dash}/>`);
+            if (c.style === 'dashed') dash = ' stroke-dasharray="6 4"';
+            else if (c.style === 'dotted') dash = ' stroke-dasharray="1.5 3.5"';
+            parts.push(`<path d="${d}" fill="none" stroke="${state.inkMode ? FIG_LINE : c.color}" stroke-width="1.0" stroke-linecap="round" marker-end="url(#arrow)"${dash}/>`);
             if (c.text) {
                 const m = getConnMidPoint(c);
                 const ctx = getTextMeasureCtx();
                 const tw = ctx.measureText(c.text).width + 10;
                 parts.push(`<rect x="${m.x - tw / 2}" y="${m.y - 9}" width="${tw}" height="18" fill="#ffffff"/>`);
-                parts.push(`<text x="${m.x}" y="${m.y}" font-size="11.5" text-anchor="middle" dominant-baseline="central" fill="#16181d">${escapeXml(c.text)}</text>`);
+                parts.push(`<text x="${m.x}" y="${m.y}" font-size="11" text-anchor="middle" dominant-baseline="central" fill="${FIG_TEXT}">${escapeXml(c.text)}</text>`);
             }
         });
 
         // nodes
         state.nodes.forEach(n => {
             let shapeXml = '';
+            const nStroke = state.inkMode ? FIG_INK : n.color;
             if (n.shape === 'process') {
-                shapeXml = `<rect x="${n.x}" y="${n.y}" width="${n.w}" height="${n.h}" rx="4" ry="4" fill="${hexToRgba(n.color, FIG_TINT)}" stroke="${n.color}" stroke-width="1.25"/>`;
+                shapeXml = `<rect x="${n.x}" y="${n.y}" width="${n.w}" height="${n.h}" rx="3" ry="3" fill="${hexToRgba(n.color, FIG_TINT)}" stroke="${nStroke}" stroke-width="1.0"/>`;
             } else if (n.shape === 'start' || n.shape === 'end') {
-                shapeXml = `<ellipse cx="${n.x + n.w / 2}" cy="${n.y + n.h / 2}" rx="${n.w / 2}" ry="${n.h / 2}" fill="${hexToRgba(n.color, FIG_TINT)}" stroke="${n.color}" stroke-width="1.25"/>`;
+                shapeXml = `<ellipse cx="${n.x + n.w / 2}" cy="${n.y + n.h / 2}" rx="${n.w / 2}" ry="${n.h / 2}" fill="${hexToRgba(n.color, FIG_TINT)}" stroke="${nStroke}" stroke-width="1.0"/>`;
             } else {
-                shapeXml = `<path d="${nodeShapePath(n)}" fill="${hexToRgba(n.color, FIG_TINT)}" stroke="${n.color}" stroke-width="1.25"/>`;
+                shapeXml = `<path d="${nodeShapePath(n)}" fill="${hexToRgba(n.color, FIG_TINT)}" stroke="${nStroke}" stroke-width="1.0"/>`;
             }
             parts.push(shapeXml);
             const lines = wrapText(n.text, n.w - 16);
             const lh = 16;
             const startY = n.y + n.h / 2 - (lines.length - 1) * lh / 2;
             lines.forEach((line, i) => {
-                parts.push(`<text x="${n.x + n.w / 2}" y="${startY + i * lh}" font-size="13" text-anchor="middle" dominant-baseline="central" fill="#16181d">${escapeXml(line)}</text>`);
+                parts.push(`<text x="${n.x + n.w / 2}" y="${startY + i * lh}" font-size="12" text-anchor="middle" dominant-baseline="central" fill="${FIG_TEXT}">${escapeXml(line)}</text>`);
             });
         });
+        // caption —— 图注紧贴图下方，编号加粗
+        if (capLines.length) {
+            const no = String(state.capNo || '').trim();
+            const noPrefix = no ? no + '. ' : '';
+            let cy = maxY + 30;
+            capLines.forEach((line, i) => {
+                const head = (i === 0 && noPrefix)
+                    ? `<tspan font-weight="700">${escapeXml(noPrefix)}</tspan><tspan>${escapeXml(line.slice(noPrefix.length))}</tspan>`
+                    : escapeXml(line);
+                parts.push(`<text x="${minX}" y="${cy}" font-size="${CAP_FONT}" text-anchor="start" dominant-baseline="central" fill="#1b1f27">${head}</text>`);
+                cy += CAP_LEAD;
+            });
+        }
         parts.push(`</g></svg>`);
         return { svg: parts.join(''), width: w, height: h };
     }
@@ -1619,9 +2156,13 @@ title: "算法框图绘制"
     function loadSampleData(data) {
         state.nodes = [];
         state.conns = [];
+        state.groups = [];
         state.selectedId = null;
         state.selectedType = null;
         state.nextId = 1;
+        state.capNo = data.capNo != null ? data.capNo : 'Figure 1';
+        state.capText = data.capText != null ? data.capText : '';
+        state.inkMode = data.inkMode !== false;
 
         const idMap = [];
         (data.nodes || []).forEach(n => {
@@ -1659,6 +2200,18 @@ title: "算法框图绘制"
             });
         });
 
+        (data.groups || []).forEach(g => {
+            state.groups.push({
+                id: newId(),
+                type: 'group',
+                x: g.x, y: g.y,
+                w: g.w, h: g.h,
+                label: g.label || ''
+            });
+        });
+
+        applyInkLabel();
+        syncCaptionInputs();
         state.pan = { x: 0, y: 0 };
         state.zoom = 1;
         rerenderAll();
@@ -1693,6 +2246,16 @@ title: "算法框图绘制"
     document.getElementById('select-sample').addEventListener('change', function () {
         loadSample(this.value);
     });
+
+    // 回归探针：无头验证 / 手工排查用，不参与渲染
+    window.__flow = {
+        state: state,
+        buildExportSVG: buildExportSVG,
+        rerenderAll: rerenderAll,
+        nodesInGroup: nodesInGroup,
+        contentBounds: contentBounds,
+        groupTag: groupTag
+    };
 
     // initial state — supports ?sample= URL parameter
     applyTransform();
