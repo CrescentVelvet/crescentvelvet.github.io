@@ -1,14 +1,14 @@
 {
   "name": "默认样例",
   "nodes": [
-    { "shape": "start",    "x": 360, "y": 60,  "text": "开始",            "color": "#2ec27e" },
-    { "shape": "data",     "x": 360, "y": 180, "text": "输入数据 X",      "color": "#0d9488" },
-    { "shape": "process",  "x": 360, "y": 300, "text": "预处理\n(归一化)", "color": "#4f6df5" },
-    { "shape": "decision", "x": 360, "y": 430, "text": "X > 阈值?",       "color": "#f59e0b" },
-    { "shape": "process",  "x": 180, "y": 570, "text": "算法 A",          "color": "#4f6df5" },
-    { "shape": "process",  "x": 540, "y": 570, "text": "算法 B",          "color": "#4f6df5" },
-    { "shape": "data",     "x": 360, "y": 700, "text": "输出结果",        "color": "#0d9488" },
-    { "shape": "end",      "x": 360, "y": 820, "text": "结束",            "color": "#ef4f6f" }
+    { "shape": "start",    "x": 360, "y": 60,  "text": "开始",            "color": "#2e6b52" },
+    { "shape": "data",     "x": 360, "y": 180, "text": "输入数据 X",      "color": "#3f6f6b" },
+    { "shape": "process",  "x": 360, "y": 300, "text": "预处理\n(归一化)", "color": "#2f5d8c" },
+    { "shape": "decision", "x": 360, "y": 430, "text": "X > 阈值?",       "color": "#a8730f" },
+    { "shape": "process",  "x": 180, "y": 570, "text": "算法 A",          "color": "#2f5d8c" },
+    { "shape": "process",  "x": 540, "y": 570, "text": "算法 B",          "color": "#2f5d8c" },
+    { "shape": "data",     "x": 360, "y": 700, "text": "输出结果",        "color": "#3f6f6b" },
+    { "shape": "end",      "x": 360, "y": 820, "text": "结束",            "color": "#9c3b4a" }
   ],
   "conns": [
     { "from": 0, "to": 1, "text": "" },
