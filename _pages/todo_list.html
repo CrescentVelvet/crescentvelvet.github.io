@@ -7,7 +7,7 @@ title: "待办清单"
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>待办清单</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -429,7 +429,7 @@ title: "待办清单"
                     <button id="btnDelete" class="ed-btn danger" type="button">删除</button>
                 </div>
             </div>
-            <p class="subtitle">滚轮缩放 · 拖拽平移 · 双击空白复位 · 单击节点折叠（父）并选中编辑 · Alt+↑/↓ 或「↑ 上移/↓ 下移」按钮交换同级顺序 · 改完点导出按钮下载，覆盖对应的数据文件 <span id="hintTail"></span></p>
+            <p class="subtitle">滚轮缩放 · 拖拽平移 · 双击空白复位 · 单击节点折叠（父）并选中编辑 · Alt+↑/↓ 或「↑ 上移/↓ 下移」按钮交换同级顺序 · 触屏：单指平移 / 双指捏合缩放 / 双击空白复位 · 改完点导出按钮下载，覆盖对应的数据文件 <span id="hintTail"></span></p>
         </div>
     </div>
 
@@ -642,7 +642,80 @@ title: "待办清单"
             setView(nv);
         });
         window.addEventListener("mouseup", function () { pan.active = false; svg.classList.remove("panning"); });
+
+        // ── 触屏手势：单指平移 · 双指捏合缩放（移动端只读浏览够用） ──
+        // 走独立 touch 监听：touch-action:none 下浏览器不做原生缩放，拖动也不会派发 mousemove。
+        var COARSE = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
+        var tch = { mode: 0, sx: 0, sy: 0, cx: 0, cy: 0, dist: 0, moved: false, v: null };
+        function tMid(a, b) { return { x: (a.clientX + b.clientX) / 2, y: (a.clientY + b.clientY) / 2 }; }
+        function tDist(a, b) { return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY); }
+        svg.addEventListener("touchstart", function (e) {
+            if (viewLocked) return;
+            var v = getView(); if (!v) return;
+            if (e.touches.length === 1) {
+                tch.mode = 1; tch.moved = false;
+                tch.sx = e.touches[0].clientX; tch.sy = e.touches[0].clientY;
+                tch.v = { x: v.x, y: v.y, w: v.w, h: v.h };
+                // 单指不 preventDefault：阈值内保留 tap（click 选中/折叠）
+            } else if (e.touches.length >= 2) {
+                // 进入双指：基准视图取当前实际视图，防从单指切换时跳变
+                tch.mode = 2; tch.moved = true;
+                var m = tMid(e.touches[0], e.touches[1]);
+                tch.cx = m.x; tch.cy = m.y;
+                tch.dist = tDist(e.touches[0], e.touches[1]);
+                tch.v = { x: v.x, y: v.y, w: v.w, h: v.h };
+                hideMenu();
+                interacted = true;
+                e.preventDefault();
+            }
+        }, { passive: false });
+        svg.addEventListener("touchmove", function (e) {
+            if (!tch.mode || viewLocked) return;
+            var rect = svg.getBoundingClientRect();
+            if (tch.mode === 1 && e.touches.length === 1) {
+                var dx = e.touches[0].clientX - tch.sx, dy = e.touches[0].clientY - tch.sy;
+                if (!tch.moved && Math.hypot(dx, dy) <= 6) return;   // 阈值内仍算点按
+                if (!tch.moved) { tch.moved = true; interacted = true; hideMenu(); }
+                e.preventDefault();                                  // 起手平移后抑制 click
+                setView(clampView({
+                    x: tch.v.x - dx / rect.width * tch.v.w,
+                    y: tch.v.y - dy / rect.height * tch.v.h,
+                    w: tch.v.w, h: tch.v.h
+                }));
+            } else if (tch.mode === 2 && e.touches.length >= 2) {
+                e.preventDefault();
+                var m2 = tMid(e.touches[0], e.touches[1]);
+                var d2 = tDist(e.touches[0], e.touches[1]);
+                if (!d2 || !tch.dist) return;
+                var s = tch.dist / d2;                               // <1 张开 → 视野变窄 = 放大
+                var mx = tch.v.x + (tch.cx - rect.left) / rect.width * tch.v.w;
+                var my = tch.v.y + (tch.cy - rect.top) / rect.height * tch.v.h;
+                // 缩放锚定手势起始中点的世界坐标；平移分量 = 当前中点相对起点的位移（按新宽度换算）
+                setView(clampView({
+                    x: mx - (mx - tch.v.x) * s - (m2.x - tch.cx) / rect.width * tch.v.w * s,
+                    y: my - (my - tch.v.y) * s - (m2.y - tch.cy) / rect.height * tch.v.h * s,
+                    w: tch.v.w * s, h: tch.v.h * s
+                }));
+            }
+        }, { passive: false });
+        function tchEnd(e) {
+            if (e.touches.length === 0) { tch.mode = 0; tch.v = null; }
+            else if (e.touches.length === 1 && tch.mode === 2) {
+                // 双指松开其一 → 平滑切换回单指平移基准（以当前视图重新锚定，防跳变）
+                var v = getView();
+                tch.mode = 1; tch.moved = true;
+                tch.sx = e.touches[0].clientX; tch.sy = e.touches[0].clientY;
+                tch.v = v;
+            }
+        }
+        svg.addEventListener("touchend", tchEnd);
+        svg.addEventListener("touchcancel", tchEnd);
+
         svg.addEventListener("dblclick", function (e) {
+            if (COARSE) {                         // 触屏双击只复位视图，不进入改名（避免误触锁视图）
+                if (!viewLocked && !e.target.closest(".bubble")) fitView();
+                return;
+            }
             var bubble = e.target.closest(".bubble");
             if (bubble) {                         // 节点上的双击 → 就地改名
                 var g0 = bubble.closest(".node");
@@ -1244,6 +1317,11 @@ title: "待办清单"
             else if (act === "delete") { snapshot(); if (deleteNode(n._id)) flash("已删除 · Ctrl+Z 可撤销"); }
         });
         svg.addEventListener("contextmenu", function (e) {
+            if (COARSE) {                             // 触屏长按 = 浏览器默认菜单，屏蔽；移动端只查看不弹编辑菜单
+                e.preventDefault();
+                hideMenu();
+                return;
+            }
             var bubble = e.target.closest(".bubble");
             if (!bubble) { hideMenu(); return; }        // 空白处的右键保留浏览器默认菜单
             e.preventDefault();
