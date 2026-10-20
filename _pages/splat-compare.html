@@ -514,20 +514,41 @@ title: "高斯对比"
             const url = URL.createObjectURL(file);
 
             // 创建 renderer
+            // 这一组设备参数对齐 SuperSplat 的 createGraphicsDevice（src/main.ts）：
+            //   antialias:false / depth:false / stencil:false / powerPreference:'high-performance'
             // antialias:false —— MSAA 只对几何边缘有效，splat 是软 alpha 椭球，
-            //   开 MSAA 纯浪费显存和带宽（回调 mesh 不写颜色，场景里没有别的几何）
-            // setPixelRatio(1) —— HiDPI 屏（dpr=2）下片元量是 1x 的 4 倍；
-            //   纯查看场景 cap 到 1，GPU 压力直接除以 dpr²。要更锐可改 1.5
-            const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
-            renderer.setClearColor(0x222233, 1); // 深蓝灰背景，用于确认 renderer 在画
+            //   开 MSAA 纯浪费显存和带宽（回调 mesh 不写颜色，场景里没有别的几何）。
+            // depth:false —— 排序后按 back-to-front 直接 alpha 混合，主帧缓冲不需要
+            //   深度缓冲；SuperSplat 同样关掉（graphicsDevice depth:false）。库自己的
+            //   排序/copy 用的是独立 render target，不受影响。
+            const renderer = new THREE.WebGLRenderer({
+                antialias: false,
+                depth: false,
+                stencil: false,
+                powerPreference: 'high-performance'
+            });
+            // 背景色：SuperSplat 默认是纯黑（DEFAULT_BG_CLR），但纯黑会让模型暗部
+            // 与背景糊在一起；峰哥 2026-10-20 拍板保留 #222233，故此处**故意不一致**。
+            renderer.setClearColor(0x222233, 1);
+            // 色彩管线对齐 SuperSplat 默认 camera.toneMapping='linear' / exposure=1.0：
+            // linear 即无色调映射，three 侧对应 NoToneMapping。显式写出来，避免将来
+            // 有人给 renderer 设了 ACES 之类的默认值造成对比偏差。
+            renderer.toneMapping = THREE.NoToneMapping;
+            renderer.toneMappingExposure = 1;
             const w = panel.canvasWrap.clientWidth || 400;
             const h = panel.canvasWrap.clientHeight || 300;
+            // pixelRatio 对齐 SuperSplat：它按 devicePixelContentBoxSize（物理像素）渲染，
+            // 等价于跟随 devicePixelRatio。峰哥 2026-10-20 拍板选一致性优先。
+            // ⚠️ HiDPI 屏（dpr=2）片元量是 1× 的 4 倍，百万 splat 可能掉帧；
+            //    卡顿就改回 1，或折中用 Math.min(window.devicePixelRatio, 1.5)。
+            renderer.setPixelRatio(window.devicePixelRatio || 1);
             renderer.setSize(w, h, false);
-            renderer.setPixelRatio(1);
             panel.canvasWrap.appendChild(renderer.domElement);
 
             // 创建 camera（标准 three.js Y-up 坐标系）
-            const camera = new THREE.PerspectiveCamera(65, w / h, 0.1, 500);
+            // fov 对齐 SuperSplat 默认 camera.fov = 85（垂直 FOV，两边量纲一致）。
+            // far 对齐 PlayCanvas CameraComponent 默认 farClip = 1000（原 500 会裁掉远景 splat）。
+            const camera = new THREE.PerspectiveCamera(85, w / h, 0.1, 1000);
             camera.position.set(2, 2, 3);
             camera.up.set(0, 1, 0);
             camera.lookAt(0, 0, 0);
@@ -555,7 +576,10 @@ title: "高斯对比"
             // CPU 排序（integerBasedSort）对百万级 splat 也是毫秒级，性能无感知差异。
             const splatGroup = new DropInViewer({
                 gpuAcceleratedSort: false,
-                halfPrecisionCovariancesOnGPU: true,
+                // 协方差精度对齐 PlayCanvas gsplat（f32 实时算协方差）：库默认就是 false，
+                // 这里原本为了省显存改成 true。A/B 实测（暗斑连通域）两者无可见差异，
+                // 代价仅约 12B/splat（≈14MB / 116 万 splat），为一致性回到库默认 f32。
+                halfPrecisionCovariancesOnGPU: false,
                 sharedMemoryForWorkers: false,
                 integerBasedSort: true,
                 dynamicScene: false,
