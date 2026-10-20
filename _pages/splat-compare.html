@@ -566,12 +566,16 @@ title: "高斯对比"
                 // 开启后实测亮区内暗斑个数/总面积降 30~45%（tmp/blob_scan.js 连通域量化）。
                 // 注意：只对「训练时用了补偿」的模型正确；没补偿训练的模型开它会整体略变淡。
                 antialiased: true,
-                // 纯查看模式：显式固定 SH degree=0（v0.4.7 默认也是 0）。
-                // PLY 里的 45 个 SH 视角依赖颜色系数在解析阶段直接丢弃，
-                // 只保留 f_dc 基础色。对比消融模型时视觉差异可忽略，
-                // 解析更快、显存/带宽更省。注意：必须构造时传，之后改无效。
-                // （A/B 实测：SH0/SH2 对黑斑无影响，黑斑根因是上面的 antialiased。）
-                sphericalHarmonicsDegree: 0
+                // 视角相关颜色（SH）必须开启，否则逆光/高光的「泛白」会焊死在模型上
+                // （2026-10-20 实测定案）：PLY 的 45 个 f_rest 系数编码了「从哪个方向看更亮」，
+                // degree=0 只保留 DC 基础色（全视角平均色）⇒ 逆光泛白被平均进基础色、
+                // 转视角不再变化；SuperSplat 按文件完整 SH 渲染，所以能随角度恢复。
+                // ⚠️ 本库着色器只实现 degree 1/2 采样分支（vendor L7715/L7740，无 degree 3 分支，
+                //    且 Viewer 注释 valid 0-2），所以 45 个系数最多用前 24 个：degree 2 是安全上限。
+                // 代价：24 系数 × 2B（Uint16 半精度）× splat 数 ≈ 每百万 splat 约 48MB 显存/带宽；
+                // PLY 解析本身不变（PlyLoader L1989-1999 始终读全部 SH），但 SH 数组填充 + 纹理上传
+                // 对 116 万 splat 实测 ready 时间 +1.6s（4.4s → 6.0s，反序复测一致）。
+                sphericalHarmonicsDegree: 2
             });
 
             // 创建 three.js scene 并把 splatGroup 加进去

@@ -31,7 +31,7 @@
 - 回归 = CSS 括号平衡 + `node --check` + 27 单位类实例化；**改单位渲染/行为必跑 `heading_harness.js`**。
 
 ## 高斯对比（_pages/splat-compare.html）
-- 库级（gaussian-splats-3d v0.4.7 + three r185）：**必须 `gpuAcceleratedSort:false`**（否则黑屏）、**必须 `antialiased:true`**（否则薄层高斯出漂移黑斑）；**变换必须放 splatGroup 级**（改 scene0 无效）。
+- 库级（gaussian-splats-3d v0.4.7 + three r185）：**必须 `gpuAcceleratedSort:false`**（否则黑屏）、**必须 `antialiased:true`**（否则薄层高斯出漂移黑斑）、**必须 `sphericalHarmonicsDegree:2`**（0 = 丢视角相关色，逆光泛白会焊死在模型上；本库着色器只有 degree 1/2 分支，3 会走未初始化路径，代价 +1.6s/百万 splat、+48MB）；**变换必须放 splatGroup 级**（改 scene0 无效）。
 - 朝向/变换变化须 `updateMatrixWorld(true)` + `panel.sortDirty` 补跑重排（`runSplatSort` 会静默丢弃），`tryResort` 放 `render()` 之后；渲染循环每帧 `controls.update()` + 末行 `lookAt` ⇒ **横滚恒 0**；滚轮挡 OrbitControls 必须挂**捕获阶段**；缩放抄 `getZoomScale()`；顶层标识符**别叫 `zf`**（vendor TDZ）。
 - 三条定案（别回退）：① 单独调整 = 共同基准 ⊕ 私有偏移（退出即无操作、反算幂等）；② 上下翻转 = 每面板 `panel.flipped`（非全局布尔）；③ 平移广播**屏幕像素意图**(dx,dy)，世界→像素用源面板**变化前**的 `panBasis`。
 - 探针 `__project` / `__debugCameras` / `__lastBroadcast` / `__mixChange` / `__flip`；回归 `unify_semantics.js` / `pan_sync.js` / `flip_panel.js` / `check_splat_compare.js`（旧 link_sync、adjust_isolation、adjust_freeze 作废）。
