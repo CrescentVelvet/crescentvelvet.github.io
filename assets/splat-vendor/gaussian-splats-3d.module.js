@@ -1000,12 +1000,17 @@ class SplatBuffer {
         const shIn3 = [];
         const shIn4 = [];
         const shIn5 = [];
+        // LOCAL PATCH (degree 3): band-3 需要 7 个系数向量
+        const shIn6 = [];
+        const shIn7 = [];
 
         const shOut1 = [];
         const shOut2 = [];
         const shOut3 = [];
         const shOut4 = [];
         const shOut5 = [];
+        const shOut6 = [];
+        const shOut7 = [];
 
         const noop = (v) => v;
 
@@ -1066,6 +1071,10 @@ class SplatBuffer {
             const localToUint8 = (v) => {
                 return toUint8(v, this.minSphericalHarmonicsCoeff, this.maxSphericalHarmonicsCoeff);
             };
+
+            // LOCAL PATCH (degree 3): 库内没有 rotateSphericalHarmonics7，
+            // 若调用方传入 scene transform，band-3 只能原样拷贝（不做旋转）。
+            let warnedDegree3NoRotation = false;
 
             for (let i = srcFrom; i <= srcTo; i++) {
 
@@ -1149,6 +1158,65 @@ class SplatBuffer {
                         setOutput3(shOut3, outSphericalHarmonicsArray, shDestBase + 15, outputConversionFunc);
                         setOutput3(shOut4, outSphericalHarmonicsArray, shDestBase + 18, outputConversionFunc);
                         setOutput3(shOut5, outSphericalHarmonicsArray, shDestBase + 21, outputConversionFunc);
+
+                        // LOCAL PATCH (degree 3): band-3 共 21 个值（3 通道 × 7 系数），
+                        // 在源 buffer 里位于 offsets 24..44，同样按 7 步长做 3×7 转置。
+                        if (outSphericalHarmonicsDegree >= 3) {
+
+                            set3FromArray(shIn1, dataView, 7, 24, this.compressionLevel);
+                            set3FromArray(shIn2, dataView, 7, 25, this.compressionLevel);
+                            set3FromArray(shIn3, dataView, 7, 26, this.compressionLevel);
+                            set3FromArray(shIn4, dataView, 7, 27, this.compressionLevel);
+                            set3FromArray(shIn5, dataView, 7, 28, this.compressionLevel);
+                            set3FromArray(shIn6, dataView, 7, 29, this.compressionLevel);
+                            set3FromArray(shIn7, dataView, 7, 30, this.compressionLevel);
+
+                            if (transform) {
+                                // 库里没有 7 阶旋转实现：band-3 原样拷贝，band-1/2 照常旋转。
+                                // 但只有 scene transform 真含旋转/缩放时才算损失；单位阵下
+                                // 「不旋转」本来就是正确答案，不该报警制造噪声。
+                                if (!warnedDegree3NoRotation) {
+                                    const e = transform.elements;
+                                    const isIdentity =
+                                        Math.abs(e[0] - 1) < 1e-9 && Math.abs(e[5] - 1) < 1e-9 &&
+                                        Math.abs(e[10] - 1) < 1e-9 &&
+                                        Math.abs(e[1]) < 1e-9 && Math.abs(e[2]) < 1e-9 &&
+                                        Math.abs(e[4]) < 1e-9 && Math.abs(e[6]) < 1e-9 &&
+                                        Math.abs(e[8]) < 1e-9 && Math.abs(e[9]) < 1e-9 &&
+                                        Math.abs(e[12]) < 1e-9 && Math.abs(e[13]) < 1e-9 &&
+                                        Math.abs(e[14]) < 1e-9;
+                                    if (!isIdentity) {
+                                        warnedDegree3NoRotation = true;
+                                        console.warn('GaussianSplats3D: spherical harmonics degree 3 with a ' +
+                                                     'non-identity scene transform is only partially supported ' +
+                                                     '(band 3 is not rotated).');
+                                    }
+                                }
+                                copy3(shIn1, shOut1);
+                                copy3(shIn2, shOut2);
+                                copy3(shIn3, shOut3);
+                                copy3(shIn4, shOut4);
+                                copy3(shIn5, shOut5);
+                                copy3(shIn6, shOut6);
+                                copy3(shIn7, shOut7);
+                            } else {
+                                copy3(shIn1, shOut1);
+                                copy3(shIn2, shOut2);
+                                copy3(shIn3, shOut3);
+                                copy3(shIn4, shOut4);
+                                copy3(shIn5, shOut5);
+                                copy3(shIn6, shOut6);
+                                copy3(shIn7, shOut7);
+                            }
+
+                            setOutput3(shOut1, outSphericalHarmonicsArray, shDestBase + 24, outputConversionFunc);
+                            setOutput3(shOut2, outSphericalHarmonicsArray, shDestBase + 27, outputConversionFunc);
+                            setOutput3(shOut3, outSphericalHarmonicsArray, shDestBase + 30, outputConversionFunc);
+                            setOutput3(shOut4, outSphericalHarmonicsArray, shDestBase + 33, outputConversionFunc);
+                            setOutput3(shOut5, outSphericalHarmonicsArray, shDestBase + 36, outputConversionFunc);
+                            setOutput3(shOut6, outSphericalHarmonicsArray, shDestBase + 39, outputConversionFunc);
+                            setOutput3(shOut7, outSphericalHarmonicsArray, shDestBase + 42, outputConversionFunc);
+                        }
                     }
                 }
             }
@@ -1542,6 +1610,13 @@ class SplatBuffer {
                             for (let s = 0; s < 9; s++) shOut[s] = targetSplat[OFFSET_FRC0 + s] || 0;
                             if (sphericalHarmonicsDegree >= 2) {
                                 for (let s = 0; s < 15; s++) shOut[s + 9] = targetSplat[OFFSET_FRC9 + s] || 0;
+                                // LOCAL PATCH (degree 3): 未压缩分支同样要写 band-3 的 21 个值，
+                                // 否则 sh 区后 21 个 float 恒为 0（画面等同 degree 2，且无任何报错）。
+                                if (sphericalHarmonicsDegree >= 3) {
+                                    for (let s = 0; s < 21; s++) {
+                                        shOut[s + 24] = targetSplat[OFFSET_FRC0 + 24 + s] || 0;
+                                    }
+                                }
                             }
                     }
                 }
@@ -1579,6 +1654,21 @@ class SplatBuffer {
                             }
                             copyBetweenBuffers(shOut.buffer, degree1ByteCount, sectionBuffer,
                                                sphericalHarmonicsBase + degree1ByteCount, 15 * bytesPerSHComponent);
+
+                            // LOCAL PATCH (degree 3): band-3 的 21 个值（3 通道 × 7 系数），
+                            // 紧接 band-2 落在 offsets 24..44。这一段缺失时：
+                            // buffer 仍按 45 个分量分配（bytesPerSplat 正确），但后 21 个位置
+                            // 恒为 0 ⇒ 画面与 degree 2 完全一致，且没有任何报错，极难察觉。
+                            if (sphericalHarmonicsDegree >= 3) {
+                                for (let s = 0; s < 21; s++) {
+                                    const srcVal = targetSplat[OFFSET_FRC0 + 24 + s] || 0;
+                                    shOut[s + 24] = compressionLevel === 1 ? toHalfFloat(srcVal) :
+                                                    toUint8(srcVal, minSphericalHarmonicsCoeff, maxSphericalHarmonicsCoeff);
+                                }
+                                const degree2ByteOffset = degree1ByteCount + 15 * bytesPerSHComponent;
+                                copyBetweenBuffers(shOut.buffer, degree2ByteOffset, sectionBuffer,
+                                                   sphericalHarmonicsBase + degree2ByteOffset, 21 * bytesPerSHComponent);
+                            }
                         }
                     }
                 }
@@ -2570,7 +2660,8 @@ class PlyParserUtils {
             'sphericalHarmonicsDegree': sphericalHarmonics.degree,
             'sphericalHarmonicsCoefficientsPerChannel': sphericalHarmonics.coefficientsPerChannel,
             'sphericalHarmonicsDegree1Fields': sphericalHarmonics.degree1Fields,
-            'sphericalHarmonicsDegree2Fields': sphericalHarmonics.degree2Fields
+            'sphericalHarmonicsDegree2Fields': sphericalHarmonics.degree2Fields,
+            'sphericalHarmonicsDegree3Fields': sphericalHarmonics.degree3Fields
         };
 
     }
@@ -2585,9 +2676,13 @@ class PlyParserUtils {
         let degree = 0;
         if (coefficientsPerChannel >= 3) degree = 1;
         if (coefficientsPerChannel >= 8) degree = 2;
+        // LOCAL PATCH (degree 3): 上游只判到 2，会把 45 个 f_rest（15/通道）误判成
+        // degree 2，导致 band-3 的 21 个系数被静默丢弃。band-3 每通道 7 个。
+        if (coefficientsPerChannel >= 15) degree = 3;
 
         let degree1Fields = [];
         let degree2Fields = [];
+        let degree3Fields = [];
 
         for (let rgb = 0; rgb < 3; rgb++) {
             if (degree >= 1) {
@@ -2600,13 +2695,19 @@ class PlyParserUtils {
                     degree2Fields.push(fieldNameIdMap['f_rest_' + (i + coefficientsPerChannel * rgb + 3)]);
                 }
             }
+            if (degree >= 3) {
+                for (let i = 0; i < 7; i++) {
+                    degree3Fields.push(fieldNameIdMap['f_rest_' + (i + coefficientsPerChannel * rgb + 8)]);
+                }
+            }
         }
 
         return {
             'degree': degree,
             'coefficientsPerChannel': coefficientsPerChannel,
             'degree1Fields': degree1Fields,
-            'degree2Fields': degree2Fields
+            'degree2Fields': degree2Fields,
+            'degree3Fields': degree3Fields
         };
     }
 
@@ -2931,6 +3032,12 @@ class INRIAV1PlyParser {
                         for (let i = 0; i < 15; i++) {
                             newSplat[OFFSET_FRC[9 + i]] = rawSplat[header.sphericalHarmonicsDegree2Fields[i]];
                         }
+                        // LOCAL PATCH (degree 3): band-3 的 21 个系数，紧跟 band-2 之后
+                        if (outSphericalHarmonicsDegree >= 3) {
+                            for (let i = 0; i < 21; i++) {
+                                newSplat[OFFSET_FRC[24 + i]] = rawSplat[header.sphericalHarmonicsDegree3Fields[i]];
+                            }
+                        }
                     }
                 }
             }
@@ -2986,8 +3093,9 @@ const CodeBookEntryNamesToRead = [
 const CodeBookEntriesToReadIndexes = CodeBookEntryNamesToRead.map((e, i) => i);
 
 const [
-        CB_FEATURES_DC, CB_FEATURES_REST_0, CB_FEATURES_REST_3, CB_OPACITY, CB_SCALING, CB_ROTATION_RE, CB_ROTATION_IM
-      ] = [0, 1, 4, 16, 17, 18, 19];
+        CB_FEATURES_DC, CB_FEATURES_REST_0, CB_FEATURES_REST_3, CB_FEATURES_REST_8,
+        CB_OPACITY, CB_SCALING, CB_ROTATION_RE, CB_ROTATION_IM
+      ] = [0, 1, 4, 9, 16, 17, 18, 19];
 
 const FieldNamesToRead = ['scale_0', 'scale_1', 'scale_2', 'rot_0', 'rot_1', 'rot_2', 'rot_3',
                           'x', 'y', 'z', 'f_dc_0', 'f_dc_1', 'f_dc_2', 'opacity', 'red', 'green', 'blue',
@@ -3220,6 +3328,13 @@ class INRIAV2PlyParser {
                     for (let i = 0; i < 15; i++) {
                         const codeBookPage = codeBook[CB_FEATURES_REST_3 + i % 5];
                         newSplat[OFFSET_FRC[9 + i]] = codeBookPage[rawSplat[header.sphericalHarmonicsDegree2Fields[i]]];
+                    }
+                    // LOCAL PATCH (degree 3): band-3 的 21 个系数
+                    if (outSphericalHarmonicsDegree >= 3 && header.sphericalHarmonicsDegree >= 3) {
+                        for (let i = 0; i < 21; i++) {
+                            const codeBookPage = codeBook[CB_FEATURES_REST_8 + i % 7];
+                            newSplat[OFFSET_FRC[24 + i]] = codeBookPage[rawSplat[header.sphericalHarmonicsDegree3Fields[i]]];
+                        }
                     }
                 }
             }
@@ -7613,6 +7728,11 @@ class SplatMaterial {
 
         const float SH_C1 = 0.4886025119029199f;
         const float[5] SH_C2 = float[](1.0925484, -1.0925484, 0.3153916, -1.0925484, 0.5462742);
+        // LOCAL PATCH (degree 3): band-3 归一化常数，取自 3DGS 官方 CUDA 实现
+        // (diff-gaussian-rasterization/cuda_rasterizer/forward.cu 的 SH_C3)。
+        const float[7] SH_C3 = float[](-0.5900435899266435, 2.890611442640554, -0.4570457994644658,
+                                       0.3731763325901154, -0.4570457994644658, 1.445305721320277,
+                                       -0.5900435899266435);
 
         void main () {
 
@@ -7707,6 +7827,19 @@ class SplatMaterial {
                 `;
             }
 
+            // LOCAL PATCH (degree 3): band-3 的 7 个系数向量
+            if (maxSphericalHarmonicsDegree >= 3) {
+                vertexShaderSource += `
+                    vec3 sh9;
+                    vec3 sh10;
+                    vec3 sh11;
+                    vec3 sh12;
+                    vec3 sh13;
+                    vec3 sh14;
+                    vec3 sh15;
+                `;
+            }
+
             // Determining how to sample spherical harmonics textures to get the coefficients for calculations for a given degree
             // depends on how many total degrees (maxSphericalHarmonicsDegree) are present in the textures. This is because that
             // number affects how they are packed in the textures, and therefore the offset & stride required to access them.
@@ -7761,6 +7894,73 @@ class SplatMaterial {
                         sh1 = vec3(sampledSH0123R.rgb);
                         sh2 = vec3(sampledSH0123G.rgb);
                         sh3 = vec3(sampledSH0123B.rgb);
+                    }
+                `;
+            // LOCAL PATCH (degree 3): 采样 3 度数据，一次性取出 sh1..sh15。
+            } else if (maxSphericalHarmonicsDegree === 3) {
+                vertexShaderSource += `
+                    if (sphericalHarmonicsMultiTextureMode == 0) {
+                        // 单纹理：45 个系数 pad 到 48，即每 splat 12 个 texel，
+                        // 系数按每 4 个 float 一个 texel 连续排布。
+                        vec4 pSH0  = texture(sphericalHarmonicsTexture, getDataUV(12, 0,  sphericalHarmonicsTextureSize));
+                        vec4 pSH1  = texture(sphericalHarmonicsTexture, getDataUV(12, 1,  sphericalHarmonicsTextureSize));
+                        vec4 pSH2  = texture(sphericalHarmonicsTexture, getDataUV(12, 2,  sphericalHarmonicsTextureSize));
+                        vec4 pSH3  = texture(sphericalHarmonicsTexture, getDataUV(12, 3,  sphericalHarmonicsTextureSize));
+                        vec4 pSH4  = texture(sphericalHarmonicsTexture, getDataUV(12, 4,  sphericalHarmonicsTextureSize));
+                        vec4 pSH5  = texture(sphericalHarmonicsTexture, getDataUV(12, 5,  sphericalHarmonicsTextureSize));
+                        vec4 pSH6  = texture(sphericalHarmonicsTexture, getDataUV(12, 6,  sphericalHarmonicsTextureSize));
+                        vec4 pSH7  = texture(sphericalHarmonicsTexture, getDataUV(12, 7,  sphericalHarmonicsTextureSize));
+                        vec4 pSH8  = texture(sphericalHarmonicsTexture, getDataUV(12, 8,  sphericalHarmonicsTextureSize));
+                        vec4 pSH9  = texture(sphericalHarmonicsTexture, getDataUV(12, 9,  sphericalHarmonicsTextureSize));
+                        vec4 pSH10 = texture(sphericalHarmonicsTexture, getDataUV(12, 10, sphericalHarmonicsTextureSize));
+                        vec4 pSH11 = texture(sphericalHarmonicsTexture, getDataUV(12, 11, sphericalHarmonicsTextureSize));
+
+                        sh1 = pSH0.rgb;
+                        sh2 = vec3(pSH0.a, pSH1.rg);
+                        sh3 = vec3(pSH1.ba, pSH2.r);
+                        sh4 = pSH2.gba;
+                        sh5 = pSH3.rgb;
+                        sh6 = vec3(pSH3.a, pSH4.rg);
+                        sh7 = vec3(pSH4.ba, pSH5.r);
+                        sh8 = pSH5.gba;
+                        sh9  = pSH6.rgb;
+                        sh10 = vec3(pSH6.a, pSH7.rg);
+                        sh11 = vec3(pSH7.ba, pSH8.r);
+                        sh12 = pSH8.gba;
+                        sh13 = pSH9.rgb;
+                        sh14 = vec3(pSH9.a, pSH10.rg);
+                        sh15 = vec3(pSH10.ba, pSH11.r);
+                    } else {
+                        // 三纹理：每通道 15 个系数 pad 到 16，即 4 texel/通道，
+                        // 每个 texel 依次装 c1..c4 / c5..c8 / c9..c12 / c13..c15。
+                        vec4 q0R = texture(sphericalHarmonicsTextureR, getDataUV(4, 0, sphericalHarmonicsTextureSize));
+                        vec4 q1R = texture(sphericalHarmonicsTextureR, getDataUV(4, 1, sphericalHarmonicsTextureSize));
+                        vec4 q2R = texture(sphericalHarmonicsTextureR, getDataUV(4, 2, sphericalHarmonicsTextureSize));
+                        vec4 q3R = texture(sphericalHarmonicsTextureR, getDataUV(4, 3, sphericalHarmonicsTextureSize));
+                        vec4 q0G = texture(sphericalHarmonicsTextureG, getDataUV(4, 0, sphericalHarmonicsTextureSize));
+                        vec4 q1G = texture(sphericalHarmonicsTextureG, getDataUV(4, 1, sphericalHarmonicsTextureSize));
+                        vec4 q2G = texture(sphericalHarmonicsTextureG, getDataUV(4, 2, sphericalHarmonicsTextureSize));
+                        vec4 q3G = texture(sphericalHarmonicsTextureG, getDataUV(4, 3, sphericalHarmonicsTextureSize));
+                        vec4 q0B = texture(sphericalHarmonicsTextureB, getDataUV(4, 0, sphericalHarmonicsTextureSize));
+                        vec4 q1B = texture(sphericalHarmonicsTextureB, getDataUV(4, 1, sphericalHarmonicsTextureSize));
+                        vec4 q2B = texture(sphericalHarmonicsTextureB, getDataUV(4, 2, sphericalHarmonicsTextureSize));
+                        vec4 q3B = texture(sphericalHarmonicsTextureB, getDataUV(4, 3, sphericalHarmonicsTextureSize));
+
+                        sh1  = vec3(q0R.r, q0G.r, q0B.r);
+                        sh2  = vec3(q0R.g, q0G.g, q0B.g);
+                        sh3  = vec3(q0R.b, q0G.b, q0B.b);
+                        sh4  = vec3(q0R.a, q0G.a, q0B.a);
+                        sh5  = vec3(q1R.r, q1G.r, q1B.r);
+                        sh6  = vec3(q1R.g, q1G.g, q1B.g);
+                        sh7  = vec3(q1R.b, q1G.b, q1B.b);
+                        sh8  = vec3(q1R.a, q1G.a, q1B.a);
+                        sh9  = vec3(q2R.r, q2G.r, q2B.r);
+                        sh10 = vec3(q2R.g, q2G.g, q2B.g);
+                        sh11 = vec3(q2R.b, q2G.b, q2B.b);
+                        sh12 = vec3(q2R.a, q2G.a, q2B.a);
+                        sh13 = vec3(q3R.r, q3G.r, q3B.r);
+                        sh14 = vec3(q3R.g, q3G.g, q3B.g);
+                        sh15 = vec3(q3R.b, q3G.b, q3B.b);
                     }
                 `;
             }
@@ -7833,6 +8033,41 @@ class SplatMaterial {
                             (SH_C2[2] * (2.0 * zz - xx - yy)) * sh6 +
                             (SH_C2[3] * xz) * sh7 +
                             (SH_C2[4] * (xx - yy)) * sh8;
+                `;
+
+                // LOCAL PATCH (degree 3): 用**编译期**开关，不能只靠 GLSL 里的 if ——
+                // maxSphericalHarmonicsDegree <= 2 时根本没有声明 sh9..sh15，
+                // GLSL 在编译期就会报 `'sh9' : undeclared identifier`，
+                // 材质静默失效、整个画面变空（而 JS 侧毫无异常，极难察觉）。
+                // 同时这段必须留在上面 `if (sphericalHarmonicsDegree >= 2) {` 的
+                // GLSL 作用域内，因为要用该块内声明的 xx/yy/zz/xy/yz/xz。
+                if (maxSphericalHarmonicsDegree >= 3) {
+                    vertexShaderSource += `
+                        if (sphericalHarmonicsDegree >= 3) {
+                            if (sphericalHarmonics8BitMode == 1) {
+                                sh9  = sh9  * sh8BitCompressionRangeForScene + vec8BitSHShift;
+                                sh10 = sh10 * sh8BitCompressionRangeForScene + vec8BitSHShift;
+                                sh11 = sh11 * sh8BitCompressionRangeForScene + vec8BitSHShift;
+                                sh12 = sh12 * sh8BitCompressionRangeForScene + vec8BitSHShift;
+                                sh13 = sh13 * sh8BitCompressionRangeForScene + vec8BitSHShift;
+                                sh14 = sh14 * sh8BitCompressionRangeForScene + vec8BitSHShift;
+                                sh15 = sh15 * sh8BitCompressionRangeForScene + vec8BitSHShift;
+                            }
+
+                            // band-3 基函数，公式对齐 3DGS 官方 forward.cu
+                            vColor.rgb +=
+                                (SH_C3[0] * (y * (3.0 * xx - yy))) * sh9 +
+                                (SH_C3[1] * (xy * z)) * sh10 +
+                                (SH_C3[2] * (y * (4.0 * zz - xx - yy))) * sh11 +
+                                (SH_C3[3] * (z * (2.0 * zz - 3.0 * xx - 3.0 * yy))) * sh12 +
+                                (SH_C3[4] * (x * (4.0 * zz - xx - yy))) * sh13 +
+                                (SH_C3[5] * (z * (xx - yy))) * sh14 +
+                                (SH_C3[6] * (x * (xx - 3.0 * yy))) * sh15;
+                        }
+                    `;
+                }
+
+                vertexShaderSource += `
                     }
                 `;
             }
@@ -10172,6 +10407,10 @@ class SplatMesh extends THREE.Mesh {
 
             let paddedSHComponentCount = shComponentCount;
             if (paddedSHComponentCount % 2 !== 0) paddedSHComponentCount++;
+            // LOCAL PATCH (degree 3): 45 补到 46 后每 splat 占 11.5 个 texel（跨 texel 边界，
+            // 需像 degree 1 那样用 getDataUVF 做插值采样）；补齐到 48 后正好 12 个 texel，
+            // 采样可走整数 stride，既简单又无插值误差。多出的 3 个 float 恒为 0。
+            if (shComponentCount === 45) paddedSHComponentCount = 48;
             const shElementsPerTexel = 4;
             const texelFormat = shElementsPerTexel === 4 ? THREE.RGBAFormat : THREE.RGFormat;
             let shTexSize = computeDataTextureSize(shElementsPerTexel, paddedSHComponentCount);
@@ -10224,6 +10463,12 @@ class SplatMesh extends THREE.Mesh {
                             for (let i = 0; i < 3; i++) paddedSHArray[destBase + i] = shData[srcBase + t * 3 + i];
                             if (shComponentCountPerChannel >= 8) {
                                 for (let i = 0; i < 5; i++) paddedSHArray[destBase + 3 + i] = shData[srcBase + 9 + t * 5 + i];
+                            }
+                            // LOCAL PATCH (degree 3): band-3 每通道 7 个系数，源数组 offsets 24..44。
+                            // 写入 destBase+8..14，正好铺满 texel2 的 rgba 与 texel3 的 rgb，
+                            // 与 degree 3 三纹理采样分支的 q2R/q3R 一一对应。
+                            if (shComponentCountPerChannel >= 15) {
+                                for (let i = 0; i < 7; i++) paddedSHArray[destBase + 8 + i] = shData[srcBase + 24 + t * 7 + i];
                             }
                         }
                     }
@@ -10414,6 +10659,10 @@ class SplatMesh extends THREE.Mesh {
                             for (let i = 0; i < 3; i++) paddedSHArray[destBase + i] = shData[srcBase + t * 3 + i];
                             if (shComponentCountPerChannel >= 8) {
                                 for (let i = 0; i < 5; i++) paddedSHArray[destBase + 3 + i] = shData[srcBase + 9 + t * 5 + i];
+                            }
+                            // LOCAL PATCH (degree 3): 与初次上传保持同一布局
+                            if (shComponentCountPerChannel >= 15) {
+                                for (let i = 0; i < 7; i++) paddedSHArray[destBase + 8 + i] = shData[srcBase + 24 + t * 7 + i];
                             }
                         }
                     }
@@ -12361,7 +12610,9 @@ class Viewer {
         this.logLevel = options.logLevel || LogLevel.None;
 
         // Degree of spherical harmonics to utilize in rendering splats (assuming the data is present in the splat scene).
-        // Valid values are 0 - 2. Default value is 0.
+        // Valid values are 0 - 3. Default value is 0.
+        // LOCAL PATCH: 上游只实现到 2，本仓已补 band-3 采样/打包，故 3 可用
+        // （前提：模型 PLY 含 45 个 f_rest；否则 min(文件degree, 3) 自动降级）。
         this.sphericalHarmonicsDegree = options.sphericalHarmonicsDegree || 0;
 
         // When true, allows for usage of extra properties and attributes during rendering for effects such as opacity adjustment.

@@ -13,7 +13,7 @@
 
 ## 无头验证
 - ★ 已沉淀为 skill **`cdp-browser-e2e`**（CDP 直驱系统 Edge、零 npm 依赖、含静态服务）。本机补充：Edge = `C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe`；`--headless --screenshot` 静默失败。
-- 大文件注入 `fetch → File → DataTransfer → drop`；错误收集 `Runtime.exceptionThrown` + `Log.entryAdded`，**favicon 404 白名单**。
+- 大文件注入 `fetch → File → DataTransfer → drop`；错误收集 `Runtime.exceptionThrown` + `Log.entryAdded` + **必须加 `Runtime.consoleAPICalled`**，**favicon 404 白名单**。⚠️ three.js 的 shader 编译错误走 `console.error`，**不进 `Log.entryAdded`** —— 只听后者会得到「零异常」的假通过。
 - ⚠️ 合成 `PointerEvent` 不被 OrbitControls 接受 ⇒ 交互必须 `Input.dispatchMouseEvent`；`mouseWheel` 对部分面板不可靠 ⇒ 走状态钩子。
 - ⚠️ **断言禁「非零即过」**：拿对照实现的实测值当期望。测量前 `settle()`，oracle 与成立条件**同帧**。像素自证（`getImageData` 读关键点颜色）比截图 diff 便宜。
 
@@ -31,7 +31,9 @@
 - 回归 = CSS 括号平衡 + `node --check` + 27 单位类实例化；**改单位渲染/行为必跑 `heading_harness.js`**。
 
 ## 高斯对比（_pages/splat-compare.html）
-- 库级（gaussian-splats-3d v0.4.7 + three r185）：**必须 `gpuAcceleratedSort:false`**（否则黑屏）、**必须 `antialiased:true`**（否则薄层高斯出漂移黑斑）、**必须 `sphericalHarmonicsDegree:2`**（0 = 丢视角相关色，逆光泛白会焊死在模型上；本库着色器只有 degree 1/2 分支，3 会走未初始化路径，代价 +1.6s/百万 splat、+48MB）；**变换必须放 splatGroup 级**（改 scene0 无效）。
+- 库级（gaussian-splats-3d v0.4.7 + three r185）：**必须 `gpuAcceleratedSort:false`**（否则黑屏）、**必须 `antialiased:true`**（否则薄层高斯出漂移黑斑）、**`sphericalHarmonicsDegree:3`**（0 = 丢视角相关色，逆光泛白会焊死在模型上；band3 占 SH 能量 54.68%、色差 RMS 9.7%，不是可忽略细节；代价 +1.6s/百万 splat、+48MB）；**变换必须放 splatGroup 级**（改 scene0 无效）。
+- ⚠️ **degree 3 靠本地补丁**：上游 shader 只有 degree 1/2 分支，本仓已 patch（**15 处 `LOCAL PATCH (degree 3)`**，`grep -c` 应为 15）。**升级 vendor 必须重新应用全部**。7 个逻辑点：`decode…SectionHeader`（补 `>=15 → 3`，最隐蔽）/ `INRIAV1PlyParser` 两条路径 / `fillSphericalHarmonicsArray` / **`writeSplatDataToSectionBuffer` 两条分支**（最易漏：buffer 按 45 分配但后段不写、零报错）/ GLSL（`SH_C3`+`sh9..15`+采样，须用 `maxSphericalHarmonicsDegree>=3` 编译期开关包住并留在 degree-2 作用域内）/ 纹理打包（45→**48**，不是 46）。细节见 `2026-10-20.md`。
+- 相机 **fov = 60**（峰哥 2026-10-20 拍板，故意不跟 SuperSplat 默认 85）。
 - **渲染参数基线 = SuperSplat 默认值**（对照 `src/scene-config.ts` + `src/main.ts`，2026-10-20 定案）：`antialias:false / depth:false / stencil:false / powerPreference:'high-performance'`；`toneMapping=NoToneMapping + exposure 1`（等价 SuperSplat `camera.toneMapping:'linear'` + `exposure:1.0`）；`fov 85`；`far 1000`（PlayCanvas farClip 默认）；`halfPrecisionCovariancesOnGPU:false`（PlayCanvas 协方差 f32）；`setPixelRatio(devicePixelRatio)`（SuperSplat 按 devicePixelContentBoxSize 物理像素渲染）。**故意不一致**：背景色保留 `#222233`（SuperSplat 默认纯黑，但纯黑会糊掉模型暗部，峰哥拍板）。**库硬限无法一致**：SH bands 3→2（实测 band3 占 SH 能量 54.7%、degree2 色差 RMS 9.7%，是实质损失不是「细节」）、WebGPU→WebGL2、无 stochastic alpha（本库无此机制，恒等价 SuperSplat 的 Disabled）。⚠️ `fitAllToFirst` 固定距离 4 是按 fov 65 调的，fov 85 下模型占屏缩小约 30%（不是渲染故障）。
 - 朝向/变换变化须 `updateMatrixWorld(true)` + `panel.sortDirty` 补跑重排（`runSplatSort` 会静默丢弃），`tryResort` 放 `render()` 之后；渲染循环每帧 `controls.update()` + 末行 `lookAt` ⇒ **横滚恒 0**；滚轮挡 OrbitControls 必须挂**捕获阶段**；缩放抄 `getZoomScale()`；顶层标识符**别叫 `zf`**（vendor TDZ）。
 - 三条定案（别回退）：① 单独调整 = 共同基准 ⊕ 私有偏移（退出即无操作、反算幂等）；② 上下翻转 = 每面板 `panel.flipped`（非全局布尔）；③ 平移广播**屏幕像素意图**(dx,dy)，世界→像素用源面板**变化前**的 `panBasis`。

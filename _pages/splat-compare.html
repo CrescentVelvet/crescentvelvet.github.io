@@ -546,9 +546,10 @@ title: "高斯对比"
             panel.canvasWrap.appendChild(renderer.domElement);
 
             // 创建 camera（标准 three.js Y-up 坐标系）
-            // fov 对齐 SuperSplat 默认 camera.fov = 85（垂直 FOV，两边量纲一致）。
+            // fov 60 —— 峰哥 2026-10-20 拍板，**故意不跟 SuperSplat 默认 85**：
+            //   85 是广角，画面边缘透视拉伸明显；60 看人脸/细节更稳。
             // far 对齐 PlayCanvas CameraComponent 默认 farClip = 1000（原 500 会裁掉远景 splat）。
-            const camera = new THREE.PerspectiveCamera(85, w / h, 0.1, 1000);
+            const camera = new THREE.PerspectiveCamera(60, w / h, 0.1, 1000);
             camera.position.set(2, 2, 3);
             camera.up.set(0, 1, 0);
             camera.lookAt(0, 0, 0);
@@ -594,12 +595,16 @@ title: "高斯对比"
                 // （2026-10-20 实测定案）：PLY 的 45 个 f_rest 系数编码了「从哪个方向看更亮」，
                 // degree=0 只保留 DC 基础色（全视角平均色）⇒ 逆光泛白被平均进基础色、
                 // 转视角不再变化；SuperSplat 按文件完整 SH 渲染，所以能随角度恢复。
-                // ⚠️ 本库着色器只实现 degree 1/2 采样分支（vendor L7715/L7740，无 degree 3 分支，
-                //    且 Viewer 注释 valid 0-2），所以 45 个系数最多用前 24 个：degree 2 是安全上限。
-                // 代价：24 系数 × 2B（Uint16 半精度）× splat 数 ≈ 每百万 splat 约 48MB 显存/带宽；
-                // PLY 解析本身不变（PlyLoader L1989-1999 始终读全部 SH），但 SH 数组填充 + 纹理上传
-                // 对 116 万 splat 实测 ready 时间 +1.6s（4.4s → 6.0s，反序复测一致）。
-                sphericalHarmonicsDegree: 2
+                // degree=3 —— 完整 45 系数，与 SuperSplat 的 shBands:3 一致。
+                // ⚠️ 上游 v0.4.7 的着色器只实现到 degree 2（band-3 是 GLSL 未定义行为），
+                //    本仓已对 vendor 打补丁：补 band-3 采样分支 + SH_C3 基函数 +
+                //    band-3 打包（45 系数 pad 到 48，12 texel/splat）。补丁位置全部带
+                //    `LOCAL PATCH (degree 3)` 注释，升级 vendor 时必须重新应用。
+                // 代价（相对 degree 2）：系数 24→45，Uint16 半精度下约 48→90 B/splat，
+                //    百万 splat 约 +42MB 显存/带宽；顶点着色器每 splat 多取 6 个 texel。
+                // 若模型本身只有 degree 2 数据（无 f_rest band3），min(文件degree, 3) 会
+                //    自动降级，不会报错也不会凭空生成。
+                sphericalHarmonicsDegree: 3
             });
 
             // 创建 three.js scene 并把 splatGroup 加进去
