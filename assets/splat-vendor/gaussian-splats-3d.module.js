@@ -14336,7 +14336,14 @@ class Viewer {
 
             if (!force) {
                 if (!this.splatMesh.dynamicMode && queuedSorts.length === 0) {
-                    if (angleDiff <= 0.99) needsRefreshForRotation = true;
+                    // LOCAL PATCH (sort gate): 上游是 `angleDiff <= 0.99`，即视角方向转够
+                    // acos(0.99) = 8.11° 才重排一次 —— 转动时会看到每 8° 跳一下（排序阶跃）。
+                    // 改成 0.9999619 = cos(0.5°)，实际等效「每帧重排」，与 SuperSplat 对齐
+                    // （PlayCanvas 的 sort worker 用 epsilon 0.001 作用在方向分量上 ≈ 0.06°）。
+                    // 代价实测（712847 splat，precision 20；1 面板 / 4 面板联动 90°/s 转 3s）：
+                    //   重排 9.7 → 46.9 次/秒/面板，fps 59.6→59.2(1格) / 58.3(4格)，p95 帧时不变
+                    //   （排序在 worker 里，不占主线程）；max 帧时 49→80ms（偶发单帧）。
+                    if (angleDiff <= 0.9999619) needsRefreshForRotation = true;
                     if (positionDiff >= 1.0) needsRefreshForPosition = true;
                     if (!needsRefreshForRotation && !needsRefreshForPosition) return Promise.resolve(false);
                 }
