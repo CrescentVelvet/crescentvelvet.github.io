@@ -1098,6 +1098,18 @@ class SplatBuffer {
                 return toUint8(v, this.minSphericalHarmonicsCoeff, this.maxSphericalHarmonicsCoeff);
             };
 
+            // LOCAL PATCH (sh convert): 上游漏了「源是 8-bit SH」的出口转换，
+            // 于是 level-2 buffer 读成 float 是 noop —— 拿到的是 0..255 的原始量化值
+            // （渲染时颜色会被放大 255 倍）。1→2 时有 fromHalfFloatToUint8，反方向却没有。
+            const localFromUint8 = (v) => {
+                return fromUint8(v, this.minSphericalHarmonicsCoeff, this.maxSphericalHarmonicsCoeff);
+            };
+
+            const localFromUint8ToHalfFloat = (v) => {
+                return toHalfFloat(fromUint8(v, this.minSphericalHarmonicsCoeff,
+                                              this.maxSphericalHarmonicsCoeff));
+            };
+
             // LOCAL PATCH (degree 3): 库内没有 rotateSphericalHarmonics7，
             // 若调用方传入 scene transform，band-3 只能原样拷贝（不做旋转）。
             let warnedDegree3NoRotation = false;
@@ -1127,6 +1139,12 @@ class SplatBuffer {
                     } else if (compressionLevelForOutputConversion === 0) {
                         if (desiredOutputCompressionLevel === 1) outputConversionFunc = toHalfFloat;
                         else if (desiredOutputCompressionLevel == 2) outputConversionFunc = localToUint8;
+                    } else if (compressionLevelForOutputConversion === 2) {
+                        // LOCAL PATCH (sh convert): 8-bit SH 的出口转换，上游缺失（见上方说明）。
+                        // 注意：transform 存在时 compressionLevelForOutputConversion 已被置 0
+                        // （toUncompressedFloatArray3 内联解码过），走不到这里。
+                        if (desiredOutputCompressionLevel === 0) outputConversionFunc = localFromUint8;
+                        else if (desiredOutputCompressionLevel === 1) outputConversionFunc = localFromUint8ToHalfFloat;
                     }
                 }
 
@@ -1218,6 +1236,18 @@ class SplatBuffer {
                                                      '(band 3 is not rotated).');
                                     }
                                 }
+                                // LOCAL PATCH (degree 3): band-1/band-2 的 transform 分支都会先
+                                // toUncompressedFloatArray3 就地把源解码成 float（此时
+                                // compressionLevelForOutputConversion 被置 0 ⇒ 出口是 noop）；
+                                // band-3 这里原来直接 copy3，于是 level-1 源写出的是 half 位模式、
+                                // level-2 源写出的是 0..255 的量化整数。补上同样的解码。
+                                toUncompressedFloatArray3(shIn1, shIn1, this.compressionLevel, minShCoeff, maxShCoeff);
+                                toUncompressedFloatArray3(shIn2, shIn2, this.compressionLevel, minShCoeff, maxShCoeff);
+                                toUncompressedFloatArray3(shIn3, shIn3, this.compressionLevel, minShCoeff, maxShCoeff);
+                                toUncompressedFloatArray3(shIn4, shIn4, this.compressionLevel, minShCoeff, maxShCoeff);
+                                toUncompressedFloatArray3(shIn5, shIn5, this.compressionLevel, minShCoeff, maxShCoeff);
+                                toUncompressedFloatArray3(shIn6, shIn6, this.compressionLevel, minShCoeff, maxShCoeff);
+                                toUncompressedFloatArray3(shIn7, shIn7, this.compressionLevel, minShCoeff, maxShCoeff);
                                 copy3(shIn1, shOut1);
                                 copy3(shIn2, shOut2);
                                 copy3(shIn3, shOut3);
