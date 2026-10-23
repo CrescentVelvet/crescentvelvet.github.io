@@ -15,12 +15,13 @@
 
 ## 高斯对比（_pages/splat-compare.html）
 - 库 v0.4.7 + three r185：**`gpuAcceleratedSort:false`**（否则黑屏）、**`antialiased:false`**（true⇒侧视蓝绿雾块，10-23 定案）、**`sphericalHarmonicsDegree:3`**、**`splatSortDistanceMapPrecision:20`**、fov **60**、背景 `#222233`、变换必须放 **splatGroup 级**。
-- ⚠️ vendor 本地补丁：degree 3 **15 处** + sort gate（8.11°→0.5°）**1 处** + eigen clamp（下限加在 λ2 本身）**1 处**；升级必须全部重打（`grep -c "LOCAL PATCH"` 校验）。GLSL 注释**禁反引号**。
+- ⚠️ vendor 本地补丁：degree 3 **15 处** + sort gate（8.11°→0.5°）**1 处** + eigen clamp（下限加在 λ2 本身）**1 处** + fdc range（DC 编码区间 [−0.5,1.5]，含 KSplat 版本 0.1→0.2）**11 处**；升级必须全部重打（`grep -c "LOCAL PATCH"` 校验）。GLSL 注释**禁反引号**。
 - 朝向/变换变化须 `updateMatrixWorld(true)` + `sortDirty` 补排；每帧 `controls.update()`+`lookAt` ⇒ 横滚恒 0；滚轮拦截挂捕获阶段；顶层标识符**禁 `zf`**（vendor TDZ）。
 - 释放链（10-23）：`removePanel`/`loadPlyToPanel`/加载 catch 均 `renderer.dispose()`+**`forceContextLoss()`**（否则 context 等 GC、撞 Chrome 单域 ~16 上限）；blob URL try 外创建、catch 也 revoke。⚠️ catch **禁引用 try 块内 const**（ReferenceError 静默吞清理）——一律 `panel.*`。
 - 超时兜底（10-23，治上游缺陷 loadPromise 只 resolve 不 reject ⇒ 坏文件永停 loading）：`Promise.race` 默认 120s（`window.__LOAD_TIMEOUT_MS` 每次加载读，供 E2E）；超时 `abort()`+清 `panel.*`+错误 UI+重试按钮。
 - 进度条：`addSplatScene` 的 `onProgress(percent,label,status)`（status 0/1/2）：Downloading=真实字节进度，Processing=「解析中…」，**Done 仅 splat 数组解析完**（finalize+建树在后）⇒「构建场景中…」不确定态。⚠️ 卡死样本用**纯文本**（ascii PLY 合法会 ready；纯文本在 delayedExecute setTimeout 抛 TypeError⇒promise 永 pending）。
 - 探针 `__project/__debugCameras/__flip/__perfState/__panelState`；回归 `.workbuddy/tmp/splat_mem/e2e.js`（22 断言）。
+- DC 基色（10-23）：上游把 `0.5+SH_C0·f_dc` clamp 进 [0,1] 存 uint8 ⇒ 越界信息不可逆丢失；PlayCanvas 用 **RGBA16F** + 顶点只 `max(clr,0)`。已改 8bit 区间 **[−0.5,1.5]**（精度 2/255），shader 侧 `vColor.rgb*2-0.5` 解码。⚠️ `fillSplatColorArray` 是纹理数据源，**不得解码**（解两次 ⇒ 对比度爆炸、满屏青品红，踩过）；`getSplatColor` 同理只返回编码值。
 
 ## 算法框图（flow_chart.html）
 - line-art：无衬线标注（中文 ≥2 候选）、白底 1px、颜色仅 10% 淡染、线稿默认；测量字体=渲染字体。探针 `window.__flow`。

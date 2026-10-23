@@ -321,6 +321,25 @@ function getIOSSemever() {
 
 const BASE_COMPONENT_COUNT = 14;
 
+// LOCAL PATCH (fdc range): DC 基色的 8-bit 存储编码范围。
+// 上游把 SH DC 换算出的线性颜色 clamp 进 [0,1] 再存 uint8：越界信息（高光 >1、
+// 暗部 <0）在解析期就被不可逆地砍掉。PlayCanvas/SuperSplat 用 RGBA16F 存颜色、
+// 只在 shader 末尾做 max(clr,0)，所以它能保住越界值，最终由 framebuffer 收敛。
+// 8-bit 存储下无法真正对齐 half float，折中：把可表示区间扩到 [-0.5, 1.5]（宽 2.0），
+// 用一半的量化精度换回 ±0.5 的越界余量 —— 覆盖本机模型 99.8% 的 splat（实测
+// rgb ∈ [-0.14, 1.26]），只在极端值上仍会截断。精度 2/255 ≈ 0.0078。
+const FDC_ENCODE_MIN = -0.5;
+const FDC_ENCODE_RANGE = 2.0;
+const FDC_ENCODE_SCALE = 255 / FDC_ENCODE_RANGE;   // 127.5
+
+function encodeFDC(v) {
+    return clamp((v - FDC_ENCODE_MIN) * FDC_ENCODE_SCALE, 0, 255);
+}
+
+function decodeFDC(u) {
+    return u / FDC_ENCODE_SCALE + FDC_ENCODE_MIN;
+}
+
 class UncompressedSplatArray {
 
     static OFFSET = {
@@ -517,7 +536,10 @@ const copyBetweenBuffers = (srcBuffer, srcOffset, destBuffer, destOffset, byteCo
 class SplatBuffer {
 
     static CurrentMajorVersion = 0;
-    static CurrentMinorVersion = 1;
+    // LOCAL PATCH (fdc range): 0.1 → 0.2。颜色 section 的 uint8 语义从 [0,1] 改成 [-0.5,1.5]
+    // 编码，旧的 .ksplat 文件若继续加载会整体偏色，所以升 minor 让 checkVersion 直接拒绝，
+    // 强制重新转换而不是静默出错。
+    static CurrentMinorVersion = 2;
 
     static CenterComponentCount = 3;
     static ScaleComponentCount = 3;
@@ -723,6 +745,8 @@ class SplatBuffer {
                                    SplatBuffer.CompressionLevels[this.compressionLevel].ColorOffsetBytes;
         const splatColorsArray = new Uint8Array(this.bufferData, section.dataBase + srcSplatColorsBase, 4);
 
+        // 注意：返回的是「存储编码值」，不是线性颜色。纹理构建（fillSplatColorArray）依赖
+        // 原始编码，解码统一在顶点着色器里做，这里再解一次会造成二次拉伸（对比度爆炸）。
         outColor.set(splatColorsArray[0], splatColorsArray[1],
                      splatColorsArray[2], splatColorsArray[3]);
     }
@@ -964,6 +988,8 @@ class SplatBuffer {
             let alpha = dataView[3];
             alpha = (alpha >= minimumAlpha) ? alpha : 0;
 
+            // 注意：输出存储编码值（0..255），不是线性颜色 —— 纹理构建依赖原始编码；
+            // 解码只在顶点着色器里做一次，避免二次拉伸。
             outColorArray[colorDestBase] = dataView[0];
             outColorArray[colorDestBase + 1] = dataView[1];
             outColorArray[colorDestBase + 2] = dataView[2];
@@ -1679,7 +1705,11 @@ class SplatBuffer {
             }
 
             const rgba = new Uint8ClampedArray(tempColorBuffer, 0, 4);
-            rgba.set([targetSplat[OFFSET_FDC0] || 0, targetSplat[OFFSET_FDC1] || 0, targetSplat[OFFSET_FDC2] || 0]);
+            // LOCAL PATCH (fdc range): DC 是线性颜色原值（可越界 [-0.5,1.5] 之外会被截断），
+            // 在这里统一编码成 uint8；解码在顶点着色器里做（vColor.rgb * 2.0 - 0.5）。
+            rgba.set([encodeFDC(targetSplat[OFFSET_FDC0] || 0),
+                      encodeFDC(targetSplat[OFFSET_FDC1] || 0),
+                      encodeFDC(targetSplat[OFFSET_FDC2] || 0)]);
             rgba[3] = targetSplat[OFFSET_OPACITY] || 0;
 
             copyBetweenBuffers(rgba.buffer, 0, sectionBuffer, colorBase, 4);
@@ -1811,8 +1841,9 @@ class SplatBuffer {
         const unifiedBuffer = new ArrayBuffer(unifiedBufferSize);
 
         SplatBuffer.writeHeaderToBuffer({
-            versionMajor: 0,
-            versionMinor: 1,
+            versionMajor: SplatBuffer.CurrentMajorVersion,
+            // LOCAL PATCH (fdc range): 原来硬编码 1，与 CurrentMinorVersion 脱钩；改 2 后必须同步
+            versionMinor: SplatBuffer.CurrentMinorVersion,
             maxSectionCount: sectionBuffers.length,
             sectionCount: sectionBuffers.length,
             maxSplatCount: totalSplatCount,
@@ -2999,15 +3030,17 @@ class INRIAV1PlyParser {
                 newSplat[OFFSET_SCALE2] = 0.01;
             }
 
+            // LOCAL PATCH (fdc range): 这里存「线性颜色原值」而不是 *255 后的 0..255，
+            // 也不做 clamp —— 越界信息保留到写 buffer 时由 encodeFDC() 统一编码。
             if (rawSplat[F_DC_0] !== undefined) {
                 const SH_C0 = 0.28209479177387814;
-                newSplat[OFFSET_FDC0] = (0.5 + SH_C0 * rawSplat[F_DC_0]) * 255;
-                newSplat[OFFSET_FDC1] = (0.5 + SH_C0 * rawSplat[F_DC_1]) * 255;
-                newSplat[OFFSET_FDC2] = (0.5 + SH_C0 * rawSplat[F_DC_2]) * 255;
+                newSplat[OFFSET_FDC0] = 0.5 + SH_C0 * rawSplat[F_DC_0];
+                newSplat[OFFSET_FDC1] = 0.5 + SH_C0 * rawSplat[F_DC_1];
+                newSplat[OFFSET_FDC2] = 0.5 + SH_C0 * rawSplat[F_DC_2];
             } else if (rawSplat[RED$1] !== undefined) {
-                newSplat[OFFSET_FDC0] = rawSplat[RED$1] * 255;
-                newSplat[OFFSET_FDC1] = rawSplat[GREEN$1] * 255;
-                newSplat[OFFSET_FDC2] = rawSplat[BLUE$1] * 255;
+                newSplat[OFFSET_FDC0] = rawSplat[RED$1];
+                newSplat[OFFSET_FDC1] = rawSplat[GREEN$1];
+                newSplat[OFFSET_FDC2] = rawSplat[BLUE$1];
             } else {
                 newSplat[OFFSET_FDC0] = 0;
                 newSplat[OFFSET_FDC1] = 0;
@@ -3018,9 +3051,6 @@ class INRIAV1PlyParser {
                 newSplat[OFFSET_OPACITY] = (1 / (1 + Math.exp(-rawSplat[OPACITY]))) * 255;
             }
 
-            newSplat[OFFSET_FDC0] = clamp(Math.floor(newSplat[OFFSET_FDC0]), 0, 255);
-            newSplat[OFFSET_FDC1] = clamp(Math.floor(newSplat[OFFSET_FDC1]), 0, 255);
-            newSplat[OFFSET_FDC2] = clamp(Math.floor(newSplat[OFFSET_FDC2]), 0, 255);
             newSplat[OFFSET_OPACITY] = clamp(Math.floor(newSplat[OFFSET_OPACITY]), 0, 255);
 
             if (outSphericalHarmonicsDegree >= 1) {
@@ -3231,7 +3261,8 @@ class INRIAV2PlyParser {
                 if (page === CB_OPACITY) {
                     codeBookPage[i] = Math.round((1 / (1 + Math.exp(-baseValue))) * 255);
                 } else if (page === CB_FEATURES_DC) {
-                    codeBookPage[i] = Math.round((0.5 + SH_C0 * baseValue) * 255);
+                    // LOCAL PATCH (fdc range): 存线性颜色原值，与未压缩路径保持同一量纲
+                    codeBookPage[i] = 0.5 + SH_C0 * baseValue;
                 } else if (page === CB_SCALING) {
                     codeBookPage[i] = Math.exp(baseValue);
                 } else {
@@ -3301,9 +3332,9 @@ class INRIAV2PlyParser {
                 newSplat[OFFSET_FDC1] = codeBook[CB_FEATURES_DC][rawSplat[PLY_F_DC_1]];
                 newSplat[OFFSET_FDC2] = codeBook[CB_FEATURES_DC][rawSplat[PLY_F_DC_2]];
             } else if (rawSplat[PLY_RED] !== undefined) {
-                newSplat[OFFSET_FDC0] = rawSplat[PLY_RED] * 255;
-                newSplat[OFFSET_FDC1] = rawSplat[PLY_GREEN] * 255;
-                newSplat[OFFSET_FDC2] = rawSplat[PLY_BLUE] * 255;
+                newSplat[OFFSET_FDC0] = rawSplat[PLY_RED];
+                newSplat[OFFSET_FDC1] = rawSplat[PLY_GREEN];
+                newSplat[OFFSET_FDC2] = rawSplat[PLY_BLUE];
             } else {
                 newSplat[OFFSET_FDC0] = 0;
                 newSplat[OFFSET_FDC1] = 0;
@@ -3314,9 +3345,6 @@ class INRIAV2PlyParser {
                 newSplat[OFFSET_OPACITY] = codeBook[CB_OPACITY][rawSplat[PLY_OPACITY]];
             }
 
-            newSplat[OFFSET_FDC0] = clamp(Math.floor(newSplat[OFFSET_FDC0]), 0, 255);
-            newSplat[OFFSET_FDC1] = clamp(Math.floor(newSplat[OFFSET_FDC1]), 0, 255);
-            newSplat[OFFSET_FDC2] = clamp(Math.floor(newSplat[OFFSET_FDC2]), 0, 255);
             newSplat[OFFSET_OPACITY] = clamp(Math.floor(newSplat[OFFSET_OPACITY]), 0, 255);
 
             if (outSphericalHarmonicsDegree >= 1 && header.sphericalHarmonicsDegree >= 1) {
@@ -4024,9 +4052,9 @@ const unpackedSplatToUncompressedSplat = function() {
             newSplat[OFFSET_FDC1] = unpackedSplat.color[1];
             newSplat[OFFSET_FDC2] = unpackedSplat.color[2];
         } else if (rawSplat[RED] !== undefined) {
-            newSplat[OFFSET_FDC0] = rawSplat[RED] * 255;
-            newSplat[OFFSET_FDC1] = rawSplat[GREEN] * 255;
-            newSplat[OFFSET_FDC2] = rawSplat[BLUE] * 255;
+            newSplat[OFFSET_FDC0] = rawSplat[RED];
+            newSplat[OFFSET_FDC1] = rawSplat[GREEN];
+            newSplat[OFFSET_FDC2] = rawSplat[BLUE];
         } else {
             newSplat[OFFSET_FDC0] = 0;
             newSplat[OFFSET_FDC1] = 0;
@@ -4037,9 +4065,6 @@ const unpackedSplatToUncompressedSplat = function() {
             newSplat[OFFSET_OPACITY] = unpackedSplat.alpha;
         }
 
-        newSplat[OFFSET_FDC0] = clamp(Math.floor(newSplat[OFFSET_FDC0]), 0, 255);
-        newSplat[OFFSET_FDC1] = clamp(Math.floor(newSplat[OFFSET_FDC1]), 0, 255);
-        newSplat[OFFSET_FDC2] = clamp(Math.floor(newSplat[OFFSET_FDC2]), 0, 255);
         newSplat[OFFSET_OPACITY] = clamp(Math.floor(newSplat[OFFSET_OPACITY]), 0, 255);
 
         let outSHCoeff = shCoeffMap[outSphericalHarmonicsDegree];
@@ -4151,8 +4176,9 @@ function unpackGaussians(packed, outSphericalHarmonicsDegree, directToSplatBuffe
         splat.alpha = Math.floor(packed.alphas[i]);
 
         // Splat color
+        // LOCAL PATCH (fdc range): 输出线性颜色原值（与 PLY 路径同量纲），不再 *255 + 截断
         for (let j = 0; j < 3; j++) {
-            splat.color[j] = Math.floor(((((packed.colors[i * 3 + j] / 255.0) - 0.5) / COLOR_SCALE) * SH_C0 + 0.5) * 255);
+            splat.color[j] = (((packed.colors[i * 3 + j] / 255.0) - 0.5) / COLOR_SCALE) * SH_C0 + 0.5;
         }
 
         // Splat spherical harmonics
@@ -4381,7 +4407,9 @@ class SplatParser {
             quat.normalize();
 
             splatArray.addSplatFromComonents(inCenter[0], inCenter[1], inCenter[2], inScale[0], inScale[1], inScale[2],
-                                             quat.w, quat.x, quat.y, quat.z, inColor[0], inColor[1], inColor[2], inColor[3]);
+                                             quat.w, quat.x, quat.y, quat.z,
+                                             // LOCAL PATCH (fdc range): .splat 的 uchar 颜色转成 0..1 线性值
+                                             inColor[0] / 255, inColor[1] / 255, inColor[2] / 255, inColor[3]);
         }
     }
 
@@ -4409,7 +4437,9 @@ class SplatParser {
             quat.normalize();
 
             splatArray.addSplatFromComonents(inCenter[0], inCenter[1], inCenter[2], inScale[0], inScale[1], inScale[2],
-                                             quat.w, quat.x, quat.y, quat.z, inColor[0], inColor[1], inColor[2], inColor[3]);
+                                             quat.w, quat.x, quat.y, quat.z,
+                                             // LOCAL PATCH (fdc range): .splat 的 uchar 颜色转成 0..1 线性值
+                                             inColor[0] / 255, inColor[1] / 255, inColor[2] / 255, inColor[3]);
         }
 
         return splatArray;
@@ -7792,6 +7822,10 @@ class SplatMaterial {
 
             vPosition = position.xy;
             vColor = uintToRGBAVec(sampledCenterColor.r);
+            // LOCAL PATCH (fdc range): 解码 DC 基色。存储端把线性颜色 [-0.5,1.5] 映射到 [0,1]，
+            // 这里还原；alpha 不参与映射。保留越界值后，SH 的 AC 项才有机会把它拉回 [0,1]，
+            // 不再像上游那样在解析期就被硬钳在 1.0 / 0.0（单通道被钳正是亮粉/纯绿/纯蓝的来源）。
+            vColor.rgb = vColor.rgb * 2.0 - 0.5;
         `;
 
         // Proceed to sampling and rendering 1st degree spherical harmonics
@@ -8074,7 +8108,10 @@ class SplatMaterial {
 
             vertexShaderSource += `
 
-                vColor.rgb = clamp(vColor.rgb, vec3(0.), vec3(1.));
+                // LOCAL PATCH (fdc range): 对齐 PlayCanvas（gsplat.js: max(clr.xyz, 0.0)）——
+                // 只钳下界，不钳上界。上界交给 framebuffer，这样「DC 越界 + AC 反向」的
+                // 组合不会被提前压平（单通道被压平会造成偏色）。
+                vColor.rgb = max(vColor.rgb, vec3(0.));
 
             }
 
