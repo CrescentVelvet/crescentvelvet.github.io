@@ -8444,9 +8444,15 @@ class SplatMaterial3D {
             float D = a * d - b * b;
             float trace = a + d;
             float traceOver2 = 0.5 * trace;
-            float term2 = sqrt(max(0.1f, traceOver2 * traceOver2 - D));
+            // LOCAL PATCH (eigen clamp): 上游把 0.1 加在「判别式」上（max(0.1, mid²-D)），
+            // 于是 term2 >= sqrt(0.1) = 0.316，小尺寸 splat 的 eigenValue2 会变成负数，
+            // 被下面那行 eigenValue2<=0 的 return 直接丢弃。而 3DGS 官方与
+            // SuperSplat(PlayCanvas) 都是把下限加在 lambda2 本身（fmax(mid - radius, 0.1)），
+            // 小 splat 保留并抬到最小尺寸。丢弃的后果：眉毛/发丝/眼缘这些由微小 splat
+            // 构成的区域被掏空，露出背后远处的冷色背景 ⇒ 侧视角下头发与眼睛出现蓝/绿雾块。
+            float term2 = sqrt(max(traceOver2 * traceOver2 - D, 0.0));
             float eigenValue1 = traceOver2 + term2;
-            float eigenValue2 = traceOver2 - term2;
+            float eigenValue2 = max(traceOver2 - term2, 0.1);
 
             if (pointCloudModeEnabled == 1) {
                 eigenValue1 = eigenValue2 = 0.2;
