@@ -1733,19 +1733,39 @@ class SplatBuffer {
             const splatArray = splatArrays[sa];
             for (let i = 0; i < splatArray.splats.length; i++) {
                 const splat = splatArray.splats[i];
-                for (let sc = UncompressedSplatArray.OFFSET.FRC0; sc < UncompressedSplatArray.OFFSET.FRC23 && sc < splat.length; sc++) {
-                    if (!minSphericalHarmonicsCoeff || splat[sc] < minSphericalHarmonicsCoeff) {
-                        minSphericalHarmonicsCoeff = splat[sc];
+                // LOCAL PATCH (sh range): 上游上界写死 FRC23(=37)，对 degree 1/2/3 都不完整：
+                // (1) 差一 —— index 37 本身是 band-2 的最后一个系数，被漏掉；
+                // (2) degree-3 的 band-3 在 index 38..58（21 个），完全没纳入统计。
+                // 这对 min/max 只在 compressionLevel===2 时生效（writeSplatDataToSectionBuffer
+                // 里 toUint8 用它做 8-bit 量化）；漏掉的系数一旦越界，量化时就被钳成 0/255，
+                // 该方向的高光/暗部颜色直接丢失，而且全程静默、无任何报错。
+                // 改为按「本条 splat 的实际分量数」取上界（splat.length = 14 + SH 分量数）。
+                for (let sc = UncompressedSplatArray.OFFSET.FRC0; sc < splat.length; sc++) {
+                    const shValue = splat[sc];
+                    // 上游用 !min / !max 判断「首次赋值」，值恰好为 0 时会被后续值错误覆盖，
+                    // 使区间单边收窄、0 附近的系数被量化到 0；改用显式 undefined 判断。
+                    if (shValue === undefined) continue;
+                    if (minSphericalHarmonicsCoeff === undefined || shValue < minSphericalHarmonicsCoeff) {
+                        minSphericalHarmonicsCoeff = shValue;
                     }
-                    if (!maxSphericalHarmonicsCoeff || splat[sc] > maxSphericalHarmonicsCoeff) {
-                        maxSphericalHarmonicsCoeff = splat[sc];
+                    if (maxSphericalHarmonicsCoeff === undefined || shValue > maxSphericalHarmonicsCoeff) {
+                        maxSphericalHarmonicsCoeff = shValue;
                     }
                 }
             }
         }
 
-        minSphericalHarmonicsCoeff = minSphericalHarmonicsCoeff || -DefaultSphericalHarmonics8BitCompressionHalfRange;
-        maxSphericalHarmonicsCoeff = maxSphericalHarmonicsCoeff || DefaultSphericalHarmonics8BitCompressionHalfRange;
+        // LOCAL PATCH (sh range): 与上面的 undefined 判断配套 —— 只有「完全没统计到」才用默认区间，
+        // 否则真实最小值/最大值恰好为 0 时会被默认值顶掉（虽然只是放宽、不致命）。
+        if (minSphericalHarmonicsCoeff === undefined) minSphericalHarmonicsCoeff = -DefaultSphericalHarmonics8BitCompressionHalfRange;
+        if (maxSphericalHarmonicsCoeff === undefined) maxSphericalHarmonicsCoeff = DefaultSphericalHarmonics8BitCompressionHalfRange;
+        // 退化情形：所有系数完全相同 ⇒ 区间宽度为 0，toUint8 会除零得 NaN。上游未处理。
+        // 以中点为心展开到默认半宽（全为 0 时恰好还原成上游默认的 ±halfRange）。
+        if (maxSphericalHarmonicsCoeff - minSphericalHarmonicsCoeff < 1e-6) {
+            const midSphericalHarmonicsCoeff = 0.5 * (minSphericalHarmonicsCoeff + maxSphericalHarmonicsCoeff);
+            minSphericalHarmonicsCoeff = midSphericalHarmonicsCoeff - DefaultSphericalHarmonics8BitCompressionHalfRange;
+            maxSphericalHarmonicsCoeff = midSphericalHarmonicsCoeff + DefaultSphericalHarmonics8BitCompressionHalfRange;
+        }
 
         const { bytesPerSplat } = SplatBuffer.calculateComponentStorage(compressionLevel, shDegree);
         const compressionScaleRange = SplatBuffer.CompressionLevels[compressionLevel].ScaleRange;

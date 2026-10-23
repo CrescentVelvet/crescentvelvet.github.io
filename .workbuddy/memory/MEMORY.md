@@ -15,7 +15,7 @@
 
 ## 高斯对比（_pages/splat-compare.html）
 - 库 v0.4.7 + three r185：**`gpuAcceleratedSort:false`**（否则黑屏）、**`antialiased:false`**（true⇒侧视蓝绿雾块，10-23 定案）、**`sphericalHarmonicsDegree:3`**、**`splatSortDistanceMapPrecision:20`**、fov **60**、背景 `#222233`、变换必须放 **splatGroup 级**。
-- ⚠️ vendor 本地补丁：degree 3 **15 处** + sort gate（8.11°→0.5°）**1 处** + eigen clamp（下限加在 λ2 本身）**1 处** + fdc range（DC 编码区间 [−0.5,1.5]，含 KSplat 版本 0.1→0.2）**11 处**；升级必须全部重打（`grep -c "LOCAL PATCH"` 校验）。GLSL 注释**禁反引号**。
+- ⚠️ vendor 本地补丁：degree 3 **15 处** + sort gate（8.11°→0.5°）**1 处** + eigen clamp（下限加在 λ2 本身）**1 处** + fdc range（DC 编码区间 [−0.5,1.5]，含 KSplat 版本 0.1→0.2）**11 处** + sh range（SH min/max 统计上界改 `splat.length`，覆盖 degree-3 band-3）**2 处**；升级必须全部重打（`grep -c "LOCAL PATCH"` 校验）。GLSL 注释**禁反引号**。
 - 朝向/变换变化须 `updateMatrixWorld(true)` + `sortDirty` 补排；每帧 `controls.update()`+`lookAt` ⇒ 横滚恒 0；滚轮拦截挂捕获阶段；顶层标识符**禁 `zf`**（vendor TDZ）。
 - 释放链（10-23）：`removePanel`/`loadPlyToPanel`/加载 catch 均 `renderer.dispose()`+**`forceContextLoss()`**（否则 context 等 GC、撞 Chrome 单域 ~16 上限）；blob URL try 外创建、catch 也 revoke。⚠️ catch **禁引用 try 块内 const**（ReferenceError 静默吞清理）——一律 `panel.*`。
 - 超时兜底（10-23，治上游缺陷 loadPromise 只 resolve 不 reject ⇒ 坏文件永停 loading）：`Promise.race` 默认 120s（`window.__LOAD_TIMEOUT_MS` 每次加载读，供 E2E）；超时 `abort()`+清 `panel.*`+错误 UI+重试按钮。
