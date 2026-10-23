@@ -340,7 +340,15 @@ title: "高斯对比"
         const p = panels[idx];
         if (!p) return;
         if (p.viewer) { try { p.viewer.dispose(); } catch(e){} }
-        if (p.renderer) { p.renderer.dispose(); }
+        if (p.renderer) {
+            p.renderer.dispose();
+            // renderer.dispose() 只清内部缓存，**不销毁 WebGL context**（three r185，
+            // three.module.js 的 WebGLRenderer.dispose 里没有调 loseContext）。
+            // context 要等 canvas 被 GC 才销毁，滞留期间每个都白占一份显存；
+            // 快速反复加删还可能撞 Chrome 单域 ~16 个活跃 context 上限
+            // （最老 context 被强制丢弃 → 对应面板黑屏）。这里主动丢，立即归还。
+            try { p.renderer.forceContextLoss(); } catch(e){}
+        }
         p.el.remove();
         panels.splice(idx, 1);
         relayout();
@@ -475,6 +483,8 @@ title: "高斯对比"
         }
         if (panel.renderer) {
             panel.renderer.dispose();
+            // 同 removePanel：dispose 不销毁 WebGL context，主动 forceContextLoss 立即归还
+            try { panel.renderer.forceContextLoss(); } catch(e){}
         }
         // 换模型 → 单独调整状态与私有偏移作废（单独调整是针对当前模型调的，不跨模型沿用）
         panel.adjusting = false;
@@ -510,8 +520,10 @@ title: "高斯对比"
         panel.title = fileName;
         panel.titleEl.textContent = fileName;
 
+        // blob URL 提到 try 外面创建：加载失败走 catch 时也要能 revoke，
+        // 否则每失败一次漏一整份文件字节驻留在浏览器 blob store（revoke 幂等）。
+        const url = URL.createObjectURL(file);
         try {
-            const url = URL.createObjectURL(file);
 
             // 创建 renderer
             // 这一组设备参数对齐 SuperSplat 的 createGraphicsDevice（src/main.ts）：
@@ -716,6 +728,7 @@ title: "高斯对比"
 
             URL.revokeObjectURL(url);
         } catch (err) {
+            URL.revokeObjectURL(url); // 成功路径已 revoke 过，重复调用是无操作
             console.error('加载失败:', err);
             loadingEl.remove();
             panel.state = 'error';

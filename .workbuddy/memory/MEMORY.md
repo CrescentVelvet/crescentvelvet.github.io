@@ -19,7 +19,7 @@
 - ⚠️ vendor 本地补丁：degree 3 **15 处** + sort gate（8.11°→0.5°）**1 处** + eigen clamp（下限加在 λ2 本身）**1 处**；升级 vendor 必须全部重打（`grep -c "LOCAL PATCH"` 校验）。GLSL 注释**禁反引号**。
 - 朝向/变换变化须 `updateMatrixWorld(true)` + `sortDirty` 补排；每帧 `controls.update()`+`lookAt` ⇒ 横滚恒 0；滚轮拦截挂捕获阶段；顶层标识符**禁 `zf`**（vendor TDZ）。
 - 复现渲染问题先把相机拉到真实观察距离（脸 d≈1.2），近景 A/B diff 恒 0 会误导。
-- 释放链（10-23 核查）：`removePanel` → `viewer.dispose()`（异步、未 await）+ `renderer.dispose()`；**renderer 未 `forceContextLoss()`**，WebGL context 等 canvas GC 才销毁；加载失败分支漏 `URL.revokeObjectURL`。
+- 释放链（10-23 已修）：`removePanel`/`loadPlyToPanel` 均 `renderer.dispose()`+**`forceContextLoss()`**（否则 context 等 canvas GC、易撞 Chrome 单域 ~16 上限）；blob URL 在 try 外创建、catch 也 revoke。⚠️ 上游缺陷未修：loader `loadPromise` 只有 resolve 没有 reject ⇒ 坏文件面板**永远停 loading**（待页面侧超时兜底）。回归 `.workbuddy/tmp/splat_mem/e2e.js`（19 断言）。
 - 探针 `__project/__debugCameras/__flip/__perfState`；回归 `check_splat_compare.js`/`unify_semantics.js`/`pan_sync.js`/`flip_panel.js`。
 
 ## 算法框图（flow_chart.html）
