@@ -109,6 +109,16 @@ title: "高斯对比"
         .progress-fill {
             height: 100%; background: #5a9; width: 0%; transition: width 0.2s;
         }
+        /* 解析/建树阶段库不回报中间进度（Processing 只有 0% 和 100% 两端），
+           进度条切换为左右滑动的不确定态，对齐 SuperSplat 的体验 */
+        .progress-fill.indeterminate {
+            width: 40% !important; transition: none;
+            animation: indet-slide 1.2s ease-in-out infinite;
+        }
+        @keyframes indet-slide {
+            0%   { margin-left: -40%; }
+            100% { margin-left: 100%; }
+        }
         .loading-text { font-size: 12px; color: #aaa; }
         .panel-error {
             position: absolute; inset: 0; background: rgba(40,20,20,0.9);
@@ -117,6 +127,11 @@ title: "高斯对比"
         }
         .panel-error .err-icon { font-size: 24px; color: #e88; }
         .panel-error .err-msg { font-size: 12px; color: #c88; max-width: 240px; word-break: break-word; }
+        .panel-error .retry-btn {
+            margin-top: 4px; padding: 4px 18px; font-size: 12px; color: #ddd;
+            background: #4a3a3a; border: 1px solid #6a5a5a; border-radius: 4px; cursor: pointer;
+        }
+        .panel-error .retry-btn:hover { background: #5a4a4a; }
 
         /* 整页空状态 */
         #empty-state {
@@ -170,6 +185,13 @@ title: "高斯对比"
 
     // ============ 全局状态 ============
     const MAX_PANELS = 4;
+    // 加载超时兜底（默认 120s）：库 v0.4.7 的 loadPromise 有上游缺陷（内部
+    // loadPromise 只有 resolve、没有 reject，vendor 全文 grep 无 loadPromise.reject）
+    // ——解析失败的文件会让 promise 永远 pending、面板永远停在 loading。
+    // 这里用竞速超时兜底：超时 → abort（尽力停下载）→ 清理部分初始化的资源
+    // → 错误 UI + 允许重试。120s 对几百 MB 的本地 PLY（解析+建树通常 <30s）足够宽。
+    // 每次加载时读取 window.__LOAD_TIMEOUT_MS（毫秒，E2E 注入用），未设则用默认值。
+    const DEFAULT_LOAD_TIMEOUT_MS = 120000;
     const panels = []; // {el, canvasWrap, viewer, renderer, camera, controls, title, state, bbox}
     let grid = document.getElementById('grid');
     let emptyState = document.getElementById('empty-state');
@@ -669,6 +691,35 @@ title: "高斯对比"
 
             // 加载场景
             // blob URL 无扩展名，必须显式传 format，否则 sceneFormatFromPath 推断失败
+            // onProgress 回调签名：(percent, percentLabel, loaderStatus)；
+            // loaderStatus 是库内 LoaderStatus 枚举（0=Downloading / 1=Processing / 2=Done），
+            // 该枚举未导出，这里用字面量并注释，不为它单独改 vendor。
+            const onProgress = (percent, percentLabel, status) => {
+                // 超时兜底后 loadPromise 仍可能 pending 并在稍后迟到回调，
+                // 此时 loadingEl 已移除、面板已 error —— 迟到回调直接丢弃。
+                if (panel.state !== 'loading') return;
+                if (status === 0) {          // Downloading：blob 本地读取，大文件有真实字节进度
+                    const pct = (typeof percent === 'number' && isFinite(percent))
+                        ? Math.max(0, Math.min(100, percent)) : null;
+                    if (pct !== null) {
+                        progressFill.classList.remove('indeterminate');
+                        progressFill.style.width = pct + '%';
+                        loadingText.textContent = '读取文件 ' + (percentLabel || Math.round(pct) + '%');
+                    } else {
+                        // 无 Content-Length 时 percent 为 undefined → 退化为不确定态
+                        progressFill.classList.add('indeterminate');
+                        loadingText.textContent = '读取文件…';
+                    }
+                } else if (status === 1) {   // Processing：流式解析 splat 数组
+                    progressFill.classList.add('indeterminate');
+                    loadingText.textContent = '解析中…';
+                } else {                     // Done：库语义只是「splat 数组解析完」，
+                    // 之后还有 finalize（生成 SplatBuffer）+ buildSection（建树/上传纹理），
+                    // 对大模型那才是真正的耗时；loading 保持不确定态直到 await 返回移除。
+                    progressFill.classList.add('indeterminate');
+                    loadingText.textContent = '构建场景中…';
+                }
+            };
             console.log('[splat-compare] 开始 addSplatScene, url=', url);
             const loadPromise = splatGroup.addSplatScene(url, {
                 splatAlphaRemovalThreshold: 1,
@@ -677,10 +728,25 @@ title: "高斯对比"
                 position: [0, 0, 0],
                 rotation: [0, 0, 0, 1],
                 scale: [1, 1, 1],
-                progressiveLoad: false
+                progressiveLoad: false,
+                onProgress
             });
-            console.log('[splat-compare] addSplatScene 返回:', loadPromise, '类型:', typeof loadPromise);
-            await loadPromise;
+            // 超时兜底（原因见 DEFAULT_LOAD_TIMEOUT_MS 注释）：Promise.race 竞速，
+            // 超时即 reject；同时 abort 尽力中断下载（fetch 侧 AbortController），
+            // 但 Processing 阶段卡在 worker 时 abort 无效 ⇒ catch 里必须做完整资源清理。
+            const loadTimeoutMs = window.__LOAD_TIMEOUT_MS ?? DEFAULT_LOAD_TIMEOUT_MS;
+            let loadTimeoutId = null;
+            const timeoutPromise = new Promise((_, reject) => {
+                loadTimeoutId = setTimeout(() => {
+                    try { loadPromise.abort('load timeout'); } catch (e) {}
+                    reject(new Error(`加载超时（>${Math.round(loadTimeoutMs / 1000)}s），文件可能损坏或过大`));
+                }, loadTimeoutMs);
+            });
+            try {
+                await Promise.race([loadPromise, timeoutPromise]);
+            } finally {
+                clearTimeout(loadTimeoutId);
+            }
             console.log('[splat-compare] addSplatScene 完成');
 
             // 通过 splatGroup.viewer.getSplatMesh() 拿到 SplatMesh
@@ -730,6 +796,23 @@ title: "高斯对比"
         } catch (err) {
             URL.revokeObjectURL(url); // 成功路径已 revoke 过，重复调用是无操作
             console.error('加载失败:', err);
+            // 完整清理部分初始化的资源。此前 catch 只摘 loading、留 renderer/canvas/
+            // worker 挂到 removePanel 才释放；超时场景下排序/建树 worker 还在空转，
+            // 必须立刻杀（Viewer.dispose 会 abort 在途加载并 terminate worker）。
+            // ⚠️ renderer/controls/splatGroup 是 try 块内 const，catch 里不可见
+            //    （曾因此 ReferenceError 被静默吞掉、清理全跳）——一律走 panel.*，
+            //    它们在 try 内已赋值；错误发生在赋值前时取到旧引用，dispose 幂等无害。
+            try { if (panel.splatGroup) panel.splatGroup.dispose(); } catch (e) {}  // async，fire-and-forget
+            try { if (panel.controls) panel.controls.dispose(); } catch (e) {}
+            try {
+                if (panel.renderer) {
+                    panel.renderer.dispose();
+                    panel.renderer.forceContextLoss();
+                    panel.renderer.domElement.remove();
+                }
+            } catch (e) {}
+            panel.viewer = null; panel.renderer = null; panel.scene = null;
+            panel.splatGroup = null; panel.controls = null;
             loadingEl.remove();
             panel.state = 'error';
             const errEl = document.createElement('div');
@@ -737,8 +820,15 @@ title: "高斯对比"
             errEl.innerHTML = `
                 <div class="err-icon">!</div>
                 <div class="err-msg">加载失败: ${String(err.message || err).slice(0, 200)}</div>
-                <div class="small-hint" style="color:#777;font-size:11px">可重新拖入文件</div>
+                <div class="small-hint" style="color:#777;font-size:11px">可重新拖入文件，或</div>
             `;
+            // 重试：file 只是磁盘句柄引用（不是字节驻留），闭包持有代价可忽略。
+            // loadPlyToPanel 开头会无条件清空容器并复位状态，重入安全。
+            const retryBtn = document.createElement('button');
+            retryBtn.className = 'retry-btn';
+            retryBtn.textContent = '重试';
+            retryBtn.addEventListener('click', () => loadPlyToPanel(panel, file));
+            errEl.appendChild(retryBtn);
             panel.canvasWrap.appendChild(errEl);
         }
     }
@@ -1194,6 +1284,20 @@ title: "高斯对比"
         wakeRenderLoop();
         return true;
     };
+    // 调试钩子：面板加载状态与资源持有快照（验证超时/错误路径的清理效果：
+    // renderer/viewer 引用应置 null、canvas 应从 DOM 摘除、WebGL context 应已主动丢弃）。
+    window.__panelState = () => panels.map(p => ({
+        state: p.state,
+        hasRenderer: !!p.renderer,
+        hasViewer: !!p.viewer,
+        hasSplatGroup: !!p.splatGroup,
+        canvasCount: p.canvasWrap ? p.canvasWrap.querySelectorAll('canvas').length : 0,
+        loadingText: p.canvasWrap && p.canvasWrap.querySelector('.loading-text')
+            ? p.canvasWrap.querySelector('.loading-text').textContent : null,
+        progressWidth: p.canvasWrap && p.canvasWrap.querySelector('.progress-fill')
+            ? p.canvasWrap.querySelector('.progress-fill').style.width : null,
+        progressIndeterminate: !!(p.canvasWrap && p.canvasWrap.querySelector('.progress-fill.indeterminate')),
+    }));
     // 调试钩子：脚本驱动翻转（CDP / 控制台）。与 UI 两条入口一一对应。
     window.__flip = {
         set: (i, on) => {
