@@ -104,33 +104,82 @@ h2 { font:500 36px/1.25 var(--serif); margin:7px 0 9px; letter-spacing:.07em; }
 .demo-tag { font-size:9px; color:var(--muted); letter-spacing:.06em; }
 .toast { position:fixed; left:50%; bottom:30px; transform:translateX(-50%); padding:12px 22px; border-radius:10px; color:var(--surface); background:var(--ink); font-size:12px; box-shadow:var(--shadow); z-index:20; }
 [hidden] { display:none !important; }
-/* B: quiet observatory, restrained gold on midnight blue. */
+/* A: sun-warmed terracotta tiles, linen and an afternoon window. */
+[data-theme="a"] { --bg:#f6ead7; --surface:#fff9ed; --ink:#614330; --muted:#94745b; --line:#dbc5a6; --accent:#b65d3d; --accent-soft:#efd2b5; --doing:#b46530; --done:#78825b; --shadow:8px 14px 30px #a2693116; }
+[data-theme="a"] .workspace { background:linear-gradient(125deg,#f7eddc 10%,#f5e3c4 68%,#f2d4a5); }
+[data-theme="a"] .workspace:before { background-image:radial-gradient(#b58c5e .65px,transparent .65px); background-size:7px 9px; opacity:.16; }
+[data-theme="a"] .sidebar { background:linear-gradient(145deg,#fffaf0,#f5e6cd); border-color:#e1c9a5; box-shadow:12px 17px 35px #9b623022; }
+[data-theme="a"] .sidebar:after { content:""; position:absolute; inset:5px; border:1px solid #fffaf0b0; border-radius:13px; pointer-events:none; }
+[data-theme="a"] .node rect { rx:9; fill:#fff7e8; stroke:#d9bc98; filter:drop-shadow(3px 6px 3px #aa754119); }
+[data-theme="a"] .node.root rect { fill:url(#clayGlaze); stroke:#aa583c; filter:drop-shadow(6px 10px 4px #9c57312e); }
+[data-theme="a"] .clay-inset { fill:none; stroke:#f8d9b7; stroke-width:.7; opacity:.5; }
+[data-theme="a"] .node.branch rect { fill:#e7b78e; stroke:#dca47b; }
+[data-theme="a"] .node.branch text { fill:#71452f; }
+[data-theme="a"] .node.branch .branch-count { fill:#956447; }
+[data-theme="a"] .node.selected rect { fill:#f6ddbd; stroke:#b65d3d; }
+[data-theme="a"] .node.dropped rect { fill:transparent; filter:none; stroke:var(--drop); }
+[data-theme="a"] .connector { stroke:#c59a70; stroke-width:1.8; }
+[data-theme="a"] .connector.trunk { stroke-width:2.6; }
+[data-theme="a"] .connector.active { stroke:#b65d3d; }
+.atmosphere { pointer-events:none; }
+.workspace > .atmosphere { position:absolute; inset:0; }
+.atmosphere svg { width:100%; height:100%; display:block; }
+.sun-emblem { fill:none; stroke:#bb7143; stroke-width:1.2; }
+.sun-caption { fill:#b68051; font:9px Georgia,serif; letter-spacing:2px; }
+/* B: an actual constellation: circular core, star junctions and fine angular links. */
 [data-theme="b"] { --bg:#101723; --surface:#192332; --ink:#e4e9ef; --muted:#8e9caf; --line:#334155; --accent:#d9b979; --accent-soft:#293140; --todo:#a0b0c6; --doing:#d9b979; --done:#78b5a5; --drop:#718097; --shadow:0 15px 50px #00000025; --radius:13px; }
 [data-theme="b"] .workspace:before { background-image:radial-gradient(#bacbdf 1px,transparent 1px),radial-gradient(#7b8da7 .65px,transparent .65px); background-size:113px 109px,37px 41px; background-position:3px 27px,19px 8px; opacity:.22; }
 [data-theme="b"] .page-title { margin-top:28px; }
 [data-theme="b"] h1,[data-theme="b"] h2 { font-family:var(--sans); font-weight:300; letter-spacing:.18em; }
 [data-theme="b"] .sidebar { background:linear-gradient(155deg,#1b2637,#151e2b); }
-[data-theme="b"] .node.root rect { fill:#d9b979; filter:drop-shadow(0 0 18px #d9b97920); }
-[data-theme="b"] .node.branch rect { fill:#1c2a3d; stroke:#3b5069; }
-[data-theme="b"] .node rect { rx:7; }
-[data-theme="b"] .connector { stroke:#44536a; stroke-width:1; }
-[data-theme="b"] .connector.active { stroke:var(--accent); }
-[data-theme="b"] .node.selected rect { fill:#273242; }
+[data-theme="b"] .workspace { background:radial-gradient(ellipse at 40% 50%,#1c2b4022,transparent 70%),#101723; }
+[data-theme="b"] .node rect { fill:transparent; stroke:none; rx:25; }
+[data-theme="b"] .node .meta { fill:#8097b4; font-size:8px; }
+[data-theme="b"] .node.branch text { fill:#d4dfeb; font-size:15px; letter-spacing:2px; paint-order:stroke; stroke:#101723; stroke-width:3px; stroke-linejoin:round; }
+[data-theme="b"] .node.branch .sector { fill:#8d9eb3; font:8px Georgia,serif; letter-spacing:2px; }
+[data-theme="b"] .node.branch .meta { fill:#6c829f; font:8px Georgia,serif; letter-spacing:1px; }
+[data-theme="b"] .connector { stroke:#738caa; stroke-width:1; opacity:.57; }
+[data-theme="b"] .connector.active { stroke:#e1c183; opacity:.95; filter:url(#starlight); }
+[data-theme="b"] .node.selected rect { fill:#d9b9790a; stroke:#d9b9797a; stroke-width:.8; }
+[data-theme="b"] .node.dropped rect { stroke:#64748b; stroke-dasharray:3 6; }
+[data-theme="b"] .node.done .task-title { fill:#93a8ba; }
+[data-theme="b"] .node .selection-label { font:8px var(--sans); letter-spacing:0; }
 [data-theme="b"] .export { color:#202736; }
-[data-theme="b"] .node.root text { fill:#242b35; font-family:var(--sans); font-weight:500; }
-/* C: airy mint workspace, crisp cards and cool lilac details. */
+[data-theme="b"] .node.root text { fill:#e3c88f; font-family:var(--sans); font-size:21px; font-weight:300; letter-spacing:3px; }
+[data-theme="b"] .node.root .meta { fill:#91a1b5; letter-spacing:1.8px; font-size:8px; }
+.orbit { fill:none; stroke:#66829e; stroke-width:.65; opacity:.22; }
+.orbit.dashed { stroke-dasharray:2 7; opacity:.28; }
+.core-disc { fill:#142032; stroke:#d9b979; stroke-width:1; }
+.core-orbit { fill:none; stroke:#d9b979; stroke-width:.7; opacity:.45; }
+.star-junction { fill:#e3c98f; filter:url(#starlight); }
+.star-ring { fill:none; stroke:#d9b979; stroke-width:.8; opacity:.5; }
+.star-dot { fill:#c3d1e4; }
+.star-underline { stroke:#3c526b; stroke-width:.65; }
+.constellation-code { fill:#71849d; font:8px Georgia,serif; letter-spacing:1.8px; }
+/* C: a mint garden: soft leaves, branching stems, clean light and airy cards. */
 [data-theme="c"] { --bg:#f3f8f7; --surface:#ffffff; --ink:#243d3a; --muted:#758b86; --line:#d9e6e1; --accent:#267d6c; --accent-soft:#dcefe6; --todo:#8b99a5; --doing:#ac6b30; --done:#358b72; --drop:#9ca8aa; --shadow:0 10px 32px #255f4c09; --radius:24px; }
-[data-theme="c"] .workspace { background:radial-gradient(ellipse at 95% 10%,#e4e2f04f,transparent 42%),radial-gradient(ellipse at 20% 85%,#d7eee08c,transparent 50%); }
-[data-theme="c"] .workspace:before { opacity:.5; background-size:24px 24px; }
+[data-theme="c"] { --bg:#f4f8ef; --surface:#fefff9; --ink:#2c4936; --muted:#789077; --line:#d1e0c6; --accent:#438465; --accent-soft:#e6efd6; --doing:#aa8238; --done:#54946d; }
+[data-theme="c"] .workspace { background:radial-gradient(ellipse at 83% 8%,#e6edcb8f,transparent 52%),radial-gradient(ellipse at 10% 100%,#cdebd788,transparent 50%),#f6fbf1; }
+[data-theme="c"] .workspace:before { opacity:.11; background-image:radial-gradient(#789077 .7px,transparent .7px); background-size:13px 15px; }
 [data-theme="c"] .sidebar { margin:0; border-width:0 1px 0 0; border-radius:0; padding:33px 27px; }
 [data-theme="c"] h1,[data-theme="c"] h2 { font-family:var(--sans); font-weight:600; letter-spacing:0; }
-[data-theme="c"] .node rect { rx:11; filter:drop-shadow(0 4px 7px #24473808); }
-[data-theme="c"] .node.branch rect { fill:#e7e5f2; stroke:#d3d0e6; }
-[data-theme="c"] .node.root rect { fill:#267d6c; }
+[data-theme="c"] .node rect { rx:18; filter:drop-shadow(0 5px 7px #4583570d); }
+[data-theme="c"] .node.branch rect { fill:#e4efd6; stroke:#c6dcb7; rx:23; }
+[data-theme="c"] .node.root rect { fill:#438465; }
 [data-theme="c"] .node.root text { font-family:var(--sans); font-size:21px; letter-spacing:1px; }
-[data-theme="c"] .node.selected rect { fill:#f6fffa; stroke:#409d7e; }
+[data-theme="c"] .node.selected rect { fill:#f3f9e6; stroke:#77a674; }
 [data-theme="c"] .themes a { border-radius:20px; }
 [data-theme="c"] .section-label { letter-spacing:.06em; }
+[data-theme="c"] .connector { stroke:#a5c298; stroke-width:1.5; }
+[data-theme="c"] .connector.trunk { stroke:#8bab7c; stroke-width:2.5; }
+[data-theme="c"] .connector.active { stroke:#75a16c; opacity:.9; }
+.leaf-surface { fill:#fafff5; stroke:#c8dcbf; stroke-width:1; filter:drop-shadow(0 4px 4px #4583570d); }
+.node.selected .leaf-surface { fill:#eef6df; stroke:#75a16c; stroke-width:1.6; }
+.node.dropped .leaf-surface { fill:none; stroke:#95a58e; stroke-dasharray:5 4; filter:none; }
+.node.root .garden-root { fill:#438465; stroke:#438465; }
+.sprig-leaf { fill:#bed8ac; stroke:#a5c297; stroke-width:.5; }
+.sprig-vein { fill:none; stroke:#8eaf83; stroke-width:.7; }
+.garden-note { fill:#94a68a; font:italic 12px Georgia,serif; letter-spacing:1px; }
 /* D: analogue field notes, graph paper, ink and offset label shadows. */
 [data-theme="d"] { --bg:#f2eddf; --surface:#faf7eb; --ink:#344c4d; --muted:#848578; --line:#cbd1c3; --accent:#376568; --accent-soft:#e1e6d7; --todo:#7d8b83; --doing:#b37444; --done:#718e6c; --drop:#99988b; --shadow:3px 4px 0 #435b4820; --radius:3px; }
 [data-theme="d"] .workspace:before { background-image:linear-gradient(#8499852b 1px,transparent 1px),linear-gradient(90deg,#8499852b 1px,transparent 1px); background-size:25px 25px; opacity:.6; }
@@ -138,16 +187,25 @@ h2 { font:500 36px/1.25 var(--serif); margin:7px 0 9px; letter-spacing:.07em; }
 [data-theme="d"] .sidebar:before { content:""; position:absolute; top:-10px; left:64px; width:105px; height:23px; transform:rotate(-5deg); background:#c8b47f60; }
 [data-theme="d"] h1,[data-theme="d"] h2,[data-theme="d"] .design-name { font-family:"KaiTi","STKaiti",var(--serif); font-weight:500; }
 [data-theme="d"] h2 { font-size:40px; }
-[data-theme="d"] .node rect { rx:2; stroke:#809084; filter:drop-shadow(3px 4px 0 #526d4924); }
-[data-theme="d"] .node.branch rect { stroke:#7c927f; fill:#e4e9d8; }
+[data-theme="d"] .node rect { rx:2; stroke:#809084; }
 [data-theme="d"] .node.root text { font-family:"KaiTi","STKaiti",var(--serif); font-size:26px; }
 [data-theme="d"] .node text { font-family:"KaiTi","STKaiti",var(--serif); font-size:17px; }
-[data-theme="d"] .connector { stroke:#879b8f; stroke-width:1.3; }
+[data-theme="d"] .connector { stroke:#647f71; stroke-width:1.5; stroke-linecap:round; stroke-linejoin:round; }
+[data-theme="d"] .connector.active { stroke:#9e763e; opacity:1; }
 [data-theme="d"] .node.dropped rect { filter:none; }
 [data-theme="d"] .field,[data-theme="d"] .export,[data-theme="d"] .edit-actions button,[data-theme="d"] .zoom { border-radius:2px; }
 [data-theme="d"] .design-signature { border-top:1px dashed #8d9b8b; }
 [data-theme="d"] .node.selected rect { fill:#fff8dc; stroke:#a67e42; }
 [data-theme="d"] .node .selection-label { fill:#a67e42; font:10px var(--sans); }
+.paper-node { fill:#faf7eb; stroke:#809084; stroke-width:1.1; stroke-linecap:round; stroke-linejoin:round; filter:drop-shadow(3px 4px 0 #526d491c); }
+.node.branch .paper-node { fill:#e4e9d8; stroke:#7c927f; }
+.node.root .paper-node { fill:#376568; stroke:#376568; }
+.node.selected .paper-node { fill:#fff6cf; stroke:#a67e42; stroke-width:1.4; }
+.node.dropped .paper-node { fill:none; stroke:#8c9685; stroke-dasharray:4 4; filter:none; }
+.pencil-echo { fill:none; stroke:#7d8c72; stroke-width:.7; opacity:.32; stroke-linecap:round; }
+.pen-arrow { fill:none; stroke:#647f71; stroke-width:1.2; stroke-linecap:round; stroke-linejoin:round; }
+.hand-note { fill:#85907b; font:16px "KaiTi","STKaiti",var(--serif); letter-spacing:1px; }
+.hand-doodle { fill:none; stroke:#9b9f80; stroke-width:1.1; stroke-linecap:round; stroke-linejoin:round; }
 /* Keep the small root caption independent of each theme's title typography. */
 [data-theme] .node.root .meta { font:9px Georgia,serif; letter-spacing:2px; }
 @media (max-width:850px) {
@@ -176,7 +234,7 @@ html.board { background:#e8e5de; }
 </head>
 <body>
 <header class="study-bar">
-  <span class="study-label">TODO LIST / 美术风格探索</span>
+  <span class="study-label">TODO LIST / 美术风格探索 · 第二轮</span>
   <nav class="themes" aria-label="切换美术方案">
     <a href="?theme=a" data-choice="a">A · 奶油纸感</a>
     <a href="?theme=b" data-choice="b">B · 深色星图</a>
@@ -212,10 +270,10 @@ html.board { background:#e8e5de; }
 <div class="toast" hidden role="status">这是美术效果预览，待选定风格后接入现有待办功能。</div>
 <script>
 const options = {
-  a:{name:'奶油纸感',spec:'暖白纸面 / 陶土色 / 宋体标题',brand:'慢慢来，也会抵达。',eyebrow:'A LITTLE PROGRESS, EVERY DAY',heading:'把日子，慢慢理顺。',sub:'不必一次完成所有事，先照顾好眼前的一小步。',colors:['#f6f2ea','#a7583d','#68836a','#ddd5c6']},
-  b:{name:'深色星图',spec:'午夜蓝 / 香槟金 / 微光连线',brand:'每一步，都有方向。',eyebrow:'SMALL STEPS. DISTANT HORIZONS.',heading:'让想法，连成星图。',sub:'在安静的夜色里，找到下一件值得专注的事。',colors:['#101723','#d9b979','#78b5a5','#44536a']},
-  c:{name:'清透薄荷',spec:'薄荷绿 / 雾紫分组 / 轻盈卡片',brand:'留一点空间给专注。',eyebrow:'LESS NOISE, MORE FOCUS',heading:'今天，也轻一点。',sub:'清楚地看见进度，从容地安排接下来的每一步。',colors:['#f3f8f7','#267d6c','#e7e5f2','#dcefe6']},
-  d:{name:'复古手账',spec:'方格纸 / 墨绿线稿 / 手写标题',brand:'把想做的事，写下来。',eyebrow:'FIELD NOTES / THINGS TO GROW',heading:'一页计划，几许生长。',sub:'收集想法，标记进度，把生活写成喜欢的样子。',colors:['#f2eddf','#376568','#b37444','#e1e6d7']}
+  a:{name:'奶油纸感',spec:'陶片节点 / 午后斜阳 / 蜜色投影',brand:'留一段午后的慢时光。',eyebrow:'A WARM AFTERNOON, A SMALL STEP',heading:'把日子，晒成暖色。',sub:'在一片暖阳里，慢慢捏出生活喜欢的形状。',colors:['#f6ead7','#b65d3d','#e7b78e','#dfb477']},
+  b:{name:'深色星图',spec:'星核节点 / 星座折线 / 轨道光晕',brand:'每一步，都有方向。',eyebrow:'SMALL STEPS. DISTANT HORIZONS.',heading:'让想法，连成星图。',sub:'循着星光，找到下一件值得专注的事。',colors:['#101723','#d9b979','#78b5a5','#718fae']},
+  c:{name:'清透薄荷',spec:'叶片节点 / 新芽枝蔓 / 晨露薄荷',brand:'给想法一点生长的空间。',eyebrow:'A LITTLE ROOM TO GROW',heading:'像新叶一样，慢慢舒展。',sub:'让计划自然生长，也给自己留一点呼吸的空隙。',colors:['#f6fbf1','#438465','#bed8ac','#e4efd6']},
+  d:{name:'复古手账',spec:'手绘箭头 / 铅笔复描 / 方格便笺',brand:'把想做的事，写下来。',eyebrow:'FIELD NOTES / THINGS TO GROW',heading:'一页计划，几许生长。',sub:'不必画得笔直，每一笔都可以有自己的方向。',colors:['#f2eddf','#376568','#b37444','#e1e6d7']}
 };
 const query = new URLSearchParams(location.search);
 const theme = Object.hasOwn(options,query.get('theme')) ? query.get('theme') : 'a';
@@ -224,28 +282,111 @@ const chosen = options[theme];
 for (const [id,value] of Object.entries({brandText:chosen.brand,eyebrow:chosen.eyebrow,heading:chosen.heading,subheading:chosen.sub,letter:theme.toUpperCase(),styleName:chosen.name,styleSpec:chosen.spec})) document.getElementById(id).textContent=value;
 document.querySelector(`[data-choice="${theme}"]`).setAttribute('aria-current','page');
 document.querySelector('.swatches').innerHTML=chosen.colors.map(color=>`<i style="background:${color}"></i>`).join('');
+const leafIcon='<svg width="25" height="25" viewBox="0 0 30 30" aria-hidden="true"><path d="M5 23C1 9 15 3 26 4C26 16 17 26 5 23Z" fill="#bcd7a8"/><path d="M4 26Q12 15 23 7" fill="none" stroke="#438465" stroke-width="1.3"/></svg>';
+document.querySelector('.brand-mark').innerHTML={a:'☀',b:'✧',c:leafIcon,d:'✎'}[theme];
+const atmosphere={
+  a:`<svg viewBox="0 0 1200 834" preserveAspectRatio="none"><defs><linearGradient id="sunlight" x1="1" y1="0" x2="0" y2="1"><stop stop-color="#ffe5ac" stop-opacity=".7"/><stop offset="1" stop-color="#fff9e7" stop-opacity="0"/></linearGradient><filter id="softSun"><feGaussianBlur stdDeviation="7"/></filter></defs><path d="M930 386V154a116 116 0 0 1 232 0v232Z" fill="#d8a168" opacity=".11"/><path d="M946 386V154a100 100 0 0 1 200 0v232" fill="none" stroke="#bc8355" opacity=".13"/><circle cx="1060" cy="180" r="83" fill="#ffe1a2" opacity=".38"/><g filter="url(#softSun)"><path d="M835 -60H1270L640 834H245Z" fill="url(#sunlight)"/><path d="M1050 -25h28L457 834h-33ZM1207 -25h30L614 834h-32Z" fill="#8a6036" opacity=".075"/><path d="M1200 145v28L429 834h-37Z" fill="#8a6036" opacity=".045"/></g></svg>`,
+  b:'',
+  c:`<svg viewBox="0 0 1200 834"><g opacity=".24" fill="#b5cd9b" stroke="#93b381" stroke-width="1"><path d="M1207 61C1150 119 1124 185 1094 271" fill="none"/><path d="M1162 122Q1081 118 1088 58Q1148 60 1162 122ZM1135 171Q1138 90 1195 87Q1193 152 1135 171ZM1117 212Q1049 202 1057 149Q1112 156 1117 212ZM1104 243Q1110 178 1162 177Q1155 232 1104 243Z"/></g><g opacity=".16" fill="#a4c7a0"><path d="M27 802Q81 718 79 638" fill="none" stroke="#7aa776"/><path d="M62 742Q3 722 17 676Q65 689 62 742ZM77 700Q77 644 120 633Q125 678 77 700ZM38 784Q4 766 0 735Q45 745 38 784Z"/></g></svg>`,
+  d:`<svg viewBox="0 0 1200 834"><g class="hand-doodle" transform="translate(1070 117) rotate(12)"><path d="M-46 3C-49-45 42-51 47-6C53 36-40 43-46 3ZM-48 0C-49-41 40-47 45-5" opacity=".5"/><path d="M-11 3l22-5M-1-9l2 23M-10-8l19 18M9-9L-8 12"/><path d="M-57 42q51 14 111-3"/><text x="0" y="65" text-anchor="middle" fill="#899078" stroke="none" font-family="Georgia,serif" font-style="italic" font-size="10">a little, every day</text></g></svg>`
+};
+document.querySelector('.workspace').insertAdjacentHTML('afterbegin',`<div class="atmosphere" aria-hidden="true">${atmosphere[theme]}</div>`);
 const groups=[
   {title:'学习研究',caption:'LEARN & EXPLORE',y:130,tasks:[['论文阅读','done'],['整理实验思路','doing'],['复现实验','todo']]},
   {title:'个人网站',caption:'BUILD & CREATE',y:285,tasks:[['整理页面风格','doing'],['调整移动端布局','todo'],['更新个人简介','done']]},
   {title:'日常生活',caption:'LIVE & ENJOY',y:440,tasks:[['读完一本好书','todo'],['周末散步','done'],['旧计划归档','dropped']]}
 ];
 const svg=document.querySelector('.diagram');
-let connections='',nodes='';
-function path(x1,y1,x2,y2,active=false){
+const defs=`<defs><linearGradient id="clayGlaze" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#c87850"/><stop offset="1" stop-color="#a64c32"/></linearGradient><filter id="starlight" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="1.6"/><feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>`;
+let connections='',nodes='',decoration='';
+let lineIndex=0;
+// A fixed, gently uneven pen stroke: smooth interpolation, no animation or randomness.
+function penLine(x1,y1,x2,y2,seed){
+  const pts=[];
   const mid=(x1+x2)/2;
-  return `<path class="connector${active?' active':''}" d="M${x1},${y1} C${mid},${y1} ${mid},${y2} ${x2},${y2}"/>`;
+  for(let i=0;i<=16;i++){
+    const t=i/16,u=1-t;
+    const x=u*u*u*x1+3*u*u*t*mid+3*u*t*t*mid+t*t*t*x2;
+    const y=u*u*u*y1+3*u*u*t*y1+3*u*t*t*y2+t*t*t*y2;
+    const wobble=Math.sin(Math.PI*t)*(Math.sin(t*27+seed*2)*1.1+Math.sin(t*9+seed)*2.4);
+    pts.push([x,y+wobble]);
+  }
+  let d=`M${x1},${y1}`;
+  for(let i=0;i<pts.length-1;i++){
+    const p0=pts[Math.max(0,i-1)],p1=pts[i],p2=pts[i+1],p3=pts[Math.min(pts.length-1,i+2)];
+    const c1=p1.map((v,j)=>v+(p2[j]-p0[j])/6);
+    const c2=p2.map((v,j)=>v-(p3[j]-p1[j])/6);
+    d+=`C${c1} ${c2} ${p2}`;
+  }
+  return d;
 }
-for(const group of groups){
-  connections+=path(233,285,392,group.y,group.y===285);
-  nodes+=`<g class="node branch" transform="translate(392 ${group.y})"><rect width="176" height="50" x="-1" y="-25"/><text x="23" y="5">${group.title}</text><text class="branch-count" x="149" y="4">03</text></g><circle class="fold" cx="580" cy="${group.y}" r="8"/><text class="fold-label" text-anchor="middle" x="580" y="${group.y+4}">−</text><text class="branch-caption" x="414" y="${group.y+48}">${group.caption}</text>`;
+function path(x1,y1,x2,y2,active=false,trunk=false){
+  const seed=++lineIndex;
+  const cls=`connector${active?' active':''}${trunk?' trunk':''}`;
+  const mid=(x1+x2)/2;
+  if(theme==='d'){
+    const d=penLine(x1,y1,x2-4,y2,seed);
+    return `<path class="pencil-echo" d="${d}" transform="translate(.6 1.3)"/><path class="${cls}" d="${d}" style="stroke-width:${seed%3===0?1.7:1.3}"/><path class="pen-arrow" d="M${x2-11},${y2-4}L${x2-4},${y2+.4} ${x2-10},${y2+4}"/>`;
+  }
+  if(theme==='b'){
+    const mx=x1+(x2-x1)*.44,my=y1+(y2-y1)*.62;
+    return `<path class="${cls}" d="M${x1},${y1}L${mx},${my} ${x2},${y2}"/><circle class="star-dot" cx="${mx}" cy="${my}" r="1.8" opacity=".8"/>`;
+  }
+  return `<path class="${cls}" d="M${x1},${y1} C${mid},${y1} ${mid},${y2} ${x2},${y2}"/>`;
+}
+function sprig(x,y,angle=0,scale=1){
+  return `<g transform="translate(${x} ${y}) rotate(${angle}) scale(${scale})"><path class="sprig-leaf" d="M0 0Q-29-1-27-19Q-4-21 0 0Z"/><path class="sprig-leaf" d="M0 0Q4-25 23-25Q27-7 0 0Z"/><path class="sprig-vein" d="M-22-16Q-8-10 0 0Q13-17 20-21"/></g>`;
+}
+function paperOutline(x,y,w,h,seed=0){
+  const j=seed%2?1:-1;
+  return `<path class="paper-node" d="M${x+3},${y+1}Q${x+w*.36},${y-1.3} ${x+w-2},${y+j}L${x+w+.5},${y+h*.48} ${x+w-1},${y+h}Q${x+w*.65},${y+h+1.3} ${x+w*.33},${y+h-.7}L${x},${y+h+.6} ${x-.7},${y+h*.43}Z"/>`;
+}
+function stateMark(status,x=22){
+  return `<circle class="state" cx="${x}" cy="0" r="6"/>${status==='done'?`<path class="tick" d="M${x-3},0 l2,2 4,-4"/>`:''}`;
+}
+if(theme==='b'){
+  decoration=`<g aria-hidden="true"><circle class="orbit" cx="160" cy="285" r="200"/><circle class="orbit dashed" cx="160" cy="285" r="270"/><path class="orbit" d="M441 13A390 390 0 0 1 441 557"/><text class="constellation-code" x="16" y="552">CELESTIAL ATLAS / 09 STARS</text></g>`;
+  const stars=[[52,63,1.3],[197,27,1.5],[300,93,2],[355,211,1.1],[510,33,1.2],[590,209,1.6],[668,99,1],[956,41,2],[1008,214,1.2],[649,404,1],[334,491,1.7],[555,550,1.5],[999,547,1.1]];
+  decoration+=stars.map(([x,y,r])=>`<circle class="star-dot" cx="${x}" cy="${y}" r="${r}" opacity=".45"/>`).join('');
+  const sectors=[{x:440,y:126,leaves:[[753,62],[829,120],[755,181]]},{x:400,y:285,leaves:[[765,244],[833,303],[755,359]]},{x:475,y:443,leaves:[[770,420],[831,478],[752,534]]}];
+  groups.forEach((group,g)=>{
+    const sector=sectors[g];
+    connections+=path(233,285,sector.x,sector.y,g===1,true);
+    const label=[{x:-24,y:-12,anchor:'end'},{x:0,y:-40,anchor:'middle'},{x:-24,y:33,anchor:'end'}][g];
+    nodes+=`<g class="node branch" transform="translate(${sector.x} ${sector.y})"><circle class="star-ring" r="14"/><path class="star-junction" d="M0-9L2-2 9 0 2 2 0 9-2 2-9 0-2-2Z"/><g text-anchor="${label.anchor}"><text class="sector" x="${label.x}" y="${label.y-19}">SECTOR 0${g+1}</text><text x="${label.x}" y="${label.y+5}">${group.title}</text><text class="meta" x="${label.x}" y="${label.y+24}">${group.caption}</text></g></g>`;
+    group.tasks.forEach(([title,status],i)=>{
+      const [x,y]=sector.leaves[i],selected=g===1&&i===0;
+      connections+=path(sector.x,sector.y,x,y,selected);
+      nodes+=`<g class="node ${status}${selected?' selected':''}" transform="translate(${x} ${y})"><rect x="-17" y="-24" width="215" height="53"/>${stateMark(status,0)}<text class="task-title" x="21" y="-2">${title}</text><text class="meta" x="21" y="16">0${g*3+i+1} / ${status==='done'?'COMPLETED':status==='doing'?'IN ORBIT':status==='dropped'?'ARCHIVED':'TO EXPLORE'}</text>${selected?'<text class="selection-label" x="149" y="-3">进行中</text>':''}</g>`;
+    });
+  });
+  nodes+=`<g class="node root" transform="translate(160 285)"><ellipse class="core-orbit" rx="96" ry="29" transform="rotate(-30)"/><circle class="core-disc" r="73"/><circle class="core-orbit" r="81" stroke-dasharray="1 5"/><path d="M4-48a12 12 0 1 0 11 17a11 11 0 0 1-11-17" fill="#d9b979"/><text text-anchor="middle" y="8">我的计划</text><text class="meta" text-anchor="middle" y="31">PLAN / 09 STARS</text><circle cx="81" cy="0" r="3" fill="#e6cc90" filter="url(#starlight)"/></g>`;
+}else{
+for(const [g,group] of groups.entries()){
+  connections+=path(233,285,392,group.y,group.y===285,true);
+  if(theme==='c')decoration+=sprig(332,285+(group.y-285)*.55,-25+g*25,.75);
+  const branchSurface=theme==='d'?paperOutline(-1,-25,176,50,g):'<rect width="176" height="50" x="-1" y="-25"/>';
+  nodes+=`<g class="node branch" transform="translate(392 ${group.y})">${branchSurface}<text x="23" y="5">${group.title}</text><text class="branch-count" x="149" y="4">03</text></g><circle class="fold" cx="580" cy="${group.y}" r="8"/><text class="fold-label" text-anchor="middle" x="580" y="${group.y+4}">−</text><text class="branch-caption" x="414" y="${group.y+48}">${group.caption}</text>`;
   group.tasks.forEach(([title,status],i)=>{
-    const y=group.y+(i-1)*55;
+    const y=group.y+(i-1)*48;
     const selected=group.y===285&&i===0;
     connections+=path(588,group.y,759,y,selected);
-    nodes+=`<g class="node ${status}${selected?' selected':''}" transform="translate(759 ${y})">${selected?'<rect class="selection-halo" x="-5" y="-27" width="256" height="54"/>':''}<rect x="0" y="-22" width="246" height="44"/><circle class="state" cx="22" cy="0" r="6"/>${status==='done'?'<path class="tick" d="M19,0 l2,2 4,-4"/>':''}<text class="task-title" x="41" y="5">${title}</text>${selected?'<text class="selection-label" x="168" y="4">进行中</text>':''}</g>`;
+    if(theme==='c'&&i!==1)decoration+=sprig(699,group.y+(y-group.y)*.72,i===0?-25:100,.48);
+    const surface=theme==='d'?paperOutline(0,-22,246,44,i+g):theme==='c'?'<path class="leaf-surface" d="M0 0C5-26 40-23 91-22H205Q233-22 246-28Q249 21 215 22H36Q5 22 0 0Z"/>':'<rect x="0" y="-22" width="246" height="44"/>';
+    nodes+=`<g class="node ${status}${selected?' selected':''}" transform="translate(759 ${y})">${surface}${stateMark(status)}<text class="task-title" x="41" y="5">${title}</text>${selected?'<text class="selection-label" x="168" y="4">进行中</text>':''}</g>`;
   });
 }
-svg.innerHTML=connections+`<g class="node root" transform="translate(63 285)"><rect x="0" y="-41" width="170" height="82"/><text x="85" y="-1" text-anchor="middle">我的计划</text><text class="meta" x="85" y="22" text-anchor="middle">ONE STEP AT A TIME</text></g>`+nodes;
+const rootSurface=theme==='d'?paperOutline(0,-41,170,82):theme==='c'?'<path class="leaf-surface garden-root" d="M0 6C-7-53 55-44 95-41Q153-37 171-50Q185 37 137 41H43Q4 44 0 6Z"/>':'<rect x="0" y="-41" width="170" height="82"/><rect class="clay-inset" x="6" y="-35" width="158" height="70" style="fill:none;filter:none"/>';
+nodes+=`<g class="node root" transform="translate(63 285)">${rootSurface}<text x="85" y="-1" text-anchor="middle">我的计划</text><text class="meta" x="85" y="22" text-anchor="middle">ONE STEP AT A TIME</text></g>`;
+if(theme==='a'){
+  decoration+=`<g class="sun-emblem" transform="translate(148 213)"><circle r="12"/>${Array.from({length:12},(_,i)=>`<path d="M0-17V-22" transform="rotate(${i*30})"/>`).join('')}</g><text class="sun-caption" x="148" y="359" text-anchor="middle">SLOW AFTERNOON</text>`;
+}
+if(theme==='c')decoration+=sprig(219,245,-35,.8)+'<text class="garden-note" x="58" y="513">a little growth, every day.</text>';
+if(theme==='d'){
+  decoration+='<text class="hand-note" transform="translate(45 471) rotate(-5)">慢慢来，一件一件做。</text><path class="hand-doodle" d="M102 446C63 416 77 371 119 347M109 349l10-2-4 10"/>';
+}
+}
+svg.innerHTML=defs+connections+decoration+nodes;
 let toastTimer;
 document.querySelectorAll('[data-demo]').forEach(button=>button.addEventListener('click',()=>{
   const toast=document.querySelector('.toast'); toast.hidden=false;
