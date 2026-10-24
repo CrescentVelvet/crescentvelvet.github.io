@@ -343,6 +343,13 @@ title: "高斯对比"
             scene: null,
             state: 'empty', // empty | loading | ready | error
             bbox: null,
+            // Supersplat 每帧按 scene bound 重算 near/far；先用安全默认值，
+            // 模型加载完成后改为按模型半径动态裁剪（见 updateCameraClipPlanes）。
+            modelRadius: 1,
+            clipNear: 0.1,
+            clipFar: 1000,
+            clipForward: new THREE.Vector3(),
+            clipToCenter: new THREE.Vector3(),
             scale: 1, // 归一化缩放
             adjusting: false,   // 单独调整中：本面板的鼠标变化量只记进 camOffset，不写共同基准、不广播
             flipped: false,     // 本面板模型是否上下翻转（模型侧状态，与相机无关）
@@ -401,6 +408,32 @@ title: "高斯对比"
         // 而这行代码可能在 render 之前执行（forceResort），必须立刻把 matrixWorld
         // 刷成新朝向，否则这一轮强排用的是上一帧的旧矩阵。
         g.updateMatrixWorld(true);
+    }
+
+    // Supersplat 的 Camera.fitClippingPlanes 会根据场景包围球动态设置裁剪面：
+    //   far  = depth + radius
+    //   near = min(1, max(depth - radius, far / (1024 * 16)))
+    // 固定 near=0.1 / far=1000 在大范围模型上会浪费深度精度，近距离观察时
+    // 也可能把模型前后端裁掉。这里复用同一公式；模型已经由 group 居中到原点，
+    // 因而包围球中心就是世界原点。
+    function updateCameraClipPlanes(panel, force = false) {
+        if (!panel || !panel.camera || !panel.sceneCenter || !panel.modelRadius) return;
+        const camera = panel.camera;
+        const radius = Math.max(panel.modelRadius, 1e-3);
+        const forward = panel.clipForward.set(0, 0, -1).applyQuaternion(camera.quaternion);
+        const toCenter = panel.clipToCenter.set(0, 0, 0).sub(camera.position);
+        const depth = toCenter.dot(forward);
+        const far = Math.max(depth + radius, 1e-2);
+        const near = Math.min(1.0, Math.max(depth - radius, far / (1024 * 16)));
+        const safeFar = Math.max(far, near + 1e-3);
+        if (!force && Math.abs(camera.near - near) < 1e-5 && Math.abs(camera.far - safeFar) < 1e-4) {
+            return;
+        }
+        camera.near = near;
+        camera.far = safeFar;
+        camera.updateProjectionMatrix();
+        panel.clipNear = near;
+        panel.clipFar = safeFar;
     }
 
     // 本面板翻转对应的四元数（绕 X 轴 180°）。
@@ -569,6 +602,10 @@ title: "高斯对比"
             // 有人给 renderer 设了 ACES 之类的默认值造成对比偏差。
             renderer.toneMapping = THREE.NoToneMapping;
             renderer.toneMappingExposure = 1;
+            // PlayCanvas 默认把线性渲染结果编码到 sRGB 显示目标；three r185
+            // 当前默认值也是 sRGB，但这里显式设置，避免后续升级或共享 renderer
+            // 时悄悄退回线性输出，造成整体偏暗的对比偏差。
+            renderer.outputColorSpace = THREE.SRGBColorSpace;
             const w = panel.canvasWrap.clientWidth || 400;
             const h = panel.canvasWrap.clientHeight || 300;
             // pixelRatio 对齐 SuperSplat：它按 devicePixelContentBoxSize（物理像素）渲染，
@@ -758,6 +795,20 @@ title: "高斯对比"
             const sceneCenter = splatBuffer.sceneCenter.clone(); // 模型原始中心
             console.log('[splat-compare] sceneCenter:', sceneCenter);
 
+            // SplatMesh 在建树时累计了所有中心点到 sceneCenter 的最大距离。
+            // 这与 SuperSplat 用 scene bound 半径做裁剪的语义一致；加 5% 裕量
+            // 给高斯自身的协方差留出边缘，避免大 splat 在 near/far 边界被切掉。
+            const centerRadius = Number(splatMesh.maxSplatDistanceFromSceneCenter);
+            const treeBox = splatMesh.splatTree && splatMesh.splatTree.rootNode &&
+                splatMesh.splatTree.rootNode.boundingBox;
+            const treeRadius = treeBox && treeBox.min && treeBox.max
+                ? treeBox.getSize(new THREE.Vector3()).length() * 0.5
+                : 0;
+            panel.modelRadius = Math.max(1e-3,
+                (isFinite(treeRadius) && treeRadius > 0) ? treeRadius :
+                (isFinite(centerRadius) && centerRadius > 0 ? centerRadius : 1)) * 1.05;
+            console.log('[splat-compare] modelRadius:', panel.modelRadius);
+
             // 居中：必须应用到 splatGroup（THREE.Group）级别！
             // 库 v0.4.7 在 dynamicScene=false 时把 scene 变换烘焙进数据纹理，
             // 事后改 scene0.position/rotation 不参与渲染（已用截图对比证实无效）。
@@ -771,6 +822,7 @@ title: "高斯对比"
 
             panel.sceneCenter = sceneCenter;
             panel.scale = 1; // 暂不强行归一化尺寸，3DGS 消融模型通常尺寸接近
+            updateCameraClipPlanes(panel, true);
 
             // 移除 loading
             loadingEl.remove();
@@ -861,6 +913,9 @@ title: "高斯对比"
             if (p.state === 'ready' && p.viewer && p.renderer && p.scene) {
                 hasActive = true;
                 if (cameraMoved(p)) anyMoving = true;
+                // Supersplat 每帧按当前相机与 scene bound 调整裁剪面；相机移动
+                // 或模型翻转后都在真正 render 前更新，确保排序和投影使用同一矩阵。
+                updateCameraClipPlanes(p);
                 // DropInViewer 模式：splatGroup 加在 scene 里，
                 // renderer.render(scene, camera) 时 splatGroup.callbackMesh.onBeforeRender
                 // 会自动调用 viewer.update(renderer, camera)，内部完成排序和 uniform 更新
@@ -1221,6 +1276,9 @@ title: "高斯对比"
         // 排查"某个面板转不动/滚不动"时最直接的两个状态
         enabled: p.controls ? p.controls.enabled : null,
         fov: p.camera ? p.camera.fov : null,   // 像素↔世界换算要用（回归脚本自己实现一份）
+        near: p.camera ? p.camera.near : null,
+        far: p.camera ? p.camera.far : null,
+        modelRadius: p.modelRadius || null,
         // 页面侧实际用的平移基（右/上轴 + 世界单位每像素），供回归脚本核对自算的那份
         panBasis: (p.camera && p.controls && p.state === 'ready') ? (() => {
             const s = panScale(p);
