@@ -151,17 +151,14 @@ permalink: /sandbox_war_game.html
         .battlefield-viewport {
             position: relative;
             width: 100%;
-            background: #26362c;
-            border: 4px solid var(--pixel-text);
-            box-shadow: 8px 8px 0px rgba(0,0,0,0.5);
+            background: #17231f;
+            border: 4px solid #0b1210;
+            box-shadow: 0 0 0 2px #71806c, 8px 8px 0px rgba(0,0,0,0.5);
             overflow: hidden;
             background-image:
-                radial-gradient(circle at 18% 22%, rgba(160, 135, 82, 0.45) 0 18px, transparent 19px),
-                radial-gradient(circle at 74% 68%, rgba(60, 90, 62, 0.7) 0 30px, transparent 31px),
-                linear-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px),
-                linear-gradient(135deg, rgba(29, 46, 36, 0.9), rgba(50, 58, 38, 0.9));
-            background-size: 220px 180px, 260px 220px, 40px 40px, 40px 40px, auto;
+                linear-gradient(135deg, rgba(122, 145, 112, 0.11) 25%, transparent 25%) 0 0 / 8px 8px,
+                linear-gradient(315deg, rgba(8, 15, 12, 0.22) 25%, transparent 25%) 0 0 / 8px 8px,
+                #17231f;
             box-sizing: border-box;
             margin: 0 auto;
         }
@@ -177,6 +174,18 @@ permalink: /sandbox_war_game.html
             background: transparent;
             box-shadow: none;
             border: none;
+            isolation: isolate;
+        }
+
+        /* 舞台内框只做层次提示，不参与碰撞，也不遮挡单位。 */
+        .battlefield::before {
+            content: '';
+            position: absolute;
+            inset: 9px;
+            border: 2px solid rgba(213, 224, 186, 0.28);
+            box-shadow: inset 0 0 0 1px rgba(5, 12, 10, 0.5);
+            pointer-events: none;
+            z-index: 7;
         }
 
         .terrain-canvas,
@@ -6109,29 +6118,31 @@ permalink: /sandbox_war_game.html
                 const labels = sideMap[this.scenario.side] || ['友军', '敌军'];
                 const zone = this.scenario.playerZone || { x: 0, y: 0, w: 550, h: 750 };
                 ctx.save();
-                ctx.globalAlpha = 0.5;
-                ctx.font = 'bold 90px "ZCOOL QingKe HuangYou", sans-serif';
-                ctx.textAlign = 'center';
+                ctx.font = 'bold 18px "ZCOOL QingKe HuangYou", "DotGothic16", monospace';
                 ctx.textBaseline = 'middle';
+                const drawTag = (text, x, y, color, align) => {
+                    const padX = 8;
+                    const width = Math.ceil(ctx.measureText(text).width) + padX * 2;
+                    const left = align === 'right' ? x - width : x;
+                    ctx.globalAlpha = 0.78;
+                    ctx.fillStyle = 'rgba(8, 15, 13, 0.82)';
+                    ctx.fillRect(left, y - 12, width, 24);
+                    ctx.globalAlpha = 0.9;
+                    ctx.fillStyle = color;
+                    ctx.fillRect(left, y - 12, 3, 24);
+                    ctx.textAlign = 'left';
+                    ctx.fillText(text, left + padX, y + 1);
+                };
                 if (this.isPortrait) {
-                    // 竖屏: 玩家方(北/上)与敌方(南/下)沿 Y 轴标注
-                    const playerY = zone.y + zone.h / 2;
-                    const playerIsNorth = playerY < this.h / 2;
-                    const playerLabelY = playerIsNorth ? Math.max(80, playerY) : this.h - 90;
-                    const enemyLabelY = playerIsNorth ? this.h - 90 : Math.max(80, playerY);
-                    ctx.fillStyle = '#3498db';
-                    ctx.fillText(labels[0], this.w / 2, playerLabelY);
-                    ctx.fillStyle = '#e74c3c';
-                    ctx.fillText(labels[1], this.w / 2, enemyLabelY);
+                    // 竖屏: 信息牌固定在上下角，避免遮住中线上的兵力。
+                    const playerIsNorth = (zone.y + zone.h / 2) < this.h / 2;
+                    drawTag(labels[0], 18, playerIsNorth ? 29 : this.h - 29, '#75c8f5', 'left');
+                    drawTag(labels[1], this.w - 18, playerIsNorth ? this.h - 29 : 29, '#ff8f7c', 'right');
                 } else {
-                    // 横屏: 玩家方(西/东)与敌方沿 X 轴标注
+                    // 横屏: 信息牌贴近双方边缘，保留战区方向提示。
                     const playerIsWest = (zone.x + zone.w / 2) < this.w / 2;
-                    const playerX = zone.x + zone.w / 2;
-                    const enemyX = playerIsWest ? this.w - 150 : 150;
-                    ctx.fillStyle = '#3498db';
-                    ctx.fillText(labels[0], playerX, this.h / 2);
-                    ctx.fillStyle = '#e74c3c';
-                    ctx.fillText(labels[1], enemyX, this.h / 2);
+                    drawTag(labels[0], playerIsWest ? 18 : this.w - 18, 29, '#75c8f5', playerIsWest ? 'left' : 'right');
+                    drawTag(labels[1], playerIsWest ? this.w - 18 : 18, this.h - 29, '#ff8f7c', playerIsWest ? 'right' : 'left');
                 }
                 ctx.restore();
             }
@@ -6242,19 +6253,34 @@ permalink: /sandbox_war_game.html
             drawSectorTiles(palette, type) {
                 const ctx = this.terrainCtx;
                 ctx.save();
-                ctx.globalAlpha = type === 'river' ? 0.08 : 0.13;
-                for (let y = 8; y < this.h; y += 16) {
-                    for (let x = 8; x < this.w; x += 16) {
-                        if (this.randInt(7) === 0) {
-                            ctx.fillStyle = this.randInt(2) ? palette.accent : palette.shadow;
-                            ctx.fillRect(x, y, 7 + this.randInt(7), 3 + this.randInt(4));
-                        }
-                    }
-                }
-                ctx.globalAlpha = 0.12;
+                // 32px 战术格让地图有可读的像素尺度，低对比度避免压住单位。
+                const grid = 32;
+                ctx.globalAlpha = type === 'river' ? 0.1 : 0.16;
                 ctx.strokeStyle = palette.shadow;
                 ctx.lineWidth = 1;
-                for (let x = 0; x < this.w; x += 80) ctx.strokeRect(x + 0.5, 0.5, 79, this.h - 1);
+                for (let x = grid; x < this.w; x += grid) {
+                    ctx.beginPath();
+                    ctx.moveTo(x + 0.5, 0);
+                    ctx.lineTo(x + 0.5, this.h);
+                    ctx.stroke();
+                }
+                for (let y = grid; y < this.h; y += grid) {
+                    ctx.beginPath();
+                    ctx.moveTo(0, y + 0.5);
+                    ctx.lineTo(this.w, y + 0.5);
+                    ctx.stroke();
+                }
+                ctx.globalAlpha = type === 'river' ? 0.18 : 0.24;
+                ctx.fillStyle = palette.accent;
+                for (let y = grid; y < this.h; y += grid * 2) {
+                    for (let x = grid; x < this.w; x += grid * 2) {
+                        ctx.fillRect(x - 1, y - 1, 3, 3);
+                    }
+                }
+                ctx.globalAlpha = 0.28;
+                ctx.strokeStyle = palette.accent;
+                for (let x = grid * 4; x < this.w; x += grid * 4) ctx.strokeRect(x + 0.5, 0.5, 1, 6);
+                for (let y = grid * 4; y < this.h; y += grid * 4) ctx.strokeRect(0.5, y + 0.5, 6, 1);
                 ctx.restore();
             }
 
@@ -6422,17 +6448,16 @@ permalink: /sandbox_war_game.html
                 if (type !== 'river') {
                     const roadY = Math.floor(this.h * (0.56 + this.rand() * 0.12));
                     const roadColor = type === 'snow' ? '#aeb8b6' : type === 'desert' ? '#a78045' : '#6c6148';
-                    ctx.globalAlpha = 0.30;
+                    ctx.globalAlpha = 0.18;
                     ctx.fillStyle = roadColor;
-                    ctx.fillRect(0, roadY, this.w, 16);
-                    ctx.globalAlpha = 0.55;
+                    ctx.fillRect(0, roadY, this.w, 12);
+                    ctx.globalAlpha = 0.42;
                     ctx.fillStyle = p.shadow;
                     ctx.fillRect(0, roadY, this.w, 2);
-                    ctx.fillRect(0, roadY + 14, this.w, 2);
-                    ctx.globalAlpha = 0.32;
-                    for (let x = 8; x < this.w; x += 12) {
-                        ctx.fillRect(x, roadY + 4, 6, 2);
-                        ctx.fillRect(x + 3, roadY + 10, 6, 2);
+                    ctx.fillRect(0, roadY + 10, this.w, 2);
+                    ctx.globalAlpha = 0.3;
+                    for (let x = 10; x < this.w; x += 18) {
+                        ctx.fillRect(x, roadY + 5, 8, 2);
                     }
                 }
 
