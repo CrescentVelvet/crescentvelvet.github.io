@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="a">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>待办清单 · 四种美术方向</title>
+<style>
+/* Independent visual study. All task names below are fictional demo content. */
+:root {
+  --bg:#f6f2ea; --surface:#fffcf7; --ink:#3b3a32; --muted:#827c70;
+  --line:#ddd5c6; --accent:#a7583d; --accent-soft:#eee0d3;
+  --todo:#828477; --doing:#b36b39; --done:#68836a; --drop:#989184;
+  --shadow:0 12px 40px #5e4b2810; --radius:18px;
+  --sans:"Microsoft YaHei","PingFang SC",sans-serif;
+  --serif:"Noto Serif SC","Source Han Serif SC","SimSun",serif;
+}
+* { box-sizing:border-box; }
+body { margin:0; background:var(--bg); color:var(--ink); font:14px/1.6 var(--sans); }
+button,a { font:inherit; }
+button { color:inherit; cursor:pointer; }
+button:focus-visible,a:focus-visible { outline:2px solid var(--accent); outline-offset:4px; }
+.study-bar { height:66px; padding:0 32px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--line); background:var(--surface); }
+.study-label { font-size:12px; letter-spacing:.13em; color:var(--muted); }
+.themes { display:flex; gap:6px; }
+.themes a { text-decoration:none; color:var(--muted); font-size:12px; padding:8px 14px; border-radius:7px; }
+.themes a[aria-current="page"] { color:var(--accent); background:var(--accent-soft); }
+.app { height:calc(100vh - 66px); min-height:750px; display:grid; grid-template-columns:264px 1fr; }
+.sidebar { margin:28px 0 28px 28px; padding:24px 22px; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); display:flex; flex-direction:column; position:relative; z-index:1; }
+.home { color:var(--muted); font-size:11px; text-decoration:none; letter-spacing:.03em; }
+.brand { font-size:13px; margin-top:32px; color:var(--accent); display:flex; align-items:center; gap:8px; }
+.brand-mark { font-family:Georgia,serif; font-size:27px; line-height:1; }
+h1 { font:600 28px/1.3 var(--serif); margin:12px 0 7px; letter-spacing:.06em; }
+.intro { color:var(--muted); font-size:11px; margin:0; }
+.section-label { color:var(--muted); font-size:10px; letter-spacing:.16em; margin:30px 0 12px; }
+.overview { display:flex; align-items:center; gap:17px; }
+.progress { width:63px; height:63px; border-radius:50%; background:conic-gradient(var(--done) 0deg 120deg,var(--accent-soft) 120deg 360deg); position:relative; display:grid; place-items:center; flex-shrink:0; }
+.progress:before { content:""; position:absolute; inset:5px; border-radius:50%; background:var(--surface); }
+.progress span { position:relative; font:22px Georgia,serif; }
+.summary strong { font-size:12px; font-weight:500; }
+.summary p { font-size:9px; color:var(--muted); margin:3px 0 0; white-space:nowrap; }
+.legend { display:grid; grid-template-columns:1fr 1fr; gap:12px 9px; margin:24px 0; font-size:11px; color:var(--muted); }
+.legend span { display:flex; align-items:center; gap:7px; }
+.dot { width:9px; height:9px; border-radius:50%; border:1.5px solid var(--todo); display:inline-block; }
+.dot.doing { border:2px solid var(--doing); border-right-color:transparent; }
+.dot.done { border:0; background:var(--done); }
+.dot.drop { border:1px dashed var(--drop); }
+.divider { height:1px; background:var(--line); }
+.selected-heading { display:flex; justify-content:space-between; align-items:center; }
+.selected-heading small { font-size:10px; color:var(--doing); }
+.selected-name { font-size:14px; margin:0 0 12px; }
+.field { background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:9px 11px; font-size:11px; display:flex; justify-content:space-between; align-items:center; }
+.field .dot { margin-right:6px; width:8px; height:8px; }
+.edit-actions { display:flex; gap:8px; margin-top:12px; }
+.edit-actions button { background:transparent; border:1px solid var(--line); border-radius:7px; padding:7px 10px; font-size:11px; }
+.editor-note { color:var(--muted); font-size:10px; margin:14px 0 0; }
+.side-bottom { margin-top:auto; padding-top:25px; }
+.export { background:var(--accent); color:var(--surface); border:0; border-radius:9px; width:100%; padding:11px; font-size:12px; letter-spacing:.08em; }
+.save-note { font-size:9px; text-align:center; color:var(--muted); margin:9px 0 0; }
+.workspace { position:relative; overflow:hidden; display:flex; flex-direction:column; padding:30px 36px 22px; }
+.workspace:before { content:""; position:absolute; inset:0; opacity:.3; background-image:radial-gradient(var(--line) .85px,transparent .85px); background-size:20px 20px; pointer-events:none; }
+.workspace > * { position:relative; }
+.topline { display:flex; align-items:center; justify-content:space-between; }
+.breadcrumb { font-size:11px; color:var(--muted); display:flex; align-items:center; gap:12px; }
+.breadcrumb strong { color:var(--ink); font-weight:500; }
+.mode { font-size:10px; border:1px solid var(--line); border-radius:20px; padding:6px 11px; background:var(--surface); color:var(--muted); }
+.page-title { margin-top:28px; }
+.eyebrow { font-size:10px; color:var(--accent); letter-spacing:.22em; }
+h2 { font:500 36px/1.25 var(--serif); margin:7px 0 9px; letter-spacing:.07em; }
+.title-sub { font-size:11px; color:var(--muted); margin:0; }
+.diagram { width:100%; flex:1; min-height:460px; overflow:visible; }
+.connector { fill:none; stroke:var(--line); stroke-width:1.6; }
+.connector.active { stroke:var(--accent); opacity:.65; }
+.node rect { fill:var(--surface); stroke:var(--line); stroke-width:1; rx:13; }
+.node text { fill:var(--ink); font-family:var(--sans); font-size:14px; }
+.node .meta { font-size:10px; fill:var(--muted); }
+.node.root rect { fill:var(--accent); stroke:var(--accent); }
+.node.root text { fill:var(--surface); font-family:var(--serif); font-size:23px; letter-spacing:3px; }
+.node.root .meta { font:9px Georgia,serif; letter-spacing:2px; opacity:.7; }
+.node.branch rect { fill:var(--accent-soft); stroke:none; }
+.node.branch .branch-count { font:10px Georgia,serif; fill:var(--muted); }
+.node .state { fill:none; stroke:var(--todo); stroke-width:1.4; }
+.node.doing .state { stroke:var(--doing); stroke-width:2; stroke-dasharray:20 7; }
+.node.done .state { fill:var(--done); stroke:var(--done); }
+.node.done .tick { fill:none; stroke:var(--surface); stroke-width:1.5; stroke-linecap:round; stroke-linejoin:round; }
+.node.done .task-title { fill:var(--muted); text-decoration:line-through; }
+.node.dropped rect { fill:transparent; stroke:var(--drop); stroke-dasharray:5 4; }
+.node.dropped .state { stroke:var(--drop); stroke-dasharray:2 2; }
+.node.dropped .task-title { fill:var(--muted); text-decoration:line-through; }
+.node.selected rect { stroke:var(--accent); stroke-width:1.8; filter:drop-shadow(0 4px 8px #00000008); }
+.node.selected .selection-halo { fill:none; stroke:var(--accent); stroke-width:1; opacity:.13; }
+.node .selection-label { fill:var(--accent); font-size:9px; letter-spacing:1px; }
+.fold { fill:var(--surface); stroke:var(--line); }
+.fold-label { fill:var(--muted); font:13px var(--sans); }
+.branch-caption { fill:var(--muted); font:9px var(--sans); letter-spacing:2px; }
+.canvas-footer { display:flex; align-items:center; justify-content:space-between; color:var(--muted); font-size:10px; }
+.canvas-hint { display:flex; gap:18px; }
+.zoom { border:1px solid var(--line); background:var(--surface); border-radius:10px; display:flex; align-items:center; gap:19px; padding:8px 13px; color:var(--ink); font-size:11px; }
+.design-signature { margin-top:21px; border-top:1px solid var(--line); padding-top:15px; display:flex; align-items:center; justify-content:space-between; }
+.design-name { font:18px var(--serif); letter-spacing:.07em; }
+.design-name b { color:var(--accent); font:15px Georgia,serif; margin-right:11px; }
+.design-spec { color:var(--muted); font-size:10px; letter-spacing:.08em; }
+.swatches { display:flex; gap:5px; }
+.swatches i { width:15px; height:15px; border-radius:50%; border:1px solid #0000000a; }
+.demo-tag { font-size:9px; color:var(--muted); letter-spacing:.06em; }
+.toast { position:fixed; left:50%; bottom:30px; transform:translateX(-50%); padding:12px 22px; border-radius:10px; color:var(--surface); background:var(--ink); font-size:12px; box-shadow:var(--shadow); z-index:20; }
+[hidden] { display:none !important; }
+/* B: quiet observatory, restrained gold on midnight blue. */
+[data-theme="b"] { --bg:#101723; --surface:#192332; --ink:#e4e9ef; --muted:#8e9caf; --line:#334155; --accent:#d9b979; --accent-soft:#293140; --todo:#a0b0c6; --doing:#d9b979; --done:#78b5a5; --drop:#718097; --shadow:0 15px 50px #00000025; --radius:13px; }
+[data-theme="b"] .workspace:before { background-image:radial-gradient(#bacbdf 1px,transparent 1px),radial-gradient(#7b8da7 .65px,transparent .65px); background-size:113px 109px,37px 41px; background-position:3px 27px,19px 8px; opacity:.22; }
+[data-theme="b"] .page-title { margin-top:28px; }
+[data-theme="b"] h1,[data-theme="b"] h2 { font-family:var(--sans); font-weight:300; letter-spacing:.18em; }
+[data-theme="b"] .sidebar { background:linear-gradient(155deg,#1b2637,#151e2b); }
+[data-theme="b"] .node.root rect { fill:#d9b979; filter:drop-shadow(0 0 18px #d9b97920); }
+[data-theme="b"] .node.branch rect { fill:#1c2a3d; stroke:#3b5069; }
+[data-theme="b"] .node rect { rx:7; }
+[data-theme="b"] .connector { stroke:#44536a; stroke-width:1; }
+[data-theme="b"] .connector.active { stroke:var(--accent); }
+[data-theme="b"] .node.selected rect { fill:#273242; }
+[data-theme="b"] .export { color:#202736; }
+[data-theme="b"] .node.root text { fill:#242b35; font-family:var(--sans); font-weight:500; }
+/* C: airy mint workspace, crisp cards and cool lilac details. */
+[data-theme="c"] { --bg:#f3f8f7; --surface:#ffffff; --ink:#243d3a; --muted:#758b86; --line:#d9e6e1; --accent:#267d6c; --accent-soft:#dcefe6; --todo:#8b99a5; --doing:#ac6b30; --done:#358b72; --drop:#9ca8aa; --shadow:0 10px 32px #255f4c09; --radius:24px; }
+[data-theme="c"] .workspace { background:radial-gradient(ellipse at 95% 10%,#e4e2f04f,transparent 42%),radial-gradient(ellipse at 20% 85%,#d7eee08c,transparent 50%); }
+[data-theme="c"] .workspace:before { opacity:.5; background-size:24px 24px; }
+[data-theme="c"] .sidebar { margin:0; border-width:0 1px 0 0; border-radius:0; padding:33px 27px; }
+[data-theme="c"] h1,[data-theme="c"] h2 { font-family:var(--sans); font-weight:600; letter-spacing:0; }
+[data-theme="c"] .node rect { rx:11; filter:drop-shadow(0 4px 7px #24473808); }
+[data-theme="c"] .node.branch rect { fill:#e7e5f2; stroke:#d3d0e6; }
+[data-theme="c"] .node.root rect { fill:#267d6c; }
+[data-theme="c"] .node.root text { font-family:var(--sans); font-size:21px; letter-spacing:1px; }
+[data-theme="c"] .node.selected rect { fill:#f6fffa; stroke:#409d7e; }
+[data-theme="c"] .themes a { border-radius:20px; }
+[data-theme="c"] .section-label { letter-spacing:.06em; }
+/* D: analogue field notes, graph paper, ink and offset label shadows. */
+[data-theme="d"] { --bg:#f2eddf; --surface:#faf7eb; --ink:#344c4d; --muted:#848578; --line:#cbd1c3; --accent:#376568; --accent-soft:#e1e6d7; --todo:#7d8b83; --doing:#b37444; --done:#718e6c; --drop:#99988b; --shadow:3px 4px 0 #435b4820; --radius:3px; }
+[data-theme="d"] .workspace:before { background-image:linear-gradient(#8499852b 1px,transparent 1px),linear-gradient(90deg,#8499852b 1px,transparent 1px); background-size:25px 25px; opacity:.6; }
+[data-theme="d"] .sidebar { border-color:#939d88; margin:31px 0 31px 30px; transform:rotate(-.6deg); }
+[data-theme="d"] .sidebar:before { content:""; position:absolute; top:-10px; left:64px; width:105px; height:23px; transform:rotate(-5deg); background:#c8b47f60; }
+[data-theme="d"] h1,[data-theme="d"] h2,[data-theme="d"] .design-name { font-family:"KaiTi","STKaiti",var(--serif); font-weight:500; }
+[data-theme="d"] h2 { font-size:40px; }
+[data-theme="d"] .node rect { rx:2; stroke:#809084; filter:drop-shadow(3px 4px 0 #526d4924); }
+[data-theme="d"] .node.branch rect { stroke:#7c927f; fill:#e4e9d8; }
+[data-theme="d"] .node.root text { font-family:"KaiTi","STKaiti",var(--serif); font-size:26px; }
+[data-theme="d"] .node text { font-family:"KaiTi","STKaiti",var(--serif); font-size:17px; }
+[data-theme="d"] .connector { stroke:#879b8f; stroke-width:1.3; }
+[data-theme="d"] .node.dropped rect { filter:none; }
+[data-theme="d"] .field,[data-theme="d"] .export,[data-theme="d"] .edit-actions button,[data-theme="d"] .zoom { border-radius:2px; }
+[data-theme="d"] .design-signature { border-top:1px dashed #8d9b8b; }
+[data-theme="d"] .node.selected rect { fill:#fff8dc; stroke:#a67e42; }
+[data-theme="d"] .node .selection-label { fill:#a67e42; font:10px var(--sans); }
+/* Keep the small root caption independent of each theme's title typography. */
+[data-theme] .node.root .meta { font:9px Georgia,serif; letter-spacing:2px; }
+@media (max-width:850px) {
+  .study-bar { height:auto; min-height:66px; padding:13px 18px; gap:10px; flex-wrap:wrap; }
+  .study-label { font-size:10px; }
+  .themes { flex-wrap:wrap; gap:3px; }
+  .themes a { font-size:10px; padding:6px 9px; }
+  .app { display:block; height:auto; min-height:0; }
+  .sidebar,[data-theme="c"] .sidebar,[data-theme="d"] .sidebar { margin:18px; padding:17px; transform:none; border:1px solid var(--line); border-radius:var(--radius); display:block; }
+  .sidebar:before,.home,.brand,.intro,.section-label,.overview,.legend,.divider,.selected-name,.field,.edit-actions,.editor-note,.save-note { display:none; }
+  h1 { font-size:22px; margin:0; }
+  .side-bottom { padding-top:12px; }
+  .workspace { padding:12px 20px 22px; min-height:650px; }
+  h2 { font-size:28px; }
+  .diagram { flex:none; height:390px; min-height:0; }
+  .canvas-hint { gap:8px; font-size:9px; }
+  .design-spec,.demo-tag { display:none; }
+  .zoom { gap:11px; }
+}
+/* Contact sheet uses the exact desktop compositions, not alternate thumbnail UI. */
+html.board { background:#e8e5de; }
+.board body { background:#e8e5de; }
+.comparison { display:grid; grid-template-columns:1fr 1fr; gap:24px; padding:24px; }
+.comparison iframe { display:block; width:100%; height:900px; border:0; border-radius:12px; box-shadow:0 4px 18px #00000012; }
+</style>
+</head>
+<body>
+<header class="study-bar">
+  <span class="study-label">TODO LIST / 美术风格探索</span>
+  <nav class="themes" aria-label="切换美术方案">
+    <a href="?theme=a" data-choice="a">A · 奶油纸感</a>
+    <a href="?theme=b" data-choice="b">B · 深色星图</a>
+    <a href="?theme=c" data-choice="c">C · 清透薄荷</a>
+    <a href="?theme=d" data-choice="d">D · 复古手账</a>
+  </nav>
+</header>
+<main class="app">
+  <aside class="sidebar" aria-label="待办控制面板效果">
+    <a class="home" href="../">← 返回首页</a>
+    <div class="brand"><span class="brand-mark">☾</span> <span id="brandText">慢慢来，也会抵达。</span></div>
+    <h1>待办清单</h1>
+    <p class="intro">让每一个想法，长成自己的枝叶。</p>
+    <p class="section-label">OVERVIEW / 完成概览</p>
+    <div class="overview"><div class="progress"><span>33<small style="font-size:10px">%</small></span></div><div class="summary"><strong>已经完成 3 项</strong><p>共 9 项任务 · 2 项进行中</p></div></div>
+    <div class="legend"><span><i class="dot"></i>待办 · 3</span><span><i class="dot doing"></i>进行中 · 2</span><span><i class="dot done"></i>已完成 · 3</span><span><i class="dot drop"></i>已放弃 · 1</span></div>
+    <div class="divider"></div>
+    <div class="selected-heading"><p class="section-label">SELECTED / 当前节点</p><small>● 已选中</small></div>
+    <p class="selected-name">整理页面风格</p>
+    <div class="field"><span><i class="dot doing"></i>进行中</span><span>⌄</span></div>
+    <div class="edit-actions"><button type="button" data-demo>＋ 子节点</button><button type="button" data-demo>↑</button><button type="button" data-demo>↓</button></div>
+    <p class="editor-note">双击改名 · 右键查看更多操作</p>
+    <div class="side-bottom"><button class="export" type="button" data-demo>↓ &nbsp; 导出待办数据</button><p class="save-note">修改后导出保存到本地</p></div>
+  </aside>
+  <section class="workspace" aria-label="树状待办画布效果">
+    <div class="topline"><div class="breadcrumb">个人空间 <span>/</span><strong>我的计划</strong></div><span class="mode">◈ &nbsp; 思维导图</span></div>
+    <div class="page-title"><div class="eyebrow" id="eyebrow">A LITTLE PROGRESS, EVERY DAY</div><h2 id="heading">把日子，慢慢理顺。</h2><p class="title-sub" id="subheading">不必一次完成所有事，先照顾好眼前的一小步。</p></div>
+    <svg class="diagram" viewBox="0 0 1060 570" role="img" aria-label="示例树状待办图：我的计划分为学习研究、个人网站、日常生活三组，包含四种叶子状态。"></svg>
+    <div class="canvas-footer"><div class="canvas-hint"><span>滚轮缩放</span><span>拖拽平移</span><span>双击空白复位</span></div><div class="zoom"><span>−</span><span>100%</span><span>＋</span><span>⛶</span></div></div>
+    <div class="design-signature"><div class="design-name"><b id="letter">A</b><span id="styleName">奶油纸感</span></div><span class="design-spec" id="styleSpec">暖白纸面 / 陶土色 / 宋体标题</span><div class="swatches" aria-label="方案配色"></div><span class="demo-tag">风格效果图 · 虚构示例数据</span></div>
+  </section>
+</main>
+<div class="toast" hidden role="status">这是美术效果预览，待选定风格后接入现有待办功能。</div>
+<script>
+const options = {
+  a:{name:'奶油纸感',spec:'暖白纸面 / 陶土色 / 宋体标题',brand:'慢慢来，也会抵达。',eyebrow:'A LITTLE PROGRESS, EVERY DAY',heading:'把日子，慢慢理顺。',sub:'不必一次完成所有事，先照顾好眼前的一小步。',colors:['#f6f2ea','#a7583d','#68836a','#ddd5c6']},
+  b:{name:'深色星图',spec:'午夜蓝 / 香槟金 / 微光连线',brand:'每一步，都有方向。',eyebrow:'SMALL STEPS. DISTANT HORIZONS.',heading:'让想法，连成星图。',sub:'在安静的夜色里，找到下一件值得专注的事。',colors:['#101723','#d9b979','#78b5a5','#44536a']},
+  c:{name:'清透薄荷',spec:'薄荷绿 / 雾紫分组 / 轻盈卡片',brand:'留一点空间给专注。',eyebrow:'LESS NOISE, MORE FOCUS',heading:'今天，也轻一点。',sub:'清楚地看见进度，从容地安排接下来的每一步。',colors:['#f3f8f7','#267d6c','#e7e5f2','#dcefe6']},
+  d:{name:'复古手账',spec:'方格纸 / 墨绿线稿 / 手写标题',brand:'把想做的事，写下来。',eyebrow:'FIELD NOTES / THINGS TO GROW',heading:'一页计划，几许生长。',sub:'收集想法，标记进度，把生活写成喜欢的样子。',colors:['#f2eddf','#376568','#b37444','#e1e6d7']}
+};
+const query = new URLSearchParams(location.search);
+const theme = Object.hasOwn(options,query.get('theme')) ? query.get('theme') : 'a';
+document.documentElement.dataset.theme = theme;
+const chosen = options[theme];
+for (const [id,value] of Object.entries({brandText:chosen.brand,eyebrow:chosen.eyebrow,heading:chosen.heading,subheading:chosen.sub,letter:theme.toUpperCase(),styleName:chosen.name,styleSpec:chosen.spec})) document.getElementById(id).textContent=value;
+document.querySelector(`[data-choice="${theme}"]`).setAttribute('aria-current','page');
+document.querySelector('.swatches').innerHTML=chosen.colors.map(color=>`<i style="background:${color}"></i>`).join('');
+const groups=[
+  {title:'学习研究',caption:'LEARN & EXPLORE',y:130,tasks:[['论文阅读','done'],['整理实验思路','doing'],['复现实验','todo']]},
+  {title:'个人网站',caption:'BUILD & CREATE',y:285,tasks:[['整理页面风格','doing'],['调整移动端布局','todo'],['更新个人简介','done']]},
+  {title:'日常生活',caption:'LIVE & ENJOY',y:440,tasks:[['读完一本好书','todo'],['周末散步','done'],['旧计划归档','dropped']]}
+];
+const svg=document.querySelector('.diagram');
+let connections='',nodes='';
+function path(x1,y1,x2,y2,active=false){
+  const mid=(x1+x2)/2;
+  return `<path class="connector${active?' active':''}" d="M${x1},${y1} C${mid},${y1} ${mid},${y2} ${x2},${y2}"/>`;
+}
+for(const group of groups){
+  connections+=path(233,285,392,group.y,group.y===285);
+  nodes+=`<g class="node branch" transform="translate(392 ${group.y})"><rect width="176" height="50" x="-1" y="-25"/><text x="23" y="5">${group.title}</text><text class="branch-count" x="149" y="4">03</text></g><circle class="fold" cx="580" cy="${group.y}" r="8"/><text class="fold-label" text-anchor="middle" x="580" y="${group.y+4}">−</text><text class="branch-caption" x="414" y="${group.y+48}">${group.caption}</text>`;
+  group.tasks.forEach(([title,status],i)=>{
+    const y=group.y+(i-1)*55;
+    const selected=group.y===285&&i===0;
+    connections+=path(588,group.y,759,y,selected);
+    nodes+=`<g class="node ${status}${selected?' selected':''}" transform="translate(759 ${y})">${selected?'<rect class="selection-halo" x="-5" y="-27" width="256" height="54"/>':''}<rect x="0" y="-22" width="246" height="44"/><circle class="state" cx="22" cy="0" r="6"/>${status==='done'?'<path class="tick" d="M19,0 l2,2 4,-4"/>':''}<text class="task-title" x="41" y="5">${title}</text>${selected?'<text class="selection-label" x="168" y="4">进行中</text>':''}</g>`;
+  });
+}
+svg.innerHTML=connections+`<g class="node root" transform="translate(63 285)"><rect x="0" y="-41" width="170" height="82"/><text x="85" y="-1" text-anchor="middle">我的计划</text><text class="meta" x="85" y="22" text-anchor="middle">ONE STEP AT A TIME</text></g>`+nodes;
+let toastTimer;
+document.querySelectorAll('[data-demo]').forEach(button=>button.addEventListener('click',()=>{
+  const toast=document.querySelector('.toast'); toast.hidden=false;
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>{toast.hidden=true;},3000);
+}));
+// ?board=1 renders the same four complete compositions for the overview export.
+if(query.has('board')){
+  document.documentElement.className='board';
+  document.body.innerHTML='<main class="comparison" aria-label="四方案对照">'+Object.keys(options).map(key=>`<iframe src="?theme=${key}" title="${key.toUpperCase()} ${options[key].name}"></iframe>`).join('')+'</main>';
+}
+</script>
+</body>
+</html>
