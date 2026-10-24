@@ -106,7 +106,7 @@ h2 { font:500 36px/1.25 var(--serif); margin:7px 0 9px; letter-spacing:.07em; }
 [hidden] { display:none !important; }
 /* A: sun-warmed terracotta tiles, linen and an afternoon window. */
 [data-theme="a"] { --bg:#f6ead7; --surface:#fff9ed; --ink:#614330; --muted:#94745b; --line:#dbc5a6; --accent:#b65d3d; --accent-soft:#efd2b5; --doing:#b46530; --done:#78825b; --shadow:8px 14px 30px #a2693116; }
-[data-theme="a"] .workspace { background:linear-gradient(125deg,#f7eddc 10%,#f5e3c4 68%,#f2d4a5); }
+[data-theme="a"] .workspace { background:radial-gradient(ellipse at 100% 8%,#fff8dd 0%,transparent 60%),linear-gradient(125deg,#ecdbc2 10%,#f7e6c6 68%,#f3d5a2); }
 [data-theme="a"] .workspace:before { background-image:radial-gradient(#b58c5e .65px,transparent .65px); background-size:7px 9px; opacity:.16; }
 [data-theme="a"] .sidebar { background:linear-gradient(145deg,#fffaf0,#f5e6cd); border-color:#e1c9a5; box-shadow:12px 17px 35px #9b623022; }
 [data-theme="a"] .sidebar:after { content:""; position:absolute; inset:5px; border:1px solid #fffaf0b0; border-radius:13px; pointer-events:none; }
@@ -121,32 +121,45 @@ h2 { font:500 36px/1.25 var(--serif); margin:7px 0 9px; letter-spacing:.07em; }
 [data-theme="a"] .connector { stroke:#c59a70; stroke-width:1.8; }
 [data-theme="a"] .connector.trunk { stroke-width:2.6; }
 [data-theme="a"] .connector.active { stroke:#b65d3d; }
+.ceramic-shell { filter:url(#clayShadow); }
+.ceramic-side { fill:#b4885e; }
+.ceramic-face { fill:url(#clayIvory); stroke:#c69b71; stroke-width:.8; filter:url(#clayGrain); }
+.ceramic-face.clay-root { fill:url(#clayGlaze); stroke:#a35b3b; }
+.ceramic-face.clay-branch { fill:url(#clayPeach); stroke:#c08b5d; }
+.ceramic-grain { fill:url(#clayPores); opacity:.5; }
+.ceramic-rim { fill:none; stroke:#fff0ce; stroke-width:1.5; opacity:.8; }
+.ceramic-bottom { fill:none; stroke:#8e542e; stroke-width:1; opacity:.35; }
+.node.selected .ceramic-face { fill:url(#claySelected); stroke:#a35b36; stroke-width:1.5; }
+.ceramic-archival { fill:none; stroke:#a4947d; stroke-dasharray:4 4; stroke-width:1.2; }
+[data-theme="a"] .node.root text { filter:drop-shadow(0 1px 0 #74331d88); }
 .atmosphere { pointer-events:none; }
 .workspace > .atmosphere { position:absolute; inset:0; }
 .atmosphere svg { width:100%; height:100%; display:block; }
 .sun-emblem { fill:none; stroke:#bb7143; stroke-width:1.2; }
 .sun-caption { fill:#b68051; font:9px Georgia,serif; letter-spacing:2px; }
 /* B: an actual constellation: circular core, star junctions and fine angular links. */
-[data-theme="b"] { --bg:#101723; --surface:#192332; --ink:#e4e9ef; --muted:#8e9caf; --line:#334155; --accent:#d9b979; --accent-soft:#293140; --todo:#a0b0c6; --doing:#d9b979; --done:#78b5a5; --drop:#718097; --shadow:0 15px 50px #00000025; --radius:13px; }
+[data-theme="b"] { --bg:#101723; --surface:#192332; --ink:#edf3fb; --muted:#a4b4c9; --line:#334155; --accent:#d9b979; --accent-soft:#293140; --todo:#b0c4da; --doing:#e4c380; --done:#8dc9b8; --drop:#98adc6; --shadow:0 15px 50px #00000025; --radius:13px; }
 [data-theme="b"] .workspace:before { background-image:radial-gradient(#bacbdf 1px,transparent 1px),radial-gradient(#7b8da7 .65px,transparent .65px); background-size:113px 109px,37px 41px; background-position:3px 27px,19px 8px; opacity:.22; }
 [data-theme="b"] .page-title { margin-top:28px; }
-[data-theme="b"] h1,[data-theme="b"] h2 { font-family:var(--sans); font-weight:300; letter-spacing:.18em; }
+[data-theme="b"] h1,[data-theme="b"] h2 { font-family:var(--sans); font-weight:500; letter-spacing:.12em; }
 [data-theme="b"] .sidebar { background:linear-gradient(155deg,#1b2637,#151e2b); }
 [data-theme="b"] .workspace { background:radial-gradient(ellipse at 40% 50%,#1c2b4022,transparent 70%),#101723; }
-[data-theme="b"] .node rect { fill:transparent; stroke:none; rx:25; }
-[data-theme="b"] .node .meta { fill:#8097b4; font-size:8px; }
-[data-theme="b"] .node.branch text { fill:#d4dfeb; font-size:15px; letter-spacing:2px; paint-order:stroke; stroke:#101723; stroke-width:3px; stroke-linejoin:round; }
-[data-theme="b"] .node.branch .sector { fill:#8d9eb3; font:8px Georgia,serif; letter-spacing:2px; }
-[data-theme="b"] .node.branch .meta { fill:#6c829f; font:8px Georgia,serif; letter-spacing:1px; }
+[data-theme="b"] .node rect { fill:#142236; stroke:#405674; stroke-width:.65; rx:7; }
+[data-theme="b"] .node .task-title { fill:#f0f5ff; font-size:17px; font-weight:500; }
+[data-theme="b"] .node .meta { fill:#b2c6df; font-size:10px; letter-spacing:.45px; }
+[data-theme="b"] .node.branch text { fill:#e6edf7; font-size:17px; font-weight:500; letter-spacing:1px; paint-order:stroke; stroke:#101723; stroke-width:4px; stroke-linejoin:round; }
+[data-theme="b"] .node.branch .sector { fill:#abbfd7; font:9px Georgia,serif; letter-spacing:2px; }
+[data-theme="b"] .node.branch .meta { fill:#a5bbd5; font:9px Georgia,serif; letter-spacing:1px; }
 [data-theme="b"] .connector { stroke:#738caa; stroke-width:1; opacity:.57; }
 [data-theme="b"] .connector.active { stroke:#e1c183; opacity:.95; filter:url(#starlight); }
-[data-theme="b"] .node.selected rect { fill:#d9b9790a; stroke:#d9b9797a; stroke-width:.8; }
-[data-theme="b"] .node.dropped rect { stroke:#64748b; stroke-dasharray:3 6; }
-[data-theme="b"] .node.done .task-title { fill:#93a8ba; }
-[data-theme="b"] .node .selection-label { font:8px var(--sans); letter-spacing:0; }
+[data-theme="b"] .node.selected rect { fill:#283145; stroke:#d9b979; stroke-width:1; }
+[data-theme="b"] .node.dropped rect { fill:#142236; stroke:#8499b2; stroke-dasharray:3 6; }
+[data-theme="b"] .node.done .task-title { fill:#c1d3e2; }
+[data-theme="b"] .node.dropped .task-title { fill:#b5c7da; }
+[data-theme="b"] .node .selection-label { fill:#f0d19b; font:9px var(--sans); letter-spacing:0; }
 [data-theme="b"] .export { color:#202736; }
 [data-theme="b"] .node.root text { fill:#e3c88f; font-family:var(--sans); font-size:21px; font-weight:300; letter-spacing:3px; }
-[data-theme="b"] .node.root .meta { fill:#91a1b5; letter-spacing:1.8px; font-size:8px; }
+[data-theme="b"] .node.root .meta { fill:#b2c6df; letter-spacing:1.8px; font-size:10px; }
 .orbit { fill:none; stroke:#66829e; stroke-width:.65; opacity:.22; }
 .orbit.dashed { stroke-dasharray:2 7; opacity:.28; }
 .core-disc { fill:#142032; stroke:#d9b979; stroke-width:1; }
@@ -180,6 +193,23 @@ h2 { font:500 36px/1.25 var(--serif); margin:7px 0 9px; letter-spacing:.07em; }
 .sprig-leaf { fill:#bed8ac; stroke:#a5c297; stroke-width:.5; }
 .sprig-vein { fill:none; stroke:#8eaf83; stroke-width:.7; }
 .garden-note { fill:#94a68a; font:italic 12px Georgia,serif; letter-spacing:1px; }
+.tree-ground { fill:#b8c89e; opacity:.22; }
+.tree-trunk { fill:url(#treeBark); }
+.tree-bough { fill:none; stroke:#b1a077; stroke-linecap:round; }
+.bark-highlight { fill:none; stroke:#e6d8b3; stroke-width:1.3; opacity:.55; stroke-linecap:round; }
+.bark-furrow { fill:none; stroke:#776744; stroke-width:1; opacity:.32; stroke-linecap:round; }
+.tree-twig { fill:none; stroke:#91a36e; stroke-width:2.5; stroke-linecap:round; }
+.stem-node { fill:url(#stemSurface); stroke:#a2936e; stroke-width:1; }
+.stem-root { fill:url(#treeBark); stroke:#95815b; stroke-width:1.2; }
+.canopy-leaf { fill:url(#mintLeaf); stroke:#95b77c; stroke-width:1; filter:drop-shadow(0 4px 3px #617d4e15); }
+.leaf-veins { fill:none; stroke:#7aa16a; stroke-width:.65; opacity:.23; }
+[data-theme="c"] .node .task-title { font-size:17px; font-weight:500; fill:#34543a; }
+[data-theme="c"] .node.branch text { font-size:19px; }
+[data-theme="c"] .node.branch .branch-count { font:10px Georgia,serif; }
+.node.selected .canopy-leaf { fill:url(#mintSelected); stroke:#5f914f; stroke-width:1.6; }
+.node.dropped .canopy-leaf { fill:#f4f6ea; stroke:#94a284; stroke-dasharray:5 4; filter:none; }
+[data-theme="c"] .node.done .task-title { fill:#6f8261; }
+[data-theme="c"] .node.dropped .task-title { fill:#839078; }
 /* D: analogue field notes, graph paper, ink and offset label shadows. */
 [data-theme="d"] { --bg:#f2eddf; --surface:#faf7eb; --ink:#344c4d; --muted:#848578; --line:#cbd1c3; --accent:#376568; --accent-soft:#e1e6d7; --todo:#7d8b83; --doing:#b37444; --done:#718e6c; --drop:#99988b; --shadow:3px 4px 0 #435b4820; --radius:3px; }
 [data-theme="d"] .workspace:before { background-image:linear-gradient(#8499852b 1px,transparent 1px),linear-gradient(90deg,#8499852b 1px,transparent 1px); background-size:25px 25px; opacity:.6; }
@@ -188,8 +218,10 @@ h2 { font:500 36px/1.25 var(--serif); margin:7px 0 9px; letter-spacing:.07em; }
 [data-theme="d"] h1,[data-theme="d"] h2,[data-theme="d"] .design-name { font-family:"KaiTi","STKaiti",var(--serif); font-weight:500; }
 [data-theme="d"] h2 { font-size:40px; }
 [data-theme="d"] .node rect { rx:2; stroke:#809084; }
-[data-theme="d"] .node.root text { font-family:"KaiTi","STKaiti",var(--serif); font-size:26px; }
-[data-theme="d"] .node text { font-family:"KaiTi","STKaiti",var(--serif); font-size:17px; }
+[data-theme="d"] .node.root text { font-family:"KaiTi","STKaiti",var(--serif); font-size:32px; }
+[data-theme="d"] .node text { font-family:"KaiTi","STKaiti",var(--serif); font-size:24px; }
+[data-theme="d"] .node.branch text { font-size:25px; }
+[data-theme="d"] .node.branch .branch-count { font:11px Georgia,serif; }
 [data-theme="d"] .connector { stroke:#647f71; stroke-width:1.5; stroke-linecap:round; stroke-linejoin:round; }
 [data-theme="d"] .connector.active { stroke:#9e763e; opacity:1; }
 [data-theme="d"] .node.dropped rect { filter:none; }
@@ -234,7 +266,7 @@ html.board { background:#e8e5de; }
 </head>
 <body>
 <header class="study-bar">
-  <span class="study-label">TODO LIST / 美术风格探索 · 第二轮</span>
+  <span class="study-label">TODO LIST / 美术风格探索 · 第三轮</span>
   <nav class="themes" aria-label="切换美术方案">
     <a href="?theme=a" data-choice="a">A · 奶油纸感</a>
     <a href="?theme=b" data-choice="b">B · 深色星图</a>
@@ -270,10 +302,10 @@ html.board { background:#e8e5de; }
 <div class="toast" hidden role="status">这是美术效果预览，待选定风格后接入现有待办功能。</div>
 <script>
 const options = {
-  a:{name:'奶油纸感',spec:'陶片节点 / 午后斜阳 / 蜜色投影',brand:'留一段午后的慢时光。',eyebrow:'A WARM AFTERNOON, A SMALL STEP',heading:'把日子，晒成暖色。',sub:'在一片暖阳里，慢慢捏出生活喜欢的形状。',colors:['#f6ead7','#b65d3d','#e7b78e','#dfb477']},
-  b:{name:'深色星图',spec:'星核节点 / 星座折线 / 轨道光晕',brand:'每一步，都有方向。',eyebrow:'SMALL STEPS. DISTANT HORIZONS.',heading:'让想法，连成星图。',sub:'循着星光，找到下一件值得专注的事。',colors:['#101723','#d9b979','#78b5a5','#718fae']},
-  c:{name:'清透薄荷',spec:'叶片节点 / 新芽枝蔓 / 晨露薄荷',brand:'给想法一点生长的空间。',eyebrow:'A LITTLE ROOM TO GROW',heading:'像新叶一样，慢慢舒展。',sub:'让计划自然生长，也给自己留一点呼吸的空隙。',colors:['#f6fbf1','#438465','#bed8ac','#e4efd6']},
-  d:{name:'复古手账',spec:'手绘箭头 / 铅笔复描 / 方格便笺',brand:'把想做的事，写下来。',eyebrow:'FIELD NOTES / THINGS TO GROW',heading:'一页计划，几许生长。',sub:'不必画得笔直，每一笔都可以有自己的方向。',colors:['#f2eddf','#376568','#b37444','#e1e6d7']}
+  a:{name:'奶油纸感',spec:'哑光陶土 / 暖光亮边 / 接触阴影',brand:'留一段午后的慢时光。',eyebrow:'A WARM AFTERNOON, A SMALL STEP',heading:'把日子，晒成暖色。',sub:'在一片暖阳里，慢慢捏出生活喜欢的形状。',colors:['#f6ead7','#b65d3d','#e7b78e','#dfb477']},
+  b:{name:'深色星图',spec:'清晰字重 / 独立暗底 / 星核轨道',brand:'每一步，都有方向。',eyebrow:'SMALL STEPS. DISTANT HORIZONS.',heading:'让想法，连成星图。',sub:'循着星光，找到下一件值得专注的事。',colors:['#101723','#d9b979','#c1d3e2','#405674']},
+  c:{name:'清透薄荷',spec:'木质主干 / 枝条节点 / 叶片任务',brand:'给想法一点生长的空间。',eyebrow:'A LITTLE ROOM TO GROW',heading:'把计划，种成一棵树。',sub:'主干承载方向，枝条分出主题，每片叶子都是一件小事。',colors:['#f6fbf1','#a18a60','#bcd8a0','#e4efd6']},
+  d:{name:'复古手账',spec:'大字纸条 / 随字收窄 / 手绘笔触',brand:'把想做的事，写下来。',eyebrow:'FIELD NOTES / THINGS TO GROW',heading:'一页计划，几许生长。',sub:'不必画得笔直，每一笔都可以有自己的方向。',colors:['#f2eddf','#376568','#b37444','#e1e6d7']}
 };
 const query = new URLSearchParams(location.search);
 const theme = Object.hasOwn(options,query.get('theme')) ? query.get('theme') : 'a';
@@ -297,7 +329,20 @@ const groups=[
   {title:'日常生活',caption:'LIVE & ENJOY',y:440,tasks:[['读完一本好书','todo'],['周末散步','done'],['旧计划归档','dropped']]}
 ];
 const svg=document.querySelector('.diagram');
-const defs=`<defs><linearGradient id="clayGlaze" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#c87850"/><stop offset="1" stop-color="#a64c32"/></linearGradient><filter id="starlight" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="1.6"/><feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>`;
+const defs=`<defs>
+  <linearGradient id="clayGlaze" x1="1" y1="0" x2="0" y2="1"><stop stop-color="#eaa773"/><stop offset=".35" stop-color="#c67a50"/><stop offset="1" stop-color="#a45635"/></linearGradient>
+  <linearGradient id="clayPeach" x1="1" y1="0" x2="0" y2="1"><stop stop-color="#f7d4a2"/><stop offset=".5" stop-color="#dfab7d"/><stop offset="1" stop-color="#c68e61"/></linearGradient>
+  <linearGradient id="clayIvory" x1="1" y1="0" x2="0" y2="1"><stop stop-color="#fff9dc"/><stop offset=".45" stop-color="#f6e5c2"/><stop offset="1" stop-color="#e7cba1"/></linearGradient>
+  <linearGradient id="claySelected" x1="1" y1="0" x2="0" y2="1"><stop stop-color="#ffedbc"/><stop offset=".5" stop-color="#edc28c"/><stop offset="1" stop-color="#d5a16e"/></linearGradient>
+  <pattern id="clayPores" width="17" height="13" patternUnits="userSpaceOnUse"><circle cx="2" cy="3" r=".55" fill="#895533" opacity=".3"/><circle cx="11" cy="8" r=".45" fill="#ffefd2" opacity=".7"/><circle cx="7" cy="12" r=".4" fill="#9c6c43" opacity=".35"/><path d="M14 2l1 .5" stroke="#8e603f" stroke-width=".4" opacity=".35"/></pattern>
+  <filter id="clayGrain" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency=".72" numOctaves="3" seed="12" result="noise"/><feColorMatrix in="noise" type="saturate" values="0"/><feComponentTransfer><feFuncR type="linear" slope=".18" intercept=".82"/><feFuncG type="linear" slope=".18" intercept=".82"/><feFuncB type="linear" slope=".18" intercept=".82"/></feComponentTransfer><feBlend in="SourceGraphic" mode="multiply"/><feComposite in2="SourceAlpha" operator="in"/></filter>
+  <filter id="clayShadow" x="-30%" y="-35%" width="160%" height="190%"><feDropShadow dx="-5" dy="8" stdDeviation="3.3" flood-color="#744525" flood-opacity=".25"/></filter>
+  <linearGradient id="treeBark" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#9d895f"/><stop offset=".42" stop-color="#bdab7c"/><stop offset="1" stop-color="#a18b5f"/></linearGradient>
+  <linearGradient id="stemSurface" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#e0d3ac"/><stop offset="1" stop-color="#c8b78a"/></linearGradient>
+  <linearGradient id="mintLeaf" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#f4fae6"/><stop offset="1" stop-color="#d5e6b6"/></linearGradient>
+  <linearGradient id="mintSelected" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#e6f4c8"/><stop offset="1" stop-color="#bbd79a"/></linearGradient>
+  <filter id="starlight" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="1.6"/><feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+</defs>`;
 let connections='',nodes='',decoration='';
 let lineIndex=0;
 // A fixed, gently uneven pen stroke: smooth interpolation, no animation or randomness.
@@ -341,6 +386,14 @@ function paperOutline(x,y,w,h,seed=0){
   const j=seed%2?1:-1;
   return `<path class="paper-node" d="M${x+3},${y+1}Q${x+w*.36},${y-1.3} ${x+w-2},${y+j}L${x+w+.5},${y+h*.48} ${x+w-1},${y+h}Q${x+w*.65},${y+h+1.3} ${x+w*.33},${y+h-.7}L${x},${y+h+.6} ${x-.7},${y+h*.43}Z"/>`;
 }
+function roundedTile(x,y,w,h,r=9){
+  return `M${x+r},${y}H${x+w-r}Q${x+w},${y} ${x+w},${y+r}V${y+h-r}Q${x+w},${y+h} ${x+w-r},${y+h}H${x+r}Q${x},${y+h} ${x},${y+h-r}V${y+r}Q${x},${y} ${x+r},${y}Z`;
+}
+function ceramicTile(x,y,w,h,kind='leaf',archived=false){
+  const d=roundedTile(x,y,w,h);
+  if(archived)return `<path class="ceramic-archival" d="${d}"/>`;
+  return `<g class="ceramic-shell"><path class="ceramic-side" d="${roundedTile(x-1,y+4,w,h)}"/><path class="ceramic-face clay-${kind}" d="${d}"/><path class="ceramic-grain" d="${d}"/><path class="ceramic-rim" d="M${x+12},${y+2}H${x+w-10}Q${x+w-2},${y+2} ${x+w-2},${y+10}V${y+h*.52}"/><path class="ceramic-bottom" d="M${x+3},${y+h-9}Q${x+3},${y+h-2} ${x+12},${y+h-2}H${x+w-12}"/></g>`;
+}
 function stateMark(status,x=22){
   return `<circle class="state" cx="${x}" cy="0" r="6"/>${status==='done'?`<path class="tick" d="M${x-3},0 l2,2 4,-4"/>`:''}`;
 }
@@ -357,31 +410,61 @@ if(theme==='b'){
     group.tasks.forEach(([title,status],i)=>{
       const [x,y]=sector.leaves[i],selected=g===1&&i===0;
       connections+=path(sector.x,sector.y,x,y,selected);
-      nodes+=`<g class="node ${status}${selected?' selected':''}" transform="translate(${x} ${y})"><rect x="-17" y="-24" width="215" height="53"/>${stateMark(status,0)}<text class="task-title" x="21" y="-2">${title}</text><text class="meta" x="21" y="16">0${g*3+i+1} / ${status==='done'?'COMPLETED':status==='doing'?'IN ORBIT':status==='dropped'?'ARCHIVED':'TO EXPLORE'}</text>${selected?'<text class="selection-label" x="149" y="-3">进行中</text>':''}</g>`;
+      nodes+=`<g class="node ${status}${selected?' selected':''}" transform="translate(${x} ${y})"><rect x="13" y="-25" width="201" height="55"/>${stateMark(status,0)}<text class="task-title" x="25" y="-2">${title}</text><text class="meta" x="25" y="18">0${g*3+i+1} / ${status==='done'?'COMPLETED':status==='doing'?'IN ORBIT':status==='dropped'?'ARCHIVED':'TO EXPLORE'}</text>${selected?'<text class="selection-label" x="158" y="-3">进行中</text>':''}</g>`;
     });
   });
   nodes+=`<g class="node root" transform="translate(160 285)"><ellipse class="core-orbit" rx="96" ry="29" transform="rotate(-30)"/><circle class="core-disc" r="73"/><circle class="core-orbit" r="81" stroke-dasharray="1 5"/><path d="M4-48a12 12 0 1 0 11 17a11 11 0 0 1-11-17" fill="#d9b979"/><text text-anchor="middle" y="8">我的计划</text><text class="meta" text-anchor="middle" y="31">PLAN / 09 STARS</text><circle cx="81" cy="0" r="3" fill="#e6cc90" filter="url(#starlight)"/></g>`;
+}else if(theme==='c'){
+  // Upright tree: the root plan sits on the trunk, topics are woody branch joints,
+  // and task blades grow from twigs. Text stays horizontal for readability.
+  decoration='<ellipse class="tree-ground" cx="520" cy="538" rx="150" ry="12"/>';
+  connections=`<path class="tree-trunk" d="M476 537C493 497 490 455 500 411C509 366 508 319 514 277C519 236 533 213 541 188L555 190C541 237 544 277 539 320C534 368 537 405 544 448C551 486 557 515 567 537Z"/>
+    <path class="tree-bough" stroke-width="17" d="M516 431C459 421 401 372 290 330"/>
+    <path class="tree-bough" stroke-width="13" d="M526 318C551 275 532 239 540 225"/>
+    <path class="tree-bough" stroke-width="15" d="M533 433C598 411 670 376 763 365"/>
+    <path class="bark-highlight" d="M528 503C515 455 524 388 524 337M519 424C456 406 408 365 301 331M540 431C598 402 671 370 758 365"/>
+    <path class="bark-furrow" d="M501 524C514 463 510 439 519 390M544 520C530 471 529 459 532 419M532 301Q538 257 545 237"/>
+    <path class="tree-bough" stroke-width="4" d="M497 521Q460 536 431 540M548 524Q580 539 612 540"/>`;
+  const limbs=[
+    {x:290,y:330,leaves:[[65,130],[30,205],[55,280]],left:true},
+    {x:540,y:225,leaves:[[425,55],[665,85],[641,155]],left:false},
+    {x:763,y:365,leaves:[[813,235],[824,300],[805,415]],left:false}
+  ];
+  groups.forEach((group,g)=>{
+    const limb=limbs[g];
+    nodes+=`<g class="node branch" transform="translate(${limb.x} ${limb.y})"><path class="stem-node" d="M-75-21Q-15-27 72-20L76 18Q6 27-76 20Z"/><path class="bark-highlight" d="M-65-17Q0-21 62-17"/><text x="-57" y="7">${group.title}</text><text class="branch-count" x="54" y="5">03</text></g>`;
+    group.tasks.forEach(([title,status],i)=>{
+      const [x,y]=limb.leaves[i],selected=g===1&&i===0;
+      const anchorX=limb.left?x+213:x;
+      const midY=limb.y+(y-limb.y)*.46;
+      connections+=`<path class="tree-twig" d="M${limb.x},${limb.y}C${limb.x},${midY} ${anchorX},${midY} ${anchorX},${y}"/>`;
+      if(i===1)decoration+=sprig((limb.x+anchorX)/2,(limb.y+y)/2,-25+g*30,.6);
+      const blade=limb.left?'M213 0C185-36 79-34 0-12C20 24 78 35 161 24Q202 18 213 0Z':'M0 0C28-36 134-34 213-12C193 24 135 35 52 24Q11 18 0 0Z';
+      const vein=limb.left?'M204 0Q108 10 9-12M182 6L165-17M144 10L118-21M102 8L80 26M62 1L42 20':'M9 0Q105 10 204-12M31 6L48-17M69 10L95-21M111 8L133 26M151 1L171 20';
+      nodes+=`<g class="node ${status}${selected?' selected':''}" transform="translate(${x} ${y})"><path class="canopy-leaf" d="${blade}"/><path class="leaf-veins" d="${vein}"/>${stateMark(status,24)}<text class="task-title" x="40" y="6">${title}</text>${selected?'<text class="selection-label" x="155" y="5">进行中</text>':''}</g>`;
+    });
+  });
+  nodes+=`<g class="node root" transform="translate(520 482)"><path class="stem-root" d="M-82-27Q0-34 82-26L79 27Q0 32-83 26Z"/><path class="bark-highlight" d="M-70-23Q0-28 68-23"/><text text-anchor="middle" y="3">我的计划</text><text class="meta" text-anchor="middle" y="22">ROOTED IN SMALL STEPS</text></g>`;
+  decoration+='<text class="garden-note" x="520" y="566" text-anchor="middle">grow at your own pace.</text>';
 }else{
 for(const [g,group] of groups.entries()){
   connections+=path(233,285,392,group.y,group.y===285,true);
-  if(theme==='c')decoration+=sprig(332,285+(group.y-285)*.55,-25+g*25,.75);
-  const branchSurface=theme==='d'?paperOutline(-1,-25,176,50,g):'<rect width="176" height="50" x="-1" y="-25"/>';
-  nodes+=`<g class="node branch" transform="translate(392 ${group.y})">${branchSurface}<text x="23" y="5">${group.title}</text><text class="branch-count" x="149" y="4">03</text></g><circle class="fold" cx="580" cy="${group.y}" r="8"/><text class="fold-label" text-anchor="middle" x="580" y="${group.y+4}">−</text><text class="branch-caption" x="414" y="${group.y+48}">${group.caption}</text>`;
+  const branchSurface=theme==='d'?paperOutline(-1,-22,165,44,g):ceramicTile(-1,-25,176,50,'branch');
+  nodes+=`<g class="node branch" transform="translate(392 ${group.y})">${branchSurface}<text x="${theme==='d'?16:23}" y="7">${group.title}</text><text class="branch-count" x="${theme==='d'?139:149}" y="5">03</text></g><circle class="fold" cx="580" cy="${group.y}" r="8"/><text class="fold-label" text-anchor="middle" x="580" y="${group.y+4}">−</text><text class="branch-caption" x="414" y="${group.y+48}">${group.caption}</text>`;
   group.tasks.forEach(([title,status],i)=>{
     const y=group.y+(i-1)*48;
     const selected=group.y===285&&i===0;
     connections+=path(588,group.y,759,y,selected);
-    if(theme==='c'&&i!==1)decoration+=sprig(699,group.y+(y-group.y)*.72,i===0?-25:100,.48);
-    const surface=theme==='d'?paperOutline(0,-22,246,44,i+g):theme==='c'?'<path class="leaf-surface" d="M0 0C5-26 40-23 91-22H205Q233-22 246-28Q249 21 215 22H36Q5 22 0 0Z"/>':'<rect x="0" y="-22" width="246" height="44"/>';
-    nodes+=`<g class="node ${status}${selected?' selected':''}" transform="translate(759 ${y})">${surface}${stateMark(status)}<text class="task-title" x="41" y="5">${title}</text>${selected?'<text class="selection-label" x="168" y="4">进行中</text>':''}</g>`;
+    const paperWidth=Array.from(title).length*24+49;
+    const surface=theme==='d'?paperOutline(0,-19,paperWidth,38,i+g):ceramicTile(0,-22,246,44,'leaf',status==='dropped');
+    nodes+=`<g class="node ${status}${selected?' selected':''}" transform="translate(759 ${y})">${surface}${stateMark(status,theme==='d'?18:22)}<text class="task-title" x="${theme==='d'?35:41}" y="${theme==='d'?8:5}">${title}</text>${selected&&theme!=='d'?'<text class="selection-label" x="168" y="4">进行中</text>':''}</g>`;
   });
 }
-const rootSurface=theme==='d'?paperOutline(0,-41,170,82):theme==='c'?'<path class="leaf-surface garden-root" d="M0 6C-7-53 55-44 95-41Q153-37 171-50Q185 37 137 41H43Q4 44 0 6Z"/>':'<rect x="0" y="-41" width="170" height="82"/><rect class="clay-inset" x="6" y="-35" width="158" height="70" style="fill:none;filter:none"/>';
+const rootSurface=theme==='d'?paperOutline(0,-34,170,68):ceramicTile(0,-41,170,82,'root');
 nodes+=`<g class="node root" transform="translate(63 285)">${rootSurface}<text x="85" y="-1" text-anchor="middle">我的计划</text><text class="meta" x="85" y="22" text-anchor="middle">ONE STEP AT A TIME</text></g>`;
 if(theme==='a'){
   decoration+=`<g class="sun-emblem" transform="translate(148 213)"><circle r="12"/>${Array.from({length:12},(_,i)=>`<path d="M0-17V-22" transform="rotate(${i*30})"/>`).join('')}</g><text class="sun-caption" x="148" y="359" text-anchor="middle">SLOW AFTERNOON</text>`;
 }
-if(theme==='c')decoration+=sprig(219,245,-35,.8)+'<text class="garden-note" x="58" y="513">a little growth, every day.</text>';
 if(theme==='d'){
   decoration+='<text class="hand-note" transform="translate(45 471) rotate(-5)">慢慢来，一件一件做。</text><path class="hand-doodle" d="M102 446C63 416 77 371 119 347M109 349l10-2-4 10"/>';
 }
