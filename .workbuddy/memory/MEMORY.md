@@ -40,6 +40,7 @@
 
 ## 站点（Jekyll + minimal-mistakes 内联）
 - 颜色唯一来源 `_sass/_variables.scss`；本地资源 `relative_url`；front matter `author_profile: false`+`classes: wide`；about.md 内联代码从第 0 列起；`#site-nav` 必须保留（折叠），否则 greedy-nav 栈溢出。
+- ⚠️ **本机 Ruby 3.4.10 装在 `D:\Ruby34-x64`，被 Windows 智能应用控制（SAC，`VerifiedAndReputablePolicyState=1`）按「完整路径」误拦部分 `.so`** ⇒ `[BUG] vm_call_super` / `WinError 4551`，Jekyll 起不来。**症状会伪装成别的错**（如 `etc.so` 被拦报「tzinfo 未安装」）。修复跑 `tools/fix_sac_blocked_ruby.py`（原地重建文件即可解除，无需重装/改注册表）；排查用 `ctypes.WinDLL` 逐个试加载 + 查 CodeIntegrity/Operational 日志。`chcp 65001` 无效。
 
 ## 论文调研（paper_retrieval.html）
 - 深色 token 抄 media_paper 报告页，**不引入 diary-tools.css**，自声明 box-sizing；隐藏 `#page-last-modified`；目录解析自索引页链接；镜像 raw→jsdelivr 单试 8s。
