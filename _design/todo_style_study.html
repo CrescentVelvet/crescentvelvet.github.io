@@ -201,12 +201,16 @@ h2 { font:500 36px/1.25 var(--serif); margin:7px 0 9px; letter-spacing:.07em; }
 [data-theme="c"] .node .task-title { font-size:17px; font-weight:500; fill:#304d36; }
 [data-theme="c"] .node.branch text { font-size:18px; font-weight:500; }
 [data-theme="c"] .node.branch .branch-count { font:10px Georgia,serif; }
+[data-theme="c"] .node.root .canopy-leaf { fill:url(#mintRoot); stroke:#376740; stroke-width:1.3; }
+[data-theme="c"] .node.branch .canopy-leaf { fill:url(#mintBranch); stroke:#83a46f; stroke-width:1.1; }
+[data-theme="c"] .node.branch text { fill:#294633; font-weight:600; }
+[data-theme="c"] .node.branch .branch-count { fill:#456442; font-weight:400; }
 .node.selected .canopy-leaf { fill:url(#mintSelected); stroke:#779c63; stroke-width:1.4; }
 .node.dropped .canopy-leaf { fill:#f4f6ea; stroke:#94a284; stroke-dasharray:5 4; filter:none; }
 [data-theme="c"] .node.done .task-title { fill:#566b50; }
 [data-theme="c"] .node.dropped .task-title { fill:#5e6d55; }
-[data-theme="c"] .node.root text { fill:#31523a; }
-[data-theme="c"] .node.root .meta { fill:#566b50; }
+[data-theme="c"] .node.root text { fill:#fffef5; font-size:23px; font-weight:600; }
+[data-theme="c"] .node.root .meta { fill:#e9f1df; opacity:1; }
 [data-theme="c"] .connector { stroke:#9da87d; stroke-width:2; stroke-linecap:round; }
 [data-theme="c"] .connector.trunk { stroke:#b3a17b; stroke-width:5; }
 [data-theme="c"] .connector.active { opacity:1; }
@@ -267,7 +271,7 @@ html.board { background:#e8e5de; }
 </head>
 <body>
 <header class="study-bar">
-  <span class="study-label">TODO LIST / 美术风格探索 · 第四轮</span>
+  <span class="study-label">TODO LIST / 美术风格探索 · 第五轮</span>
   <nav class="themes" aria-label="切换美术方案">
     <a href="?theme=a" data-choice="a">A · 奶油纸感</a>
     <a href="?theme=b" data-choice="b">B · 深色星图</a>
@@ -303,9 +307,9 @@ html.board { background:#e8e5de; }
 <div class="toast" hidden role="status">这是美术效果预览，待选定风格后接入现有待办功能。</div>
 <script>
 const options = {
-  a:{name:'奶油纸感',spec:'轻薄陶片 / 清晰文字 / 柔和暖阳',brand:'留一段午后的慢时光。',eyebrow:'A WARM AFTERNOON, A SMALL STEP',heading:'把日子，晒成暖色。',sub:'在一片暖阳里，慢慢捏出生活喜欢的形状。',colors:['#f6ead7','#b65d3d','#e7b78e','#dfb477']},
+  a:{name:'奶油纸感',spec:'轻薄陶片 / 镜头彩晕 / 柔和暖阳',brand:'留一段午后的慢时光。',eyebrow:'A WARM AFTERNOON, A SMALL STEP',heading:'把日子，晒成暖色。',sub:'在一片暖阳里，慢慢捏出生活喜欢的形状。',colors:['#f6ead7','#b65d3d','#c7c7e6','#b6dcd2']},
   b:{name:'深色星图',spec:'清晰字重 / 独立暗底 / 星核轨道',brand:'每一步，都有方向。',eyebrow:'SMALL STEPS. DISTANT HORIZONS.',heading:'让想法，连成星图。',sub:'循着星光，找到下一件值得专注的事。',colors:['#101723','#d9b979','#c1d3e2','#405674']},
-  c:{name:'清透薄荷',spec:'横向树图 / 纤细枝干 / 淡绿叶片',brand:'给想法一点生长的空间。',eyebrow:'A LITTLE ROOM TO GROW',heading:'让计划，慢慢长出新叶。',sub:'沿着熟悉的脉络，清楚地看见每一件小事。',colors:['#f6fbf1','#b3a17b','#bcd8a0','#e4efd6']},
+  c:{name:'清透薄荷',spec:'深绿根节点 / 嫩绿分组 / 浅绿任务',brand:'给想法一点生长的空间。',eyebrow:'A LITTLE ROOM TO GROW',heading:'让计划，慢慢长出新叶。',sub:'沿着熟悉的脉络，清楚地看见每一件小事。',colors:['#3e7048','#c5dcb0','#eef5e7','#b3a17b']},
   d:{name:'复古手账',spec:'大字纸条 / 随字收窄 / 手绘笔触',brand:'把想做的事，写下来。',eyebrow:'FIELD NOTES / THINGS TO GROW',heading:'一页计划，几许生长。',sub:'不必画得笔直，每一笔都可以有自己的方向。',colors:['#f2eddf','#376568','#b37444','#e1e6d7']}
 };
 const query = new URLSearchParams(location.search);
@@ -318,7 +322,20 @@ document.querySelector('.swatches').innerHTML=chosen.colors.map(color=>`<i style
 const leafIcon='<svg width="25" height="25" viewBox="0 0 30 30" aria-hidden="true"><path d="M5 23C1 9 15 3 26 4C26 16 17 26 5 23Z" fill="#bcd7a8"/><path d="M4 26Q12 15 23 7" fill="none" stroke="#438465" stroke-width="1.3"/></svg>';
 document.querySelector('.brand-mark').innerHTML={a:'☀',b:'✧',c:leafIcon,d:'✎'}[theme];
 const atmosphere={
-  a:`<svg viewBox="0 0 1200 834" preserveAspectRatio="none"><defs><linearGradient id="sunlight" x1="1" y1="0" x2="0" y2="1"><stop stop-color="#ffe5ac" stop-opacity=".7"/><stop offset="1" stop-color="#fff9e7" stop-opacity="0"/></linearGradient><filter id="softSun"><feGaussianBlur stdDeviation="7"/></filter></defs><path d="M930 386V154a116 116 0 0 1 232 0v232Z" fill="#d8a168" opacity=".11"/><path d="M946 386V154a100 100 0 0 1 200 0v232" fill="none" stroke="#bc8355" opacity=".13"/><circle cx="1060" cy="180" r="83" fill="#ffe1a2" opacity=".38"/><g filter="url(#softSun)"><path d="M835 -60H1270L640 834H245Z" fill="url(#sunlight)"/><path d="M1050 -25h28L457 834h-33ZM1207 -25h30L614 834h-32Z" fill="#8a6036" opacity=".075"/><path d="M1200 145v28L429 834h-37Z" fill="#8a6036" opacity=".045"/></g></svg>`,
+  a:`<svg viewBox="0 0 1200 834" preserveAspectRatio="none" aria-label="暖阳与柔和彩色镜头光晕">
+    <defs>
+      <radialGradient id="sunBloom"><stop stop-color="#fffdf1" stop-opacity=".95"/><stop offset=".2" stop-color="#fff5d0" stop-opacity=".7"/><stop offset=".55" stop-color="#ffe7ad" stop-opacity=".3"/><stop offset="1" stop-color="#fff4d9" stop-opacity="0"/></radialGradient>
+      <radialGradient id="spectralHalo"><stop offset=".48" stop-color="#fff8db" stop-opacity="0"/><stop offset=".59" stop-color="#f4c4ad" stop-opacity=".13"/><stop offset=".66" stop-color="#c6a9df" stop-opacity=".18"/><stop offset=".72" stop-color="#a6d9d4" stop-opacity=".23"/><stop offset=".79" stop-color="#efe2a6" stop-opacity=".18"/><stop offset=".9" stop-color="#fff3c6" stop-opacity="0"/></radialGradient>
+      <radialGradient id="flareGhost"><stop stop-color="#d5e4ce" stop-opacity=".12"/><stop offset=".58" stop-color="#b9d7d9" stop-opacity=".08"/><stop offset=".74" stop-color="#cbb5e0" stop-opacity=".19"/><stop offset=".86" stop-color="#f4c6a2" stop-opacity=".17"/><stop offset="1" stop-color="#ffeac9" stop-opacity="0"/></radialGradient>
+      <radialGradient id="flarePeach"><stop stop-color="#fff3d1" stop-opacity=".5"/><stop offset=".55" stop-color="#e9b9b1" stop-opacity=".15"/><stop offset="1" stop-color="#e0c7dd" stop-opacity="0"/></radialGradient>
+    </defs>
+    <ellipse cx="1145" cy="55" rx="380" ry="330" fill="url(#sunBloom)"/>
+    <ellipse cx="1050" cy="160" rx="260" ry="215" fill="url(#spectralHalo)" transform="rotate(-30 1050 160)"/>
+    <circle cx="920" cy="315" r="113" fill="url(#flarePeach)"/>
+    <circle cx="748" cy="516" r="92" fill="url(#flareGhost)"/>
+    <circle cx="607" cy="659" r="46" fill="url(#flarePeach)"/>
+    <circle cx="537" cy="734" r="25" fill="url(#flareGhost)"/>
+  </svg>`,
   b:'',
   c:`<svg viewBox="0 0 1200 834"><g opacity=".24" fill="#b5cd9b" stroke="#93b381" stroke-width="1"><path d="M1207 61C1150 119 1124 185 1094 271" fill="none"/><path d="M1162 122Q1081 118 1088 58Q1148 60 1162 122ZM1135 171Q1138 90 1195 87Q1193 152 1135 171ZM1117 212Q1049 202 1057 149Q1112 156 1117 212ZM1104 243Q1110 178 1162 177Q1155 232 1104 243Z"/></g><g opacity=".16" fill="#a4c7a0"><path d="M27 802Q81 718 79 638" fill="none" stroke="#7aa776"/><path d="M62 742Q3 722 17 676Q65 689 62 742ZM77 700Q77 644 120 633Q125 678 77 700ZM38 784Q4 766 0 735Q45 745 38 784Z"/></g></svg>`,
   d:`<svg viewBox="0 0 1200 834"><g class="hand-doodle" transform="translate(1070 117) rotate(12)"><path d="M-46 3C-49-45 42-51 47-6C53 36-40 43-46 3ZM-48 0C-49-41 40-47 45-5" opacity=".5"/><path d="M-11 3l22-5M-1-9l2 23M-10-8l19 18M9-9L-8 12"/><path d="M-57 42q51 14 111-3"/><text x="0" y="65" text-anchor="middle" fill="#899078" stroke="none" font-family="Georgia,serif" font-style="italic" font-size="10">a little, every day</text></g></svg>`
@@ -338,6 +355,8 @@ const defs=`<defs>
   <pattern id="clayPores" width="17" height="13" patternUnits="userSpaceOnUse"><circle cx="2" cy="3" r=".55" fill="#895533" opacity=".3"/><circle cx="11" cy="8" r=".45" fill="#ffefd2" opacity=".7"/><circle cx="7" cy="12" r=".4" fill="#9c6c43" opacity=".35"/><path d="M14 2l1 .5" stroke="#8e603f" stroke-width=".4" opacity=".35"/></pattern>
   <filter id="clayShadow" x="-10%" y="-15%" width="120%" height="135%"><feDropShadow dx="-1" dy="2" stdDeviation="1" flood-color="#744525" flood-opacity=".1"/></filter>
   <linearGradient id="mintLeaf" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#fafff5"/><stop offset="1" stop-color="#eef5e7"/></linearGradient>
+  <linearGradient id="mintRoot" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#4d8055"/><stop offset="1" stop-color="#386640"/></linearGradient>
+  <linearGradient id="mintBranch" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#d6e7c4"/><stop offset="1" stop-color="#bfd7a7"/></linearGradient>
   <linearGradient id="mintSelected" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#f6fbea"/><stop offset="1" stop-color="#e2efce"/></linearGradient>
   <filter id="starlight" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="1.6"/><feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge></filter>
 </defs>`;
