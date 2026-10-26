@@ -465,8 +465,8 @@ title: "待办清单"
         body[data-theme="b"] .panel-toggle, body[data-theme="b"] .theme-btn, body[data-theme="b"] .ed-btn, body[data-theme="b"] .editor { background: #192332; border-color: #405674; color: #edf3fb; }
         body[data-theme="b"] .theme-btn[aria-pressed="true"] { background: #293140; border-color: #d9b979; color: #f0d19b; }
         body[data-theme="b"] .theme-picker { border-color: #334155; }
-        body[data-theme="b"] .link { stroke: #7e97b6; stroke-width: 1.15; opacity: .76; stroke-linecap: round; stroke-linejoin: round; }
-        body[data-theme="b"] .link.trunk { stroke: #b1c1d8; stroke-width: 1.8; }
+        body[data-theme="b"] .link { stroke: #8ba3c0; stroke-width: 1.15; opacity: .68; stroke-linecap: round; stroke-linejoin: round; }
+        body[data-theme="b"] .link.trunk { stroke: #d1bc80; stroke-width: 1.65; opacity: .78; }
         body[data-theme="b"] .node.lit > .kids > .links > .link { stroke: #e1c183; stroke-width: 2.2; opacity: 1; filter: url(#starlight); }
         body[data-theme="b"] .bubble.root { fill: #17283d; stroke: #d9b979; }
         body[data-theme="b"] .bubble.parent { fill: #1b3048; stroke: #57708f; }
@@ -486,6 +486,12 @@ title: "待办清单"
         body[data-theme="b"] .b-orbit { fill: none; stroke: #d9b979; stroke-width: .9; opacity: .62; }
         body[data-theme="b"] .b-junction { fill: #e3c98f; stroke: #f6e0ad; stroke-width: .8; filter: url(#starlight); }
         body[data-theme="b"] .b-star { fill: #d9e8f7; stroke: #f5fbff; stroke-width: .55; opacity: .95; filter: url(#starlight); }
+        body[data-theme="b"] .b-node-star { pointer-events: none; }
+        body[data-theme="b"] .b-parent-star { fill: #e4c483; stroke: #fff0bf; stroke-width: .9; filter: url(#starlight); }
+        body[data-theme="b"] .node.leaf.todo .b-leaf-star { fill: #b9d8f4; stroke: #f2f8ff; opacity: .8; filter: url(#starlight); }
+        body[data-theme="b"] .node.leaf.doing .b-leaf-star { fill: #efc56d; stroke: #fff3c4; opacity: 1; filter: url(#starlight); }
+        body[data-theme="b"] .node.leaf.done .b-leaf-star { fill: #82d4bb; stroke: #d8fff2; opacity: .9; filter: url(#starlight); }
+        body[data-theme="b"] .node.leaf.dropped .b-leaf-star { fill: #697a99; stroke: #a9b7d0; opacity: .48; filter: none; }
         body[data-theme="b"] .b-route-star { fill: #d9b979; stroke: #f6e0ad; stroke-width: .7; opacity: .95; filter: url(#starlight); }
         body[data-theme="b"] .b-meta { fill: #8ea4bf; font: 8px Georgia, serif; letter-spacing: 1.4px; }
         body[data-theme="b"] .theme-detail { display: block; }
@@ -778,18 +784,20 @@ title: "待办清单"
             var padX = hasKids ? Math.max(12, 40 - node.depth * 6) : 15;
             var fs = hasKids ? Math.max(14, 30 - node.depth * 6) : 13;
             var ls = hasKids ? Math.max(0, 4 - node.depth) : 0;
+            var bStar = "";
             if (currentTheme === "b") {
-                if (isRoot) html += '<ellipse class="b-orbit" rx="52" ry="18" transform="rotate(-24)"/><circle class="b-core" r="34"/>';
-                else if (hasKids) html += '<path class="b-junction" d="M0-13L3-5 11-8 6 0 11 8 3 5 0 13-3 5-11 8-6 0-11-8-3-5Z"/>';
+                if (isRoot) bStar = '<g class="b-node-star b-root-star"><ellipse class="b-orbit" rx="52" ry="18" transform="rotate(-24)"/><circle class="b-core" r="34"/></g>';
+                else if (hasKids) bStar = '<path class="b-node-star b-parent-star" d="M0-13L3-5 11-8 6 0 11 8 3 5 0 13-3 5-11 8-6 0-11-8-3-5Z"/>';
+                else bStar = '<path class="b-node-star b-leaf-star" d="M0-9L2-2 9 0 2 2 0 9-2 2-9 0-2-2Z"/>';
                 html += '<text class="b-meta" x="0" y="' + (isRoot ? 20 : (hasKids ? 20 : 18)) + '" text-anchor="middle">' + (isRoot ? 'PLAN / 09 STARS' : hasKids ? 'SECTOR 0' + node.depth : '') + '</text>';
             }
             if (currentTheme === "a") html += '<path class="theme-detail clay-highlight" d="M-18 -' + Math.max(7, fs / 2 + 3) + 'q12-5 24 0"/>';
             if (currentTheme === "c") html += '<path class="leaf-shape" d="M-40 0C-20-18 20-18 40 0C20 18-20 18-40 0Z"/><path class="theme-detail leaf-vein" d="M-18 0Q0-5 18 0"/>';
             if (currentTheme === "d") html += '<path class="paper-outline" d="M-40 -18Q-10 -20 40 -17L42 0 39 18Q5 20 -40 17L-42 0Z"/><path class="theme-detail paper-echo" d="M-44 -' + Math.max(10, fs / 2 + 6) + 'q44-4 88 0"/>';
             html += '<rect class="' + bubbleCls + '" x="-40" y="-15" width="80" height="30" rx="15" fill="' + fill + '" data-pad="' + padX + '"/>';
+            html += bStar;
             var tstyle = hasKids ? ' style="font-size:' + fs + 'px;letter-spacing:' + ls + 'px"' : "";
             html += '<text class="' + lblCls + '"' + tstyle + ' x="0" y="1" text-anchor="middle" dominant-baseline="central">' + escapeXml(node.title) + '</text>';
-            if (currentTheme === "b" && isLeaf) html += '<path class="b-star" d="M0-9L2-2 9 0 2 2 0 9-2 2-9 0-2-2Z" transform="translate(0,0)"/>';
             html += "</g>";
             return html;
         }
@@ -798,7 +806,7 @@ title: "待办清单"
             var rects = svg.querySelectorAll("rect.bubble");
             for (var i = 0; i < rects.length; i++) {
                 var rect = rects[i];
-                var text = rect.nextElementSibling;
+                var text = rect.parentNode && rect.parentNode.querySelector(":scope > text.lbl");
                 if (!text || text.tagName.toLowerCase() !== "text") continue;
                 var bb = text.getBBox();
                 if (!bb.width) continue;
@@ -820,8 +828,11 @@ title: "待办清单"
                     var px = w / 2, py = h / 2;
                     paper.setAttribute("d", "M" + (-px + 2).toFixed(1) + " " + (-py + 1).toFixed(1) + "Q" + (-px * .25).toFixed(1) + " " + (-py - 1).toFixed(1) + " " + (px - 2).toFixed(1) + " " + (-py + 1).toFixed(1) + "L" + (px + 1).toFixed(1) + " " + (py * .2).toFixed(1) + "L" + (px - 1).toFixed(1) + " " + (py - 1).toFixed(1) + "Q" + (px * .25).toFixed(1) + " " + (py + 1).toFixed(1) + " " + (-px + 2).toFixed(1) + " " + (py - 1).toFixed(1) + "L" + (-px - 1).toFixed(1) + " " + (-py * .1).toFixed(1) + "Z");
                 }
-                var star = rect.parentNode && rect.parentNode.querySelector(":scope > .b-star");
-                if (star) star.setAttribute("transform", "translate(" + (w / 2 + 12).toFixed(1) + ",0)");
+                var star = rect.parentNode && rect.parentNode.querySelector(":scope > .b-node-star");
+                if (star) {
+                    var starPad = star.classList.contains("b-root-star") ? 25 : 12;
+                    star.setAttribute("transform", "translate(" + (-w / 2 - starPad).toFixed(1) + ",0)");
+                }
             }
         }
         function isRootOf(rect) { return rect.classList.contains("root"); }
@@ -853,7 +864,7 @@ title: "待办清单"
                     + '<radialGradient id="flareGhost"><stop stop-color="#d5e4ce" stop-opacity=".12"/><stop offset=".58" stop-color="#b9d7d9" stop-opacity=".08"/><stop offset=".74" stop-color="#cbb5e0" stop-opacity=".19"/><stop offset=".86" stop-color="#f4c6a2" stop-opacity=".17"/><stop offset="1" stop-color="#ffeac9" stop-opacity="0"/></radialGradient></defs>'
                     + '<ellipse cx="1145" cy="55" rx="380" ry="330" fill="url(#sunBloom)"/><ellipse cx="1050" cy="160" rx="260" ry="215" fill="url(#spectralHalo)" transform="rotate(-30 1050 160)"/><circle cx="920" cy="315" r="113" fill="url(#sunBloom)" opacity=".32"/><circle cx="748" cy="516" r="92" fill="url(#flareGhost)"/><circle cx="607" cy="659" r="46" fill="url(#flareGhost)"/></svg>';
             } else if (theme === "b") {
-                svgText = '<svg viewBox="0 0 1200 834" preserveAspectRatio="none" aria-hidden="true"><g fill="#b9cee5" opacity=".22"><circle cx="105" cy="140" r="1.6"/><circle cx="870" cy="110" r="1.4"/><circle cx="1100" cy="600" r="1.8"/><circle cx="680" cy="740" r="1.2"/><circle cx="330" cy="680" r="1.4"/></g><g fill="none" stroke="#d9b979" stroke-width="1" opacity=".18"><path d="M830 95 Q1020 170 1080 355 Q1015 470 870 525"/><path d="M90 705 Q240 585 420 610"/></g></svg>';
+                svgText = '<svg viewBox="0 0 1200 834" preserveAspectRatio="none" aria-hidden="true"><defs><radialGradient id="nebulaBlue"><stop stop-color="#3d6d9b" stop-opacity=".2"/><stop offset="1" stop-color="#18263b" stop-opacity="0"/></radialGradient><radialGradient id="nebulaViolet"><stop stop-color="#735c9b" stop-opacity=".14"/><stop offset="1" stop-color="#18263b" stop-opacity="0"/></radialGradient></defs><ellipse cx="260" cy="190" rx="330" ry="210" fill="url(#nebulaBlue)"/><ellipse cx="990" cy="640" rx="390" ry="260" fill="url(#nebulaViolet)"/><g fill="#d9e8f7"><circle cx="105" cy="140" r="1.6"/><circle cx="870" cy="110" r="1.4"/><circle cx="1100" cy="600" r="1.8"/><circle cx="680" cy="740" r="1.2"/><circle cx="330" cy="680" r="1.4"/><circle cx="180" cy="520" r=".8"/><circle cx="510" cy="120" r=".9"/><circle cx="760" cy="210" r=".8"/><circle cx="1160" cy="280" r="1"/><circle cx="940" cy="390" r=".75"/><circle cx="590" cy="560" r="1.1"/><circle cx="70" cy="760" r=".8"/></g><g fill="none" stroke="#d9b979" stroke-width="1" opacity=".2"><path d="M830 95 L930 160 L1080 355 L1015 470 L870 525"/><path d="M90 705 L240 585 L420 610"/><path d="M540 85 L620 150 L700 125"/></g></svg>';
             } else if (theme === "c") {
                 svgText = '<svg viewBox="0 0 1200 834" preserveAspectRatio="none" aria-hidden="true"><g opacity=".18" fill="#b5cd9b" stroke="#93b381" stroke-width="1"><path d="M1170 45C1100 120 1090 185 1052 290" fill="none"/><path d="M1134 171Q1138 90 1195 87Q1193 152 1134 171ZM1104 243Q1110 178 1162 177Q1155 232 1104 243Z"/><path d="M52 800Q88 710 86 640" fill="none"/><path d="M78 704Q78 646 120 633Q125 678 78 704Z"/></g></svg>';
             } else if (theme === "d") {
