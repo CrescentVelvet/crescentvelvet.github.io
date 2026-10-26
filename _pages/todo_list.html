@@ -11,7 +11,9 @@ title: "待办清单"
     <title>待办清单</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=ZCOOL+QingKe+HuangYou&family=DotGothic16&display=swap" rel="stylesheet">
+    <!-- 外链字体只作增强，使用 print 媒体异步加载，网络慢时不阻塞待办数据和首屏。 -->
+    <link href="https://fonts.googleapis.com/css2?family=ZCOOL+QingKe+HuangYou&family=DotGothic16&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+    <noscript><link href="https://fonts.googleapis.com/css2?family=ZCOOL+QingKe+HuangYou&family=DotGothic16&display=swap" rel="stylesheet"></noscript>
     <style>
         :root {
             --bg: #f7f8fa;
@@ -457,7 +459,7 @@ title: "待办清单"
             --bg: #101723; --text: #edf3fb; --text-muted: #a4b4c9;
             --todo: #b0c4da; --doing: #e4c380; --done: #8dc9b8; --dropped: #98adc6;
         }
-        body[data-theme="b"] .wrap { background: radial-gradient(ellipse at 40% 50%, #1c2b4022, transparent 70%), #101723; }
+        body[data-theme="b"] .wrap { background-color: #101723; background-image: radial-gradient(#bacbdf 1px, transparent 1px), radial-gradient(#7b8da7 .65px, transparent .65px), radial-gradient(ellipse at 40% 50%, #1c2b4022, transparent 70%); background-size: 113px 109px, 37px 41px, auto; background-position: 3px 27px, 19px 8px, 0 0; }
         body[data-theme="b"] .panel { background: linear-gradient(155deg, #1b2637, #151e2b); border-color: #405674; box-shadow: 0 15px 50px #00000055; }
         body[data-theme="b"] .panel-toggle, body[data-theme="b"] .theme-btn, body[data-theme="b"] .ed-btn, body[data-theme="b"] .editor { background: #192332; border-color: #405674; color: #edf3fb; }
         body[data-theme="b"] .theme-btn[aria-pressed="true"] { background: #293140; border-color: #d9b979; color: #f0d19b; }
@@ -472,9 +474,18 @@ title: "待办清单"
         body[data-theme="b"] .node.leaf.done > .bubble { fill: #17323a; stroke: #5c9b8e; }
         body[data-theme="b"] .node.leaf.dropped > .bubble { fill: #142236; stroke: #8499b2; filter: none; }
         body[data-theme="b"] .lbl { fill: #f0f5ff; }
-        body[data-theme="b"] .lbl.root { fill: #e3c88f; }
+        body[data-theme="b"] .lbl.root { fill: #e3c88f; font-family: "Segoe UI", "Microsoft YaHei", sans-serif; font-size: 18px; font-weight: 600; letter-spacing: 2px; }
         body[data-theme="b"] .node.leaf.done .lbl { fill: #c1d3e2; }
         body[data-theme="b"] .node.leaf.dropped .lbl { fill: #b5c7da; }
+        body[data-theme="b"] .node.root > .bubble, body[data-theme="b"] .node.parent > .bubble { fill: transparent !important; stroke: transparent !important; filter: none; }
+        body[data-theme="b"] .node.selected > .bubble { stroke: #d9b979 !important; stroke-width: 3; }
+        body[data-theme="b"] .node.parent .lbl { font-family: "Segoe UI", "Microsoft YaHei", sans-serif; font-size: 16px; letter-spacing: 1.2px; }
+        body[data-theme="b"] .node.leaf .lbl { font-family: "Segoe UI", "Microsoft YaHei", sans-serif; font-size: 14px; letter-spacing: .4px; }
+        body[data-theme="b"] .b-core { fill: #142032; stroke: #d9b979; stroke-width: 1.2; }
+        body[data-theme="b"] .b-orbit { fill: none; stroke: #d9b979; stroke-width: .8; opacity: .55; }
+        body[data-theme="b"] .b-junction { fill: #e3c98f; stroke: #f6e0ad; stroke-width: .6; filter: url(#starlight); }
+        body[data-theme="b"] .b-star { fill: #c3d1e4; opacity: .85; filter: url(#starlight); }
+        body[data-theme="b"] .b-meta { fill: #8ea4bf; font: 8px Georgia, serif; letter-spacing: 1.4px; }
         body[data-theme="b"] .theme-detail { display: block; }
 
         /* ── 方案三：薄荷叶片层级 ── */
@@ -516,7 +527,7 @@ title: "待办清单"
             --bg: #f2eddf; --text: #304943; --text-muted: #788477;
             --todo: #849985; --doing: #b37444; --done: #5e8b76; --dropped: #899078;
         }
-        body[data-theme="d"] .wrap { background: linear-gradient(135deg, #f3f0e5, #e6eadb); }
+        body[data-theme="d"] .wrap { background-color: #f2eddf; background-image: linear-gradient(#8499852b 1px, transparent 1px), linear-gradient(90deg, #8499852b 1px, transparent 1px), linear-gradient(135deg, #f3f0e5, #e6eadb); background-size: 25px 25px, 25px 25px, auto; }
         body[data-theme="d"] .panel { background: #f5f1e5; border-color: #939d88; box-shadow: 6px 10px 20px #6a756422; transform: rotate(-.3deg); }
         body[data-theme="d"] .panel-toggle, body[data-theme="d"] .theme-btn, body[data-theme="d"] .ed-btn, body[data-theme="d"] .editor { background: #f7f3e6; border-color: #939d88; color: #304943; border-radius: 2px; }
         body[data-theme="d"] .theme-btn[aria-pressed="true"] { background: #e1e6d7; border-color: #376568; color: #285256; }
@@ -534,6 +545,14 @@ title: "待办清单"
         body[data-theme="d"] .lbl.root { fill: #285256; }
         body[data-theme="d"] .node.leaf.done .lbl { fill: #547363; }
         body[data-theme="d"] .node.leaf.dropped .lbl { fill: #69766b; }
+        body[data-theme="d"] .node > .bubble { fill: transparent !important; stroke: transparent !important; filter: none; }
+        body[data-theme="d"] .node.selected > .bubble { stroke: #a67e42 !important; stroke-width: 3; }
+        body[data-theme="d"] .paper-outline { display: block; fill: #f7f1df; stroke: #809084; stroke-width: 1.1; stroke-linecap: round; stroke-linejoin: round; filter: drop-shadow(3px 4px 0 #526d491c); }
+        body[data-theme="d"] .node.root .paper-outline { fill: #d7e0d0; stroke: #376568; }
+        body[data-theme="d"] .node.parent .paper-outline { fill: #e1e6d7; stroke: #809084; }
+        body[data-theme="d"] .node.leaf.doing .paper-outline { fill: #f0dfc8; stroke: #b37444; }
+        body[data-theme="d"] .node.leaf.done .paper-outline { fill: #e1eee2; stroke: #5e8b76; }
+        body[data-theme="d"] .node.leaf.dropped .paper-outline { fill: none; stroke: #899078; stroke-dasharray: 4 4; filter: none; }
         body[data-theme="d"] .theme-detail { display: block; }
 
         /* 方案装饰默认隐藏，避免原始版增加任何视觉负担。 */
@@ -544,6 +563,7 @@ title: "待办清单"
         .leaf-vein { stroke: #75a16c; stroke-width: 1; opacity: .7; }
         .paper-echo { stroke: #9ea996; stroke-width: .8; opacity: .55; }
         .leaf-shape { display: none; pointer-events: none; }
+        .paper-outline { display: none; pointer-events: none; }
     </style>
 </head>
 <body>
@@ -687,6 +707,26 @@ title: "待办清单"
             return "M " + x1 + " " + y1 + " C " + mx + " " + y1 + ", " + mx + " " + y2 + ", " + x2 + " " + y2;
         }
 
+        function sketchPath(x1, y1, x2, y2, seed) {
+            var mx = (x1 + x2) / 2;
+            var points = [];
+            for (var i = 0; i <= 12; i++) {
+                var t = i / 12, u = 1 - t;
+                var x = u * u * u * x1 + 3 * u * u * t * mx + 3 * u * t * t * mx + t * t * t * x2;
+                var y = u * u * u * y1 + 3 * u * u * t * y1 + 3 * u * t * t * y2 + t * t * t * y2;
+                var wobble = Math.sin(Math.PI * t) * (Math.sin(t * 21 + seed) * 1.25 + Math.sin(t * 8 + seed * .7) * 1.5);
+                points.push([x, y + wobble]);
+            }
+            var d = "M" + points[0][0].toFixed(1) + "," + points[0][1].toFixed(1);
+            for (var j = 0; j < points.length - 1; j++) {
+                var p0 = points[Math.max(0, j - 1)], p1 = points[j], p2 = points[j + 1], p3 = points[Math.min(points.length - 1, j + 2)];
+                var c1x = p1[0] + (p2[0] - p0[0]) / 6, c1y = p1[1] + (p2[1] - p0[1]) / 6;
+                var c2x = p2[0] - (p3[0] - p1[0]) / 6, c2y = p2[1] - (p3[1] - p1[1]) / 6;
+                d += " C" + c1x.toFixed(1) + "," + c1y.toFixed(1) + " " + c2x.toFixed(1) + "," + c2y.toFixed(1) + " " + p2[0].toFixed(1) + "," + p2[1].toFixed(1);
+            }
+            return d;
+        }
+
         function renderNode(node, parentX, parentY) {
             var lx = node.x - parentX;
             var ly = node.y - parentY;
@@ -708,7 +748,7 @@ title: "待办清单"
                 node.children.forEach(function (c) {
                     var clx = c.x - node.x;
                     var cly = c.y - node.y;
-                    var d = linkPath(0, 0, clx, cly);
+                    var d = currentTheme === "d" ? sketchPath(0, 0, clx, cly, node._id * 17 + c._id) : linkPath(0, 0, clx, cly);
                     var linkCls = "link" + (isRoot ? " trunk" : "");
                     if (currentTheme === "d") html += '<path class="link-echo" d="' + d + '"/>';
                     html += '<path class="' + linkCls + '" d="' + d + '"/>';
@@ -724,10 +764,16 @@ title: "待办清单"
             var padX = hasKids ? Math.max(12, 40 - node.depth * 6) : 15;
             var fs = hasKids ? Math.max(14, 30 - node.depth * 6) : 13;
             var ls = hasKids ? Math.max(0, 4 - node.depth) : 0;
+            if (currentTheme === "b") {
+                if (isRoot) html += '<ellipse class="b-orbit" rx="55" ry="20" transform="rotate(-24)"/><circle class="b-core" r="43"/>';
+                else if (hasKids) html += '<path class="b-junction" d="M0-11L2-3 11 0 2 3 0 11-2 3-11 0-2-3Z"/>';
+                else html += '<path class="b-star" d="M0-8L2-2 8 0 2 2 0 8-2 2-8 0-2-2Z"/>';
+                html += '<text class="b-meta" x="0" y="' + (isRoot ? 20 : (hasKids ? 20 : 18)) + '" text-anchor="middle">' + (isRoot ? 'PLAN / 09 STARS' : hasKids ? 'SECTOR 0' + node.depth : '') + '</text>';
+            }
             if (currentTheme === "a") html += '<path class="theme-detail clay-highlight" d="M-18 -' + Math.max(7, fs / 2 + 3) + 'q12-5 24 0"/>';
             if (currentTheme === "b") html += '<path class="theme-detail star-mark" d="M0 -' + Math.max(14, fs / 2 + 12) + 'l2 5 5 2-5 2-2 5-2-5-5-2 5-2z"/>';
             if (currentTheme === "c") html += '<path class="leaf-shape" d="M-40 0C-20-18 20-18 40 0C20 18-20 18-40 0Z"/><path class="theme-detail leaf-vein" d="M-18 0Q0-5 18 0"/>';
-            if (currentTheme === "d") html += '<path class="theme-detail paper-echo" d="M-44 -' + Math.max(10, fs / 2 + 6) + 'q44-4 88 0"/>';
+            if (currentTheme === "d") html += '<path class="paper-outline" d="M-40 -18Q-10 -20 40 -17L42 0 39 18Q5 20 -40 17L-42 0Z"/><path class="theme-detail paper-echo" d="M-44 -' + Math.max(10, fs / 2 + 6) + 'q44-4 88 0"/>';
             html += '<rect class="' + bubbleCls + '" x="-40" y="-15" width="80" height="30" rx="15" fill="' + fill + '" data-pad="' + padX + '"/>';
             var tstyle = hasKids ? ' style="font-size:' + fs + 'px;letter-spacing:' + ls + 'px"' : "";
             html += '<text class="' + lblCls + '"' + tstyle + ' x="0" y="1" text-anchor="middle" dominant-baseline="central">' + escapeXml(node.title) + '</text>';
@@ -755,6 +801,11 @@ title: "待办清单"
                 if (leaf) {
                     var x = w / 2, y = h / 2;
                     leaf.setAttribute("d", "M " + (-x + 4).toFixed(1) + " 0 C " + (-x * .35).toFixed(1) + " " + (-y * 1.05).toFixed(1) + ", " + (x * .62).toFixed(1) + " " + (-y * 1.05).toFixed(1) + ", " + x.toFixed(1) + " 0 C " + (x * .62).toFixed(1) + " " + (y * 1.05).toFixed(1) + ", " + (-x * .35).toFixed(1) + " " + (y * 1.05).toFixed(1) + ", " + (-x + 4).toFixed(1) + " 0 Z");
+                }
+                var paper = rect.parentNode && rect.parentNode.querySelector(":scope > .paper-outline");
+                if (paper) {
+                    var px = w / 2, py = h / 2;
+                    paper.setAttribute("d", "M" + (-px + 2).toFixed(1) + " " + (-py + 1).toFixed(1) + "Q" + (-px * .25).toFixed(1) + " " + (-py - 1).toFixed(1) + " " + (px - 2).toFixed(1) + " " + (-py + 1).toFixed(1) + "L" + (px + 1).toFixed(1) + " " + (py * .2).toFixed(1) + "L" + (px - 1).toFixed(1) + " " + (py - 1).toFixed(1) + "Q" + (px * .25).toFixed(1) + " " + (py + 1).toFixed(1) + " " + (-px + 2).toFixed(1) + " " + (py - 1).toFixed(1) + "L" + (-px - 1).toFixed(1) + " " + (-py * .1).toFixed(1) + "Z");
                 }
             }
         }
