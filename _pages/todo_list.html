@@ -460,7 +460,7 @@ title: "待办清单"
             --bg: #101723; --text: #edf3fb; --text-muted: #a4b4c9;
             --todo: #b0c4da; --doing: #e4c380; --done: #8dc9b8; --dropped: #98adc6;
         }
-        body[data-theme="b"] .wrap { background-color: #101723; background-image: radial-gradient(#bacbdf 1px, transparent 1px), radial-gradient(#7b8da7 .65px, transparent .65px), radial-gradient(ellipse at 40% 50%, #1c2b4022, transparent 70%); background-size: 113px 109px, 37px 41px, auto; background-position: 3px 27px, 19px 8px, 0 0; }
+        body[data-theme="b"] .wrap { background-color: #101723; background-image: radial-gradient(ellipse at 40% 50%, #1c2b4022, transparent 70%); }
         body[data-theme="b"] .panel { background: linear-gradient(155deg, #1b2637, #151e2b); border-color: #405674; box-shadow: 0 15px 50px #00000055; }
         body[data-theme="b"] .panel-toggle, body[data-theme="b"] .theme-btn, body[data-theme="b"] .ed-btn, body[data-theme="b"] .editor { background: #192332; border-color: #405674; color: #edf3fb; }
         body[data-theme="b"] .theme-btn[aria-pressed="true"] { background: #293140; border-color: #d9b979; color: #f0d19b; }
@@ -492,9 +492,10 @@ title: "待办清单"
         body[data-theme="b"] .node.leaf.doing .b-leaf-star { fill: #efc56d; stroke: #fff3c4; opacity: 1; filter: url(#starlight); }
         body[data-theme="b"] .node.leaf.done .b-leaf-star { fill: #82d4bb; stroke: #d8fff2; opacity: .9; filter: url(#starlight); }
         body[data-theme="b"] .node.leaf.dropped .b-leaf-star { fill: #697a99; stroke: #a9b7d0; opacity: .48; filter: none; }
+        /* 星图三类星星：背景远星 b-bg-star、连线节点星 b-route-star、任务节点星 b-node-star（根星核/树干星标/叶星标）。 */
         body[data-theme="b"] .b-route-star { fill: #d9b979; stroke: #f6e0ad; stroke-width: .7; opacity: .95; filter: url(#starlight); }
         body[data-theme="b"] .b-bg-star { fill: #d9e8f7; animation: b-twinkle 4.8s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
-        @keyframes b-twinkle { 0%, 100% { opacity: .12; transform: scale(.72); } 50% { opacity: .78; transform: scale(1.15); } }
+        @keyframes b-twinkle { 0%, 100% { opacity: var(--star-dim, .12); } 50% { opacity: var(--star-bright, .78); } }
         body[data-theme="b"] .b-meta { fill: #8ea4bf; font: 8px Georgia, serif; letter-spacing: 1.4px; }
         body[data-theme="b"] .theme-detail { display: block; }
 
@@ -718,10 +719,27 @@ title: "待办清单"
             return "M " + x1 + " " + y1 + " C " + mx + " " + y1 + ", " + mx + " " + y2 + ", " + x2 + " " + y2;
         }
 
-        function constellationPath(x1, y1, x2, y2) {
-            var midX = x1 + (x2 - x1) * .58;
-            var midY = y1 + (y2 - y1) * .5;
-            return "M " + x1 + " " + y1 + " L " + midX + " " + midY + " L " + x2 + " " + y2;
+        function constellationRoute(x1, y1, x2, y2, seed) {
+            var dx = x2 - x1, dy = y2 - y1;
+            var distance = Math.hypot(dx, dy) || 1;
+            var count = Math.min(4, Math.max(1, Math.round(distance / 320)));
+            var nx = -dy / distance, ny = dx / distance;
+            var points = [];
+            var d = "M " + x1 + " " + y1;
+            for (var i = 0; i < count; i++) {
+                var seedA = Math.sin(seed * 1.731 + i * 19.173) * 43758.5453;
+                var seedB = Math.sin(seed * 2.417 + i * 47.391 + 8.7) * 43758.5453;
+                var jitterA = seedA - Math.floor(seedA);
+                var jitterB = seedB - Math.floor(seedB);
+                var t = Math.max(.16, Math.min(.84, (i + 1) / (count + 1) + (jitterA - .5) * .16));
+                var bend = (jitterB - .5) * Math.min(110, Math.max(28, distance * .22));
+                var px = x1 + dx * t + nx * bend;
+                var py = y1 + dy * t + ny * bend;
+                points.push({ x: px, y: py });
+                d += " L " + px.toFixed(1) + " " + py.toFixed(1);
+            }
+            d += " L " + x2 + " " + y2;
+            return { d: d, points: points };
         }
 
         function sketchPath(x1, y1, x2, y2, seed) {
@@ -765,22 +783,18 @@ title: "待办清单"
                 node.children.forEach(function (c) {
                     var clx = c.x - node.x;
                     var cly = c.y - node.y;
-                    var d = currentTheme === "d" ? sketchPath(0, 0, clx, cly, node._id * 17 + c._id) : currentTheme === "b" ? constellationPath(0, 0, clx, cly) : linkPath(0, 0, clx, cly);
+                    var route = currentTheme === "b" ? constellationRoute(0, 0, clx, cly, node._id * 17 + c._id) : null;
+                    var d = currentTheme === "d" ? sketchPath(0, 0, clx, cly, node._id * 17 + c._id) : route ? route.d : linkPath(0, 0, clx, cly);
                     var linkCls = "link" + (isRoot ? " trunk" : "");
                     if (currentTheme === "d") html += '<path class="link-echo" d="' + d + '"/>';
                     html += '<path class="' + linkCls + '" pathLength="1" d="' + d + '"/>';
-                    var linkDistance = Math.hypot(clx, cly);
-                    if (currentTheme === "b" && linkDistance > 180) {
-                        var routeStars = Math.min(4, Math.max(1, Math.round(linkDistance / 320)));
-                        for (var si = 0; si < routeStars; si++) {
-                            var jitterSeed = Math.sin(node._id * 97.13 + c._id * 31.71 + si * 17.23) * 43758.5453;
-                            var jitter = jitterSeed - Math.floor(jitterSeed);
-                            var t = Math.max(.16, Math.min(.84, (si + 1) / (routeStars + 1) + (jitter - .5) * .18));
-                            var routeX = clx * t;
-                            var routeY = cly * t;
-                            var starScale = (.72 + jitter * .46).toFixed(2);
-                            html += '<path class="b-route-star" d="M0-5L1.4-1.4 5 0 1.4 1.4 0 5-1.4 1.4-5 0-1.4-1.4Z" transform="translate(' + routeX.toFixed(1) + ',' + routeY.toFixed(1) + ') scale(' + starScale + ')"/>';
-                        }
+                    if (route) {
+                        route.points.forEach(function (point, index) {
+                            var sizeSeed = Math.sin((node._id * 97.13 + c._id * 31.71 + index) * 1.37) * 43758.5453;
+                            var sizeJitter = sizeSeed - Math.floor(sizeSeed);
+                            var starScale = (.72 + sizeJitter * .46).toFixed(2);
+                            html += '<path class="b-route-star" d="M0-5L1.4-1.4 5 0 1.4 1.4 0 5-1.4 1.4-5 0-1.4-1.4Z" transform="translate(' + point.x.toFixed(1) + ',' + point.y.toFixed(1) + ') scale(' + starScale + ')"/>';
+                        });
                     }
                 });
                 html += '</g><g class="nodes">';
@@ -822,7 +836,13 @@ title: "待办清单"
                 if (!bb.width) continue;
                 var padAttr = rect.getAttribute("data-pad");
                 var padX = padAttr != null ? parseFloat(padAttr) : 15, padY = 7;
-                var w = bb.width + padX * 2, h = bb.height + padY * 2;
+                var star = rect.parentNode && rect.parentNode.querySelector(":scope > .b-node-star");
+                var starRadius = 0, starReserve = 0;
+                if (currentTheme === "b" && star) {
+                    starRadius = star.classList.contains("b-root-star") ? 30 : star.classList.contains("b-parent-star") ? 13 : 9;
+                    starReserve = star.classList.contains("b-root-star") ? 68 : star.classList.contains("b-parent-star") ? 34 : 28;
+                }
+                var w = bb.width + padX * 2 + starReserve, h = bb.height + padY * 2;
                 rect.setAttribute("x", (-w / 2).toFixed(1));
                 rect.setAttribute("y", (-h / 2).toFixed(1));
                 rect.setAttribute("width", w.toFixed(1));
@@ -838,10 +858,17 @@ title: "待办清单"
                     var px = w / 2, py = h / 2;
                     paper.setAttribute("d", "M" + (-px + 2).toFixed(1) + " " + (-py + 1).toFixed(1) + "Q" + (-px * .25).toFixed(1) + " " + (-py - 1).toFixed(1) + " " + (px - 2).toFixed(1) + " " + (-py + 1).toFixed(1) + "L" + (px + 1).toFixed(1) + " " + (py * .2).toFixed(1) + "L" + (px - 1).toFixed(1) + " " + (py - 1).toFixed(1) + "Q" + (px * .25).toFixed(1) + " " + (py + 1).toFixed(1) + " " + (-px + 2).toFixed(1) + " " + (py - 1).toFixed(1) + "L" + (-px - 1).toFixed(1) + " " + (-py * .1).toFixed(1) + "Z");
                 }
-                var star = rect.parentNode && rect.parentNode.querySelector(":scope > .b-node-star");
                 if (star) {
-                    var starPad = star.classList.contains("b-root-star") ? 34 : 11;
-                    star.setAttribute("transform", "translate(" + (-w / 2 - starPad).toFixed(1) + ",0)");
+                    if (currentTheme === "b") {
+                        var starX = -w / 2 + starRadius + 5;
+                        star.setAttribute("transform", "translate(" + starX.toFixed(1) + ",0)");
+                        var textLeft = starX + starRadius + 7;
+                        var textRight = w / 2 - padX;
+                        text.setAttribute("x", ((textLeft + textRight) / 2).toFixed(1));
+                    } else {
+                        var starPad = star.classList.contains("b-root-star") ? 34 : 11;
+                        star.setAttribute("transform", "translate(" + (-w / 2 - starPad).toFixed(1) + ",0)");
+                    }
                 }
             }
         }
@@ -864,6 +891,57 @@ title: "待办清单"
                 + '</defs>';
         }
 
+        function starUnit(seed) {
+            var value = Math.sin(seed * 12.9898 + 78.233) * 43758.5453;
+            return value - Math.floor(value);
+        }
+
+        function buildBStarField(layer) {
+            var b = homeBox || { x: -300, y: -200, w: 600, h: 400 };
+            var spanX = Math.max(1200, b.w * 5), spanY = Math.max(900, b.h * 5);
+            var originX = b.x + (b.w - spanX) / 2, originY = b.y + (b.h - spanY) / 2;
+            var clusters = [
+                { x: .14, y: .18, sx: .24, sy: .22 },
+                { x: .78, y: .22, sx: .2, sy: .28 },
+                { x: .54, y: .72, sx: .3, sy: .18 },
+                { x: .18, y: .82, sx: .2, sy: .16 },
+                { x: .88, y: .76, sx: .16, sy: .2 }
+            ];
+            var html = "";
+            for (var i = 0; i < 420; i++) {
+                var cluster = clusters[Math.floor(starUnit(i * 43.17 + 7.9) * clusters.length)];
+                var u = starUnit(i * 7.17 + 1.1), v = starUnit(i * 11.31 + 4.7);
+                var wide = starUnit(i * 53.83 + 12.6) < .24;
+                var x = wide ? originX + u * spanX : originX + (cluster.x + (u - .5) * cluster.sx) * spanX;
+                var y = wide ? originY + v * spanY : originY + (cluster.y + (v - .5) * cluster.sy) * spanY;
+                var radius = (.55 + starUnit(i * 17.43 + 9.2) * 1.35).toFixed(2);
+                var dim = (.08 + starUnit(i * 23.71 + 2.8) * .2).toFixed(2);
+                var bright = (.32 + starUnit(i * 29.17 + 6.4) * .56).toFixed(2);
+                var delay = (-starUnit(i * 31.91 + 3.3) * 6).toFixed(2);
+                var duration = (3.8 + starUnit(i * 37.27 + 5.8) * 4.8).toFixed(2);
+                html += '<circle class="b-bg-star" cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" data-radius="' + radius + '" style="--star-dim:' + dim + ';--star-bright:' + bright + ';animation-delay:' + delay + 's;animation-duration:' + duration + 's"/>';
+            }
+            layer.innerHTML = html;
+            layer.setAttribute("data-field-key", homeBox ? [b.x, b.y, b.w, b.h].join(",") : "fallback");
+        }
+
+        function syncAtmosphereView() {
+            if (!themeAtmosphere || currentTheme !== "b") return;
+            var atmosphere = themeAtmosphere.querySelector("svg.b-atmosphere");
+            var layer = atmosphere && atmosphere.querySelector(".b-space-layer");
+            var v = getView();
+            if (!atmosphere || !layer || !v) return;
+            var fieldKey = homeBox ? [homeBox.x, homeBox.y, homeBox.w, homeBox.h].join(",") : "fallback";
+            if (layer.getAttribute("data-field-key") !== fieldKey) buildBStarField(layer);
+            atmosphere.setAttribute("viewBox", v.x + " " + v.y + " " + v.w + " " + v.h);
+            var rect = svg.getBoundingClientRect();
+            if (!rect.width || !rect.height) return;
+            var worldPerPixel = Math.max(v.w / rect.width, v.h / rect.height);
+            layer.querySelectorAll(".b-bg-star").forEach(function (star) {
+                star.setAttribute("r", (parseFloat(star.getAttribute("data-radius")) * worldPerPixel).toFixed(3));
+            });
+        }
+
         function setThemeAtmosphere(theme) {
             if (!themeAtmosphere) return;
             var svgText = "";
@@ -874,7 +952,7 @@ title: "待办清单"
                     + '<radialGradient id="flareGhost"><stop stop-color="#d5e4ce" stop-opacity=".12"/><stop offset=".58" stop-color="#b9d7d9" stop-opacity=".08"/><stop offset=".74" stop-color="#cbb5e0" stop-opacity=".19"/><stop offset=".86" stop-color="#f4c6a2" stop-opacity=".17"/><stop offset="1" stop-color="#ffeac9" stop-opacity="0"/></radialGradient></defs>'
                     + '<ellipse cx="1145" cy="55" rx="380" ry="330" fill="url(#sunBloom)"/><ellipse cx="1050" cy="160" rx="260" ry="215" fill="url(#spectralHalo)" transform="rotate(-30 1050 160)"/><circle cx="920" cy="315" r="113" fill="url(#sunBloom)" opacity=".32"/><circle cx="748" cy="516" r="92" fill="url(#flareGhost)"/><circle cx="607" cy="659" r="46" fill="url(#flareGhost)"/></svg>';
             } else if (theme === "b") {
-                svgText = '<svg viewBox="0 0 1200 834" preserveAspectRatio="none" aria-hidden="true"><defs><radialGradient id="nebulaBlue"><stop stop-color="#3d6d9b" stop-opacity=".2"/><stop offset="1" stop-color="#18263b" stop-opacity="0"/></radialGradient><radialGradient id="nebulaViolet"><stop stop-color="#735c9b" stop-opacity=".14"/><stop offset="1" stop-color="#18263b" stop-opacity="0"/></radialGradient></defs><ellipse cx="260" cy="190" rx="330" ry="210" fill="url(#nebulaBlue)"/><ellipse cx="990" cy="640" rx="390" ry="260" fill="url(#nebulaViolet)"/><g fill="#d9e8f7"><circle class="b-bg-star" style="animation-delay:-1.1s;animation-duration:4.2s" cx="105" cy="140" r="1.6"/><circle class="b-bg-star" style="animation-delay:-3.7s;animation-duration:5.6s" cx="870" cy="110" r="1.4"/><circle class="b-bg-star" style="animation-delay:-2.2s;animation-duration:4.9s" cx="1100" cy="600" r="1.8"/><circle class="b-bg-star" style="animation-delay:-4.4s;animation-duration:6.2s" cx="680" cy="740" r="1.2"/><circle class="b-bg-star" style="animation-delay:-.8s;animation-duration:5.1s" cx="330" cy="680" r="1.4"/><circle class="b-bg-star" style="animation-delay:-2.9s;animation-duration:4.6s" cx="180" cy="520" r=".8"/><circle class="b-bg-star" style="animation-delay:-5.2s;animation-duration:6.4s" cx="510" cy="120" r=".9"/><circle class="b-bg-star" style="animation-delay:-1.8s;animation-duration:5.4s" cx="760" cy="210" r=".8"/><circle class="b-bg-star" style="animation-delay:-4.9s;animation-duration:4.7s" cx="1160" cy="280" r="1"/><circle class="b-bg-star" style="animation-delay:-2.5s;animation-duration:5.9s" cx="940" cy="390" r=".75"/><circle class="b-bg-star" style="animation-delay:-.4s;animation-duration:4.3s" cx="590" cy="560" r="1.1"/><circle class="b-bg-star" style="animation-delay:-3.1s;animation-duration:6.1s" cx="70" cy="760" r=".8"/></g><g fill="none" stroke="#d9b979" stroke-width="1" opacity=".2"><path d="M830 95 L930 160 L1080 355 L1015 470 L870 525"/><path d="M90 705 L240 585 L420 610"/><path d="M540 85 L620 150 L700 125"/></g></svg>';
+                svgText = '<svg class="b-atmosphere" viewBox="0 0 1200 834" preserveAspectRatio="none" aria-hidden="true"><defs><radialGradient id="nebulaBlue"><stop stop-color="#3d6d9b" stop-opacity=".2"/><stop offset="1" stop-color="#18263b" stop-opacity="0"/></radialGradient><radialGradient id="nebulaViolet"><stop stop-color="#735c9b" stop-opacity=".14"/><stop offset="1" stop-color="#18263b" stop-opacity="0"/></radialGradient></defs><ellipse cx="260" cy="190" rx="330" ry="210" fill="url(#nebulaBlue)"/><ellipse cx="990" cy="640" rx="390" ry="260" fill="url(#nebulaViolet)"/><g class="b-space-layer" fill="#d9e8f7"></g></svg>';
             } else if (theme === "c") {
                 svgText = '<svg viewBox="0 0 1200 834" preserveAspectRatio="none" aria-hidden="true"><g opacity=".18" fill="#b5cd9b" stroke="#93b381" stroke-width="1"><path d="M1170 45C1100 120 1090 185 1052 290" fill="none"/><path d="M1134 171Q1138 90 1195 87Q1193 152 1134 171ZM1104 243Q1110 178 1162 177Q1155 232 1104 243Z"/><path d="M52 800Q88 710 86 640" fill="none"/><path d="M78 704Q78 646 120 633Q125 678 78 704Z"/></g></svg>';
             } else if (theme === "d") {
@@ -882,6 +960,7 @@ title: "待办清单"
             }
             themeAtmosphere.innerHTML = svgText;
             themeAtmosphere.classList.toggle("on", !!svgText);
+            syncAtmosphereView();
         }
 
         function readTheme() {
@@ -941,7 +1020,10 @@ title: "待办清单"
             if (v.some(isNaN)) return null;
             return { x: v[0], y: v[1], w: v[2], h: v[3] };
         }
-        function setView(v) { svg.setAttribute("viewBox", v.x + " " + v.y + " " + v.w + " " + v.h); }
+        function setView(v) {
+            svg.setAttribute("viewBox", v.x + " " + v.y + " " + v.w + " " + v.h);
+            syncAtmosphereView();
+        }
         function fitView() {
             var cb = svg.getBBox();
             if (!cb.width || !cb.height) return;
@@ -1685,7 +1767,7 @@ title: "待办清单"
         document.addEventListener("pointerdown", function (e) {
             if (menuEl.classList.contains("on") && !menuEl.contains(e.target)) hideMenu();
         }, true);
-        window.addEventListener("resize", hideMenu);
+        window.addEventListener("resize", function () { hideMenu(); syncAtmosphereView(); });
 
         boot();
     })();
