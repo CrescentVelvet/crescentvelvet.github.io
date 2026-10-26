@@ -465,8 +465,8 @@ title: "待办清单"
         body[data-theme="b"] .panel-toggle, body[data-theme="b"] .theme-btn, body[data-theme="b"] .ed-btn, body[data-theme="b"] .editor { background: #192332; border-color: #405674; color: #edf3fb; }
         body[data-theme="b"] .theme-btn[aria-pressed="true"] { background: #293140; border-color: #d9b979; color: #f0d19b; }
         body[data-theme="b"] .theme-picker { border-color: #334155; }
-        body[data-theme="b"] .link { stroke: #738caa; stroke-width: 1; opacity: .7; }
-        body[data-theme="b"] .link.trunk { stroke: #9fb2cb; stroke-width: 1.6; }
+        body[data-theme="b"] .link { stroke: #7e97b6; stroke-width: 1.15; opacity: .76; stroke-linecap: round; stroke-linejoin: round; }
+        body[data-theme="b"] .link.trunk { stroke: #b1c1d8; stroke-width: 1.8; }
         body[data-theme="b"] .node.lit > .kids > .links > .link { stroke: #e1c183; stroke-width: 2.2; opacity: 1; filter: url(#starlight); }
         body[data-theme="b"] .bubble.root { fill: #17283d; stroke: #d9b979; }
         body[data-theme="b"] .bubble.parent { fill: #1b3048; stroke: #57708f; }
@@ -480,12 +480,13 @@ title: "待办清单"
         body[data-theme="b"] .node.leaf.dropped .lbl { fill: #b5c7da; }
         body[data-theme="b"] .node.root > .bubble, body[data-theme="b"] .node.parent > .bubble { fill: transparent !important; stroke: transparent !important; filter: none; }
         body[data-theme="b"] .node.selected > .bubble { stroke: #d9b979 !important; stroke-width: 3; }
-        body[data-theme="b"] .node.parent .lbl { font-family: "Segoe UI", "Microsoft YaHei", sans-serif; font-size: 16px; letter-spacing: 1.2px; }
+        body[data-theme="b"] .node.parent .lbl { font-family: "Segoe UI", "Microsoft YaHei", sans-serif; font-size: 16px; letter-spacing: 1.2px; paint-order: stroke; stroke: #101723; stroke-width: 5px; stroke-linejoin: round; }
         body[data-theme="b"] .node.leaf .lbl { font-family: "Segoe UI", "Microsoft YaHei", sans-serif; font-size: 14px; letter-spacing: .4px; }
-        body[data-theme="b"] .b-core { fill: #142032; stroke: #d9b979; stroke-width: 1.2; }
-        body[data-theme="b"] .b-orbit { fill: none; stroke: #d9b979; stroke-width: .8; opacity: .55; }
-        body[data-theme="b"] .b-junction { fill: #e3c98f; stroke: #f6e0ad; stroke-width: .6; filter: url(#starlight); }
-        body[data-theme="b"] .b-star { fill: #c3d1e4; opacity: .85; filter: url(#starlight); }
+        body[data-theme="b"] .b-core { fill: #142032; stroke: #f0cf8d; stroke-width: 1.5; filter: url(#starlight); }
+        body[data-theme="b"] .b-orbit { fill: none; stroke: #d9b979; stroke-width: .9; opacity: .62; }
+        body[data-theme="b"] .b-junction { fill: #e3c98f; stroke: #f6e0ad; stroke-width: .8; filter: url(#starlight); }
+        body[data-theme="b"] .b-star { fill: #d9e8f7; stroke: #f5fbff; stroke-width: .55; opacity: .95; filter: url(#starlight); }
+        body[data-theme="b"] .b-route-star { fill: #d9b979; stroke: #f6e0ad; stroke-width: .7; opacity: .95; filter: url(#starlight); }
         body[data-theme="b"] .b-meta { fill: #8ea4bf; font: 8px Georgia, serif; letter-spacing: 1.4px; }
         body[data-theme="b"] .theme-detail { display: block; }
 
@@ -561,6 +562,7 @@ title: "待办清单"
         .theme-detail { fill: none; stroke-linecap: round; stroke-linejoin: round; }
         .clay-highlight { stroke: #fff4d0; stroke-width: 1.2; opacity: .75; }
         .star-mark { stroke: #f0d19b; stroke-width: 1; fill: none; opacity: .85; }
+        body[data-theme="b"] .star-mark { display: none; }
         .leaf-vein { stroke: #75a16c; stroke-width: 1; opacity: .7; }
         .paper-echo { stroke: #9ea996; stroke-width: .8; opacity: .55; }
         .leaf-shape { display: none; pointer-events: none; }
@@ -708,6 +710,12 @@ title: "待办清单"
             return "M " + x1 + " " + y1 + " C " + mx + " " + y1 + ", " + mx + " " + y2 + ", " + x2 + " " + y2;
         }
 
+        function constellationPath(x1, y1, x2, y2) {
+            var routeX = x1 + Math.max(42, Math.min(Math.abs(x2 - x1) - 42, Math.abs(x2 - x1) * .52));
+            if (x2 < x1) routeX = x1 - (x1 - x2) * .52;
+            return "M " + x1 + " " + y1 + " L " + routeX + " " + y1 + " L " + routeX + " " + y2 + " L " + x2 + " " + y2;
+        }
+
         function sketchPath(x1, y1, x2, y2, seed) {
             var mx = (x1 + x2) / 2;
             var points = [];
@@ -749,10 +757,16 @@ title: "待办清单"
                 node.children.forEach(function (c) {
                     var clx = c.x - node.x;
                     var cly = c.y - node.y;
-                    var d = currentTheme === "d" ? sketchPath(0, 0, clx, cly, node._id * 17 + c._id) : linkPath(0, 0, clx, cly);
+                    var d = currentTheme === "d" ? sketchPath(0, 0, clx, cly, node._id * 17 + c._id) : currentTheme === "b" ? constellationPath(0, 0, clx, cly) : linkPath(0, 0, clx, cly);
                     var linkCls = "link" + (isRoot ? " trunk" : "");
                     if (currentTheme === "d") html += '<path class="link-echo" d="' + d + '"/>';
                     html += '<path class="' + linkCls + '" pathLength="1" d="' + d + '"/>';
+                    if (currentTheme === "b" && Math.abs(cly) > 150) {
+                        var routeX = Math.max(42, Math.min(Math.abs(clx) - 42, Math.abs(clx) * .52));
+                        if (clx < 0) routeX = -routeX;
+                        var routeY = cly * .5;
+                        html += '<path class="b-route-star" d="M0-5L1.4-1.4 5 0 1.4 1.4 0 5-1.4 1.4-5 0-1.4-1.4Z" transform="translate(' + routeX.toFixed(1) + ',' + routeY.toFixed(1) + ')"/>';
+                    }
                 });
                 html += '</g><g class="nodes">';
                 node.children.forEach(function (c) {
@@ -766,18 +780,17 @@ title: "待办清单"
             var fs = hasKids ? Math.max(14, 30 - node.depth * 6) : 13;
             var ls = hasKids ? Math.max(0, 4 - node.depth) : 0;
             if (currentTheme === "b") {
-                if (isRoot) html += '<ellipse class="b-orbit" rx="55" ry="20" transform="rotate(-24)"/><circle class="b-core" r="43"/>';
-                else if (hasKids) html += '<path class="b-junction" d="M0-11L2-3 11 0 2 3 0 11-2 3-11 0-2-3Z"/>';
-                else html += '<path class="b-star" d="M0-8L2-2 8 0 2 2 0 8-2 2-8 0-2-2Z"/>';
+                if (isRoot) html += '<ellipse class="b-orbit" rx="52" ry="18" transform="rotate(-24)"/><circle class="b-core" r="34"/>';
+                else if (hasKids) html += '<path class="b-junction" d="M0-13L3-5 11-8 6 0 11 8 3 5 0 13-3 5-11 8-6 0-11-8-3-5Z"/>';
                 html += '<text class="b-meta" x="0" y="' + (isRoot ? 20 : (hasKids ? 20 : 18)) + '" text-anchor="middle">' + (isRoot ? 'PLAN / 09 STARS' : hasKids ? 'SECTOR 0' + node.depth : '') + '</text>';
             }
             if (currentTheme === "a") html += '<path class="theme-detail clay-highlight" d="M-18 -' + Math.max(7, fs / 2 + 3) + 'q12-5 24 0"/>';
-            if (currentTheme === "b") html += '<path class="theme-detail star-mark" d="M0 -' + Math.max(14, fs / 2 + 12) + 'l2 5 5 2-5 2-2 5-2-5-5-2 5-2z"/>';
             if (currentTheme === "c") html += '<path class="leaf-shape" d="M-40 0C-20-18 20-18 40 0C20 18-20 18-40 0Z"/><path class="theme-detail leaf-vein" d="M-18 0Q0-5 18 0"/>';
             if (currentTheme === "d") html += '<path class="paper-outline" d="M-40 -18Q-10 -20 40 -17L42 0 39 18Q5 20 -40 17L-42 0Z"/><path class="theme-detail paper-echo" d="M-44 -' + Math.max(10, fs / 2 + 6) + 'q44-4 88 0"/>';
             html += '<rect class="' + bubbleCls + '" x="-40" y="-15" width="80" height="30" rx="15" fill="' + fill + '" data-pad="' + padX + '"/>';
             var tstyle = hasKids ? ' style="font-size:' + fs + 'px;letter-spacing:' + ls + 'px"' : "";
             html += '<text class="' + lblCls + '"' + tstyle + ' x="0" y="1" text-anchor="middle" dominant-baseline="central">' + escapeXml(node.title) + '</text>';
+            if (currentTheme === "b" && isLeaf) html += '<path class="b-star" d="M0-9L2-2 9 0 2 2 0 9-2 2-9 0-2-2Z" transform="translate(-48,0)"/>';
             html += "</g>";
             return html;
         }
