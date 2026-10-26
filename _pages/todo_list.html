@@ -127,8 +127,9 @@ title: "待办清单"
             stroke: #c7ccd4;
             stroke-width: 1.6;
             stroke-linecap: round;
-            stroke-dasharray: 1200;
-            stroke-dashoffset: 1200;
+            /* pathLength=1 on each path makes the reveal independent of node count. */
+            stroke-dasharray: 1;
+            stroke-dashoffset: 1;
             transition: stroke-dashoffset .7s ease, stroke .2s, stroke-width .2s;
         }
         .ready .link { stroke-dashoffset: 0; }
@@ -751,7 +752,7 @@ title: "待办清单"
                     var d = currentTheme === "d" ? sketchPath(0, 0, clx, cly, node._id * 17 + c._id) : linkPath(0, 0, clx, cly);
                     var linkCls = "link" + (isRoot ? " trunk" : "");
                     if (currentTheme === "d") html += '<path class="link-echo" d="' + d + '"/>';
-                    html += '<path class="' + linkCls + '" d="' + d + '"/>';
+                    html += '<path class="' + linkCls + '" pathLength="1" d="' + d + '"/>';
                 });
                 html += '</g><g class="nodes">';
                 node.children.forEach(function (c) {
