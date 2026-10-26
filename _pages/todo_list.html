@@ -719,22 +719,22 @@ title: "待办清单"
             return "M " + x1 + " " + y1 + " C " + mx + " " + y1 + ", " + mx + " " + y2 + ", " + x2 + " " + y2;
         }
 
-        function constellationRoute(x1, y1, x2, y2, seed) {
+        function constellationRoute(x1, y1, x2, y2, seed, lane) {
             var dx = x2 - x1, dy = y2 - y1;
             var distance = Math.hypot(dx, dy) || 1;
             var count = Math.min(4, Math.max(1, Math.round(distance / 320)));
-            var nx = -dy / distance, ny = dx / distance;
+            lane = lane || 0;
             var points = [];
             var d = "M " + x1 + " " + y1;
             for (var i = 0; i < count; i++) {
-                var seedA = Math.sin(seed * 1.731 + i * 19.173) * 43758.5453;
                 var seedB = Math.sin(seed * 2.417 + i * 47.391 + 8.7) * 43758.5453;
-                var jitterA = seedA - Math.floor(seedA);
                 var jitterB = seedB - Math.floor(seedB);
-                var t = Math.max(.16, Math.min(.84, (i + 1) / (count + 1) + (jitterA - .5) * .16));
-                var bend = (jitterB - .5) * Math.min(110, Math.max(28, distance * .22));
-                var px = x1 + dx * t + nx * bend;
-                var py = y1 + dy * t + ny * bend;
+                var t = (i + 1) / (count + 1);
+                var laneBend = lane * Math.min(38, Math.max(12, Math.abs(dy) * .16 + distance * .035));
+                var microBend = (jitterB - .5) * Math.min(5, Math.max(2, distance * .015));
+                var bend = laneBend + microBend;
+                var px = x1 + dx * t;
+                var py = y1 + dy * t + bend;
                 points.push({ x: px, y: py });
                 d += " L " + px.toFixed(1) + " " + py.toFixed(1);
             }
@@ -780,20 +780,22 @@ title: "待办清单"
 
             if (hasKids) {
                 html += '<g class="kids"><g class="links">';
-                node.children.forEach(function (c) {
+                node.children.forEach(function (c, childIndex) {
                     var clx = c.x - node.x;
                     var cly = c.y - node.y;
-                    var route = currentTheme === "b" ? constellationRoute(0, 0, clx, cly, node._id * 17 + c._id) : null;
+                    var lane = node.children.length > 1 ? childIndex / (node.children.length - 1) - .5 : 0;
+                    var route = currentTheme === "b" ? constellationRoute(0, 0, clx, cly, node._id * 17 + c._id, lane) : null;
                     var d = currentTheme === "d" ? sketchPath(0, 0, clx, cly, node._id * 17 + c._id) : route ? route.d : linkPath(0, 0, clx, cly);
                     var linkCls = "link" + (isRoot ? " trunk" : "");
                     if (currentTheme === "d") html += '<path class="link-echo" d="' + d + '"/>';
-                    html += '<path class="' + linkCls + '" pathLength="1" d="' + d + '"/>';
+                    var routeAttrs = route ? ' data-constellation="1" data-from-id="' + node._id + '" data-to-id="' + c._id + '"' : '';
+                    html += '<path class="' + linkCls + '" pathLength="1" d="' + d + '"' + routeAttrs + '/>';
                     if (route) {
                         route.points.forEach(function (point, index) {
                             var sizeSeed = Math.sin((node._id * 97.13 + c._id * 31.71 + index) * 1.37) * 43758.5453;
                             var sizeJitter = sizeSeed - Math.floor(sizeSeed);
                             var starScale = (.72 + sizeJitter * .46).toFixed(2);
-                            html += '<path class="b-route-star" d="M0-5L1.4-1.4 5 0 1.4 1.4 0 5-1.4 1.4-5 0-1.4-1.4Z" transform="translate(' + point.x.toFixed(1) + ',' + point.y.toFixed(1) + ') scale(' + starScale + ')"/>';
+                            html += '<path class="b-route-star" data-to-id="' + c._id + '" data-route-index="' + index + '" d="M0-5L1.4-1.4 5 0 1.4 1.4 0 5-1.4 1.4-5 0-1.4-1.4Z" transform="translate(' + point.x.toFixed(1) + ',' + point.y.toFixed(1) + ') scale(' + starScale + ')"/>';
                         });
                     }
                 });
@@ -872,6 +874,39 @@ title: "待办清单"
                 }
             }
         }
+
+        function readTranslate(el) {
+            var m = el && (el.getAttribute("transform") || "").match(/translate\(\s*(-?[0-9.]+)(?:[, ]+)(-?[0-9.]+)/);
+            return m ? { x: parseFloat(m[1]), y: parseFloat(m[2]) } : { x: 0, y: 0 };
+        }
+
+        function syncConstellationLinks() {
+            if (currentTheme !== "b" || !root) return;
+            svg.querySelectorAll("path.link[data-constellation]").forEach(function (path) {
+                var from = findNode(parseInt(path.getAttribute("data-from-id"), 10));
+                var to = findNode(parseInt(path.getAttribute("data-to-id"), 10));
+                if (!from || !to) return;
+                var fromGroup = svg.querySelector('.node[data-id="' + from._id + '"]');
+                var toGroup = svg.querySelector('.node[data-id="' + to._id + '"]');
+                var fromStar = fromGroup && fromGroup.querySelector(":scope > .b-node-star");
+                var toStar = toGroup && toGroup.querySelector(":scope > .b-node-star");
+                if (!fromStar || !toStar) return;
+                var start = readTranslate(fromStar);
+                var endStar = readTranslate(toStar);
+                var end = { x: to.x - from.x + endStar.x, y: to.y - from.y + endStar.y };
+                var childIndex = from.children ? from.children.indexOf(to) : -1;
+                var lane = from.children && from.children.length > 1 ? childIndex / (from.children.length - 1) - .5 : 0;
+                var route = constellationRoute(start.x, start.y, end.x, end.y, from._id * 17 + to._id, lane);
+                path.setAttribute("d", route.d);
+                path.parentNode.querySelectorAll('.b-route-star[data-to-id="' + to._id + '"]').forEach(function (star, index) {
+                    var point = route.points[index];
+                    if (!point) return;
+                    var scale = (star.getAttribute("transform") || "").match(/scale\(([-0-9.]+)\)/);
+                    star.setAttribute("transform", "translate(" + point.x.toFixed(1) + "," + point.y.toFixed(1) + ") scale(" + (scale ? scale[1] : "1") + ")");
+                });
+            });
+        }
+
         function isRootOf(rect) { return rect.classList.contains("root"); }
 
         var root = null;
@@ -897,9 +932,6 @@ title: "待办清单"
         }
 
         function buildBStarField(layer) {
-            var b = homeBox || { x: -300, y: -200, w: 600, h: 400 };
-            var spanX = Math.max(1200, b.w * 5), spanY = Math.max(900, b.h * 5);
-            var originX = b.x + (b.w - spanX) / 2, originY = b.y + (b.h - spanY) / 2;
             var clusters = [
                 { x: .14, y: .18, sx: .24, sy: .22 },
                 { x: .78, y: .22, sx: .2, sy: .28 },
@@ -912,17 +944,17 @@ title: "待办清单"
                 var cluster = clusters[Math.floor(starUnit(i * 43.17 + 7.9) * clusters.length)];
                 var u = starUnit(i * 7.17 + 1.1), v = starUnit(i * 11.31 + 4.7);
                 var wide = starUnit(i * 53.83 + 12.6) < .24;
-                var x = wide ? originX + u * spanX : originX + (cluster.x + (u - .5) * cluster.sx) * spanX;
-                var y = wide ? originY + v * spanY : originY + (cluster.y + (v - .5) * cluster.sy) * spanY;
+                var x = wide ? u * 1200 : (cluster.x + (u - .5) * cluster.sx) * 1200;
+                var y = wide ? v * 834 : (cluster.y + (v - .5) * cluster.sy) * 834;
                 var radius = (.55 + starUnit(i * 17.43 + 9.2) * 1.35).toFixed(2);
                 var dim = (.08 + starUnit(i * 23.71 + 2.8) * .2).toFixed(2);
                 var bright = (.32 + starUnit(i * 29.17 + 6.4) * .56).toFixed(2);
                 var delay = (-starUnit(i * 31.91 + 3.3) * 6).toFixed(2);
                 var duration = (3.8 + starUnit(i * 37.27 + 5.8) * 4.8).toFixed(2);
-                html += '<circle class="b-bg-star" cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" data-radius="' + radius + '" style="--star-dim:' + dim + ';--star-bright:' + bright + ';animation-delay:' + delay + 's;animation-duration:' + duration + 's"/>';
+                html += '<circle class="b-bg-star" cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" data-base-x="' + x.toFixed(1) + '" data-base-y="' + y.toFixed(1) + '" data-radius="' + radius + '" style="--star-dim:' + dim + ';--star-bright:' + bright + ';animation-delay:' + delay + 's;animation-duration:' + duration + 's"/>';
             }
             layer.innerHTML = html;
-            layer.setAttribute("data-field-key", homeBox ? [b.x, b.y, b.w, b.h].join(",") : "fallback");
+            layer.setAttribute("data-field-key", "screen-random");
         }
 
         function syncAtmosphereView() {
@@ -931,14 +963,19 @@ title: "待办清单"
             var layer = atmosphere && atmosphere.querySelector(".b-space-layer");
             var v = getView();
             if (!atmosphere || !layer || !v) return;
-            var fieldKey = homeBox ? [homeBox.x, homeBox.y, homeBox.w, homeBox.h].join(",") : "fallback";
-            if (layer.getAttribute("data-field-key") !== fieldKey) buildBStarField(layer);
-            atmosphere.setAttribute("viewBox", v.x + " " + v.y + " " + v.w + " " + v.h);
-            var rect = svg.getBoundingClientRect();
-            if (!rect.width || !rect.height) return;
-            var worldPerPixel = Math.max(v.w / rect.width, v.h / rect.height);
+            if (layer.getAttribute("data-field-key") !== "screen-random") buildBStarField(layer);
+            atmosphere.setAttribute("viewBox", "0 0 1200 834");
+            var zoom = homeBox ? Math.max(1, Math.min(20, homeBox.w / v.w)) : 1;
+            var panX = homeBox ? (v.x - homeBox.x) / homeBox.w : 0;
+            var panY = homeBox ? (v.y - homeBox.y) / homeBox.h : 0;
             layer.querySelectorAll(".b-bg-star").forEach(function (star) {
-                star.setAttribute("r", (parseFloat(star.getAttribute("data-radius")) * worldPerPixel).toFixed(3));
+                var baseX = parseFloat(star.getAttribute("data-base-x"));
+                var baseY = parseFloat(star.getAttribute("data-base-y"));
+                var x = 600 + (baseX - 600) * (1 + (zoom - 1) * .045) - panX * 90;
+                var y = 417 + (baseY - 417) * (1 + (zoom - 1) * .045) - panY * 70;
+                star.setAttribute("cx", x.toFixed(2));
+                star.setAttribute("cy", y.toFixed(2));
+                star.setAttribute("r", star.getAttribute("data-radius"));
             });
         }
 
@@ -1167,13 +1204,14 @@ title: "待办清单"
             layout(rootNode, 0);
             svg.innerHTML = themeDefs() + renderNode(rootNode, 0, 0);
             sizePills();
+            syncConstellationLinks();
             if (!svg.getAttribute("viewBox")) {
                 var width = LEFT + maxDepth * LEVEL_X + 240;
                 var height = cursor.y + 40;
                 svg.setAttribute("viewBox", "0 0 " + width + " " + height);
             }
-            requestAnimationFrame(function () { sizePills(); svg.classList.add("ready"); });
-            if (document.fonts && document.fonts.ready) document.fonts.ready.then(sizePills);
+            requestAnimationFrame(function () { sizePills(); syncConstellationLinks(); svg.classList.add("ready"); });
+            if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { sizePills(); syncConstellationLinks(); });
             applyState();
         }
         function applyState() {
