@@ -711,9 +711,9 @@ title: "待办清单"
         }
 
         function constellationPath(x1, y1, x2, y2) {
-            var routeX = x1 + Math.max(42, Math.min(Math.abs(x2 - x1) - 42, Math.abs(x2 - x1) * .52));
-            if (x2 < x1) routeX = x1 - (x1 - x2) * .52;
-            return "M " + x1 + " " + y1 + " L " + routeX + " " + y1 + " L " + routeX + " " + y2 + " L " + x2 + " " + y2;
+            var midX = x1 + (x2 - x1) * .58;
+            var midY = y1 + (y2 - y1) * .5;
+            return "M " + x1 + " " + y1 + " L " + midX + " " + midY + " L " + x2 + " " + y2;
         }
 
         function sketchPath(x1, y1, x2, y2, seed) {
@@ -762,8 +762,7 @@ title: "待办清单"
                     if (currentTheme === "d") html += '<path class="link-echo" d="' + d + '"/>';
                     html += '<path class="' + linkCls + '" pathLength="1" d="' + d + '"/>';
                     if (currentTheme === "b" && Math.abs(cly) > 150) {
-                        var routeX = Math.max(42, Math.min(Math.abs(clx) - 42, Math.abs(clx) * .52));
-                        if (clx < 0) routeX = -routeX;
+                        var routeX = clx * .58;
                         var routeY = cly * .5;
                         html += '<path class="b-route-star" d="M0-5L1.4-1.4 5 0 1.4 1.4 0 5-1.4 1.4-5 0-1.4-1.4Z" transform="translate(' + routeX.toFixed(1) + ',' + routeY.toFixed(1) + ')"/>';
                     }
@@ -790,7 +789,7 @@ title: "待办清单"
             html += '<rect class="' + bubbleCls + '" x="-40" y="-15" width="80" height="30" rx="15" fill="' + fill + '" data-pad="' + padX + '"/>';
             var tstyle = hasKids ? ' style="font-size:' + fs + 'px;letter-spacing:' + ls + 'px"' : "";
             html += '<text class="' + lblCls + '"' + tstyle + ' x="0" y="1" text-anchor="middle" dominant-baseline="central">' + escapeXml(node.title) + '</text>';
-            if (currentTheme === "b" && isLeaf) html += '<path class="b-star" d="M0-9L2-2 9 0 2 2 0 9-2 2-9 0-2-2Z" transform="translate(-48,0)"/>';
+            if (currentTheme === "b" && isLeaf) html += '<path class="b-star" d="M0-9L2-2 9 0 2 2 0 9-2 2-9 0-2-2Z" transform="translate(0,0)"/>';
             html += "</g>";
             return html;
         }
@@ -821,6 +820,8 @@ title: "待办清单"
                     var px = w / 2, py = h / 2;
                     paper.setAttribute("d", "M" + (-px + 2).toFixed(1) + " " + (-py + 1).toFixed(1) + "Q" + (-px * .25).toFixed(1) + " " + (-py - 1).toFixed(1) + " " + (px - 2).toFixed(1) + " " + (-py + 1).toFixed(1) + "L" + (px + 1).toFixed(1) + " " + (py * .2).toFixed(1) + "L" + (px - 1).toFixed(1) + " " + (py - 1).toFixed(1) + "Q" + (px * .25).toFixed(1) + " " + (py + 1).toFixed(1) + " " + (-px + 2).toFixed(1) + " " + (py - 1).toFixed(1) + "L" + (-px - 1).toFixed(1) + " " + (-py * .1).toFixed(1) + "Z");
                 }
+                var star = rect.parentNode && rect.parentNode.querySelector(":scope > .b-star");
+                if (star) star.setAttribute("transform", "translate(" + (w / 2 + 12).toFixed(1) + ",0)");
             }
         }
         function isRootOf(rect) { return rect.classList.contains("root"); }
