@@ -493,6 +493,7 @@ title: "待办清单"
         /* 星图三类星星：背景远星 b-bg-star、连线节点星 b-route-star、任务节点星 b-node-star（根星核/树干星标/叶星标）。 */
         body[data-theme="b"] .b-route-star { fill: #d9b979; stroke: #f6e0ad; stroke-width: .7; opacity: .95; filter: url(#starlight); }
         body[data-theme="b"] .b-bg-star { fill: #d9e8f7; animation: b-twinkle 4.8s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+        body[data-theme="b"] .b-bg-star.static { animation: none; }
         @keyframes b-twinkle { 0%, 100% { opacity: var(--star-dim, .12); } 50% { opacity: var(--star-bright, .78); } }
         body[data-theme="b"] .b-meta { fill: #8ea4bf; font: 8px Georgia, serif; letter-spacing: 1.4px; }
         body[data-theme="b"] .theme-detail { display: block; }
@@ -717,26 +718,34 @@ title: "待办清单"
             return "M " + x1 + " " + y1 + " C " + mx + " " + y1 + ", " + mx + " " + y2 + ", " + x2 + " " + y2;
         }
 
-        function constellationRoute(x1, y1, x2, y2, seed, lane) {
+        // 段数只由布局距离决定（render 与 syncConstellationLinks 用同一来源），
+        // 否则星点位置微调后段数跳变会导致星点数量对不上。
+        function constellationCount(distance) {
+            return Math.min(5, Math.max(2, Math.round(distance / 110)));
+        }
+
+        // 星座式折线：主方向均分，顶点沿法向严格交替偏移（保证折角而非平滑弯），
+        // 每个顶点落一颗连线星点；lane 让同父兄弟连线整体错开。
+        function constellationRoute(x1, y1, x2, y2, seed, lane, count) {
             var dx = x2 - x1, dy = y2 - y1;
             var distance = Math.hypot(dx, dy) || 1;
-            var count = Math.min(4, Math.max(1, Math.round(distance / 320)));
+            if (!count) count = constellationCount(distance);
             lane = lane || 0;
+            var nx = -dy / distance, ny = dx / distance;   // 法向单位向量
+            var amp = Math.min(26, Math.max(10, distance * .14));
+            var flip = starUnit(seed * 3.7 + 1.3) < .5 ? 1 : -1;
             var points = [];
-            var d = "M " + x1 + " " + y1;
+            var d = "M " + x1.toFixed(1) + " " + y1.toFixed(1);
             for (var i = 0; i < count; i++) {
-                var seedB = Math.sin(seed * 2.417 + i * 47.391 + 8.7) * 43758.5453;
-                var jitterB = seedB - Math.floor(seedB);
                 var t = (i + 1) / (count + 1);
-                var laneBend = lane * Math.min(38, Math.max(12, Math.abs(dy) * .16 + distance * .035));
-                var microBend = (jitterB - .5) * Math.min(5, Math.max(2, distance * .015));
-                var bend = laneBend + microBend;
-                var px = x1 + dx * t;
-                var py = y1 + dy * t + bend;
+                var jitter = .55 + starUnit(seed * 7.1 + i * 13.73 + 5.2) * .45;
+                var offset = (i % 2 ? -1 : 1) * flip * amp * jitter + lane * amp * .8;
+                var px = x1 + dx * t + nx * offset;
+                var py = y1 + dy * t + ny * offset;
                 points.push({ x: px, y: py });
                 d += " L " + px.toFixed(1) + " " + py.toFixed(1);
             }
-            d += " L " + x2 + " " + y2;
+            d += " L " + x2.toFixed(1) + " " + y2.toFixed(1);
             return { d: d, points: points };
         }
 
@@ -782,7 +791,7 @@ title: "待办清单"
                     var clx = c.x - node.x;
                     var cly = c.y - node.y;
                     var lane = node.children.length > 1 ? childIndex / (node.children.length - 1) - .5 : 0;
-                    var route = currentTheme === "b" ? constellationRoute(0, 0, clx, cly, node._id * 17 + c._id, lane) : null;
+                    var route = currentTheme === "b" ? constellationRoute(0, 0, clx, cly, node._id * 17 + c._id, lane, constellationCount(Math.hypot(clx, cly))) : null;
                     var d = currentTheme === "d" ? sketchPath(0, 0, clx, cly, node._id * 17 + c._id) : route ? route.d : linkPath(0, 0, clx, cly);
                     var linkCls = "link" + (isRoot ? " trunk" : "");
                     if (currentTheme === "d") html += '<path class="link-echo" d="' + d + '"/>';
@@ -896,7 +905,7 @@ title: "待办清单"
                 var end = { x: to.x - from.x + endStar.x, y: to.y - from.y + endStar.y };
                 var childIndex = from.children ? from.children.indexOf(to) : -1;
                 var lane = from.children && from.children.length > 1 ? childIndex / (from.children.length - 1) - .5 : 0;
-                var route = constellationRoute(start.x, start.y, end.x, end.y, from._id * 17 + to._id, lane);
+                var route = constellationRoute(start.x, start.y, end.x, end.y, from._id * 17 + to._id, lane, constellationCount(Math.hypot(to.x - from.x, to.y - from.y)));
                 path.setAttribute("d", route.d);
                 path.parentNode.querySelectorAll('.b-route-star[data-to-id="' + to._id + '"]').forEach(function (star, index) {
                     var point = route.points[index];
@@ -938,32 +947,75 @@ title: "待办清单"
         var atmoLastS = -1;      // 上次写入半径补偿时的缩放因子
 
         function buildBStarField(layer) {
-            var clusters = [
-                { x: .14, y: .18, sx: .24, sy: .22 },
-                { x: .78, y: .22, sx: .2, sy: .28 },
-                { x: .54, y: .72, sx: .3, sy: .18 },
-                { x: .18, y: .82, sx: .2, sy: .16 },
-                { x: .88, y: .76, sx: .16, sy: .2 }
-            ];
+            // 参考 game_plane：网格均分 + 格内随机，均匀散布（不再成簇）；
+            // 约 45% 的星参与闪烁，其余静态微光，避免满屏同步呼吸感。
+            var COLS = 21, ROWS = 20;
+            var cellW = 1200 / COLS, cellH = 834 / ROWS;
             var html = "";
-            for (var i = 0; i < 420; i++) {
-                var cluster = clusters[Math.floor(starUnit(i * 43.17 + 7.9) * clusters.length)];
-                var u = starUnit(i * 7.17 + 1.1), v = starUnit(i * 11.31 + 4.7);
-                var wide = starUnit(i * 53.83 + 12.6) < .24;
-                var x = wide ? u * 1200 : (cluster.x + (u - .5) * cluster.sx) * 1200;
-                var y = wide ? v * 834 : (cluster.y + (v - .5) * cluster.sy) * 834;
-                var radius = (.55 + starUnit(i * 17.43 + 9.2) * 1.35).toFixed(2);
-                var dim = (.08 + starUnit(i * 23.71 + 2.8) * .2).toFixed(2);
-                var bright = (.32 + starUnit(i * 29.17 + 6.4) * .56).toFixed(2);
-                var delay = (-starUnit(i * 31.91 + 3.3) * 6).toFixed(2);
-                var duration = (3.8 + starUnit(i * 37.27 + 5.8) * 4.8).toFixed(2);
-                html += '<circle class="b-bg-star" cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="' + radius + '" data-radius="' + radius + '" style="--star-dim:' + dim + ';--star-bright:' + bright + ';animation-delay:' + delay + 's;animation-duration:' + duration + 's"/>';
+            for (var gx = 0; gx < COLS; gx++) {
+                for (var gy = 0; gy < ROWS; gy++) {
+                    var i = gx * ROWS + gy;
+                    var x = (gx + .12 + starUnit(i * 7.17 + 1.1) * .76) * cellW;
+                    var y = (gy + .12 + starUnit(i * 11.31 + 4.7) * .76) * cellH;
+                    var radius = (.55 + starUnit(i * 17.43 + 9.2) * 1.35).toFixed(2);
+                    var dim = (.08 + starUnit(i * 23.71 + 2.8) * .2).toFixed(2);
+                    var bright = (.32 + starUnit(i * 29.17 + 6.4) * .56).toFixed(2);
+                    var delay = (-starUnit(i * 31.91 + 3.3) * 8).toFixed(2);
+                    var duration = (2.6 + starUnit(i * 37.27 + 5.8) * 5.6).toFixed(2);
+                    var twinkles = starUnit(i * 53.83 + 12.6) < .45;
+                    var style = twinkles
+                        ? "--star-dim:" + dim + ";--star-bright:" + bright + ";animation-delay:" + delay + "s;animation-duration:" + duration + "s"
+                        : "opacity:" + (.1 + starUnit(i * 41.53 + 8.4) * .3).toFixed(2);
+                    html += '<circle class="b-bg-star' + (twinkles ? "" : " static") + '" cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="' + radius + '" data-radius="' + radius + '" style="' + style + '"/>';
+                }
             }
             layer.innerHTML = html;
             layer.setAttribute("data-field-key", "screen-random");
             bgStars = Array.prototype.slice.call(layer.querySelectorAll(".b-bg-star"));
             atmoLastKey = "";
             atmoLastS = -1;      // 新星场必须重写一次半径补偿
+        }
+
+        // 远星生灭（参考 game_plane 的星星生命周期）：每隔约 0.8s 随机摘 1~2 颗淡出，
+        // 移到随机位置后从 0 相位重新淡入，星空缓慢流动而非一片固定闪烁。
+        var starRespawnTimer = null;
+        function startStarRespawn() {
+            if (starRespawnTimer) return;
+            starRespawnTimer = setInterval(function () {
+                if (currentTheme !== "b" || !bgStars.length) return;
+                var picks = 1 + Math.floor(Math.random() * 2);
+                for (var k = 0; k < picks; k++) {
+                    var star = bgStars[Math.floor(Math.random() * bgStars.length)];
+                    if (!star || star.__respawning) continue;
+                    star.__respawning = true;
+                    star.style.animation = "none";
+                    star.style.transition = "opacity .5s ease";
+                    star.style.opacity = "0";
+                    respawnStar(star);
+                }
+            }, 800);
+        }
+
+        function respawnStar(star) {
+            setTimeout(function () {
+                var radius = (.55 + Math.random() * 1.35).toFixed(2);
+                star.setAttribute("cx", (Math.random() * 1200).toFixed(1));
+                star.setAttribute("cy", (Math.random() * 834).toFixed(1));
+                star.setAttribute("data-radius", radius);
+                star.setAttribute("r", (radius / (atmoLastS > 0 ? atmoLastS : 1)).toFixed(3));
+                if (Math.random() < .45) {
+                    // 闪烁星：delay 0 ⇒ 从关键帧 0%（最暗）起播，即淡入
+                    var dim = (.08 + Math.random() * .2).toFixed(2);
+                    var bright = (.32 + Math.random() * .56).toFixed(2);
+                    var duration = (2.6 + Math.random() * 5.6).toFixed(2);
+                    star.classList.remove("static");
+                    star.style.cssText = "--star-dim:" + dim + ";--star-bright:" + bright + ";animation-delay:0s;animation-duration:" + duration + "s";
+                } else {
+                    star.classList.add("static");
+                    star.style.cssText = "opacity:" + (.1 + Math.random() * .3).toFixed(2);
+                }
+                star.__respawning = false;
+            }, 520);
         }
 
         // 星场跟随视图：平移/缩放在层上一次 transform 完成（420 颗星不再逐颗写坐标）；
@@ -1243,6 +1295,7 @@ title: "待办清单"
         if (document.fonts && document.fonts.ready) {
             document.fonts.ready.then(function () { if (root) measureNow(); });
         }
+        startStarRespawn();   // 单例定时器，非主题 b 时自动空转
         function applyState() {
             var prev = svg.querySelector(".node.selected");
             if (prev) prev.classList.remove("selected");

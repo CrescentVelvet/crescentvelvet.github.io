@@ -3,7 +3,8 @@
  *
  * 覆盖：
  *  - 五方案切换（主题值 / 节点与连线计数 / defs / aria-pressed / 横向溢出）
- *  - 星图（主题 b）：420 颗背景远星、折线顶点与连线星点坐标一致、根节点 b-meta 动态计数、
+ *  - 星图（主题 b）：420 颗背景远星、折线顶点与连线星点坐标一致、折线有明显折角、
+ *    远星静态/闪烁混合与生灭换位、根节点 b-meta 动态计数、
  *    叶子无空 b-meta、滚轮缩放时星场整层 transform + 半径反补偿
  *  - localStorage 主题持久化、390px 窄屏无横向溢出、选中节点打开编辑器、根节点折叠
  *  - 421 节点大树：连线 pathLength=1、入场动画结束 dashoffset=0、主题切换耗时记录
@@ -265,6 +266,31 @@ const VERTEX_EXPR = `(function (limit) {
             return outside;
         })()`);
         check('节点星在 pill 内', starIn === 0, 'outside=' + starIn);
+
+        // 折线必须真"折"：每个顶点偏离端点连线 >6px
+        const zigzag = await evalJs(`(() => {
+            let checked = 0, bent = 0;
+            document.querySelectorAll('path.link[data-constellation]').forEach(p => {
+                const v = p.getAttribute('d').split(/[ML]\\s+/).slice(1).map(s => s.trim().split(/\\s+/).map(Number));
+                if (v.length < 3) return;
+                const x1 = v[0][0], y1 = v[0][1], dx = v[v.length-1][0] - x1, dy = v[v.length-1][1] - y1;
+                const len = Math.hypot(dx, dy) || 1;
+                checked++;
+                for (let i = 1; i < v.length - 1; i++) {
+                    if (Math.abs((v[i][0] - x1) * dy - (v[i][1] - y1) * dx) / len > 6) { bent++; break; }
+                }
+            });
+            return { checked, bent };
+        })()`);
+        check('折线顶点有明显折角', zigzag.checked > 0 && zigzag.bent === zigzag.checked, JSON.stringify(zigzag));
+
+        // 远星：静态/闪烁混合 + 生灭（~0.8s 一批换位置）
+        const mix = await evalJs(`({ total: document.querySelectorAll('.b-bg-star').length, statics: document.querySelectorAll('.b-bg-star.static').length })`);
+        check('远星静态/闪烁混合', mix.statics > 80 && mix.statics < mix.total - 80, JSON.stringify(mix));
+        const snapBefore = await evalJs(`[...document.querySelectorAll('.b-bg-star')].map(s => s.getAttribute('cx') + ',' + s.getAttribute('cy')).join('|')`);
+        await sleep(2600);
+        const snapAfter = await evalJs(`[...document.querySelectorAll('.b-bg-star')].map(s => s.getAttribute('cx') + ',' + s.getAttribute('cy')).join('|')`);
+        check('远星生灭：部分星点已换位置', snapBefore !== snapAfter);
 
         // ── 滚轮缩放：整层 transform + 半径反补偿（s = 1+(zoom-1)*0.045）──
         const viewOf = `(() => {
