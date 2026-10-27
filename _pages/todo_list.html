@@ -484,8 +484,6 @@ title: "待办清单"
         body[data-theme="b"] .node.leaf .lbl { font-family: "Segoe UI", "Microsoft YaHei", sans-serif; font-size: 14px; letter-spacing: .4px; paint-order: stroke; stroke: #101723; stroke-width: 4px; stroke-linejoin: round; }
         body[data-theme="b"] .b-core { fill: #142032; stroke: #f0cf8d; stroke-width: 1.5; filter: url(#starlight); }
         body[data-theme="b"] .b-orbit { fill: none; stroke: #d9b979; stroke-width: .9; opacity: .62; }
-        body[data-theme="b"] .b-junction { fill: #e3c98f; stroke: #f6e0ad; stroke-width: .8; filter: url(#starlight); }
-        body[data-theme="b"] .b-star { fill: #d9e8f7; stroke: #f5fbff; stroke-width: .55; opacity: .95; filter: url(#starlight); }
         body[data-theme="b"] .b-node-star { pointer-events: none; }
         body[data-theme="b"] .b-parent-star { fill: #e4c483; stroke: #fff0bf; stroke-width: .9; filter: url(#starlight); }
         body[data-theme="b"] .node.leaf.todo .b-leaf-star { fill: #b9d8f4; stroke: #f2f8ff; opacity: .8; filter: url(#starlight); }
@@ -570,8 +568,6 @@ title: "待办清单"
         .theme-detail, .link-echo { display: none; pointer-events: none; }
         .theme-detail { fill: none; stroke-linecap: round; stroke-linejoin: round; }
         .clay-highlight { stroke: #fff4d0; stroke-width: 1.2; opacity: .75; }
-        .star-mark { stroke: #f0d19b; stroke-width: 1; fill: none; opacity: .85; }
-        body[data-theme="b"] .star-mark { display: none; }
         .leaf-vein { stroke: #75a16c; stroke-width: 1; opacity: .7; }
         .paper-echo { stroke: #9ea996; stroke-width: .8; opacity: .55; }
         .leaf-shape { display: none; pointer-events: none; }
@@ -697,6 +693,8 @@ title: "待办清单"
         function layout(node, depth) {
             node.depth = depth;
             node.x = LEFT + depth * LEVEL_X;
+            nodeById[node._id] = node;   // render 期间重建的 _id 索引，星图连线同步 O(1) 取用
+            totalNodes++;
             if (depth > maxDepth) maxDepth = depth;
             if (node.children && node.children.length) {
                 node.children.forEach(function (c) { layout(c, depth + 1); });
@@ -815,7 +813,8 @@ title: "待办清单"
                 if (isRoot) bStar = '<g class="b-node-star b-root-star"><ellipse class="b-orbit" rx="30" ry="12" transform="rotate(-24)"/><circle class="b-core" r="18"/></g>';
                 else if (hasKids) bStar = '<path class="b-node-star b-parent-star" d="M0-13L3-5 11-8 6 0 11 8 3 5 0 13-3 5-11 8-6 0-11-8-3-5Z"/>';
                 else bStar = '<path class="b-node-star b-leaf-star" d="M0-9L2-2 9 0 2 2 0 9-2 2-9 0-2-2Z"/>';
-                html += '<text class="b-meta" x="0" y="' + (isRoot ? 20 : (hasKids ? 20 : 18)) + '" text-anchor="middle">' + (isRoot ? 'PLAN / 09 STARS' : hasKids ? 'SECTOR 0' + node.depth : '') + '</text>';
+                var bMeta = isRoot ? "PLAN / " + totalNodes + " STARS" : hasKids ? "SECTOR 0" + node.depth : "";
+                if (bMeta) html += '<text class="b-meta" x="0" y="20" text-anchor="middle">' + bMeta + '</text>';
             }
             if (currentTheme === "a") html += '<path class="theme-detail clay-highlight" d="M-18 -' + Math.max(7, fs / 2 + 3) + 'q12-5 24 0"/>';
             if (currentTheme === "c") html += '<path class="leaf-shape" d="M-40 0C-20-18 20-18 40 0C20 18-20 18-40 0Z"/><path class="theme-detail leaf-vein" d="M-18 0Q0-5 18 0"/>';
@@ -861,16 +860,12 @@ title: "待办清单"
                     paper.setAttribute("d", "M" + (-px + 2).toFixed(1) + " " + (-py + 1).toFixed(1) + "Q" + (-px * .25).toFixed(1) + " " + (-py - 1).toFixed(1) + " " + (px - 2).toFixed(1) + " " + (-py + 1).toFixed(1) + "L" + (px + 1).toFixed(1) + " " + (py * .2).toFixed(1) + "L" + (px - 1).toFixed(1) + " " + (py - 1).toFixed(1) + "Q" + (px * .25).toFixed(1) + " " + (py + 1).toFixed(1) + " " + (-px + 2).toFixed(1) + " " + (py - 1).toFixed(1) + "L" + (-px - 1).toFixed(1) + " " + (-py * .1).toFixed(1) + "Z");
                 }
                 if (star) {
-                    if (currentTheme === "b") {
-                        var starX = -w / 2 + starRadius + 5;
-                        star.setAttribute("transform", "translate(" + starX.toFixed(1) + ",0)");
-                        var textLeft = starX + starRadius + 7;
-                        var textRight = w / 2 - padX;
-                        text.setAttribute("x", ((textLeft + textRight) / 2).toFixed(1));
-                    } else {
-                        var starPad = star.classList.contains("b-root-star") ? 34 : 11;
-                        star.setAttribute("transform", "translate(" + (-w / 2 - starPad).toFixed(1) + ",0)");
-                    }
+                    // .b-node-star 只有主题 b 会生成，这里不需要考虑其他主题
+                    var starX = -w / 2 + starRadius + 5;
+                    star.setAttribute("transform", "translate(" + starX.toFixed(1) + ",0)");
+                    var textLeft = starX + starRadius + 7;
+                    var textRight = w / 2 - padX;
+                    text.setAttribute("x", ((textLeft + textRight) / 2).toFixed(1));
                 }
             }
         }
@@ -882,12 +877,17 @@ title: "待办清单"
 
         function syncConstellationLinks() {
             if (currentTheme !== "b" || !root) return;
+            // 节点组按 data-id 一次收齐，避免每条连线两次全树 querySelector（421 节点时 O(N²)）
+            var groupById = Object.create(null);
+            svg.querySelectorAll(".node[data-id]").forEach(function (g) {
+                groupById[g.getAttribute("data-id")] = g;
+            });
             svg.querySelectorAll("path.link[data-constellation]").forEach(function (path) {
-                var from = findNode(parseInt(path.getAttribute("data-from-id"), 10));
-                var to = findNode(parseInt(path.getAttribute("data-to-id"), 10));
+                var from = nodeById[path.getAttribute("data-from-id")];
+                var to = nodeById[path.getAttribute("data-to-id")];
                 if (!from || !to) return;
-                var fromGroup = svg.querySelector('.node[data-id="' + from._id + '"]');
-                var toGroup = svg.querySelector('.node[data-id="' + to._id + '"]');
+                var fromGroup = groupById[from._id];
+                var toGroup = groupById[to._id];
                 var fromStar = fromGroup && fromGroup.querySelector(":scope > .b-node-star");
                 var toStar = toGroup && toGroup.querySelector(":scope > .b-node-star");
                 if (!fromStar || !toStar) return;
@@ -910,6 +910,8 @@ title: "待办清单"
         function isRootOf(rect) { return rect.classList.contains("root"); }
 
         var root = null;
+        var nodeById = Object.create(null);   // 每次 render 由 layout() 重建
+        var totalNodes = 0;                   // 星图根节点元信息计数
         var svg = document.getElementById("mindmap");
         var themeAtmosphere = document.getElementById("themeAtmosphere");
         var selectedId = null;
@@ -931,6 +933,10 @@ title: "待办清单"
             return value - Math.floor(value);
         }
 
+        var bgStars = [];        // 星点元素缓存：同步时不再 querySelectorAll
+        var atmoLastKey = "";    // 上次同步的 (缩放,平移) 快照，未变化时整段跳过
+        var atmoLastS = -1;      // 上次写入半径补偿时的缩放因子
+
         function buildBStarField(layer) {
             var clusters = [
                 { x: .14, y: .18, sx: .24, sy: .22 },
@@ -951,12 +957,17 @@ title: "待办清单"
                 var bright = (.32 + starUnit(i * 29.17 + 6.4) * .56).toFixed(2);
                 var delay = (-starUnit(i * 31.91 + 3.3) * 6).toFixed(2);
                 var duration = (3.8 + starUnit(i * 37.27 + 5.8) * 4.8).toFixed(2);
-                html += '<circle class="b-bg-star" cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" data-base-x="' + x.toFixed(1) + '" data-base-y="' + y.toFixed(1) + '" data-radius="' + radius + '" style="--star-dim:' + dim + ';--star-bright:' + bright + ';animation-delay:' + delay + 's;animation-duration:' + duration + 's"/>';
+                html += '<circle class="b-bg-star" cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="' + radius + '" data-radius="' + radius + '" style="--star-dim:' + dim + ';--star-bright:' + bright + ';animation-delay:' + delay + 's;animation-duration:' + duration + 's"/>';
             }
             layer.innerHTML = html;
             layer.setAttribute("data-field-key", "screen-random");
+            bgStars = Array.prototype.slice.call(layer.querySelectorAll(".b-bg-star"));
+            atmoLastKey = "";
+            atmoLastS = -1;      // 新星场必须重写一次半径补偿
         }
 
+        // 星场跟随视图：平移/缩放在层上一次 transform 完成（420 颗星不再逐颗写坐标）；
+        // 半径除以缩放因子反补偿，视觉上星点保持固定屏幕大小（与原逐颗写 r 的行为一致）。
         function syncAtmosphereView() {
             if (!themeAtmosphere || currentTheme !== "b") return;
             var atmosphere = themeAtmosphere.querySelector("svg.b-atmosphere");
@@ -964,19 +975,22 @@ title: "待办清单"
             var v = getView();
             if (!atmosphere || !layer || !v) return;
             if (layer.getAttribute("data-field-key") !== "screen-random") buildBStarField(layer);
-            atmosphere.setAttribute("viewBox", "0 0 1200 834");
             var zoom = homeBox ? Math.max(1, Math.min(20, homeBox.w / v.w)) : 1;
             var panX = homeBox ? (v.x - homeBox.x) / homeBox.w : 0;
             var panY = homeBox ? (v.y - homeBox.y) / homeBox.h : 0;
-            layer.querySelectorAll(".b-bg-star").forEach(function (star) {
-                var baseX = parseFloat(star.getAttribute("data-base-x"));
-                var baseY = parseFloat(star.getAttribute("data-base-y"));
-                var x = 600 + (baseX - 600) * (1 + (zoom - 1) * .045) - panX * 90;
-                var y = 417 + (baseY - 417) * (1 + (zoom - 1) * .045) - panY * 70;
-                star.setAttribute("cx", x.toFixed(2));
-                star.setAttribute("cy", y.toFixed(2));
-                star.setAttribute("r", star.getAttribute("data-radius"));
-            });
+            var s = 1 + (zoom - 1) * .045;
+            var key = s.toFixed(4) + "|" + panX.toFixed(4) + "|" + panY.toFixed(4);
+            if (key === atmoLastKey) return;
+            atmoLastKey = key;
+            layer.setAttribute("transform",
+                "translate(" + (600 - panX * 90).toFixed(2) + " " + (417 - panY * 70).toFixed(2)
+                + ") scale(" + s.toFixed(4) + ") translate(-600 -417)");
+            if (s !== atmoLastS) {
+                atmoLastS = s;
+                for (var i = 0; i < bgStars.length; i++) {
+                    bgStars[i].setAttribute("r", (parseFloat(bgStars[i].getAttribute("data-radius")) / s).toFixed(3));
+                }
+            }
         }
 
         function setThemeAtmosphere(theme) {
@@ -1057,9 +1071,17 @@ title: "待办清单"
             if (v.some(isNaN)) return null;
             return { x: v[0], y: v[1], w: v[2], h: v[3] };
         }
+        // 滚轮/触摸高频触发时合并到每帧一次，避免一个事件周期内重复同步星场
+        var atmoScheduled = false;
+        function scheduleAtmosphere() {
+            if (atmoScheduled) return;
+            atmoScheduled = true;
+            requestAnimationFrame(function () { atmoScheduled = false; syncAtmosphereView(); });
+        }
+
         function setView(v) {
             svg.setAttribute("viewBox", v.x + " " + v.y + " " + v.w + " " + v.h);
-            syncAtmosphereView();
+            scheduleAtmosphere();
         }
         function fitView() {
             var cb = svg.getBBox();
@@ -1198,21 +1220,28 @@ title: "待办清单"
             fitView();
         });
 
+        function measureNow() { sizePills(); syncConstellationLinks(); }
+
         function render(rootNode) {
             cursor.y = TOP;
             maxDepth = 0;
+            nodeById = Object.create(null);
+            totalNodes = 0;
             layout(rootNode, 0);
             svg.innerHTML = themeDefs() + renderNode(rootNode, 0, 0);
-            sizePills();
-            syncConstellationLinks();
+            measureNow();
             if (!svg.getAttribute("viewBox")) {
                 var width = LEFT + maxDepth * LEVEL_X + 240;
                 var height = cursor.y + 40;
                 svg.setAttribute("viewBox", "0 0 " + width + " " + height);
             }
-            requestAnimationFrame(function () { sizePills(); syncConstellationLinks(); svg.classList.add("ready"); });
-            if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { sizePills(); syncConstellationLinks(); });
+            requestAnimationFrame(function () { measureNow(); svg.classList.add("ready"); });
             applyState();
+        }
+        // 字体就绪后重测一次文本宽度即可；原实现在每次 render 注册 then，回调随 render 次数叠加。
+        // 只注册一次：若字体早于首次 render 就绪，render 的同步测量本身就用正确字体，回调里 root 仍为空自动跳过。
+        if (document.fonts && document.fonts.ready) {
+            document.fonts.ready.then(function () { if (root) measureNow(); });
         }
         function applyState() {
             var prev = svg.querySelector(".node.selected");
@@ -1224,7 +1253,7 @@ title: "待办清单"
             updatePanel();
         }
 
-        var panel = document.getElementById("editor");
+        var editorEl = document.getElementById("editor");   // 注意与 panelEl（.panel 侧栏）区分
         var selInfo = document.getElementById("selInfo");
         var selTitle = document.getElementById("selTitle");
         var selStatus = document.getElementById("selStatus");
@@ -1236,8 +1265,8 @@ title: "待办清单"
 
         function updatePanel() {
             var n = selectedId == null ? null : findNode(selectedId);
-            if (!n) { panel.style.display = "none"; return; }
-            panel.style.display = "";
+            if (!n) { editorEl.style.display = "none"; return; }
+            editorEl.style.display = "";
             var kind = n === root ? "根节点" : (isLeaf(n) ? "叶子任务" : "父节点");
             var chain = n._parent ? " · 上级：" + n._parent.title : "";
             selInfo.textContent = kind + chain;

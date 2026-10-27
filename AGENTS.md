@@ -69,7 +69,7 @@
 
 - 状态为 `todo`、`doing`、`done`、`dropped`；`dropped` 仅叶子可逆，使用空心虚线；父节点不附状态。
 - 密文是 `assets/data/todo_list.enc`，明文不进 Git；迁移以 `tools/encrypt_todo.js` 为准，使用同一 envelope/key，并做解密回读逐字校验。
-- 回归使用 `todo_enc_e2e.js`、`test_encrypt_tool.js`、`check_enc_file.js` 等现有脚本；测试前按脚本要求屏蔽外部字体。访问节点的 `.bubble`、`.lbl` 必须使用 `:scope >`，避免误命中子树。
+- 回归使用 `tools/todo_theme_e2e.js`（零依赖 CDP，覆盖五方案切换、星图星点/折线/远星、持久化、窄屏、421 节点大树）、`todo_enc_e2e.js`、`test_encrypt_tool.js`、`check_enc_file.js` 等现有脚本；测试前按脚本要求屏蔽外部字体。访问节点的 `.bubble`、`.lbl` 必须使用 `:scope >`，避免误命中子树；根节点类只挂在 `.bubble.root` 上（`.node` 无 `root` 类）。
 
 ### 论文调研页 `_pages/paper_retrieval.html`
 
