@@ -5,7 +5,7 @@
  *  - 五方案切换（主题值 / 节点与连线计数 / defs / aria-pressed / 横向溢出）
  *  - 星图（主题 b）：420 颗背景远星、折线顶点与连线星点坐标一致、折线有明显折角、
  *    远星静态/闪烁混合与生灭换位、根节点 b-meta 动态计数、
- *    叶子无空 b-meta、滚轮缩放时星场整层 transform + 半径反补偿
+ *    叶子无空 b-meta、滚轮缩放时星场整层 transform + 星点 scale 反补偿
  *  - localStorage 主题持久化、390px 窄屏无横向溢出、选中节点打开编辑器、根节点折叠
  *  - 421 节点大树：连线 pathLength=1、入场动画结束 dashoffset=0、主题切换耗时记录
  *
@@ -238,7 +238,7 @@ const VERTEX_EXPR = `(function (limit) {
             parentMetas: [...document.querySelectorAll('.node.parent')].filter(n => !n.querySelector(':scope > .bubble.root')).map(n => n.querySelector(':scope > .b-meta').textContent),
             leafMeta: document.querySelectorAll('.node.leaf .b-meta').length,
             bgStars: document.querySelectorAll('.b-bg-star').length,
-            noR: [...document.querySelectorAll('.b-bg-star')].filter(c => !(+c.getAttribute('r') > 0)).length,
+            noR: [...document.querySelectorAll('.b-bg-star')].filter(c => { const m = /scale\\(([-0-9.]+)\\)/.exec(c.getAttribute('transform') || ''); return !(m && +m[1] > 0); }).length,
             nodeStars: document.querySelectorAll('.b-node-star').length,
             layerTransform: document.querySelector('.b-space-layer').getAttribute('transform')
         })`);
@@ -246,7 +246,7 @@ const VERTEX_EXPR = `(function (limit) {
         check('根节点 b-meta 动态计数 PLAN / 5 STARS', b.rootMeta === 'PLAN / 5 STARS', b.rootMeta);
         check('父节点 SECTOR 标记', b.parentMetas.length === 1 && b.parentMetas[0] === 'SECTOR 01', JSON.stringify(b.parentMetas));
         check('叶子无空 b-meta', b.leafMeta === 0, 'leafMeta=' + b.leafMeta);
-        check('背景远星 420 颗且均有 r', b.bgStars === 420 && b.noR === 0, `stars=${b.bgStars} noR=${b.noR}`);
+        check('背景远星 420 颗且均有有效 scale', b.bgStars === 420 && b.noR === 0, `stars=${b.bgStars} noR=${b.noR}`);
         check('节点星 5 颗', b.nodeStars === 5, 'nodeStars=' + b.nodeStars);
         check('星场层 transform 已建立', /translate\(/.test(b.layerTransform || '') && /scale\(/.test(b.layerTransform || ''), String(b.layerTransform));
 
@@ -287,15 +287,16 @@ const VERTEX_EXPR = `(function (limit) {
         // 远星：静态/闪烁混合 + 生灭（~0.8s 一批换位置）
         const mix = await evalJs(`({ total: document.querySelectorAll('.b-bg-star').length, statics: document.querySelectorAll('.b-bg-star.static').length })`);
         check('远星静态/闪烁混合', mix.statics > 80 && mix.statics < mix.total - 80, JSON.stringify(mix));
-        const snapBefore = await evalJs(`[...document.querySelectorAll('.b-bg-star')].map(s => s.getAttribute('cx') + ',' + s.getAttribute('cy')).join('|')`);
+        const snapBefore = await evalJs(`[...document.querySelectorAll('.b-bg-star')].map(s => s.getAttribute('transform')).join('|')`);
         await sleep(2600);
-        const snapAfter = await evalJs(`[...document.querySelectorAll('.b-bg-star')].map(s => s.getAttribute('cx') + ',' + s.getAttribute('cy')).join('|')`);
+        const snapAfter = await evalJs(`[...document.querySelectorAll('.b-bg-star')].map(s => s.getAttribute('transform')).join('|')`);
         check('远星生灭：部分星点已换位置', snapBefore !== snapAfter);
 
-        // ── 滚轮缩放：整层 transform + 半径反补偿（s = 1+(zoom-1)*0.045）──
+        // ── 滚轮缩放：整层 transform + 星点 scale 反补偿（s = 1+(zoom-1)*0.045）──
         const viewOf = `(() => {
             const star = document.querySelector('.b-bg-star');
-            return { r: +star.getAttribute('r'), base: +star.getAttribute('data-radius'),
+            const m = /scale\\(([-0-9.]+)\\)/.exec(star.getAttribute('transform') || '');
+            return { scale: m ? +m[1] : 0, base: +star.getAttribute('data-scale'),
                 w: +document.getElementById('mindmap').getAttribute('viewBox').split(' ')[2],
                 transform: document.querySelector('.b-space-layer').getAttribute('transform') };
         })()`;
@@ -305,8 +306,8 @@ const VERTEX_EXPR = `(function (limit) {
         const after = await evalJs(viewOf);
         const s1 = 1 + (before.w / after.w - 1) * 0.045;   // 初始 zoom=1
         check('缩放后星场 transform 更新', after.transform !== before.transform, after.transform);
-        check('星点半径反补偿 r=base/s', Math.abs(after.r - after.base / s1) < 0.01,
-            `r=${after.r} 期望~${(after.base / s1).toFixed(4)} (s=${s1.toFixed(4)})`);
+        check('星点 scale 反补偿 scale=base/s', Math.abs(after.scale - after.base / s1) < 0.01,
+            `scale=${after.scale} 期望~${(after.base / s1).toFixed(4)} (s=${s1.toFixed(4)})`);
         check('星点位置由层 transform 承载', after.transform.indexOf('scale(' + s1.toFixed(4) + ')') >= 0, after.transform);
 
         // ── localStorage 持久化 ──
