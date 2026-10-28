@@ -83,3 +83,7 @@
 - title: 高斯对比
   url: /splat-compare/
   icon: cube
+
+- title: ASCII MV
+  url: /ascii_mv.html
+  icon: terminal
