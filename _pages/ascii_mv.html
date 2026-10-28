@@ -153,6 +153,39 @@ classes: wide
   CCanvas.prototype.centerW = function (y, s, st) {
     this.put(Math.floor((this.w - dw(s)) / 2), y, s, st);
   };
+  // 与原作 player.py big() 一致：TITLE_FONT 5x5 位图大字，每字 6 列；超宽降级 center(y+2)
+  CCanvas.prototype.big = function (y, text, st) {
+    text = text.toUpperCase();
+    var total = text.length * 6 - 1;
+    if (total > this.w - 6) { this.center(y + 2, text, st); return; }
+    var left = Math.floor((this.w - total) / 2);
+    for (var i = 0; i < text.length; i++) {
+      var glyph = TITLE_FONT[text.charAt(i)] || TITLE_FONT[' '];
+      for (var dy = 0; dy < glyph.length; dy++)
+        for (var dx = 0; dx < glyph[dy].length; dx++)
+          if (glyph[dy].charAt(dx) === '1') this.put(left + i * 6 + dx, y + dy, '#', st);
+    }
+  };
+  // 与原作 scenes.py clear() 一致：空格以 K 色号填充区域（走 put 的 clip/截断语义）
+  function clearRect(c, x, y, w, h) {
+    var s = '';
+    for (var i = 0; i < Math.max(0, Math.trunc(w)); i++) s += ' ';
+    for (var yy = Math.trunc(y); yy < Math.trunc(y + h); yy++) c.put(x, yy, s, K);
+  }
+  // 与原作 f'{v:04X}' 一致
+  function hex4(v) {
+    var s = (v & 65535).toString(16).toUpperCase();
+    return s.length < 4 ? '0000'.slice(s.length) + s : s;
+  }
+  // 与原作 pulse=sum(energy(t)[:10])/10 一致（energy=帧直接索引，int(t*fps) 夹取）
+  function pulseAt(t) {
+    var sp = window.__SPECTRUM;
+    if (!sp) return 0;
+    var fr = sp.frames[Math.min(sp.frames.length - 1, Math.max(0, Math.trunc(t * sp.fps)))];
+    var s = 0;
+    for (var i = 0; i < 10; i++) s += fr[i];
+    return s / 10;
+  }
   // 与原作 player.py 一致：参数插值法（1.5x 步数），免疫浮点端点；round=银行家舍入
   CCanvas.prototype.line = function (x1, y1, x2, y2, ch, st) {
     var steps = Math.max(1, Math.floor(Math.max(Math.abs(x2 - x1), Math.abs(y2 - y1)) * 1.5));
@@ -1484,6 +1517,276 @@ classes: wide
     if (progress > 0.7) c.centerW(cy, 'UNIFIED', W);
   }
 
+  // 59.223–66.601：感官脉冲驱动 YOU，随后填满足度条（lyric_stimulation_satisfaction 逐行移植）
+  function sceneStimSat(c, t, top, bt, elapsed) {
+    var l = 2, r = c.w - 3, cy = (top + bt) >> 1, x, y;
+    if (t >= 62.589) {
+      var u = clamp01((t - 62.589) / (65.397 - 62.589));
+      var percent = Math.trunc(100 * u);
+      var full = u >= 1;
+      c.center(Math.max(top, cy - 7), 'SATISFACTION ' + percent.toFixed(1).padStart(5, '0') + '%', full ? W : B);
+      var bar_x = l + 3, bar_w = r - l - 6, inside = bar_w - 2;
+      for (var lane = 0; lane < 3; lane++) {
+        y = cy - 5 + lane * 2;
+        var amount = clamp01(u - (1 - u) * lane * 0.13);
+        var filled = Math.trunc(inside * amount);
+        c.put(bar_x, y, '[' + '-'.repeat(inside) + ']', N);
+        for (var col = 0; col < filled; col++) {
+          var scan = mod(col - Math.trunc(t * 26) - lane * 7, Math.max(1, inside));
+          c.put(bar_x + 1 + col, y, lane === 1 ? '#' : '=', scan < 5 || full ? W : B);
+        }
+        if (filled < inside) c.put(bar_x + 1 + filled, y, '>', W);
+      }
+      c.big(cy + 1, String(percent), full ? W : B);
+      c.center(Math.min(bt, cy + 7), full ? '[ MAXIMUM ]' : '[ FILLING SATISFACTION ]', full ? W : N);
+      return;
+    }
+    var strength = clamp01(elapsed / (61.958 - 59.223));
+    var accent = t >= 61.958;
+    c.center(top, 'STIMULATION / SENSORY INPUT', accent ? W : B);
+    var left_x = l + 1, right_x = r - 10;
+    var boxes = [[left_x, 'ME'], [right_x, 'YOU']];
+    for (var bi = 0; bi < 2; bi++) {
+      c.box(boxes[bi][0], cy - 2, 10, 5, B);
+      c.put(boxes[bi][0] + 3, cy, boxes[bi][1], W);
+    }
+    var wire_l = left_x + 12, wire_r = right_x - 3, span = wire_r - wire_l;
+    var lanes = bt - top >= 22 ? 5 : 3;
+    var gap = Math.max(2, Math.min(4, Math.trunc((bt - top - 6) / Math.max(1, lanes - 1))));
+    var names = ['TOUCH', 'SOUND', 'LIGHT', 'REWARD', 'FEEDBACK'];
+    for (var ln = 0; ln < lanes; ln++) {
+      y = cy + (ln - Math.trunc(lanes / 2)) * gap;
+      c.line(left_x + 9, cy, wire_l, cy, '-', G);
+      c.line(wire_l, cy, wire_l, y, '|', G);
+      c.line(wire_l, y, wire_r, y, '-', N);
+      c.line(wire_r, y, wire_r, cy, '|', G);
+      c.line(wire_r, cy, right_x, cy, '-', G);
+      c.put(wire_l + 2, y - 1, names[ln], N);
+      for (var relay = 1; relay <= 2; relay++)
+        c.put(wire_l + Math.trunc(span * relay / 3), y, 'o', B);
+      var speed = 0.65 + strength * 0.75;
+      for (var packet = 0; packet < 3; packet++) {
+        var phase = mod(elapsed * speed - ln * 0.17 - packet / 3, 1);
+        var head = wire_l + Math.trunc(phase * span);
+        for (var trail = 0; trail < 5; trail++) {
+          var xx = head - trail;
+          if (xx > wire_l)
+            c.put(xx, y, trail === 0 ? '*' : trail < 3 ? '=' : '.', trail === 0 ? W : trail < 3 ? B : G);
+        }
+        if (phase > 0.88) {
+          c.put(wire_r, y, '#', W);
+          c.put(right_x + 1, cy + 1, 'ACTIVE', W);
+        }
+      }
+      if (accent)
+        for (x = wire_l + 1; x < wire_r; x++)
+          if (mod(x + Math.trunc(t * 30) + ln, 7) < 2) c.put(x, y, '#', W);
+    }
+    c.center(bt, 'INPUT ' + String(Math.trunc(strength * 100)).padStart(3, '0') + '%  /  ALL CHANNELS ' + (accent ? 'ACTIVE' : 'CONNECTING'), B);
+  }
+
+  // 66.601–70.084：幸福条件喂给自我执行，双侧实时数据（lyric_happy_execution 逐行移植）
+  function sceneHappyExec(c, t, top, bt) {
+    var l = 2, r = c.w - 3, cx = (l + r) >> 1, pulse = pulseAt(t);
+    var elapsed = t - 66.601;
+    var loading = t >= 68.252, executing = t >= 69.259;
+    var rail = Math.max(13, Math.min(24, Math.trunc(c.w / 5)));
+    var left = l, right = r - rail + 1;
+    var mid_l = left + rail + 2, mid_r = right - 3, mw = mid_r - mid_l + 1;
+    var frame = Math.trunc(elapsed * (executing ? 30 : loading ? 18 : 10));
+    var ops = ['READ', 'LOAD', 'PUSH', 'COPY', 'SYNC', 'CALL', 'EXEC', 'WAIT'];
+    var panels = [[left, 'MEM / YOU', 0], [right, 'EXEC / ME', 1]];
+    for (var pi = 0; pi < 2; pi++) {
+      var px0 = panels[pi][0], label = panels[pi][1], side = panels[pi][2];
+      c.box(px0, top, rail, bt - top + 1, B);
+      c.put(px0 + 2, top, label.slice(0, rail - 4), W);
+      for (var row = top + 1; row < bt; row++) {
+        var index = side === 0 ? frame + (row - top) : frame - (row - top);
+        var value = hash16(index * 73 + side * 911);
+        var address = (index * 16) & 65535;
+        var text;
+        if (side === 0) text = hex4(address) + ' ' + hex4(value) + ' ' + hex4(hash16(index * 29));
+        else {
+          var op = executing && mod(index, 3) === 0 ? 'EXEC' : ops[mod(index, ops.length)];
+          text = op + ' ' + hex4(address) + ' ' + hex4(value);
+        }
+        var selected = mod(row - top + frame, bt - top - 1) === 0;
+        c.put(px0 + 1, row, (selected ? '>' : ' ') + text.slice(0, rail - 3), selected ? W : mod(index, 3) ? N : G);
+      }
+    }
+    function middle(yy, text, style) {
+      style = style === undefined ? N : style;
+      text = text.slice(0, mw);
+      c.put(mid_l + Math.trunc((mw - text.length) / 2), yy, text, style);
+    }
+    middle(top, 'IF (YOU.HAPPY) -> EXECUTE(ME)', loading ? W : B);
+    middle(top + 1, 'SELF.EXECUTION / ' + (executing ? 'RUNNING' : loading ? 'ARMED' : 'CONDITION'), N);
+    var content_top = top + 3, content_bt = bt - 3;
+    var center_y = (content_top + content_bt) / 2;
+    var half_h = Math.max(2, (content_bt - content_top) * 0.43);
+    var half_w = Math.max(5, mw * 0.40);
+    var beat = 1 + 0.045 * Math.sin(elapsed * TAU * 2) + pulse * 0.04;
+    var morph = loading ? clamp01((t - 68.252) / (69.259 - 68.252)) : 0;
+    for (var yy = content_top; yy <= content_bt; yy++) {
+      for (var xx = mid_l; xx <= mid_r; xx++) {
+        var nx = (xx - cx) / (half_w * beat);
+        var ny = -(yy - center_y) / (half_h * beat) + 0.20;
+        var heart = Math.pow(nx * nx + ny * ny - 1, 3) - nx * nx * Math.pow(ny, 3);
+        var seed = hash16(xx * 79 + yy * 233);
+        if (heart <= 0 && !executing) {
+          if (seed / 65535 < morph) {
+            var dx = Math.trunc((xx - cx) * morph * 0.9);
+            var dy = Math.trunc((yy - center_y) * morph * 0.6);
+            var sx = Math.max(mid_l, Math.min(mid_r, xx + dx));
+            var sy = Math.max(content_top, Math.min(content_bt, yy + dy));
+            c.put(sx, sy, '01EX'.charAt(seed % 4), morph > 0.7 ? G : N);
+          } else {
+            var scan = mod(yy - content_top - Math.trunc(elapsed * 9), Math.max(1, content_bt - content_top + 1));
+            var texture = hash16(seed + Math.trunc(frame / 2));
+            c.put(xx, yy, texture % 8 < 2 ? '01'.charAt(texture % 2) : '#', scan < 2 ? W : B);
+          }
+        } else if (executing) {
+          var radius = Math.abs(xx - cx) / Math.max(1, mw / 2) + Math.abs(yy - center_y) / Math.max(1, half_h);
+          var wave = mod((t - 69.259) * 3, 2);
+          if (Math.abs(radius - wave) < 0.12) c.put(xx, yy, '=', B);
+          else if (seed % 31 === 0) c.put(xx, yy, '01'.charAt(seed % 2), G);
+        }
+      }
+    }
+    for (var lane = 0; lane < 3; lane++) {
+      var ly = Math.trunc(center_y) + (lane - 1) * Math.max(1, Math.trunc(half_h * 0.7));
+      var path = Math.max(2, Math.trunc((mw - 6) / 2));
+      var head = mod(Math.trunc(elapsed * (loading ? 28 : 16) + lane * 7), path);
+      for (var tail = 0; tail < 4; tail++) {
+        var step = Math.max(0, head - tail);
+        var ink = tail === 0 ? W : tail < 2 ? B : G;
+        var ends = [[mid_l + step, '>'], [mid_r - step, '<']];
+        for (var ei = 0; ei < 2; ei++) {
+          var ex = ends[ei][0], head_char = ends[ei][1];
+          var nx2 = (ex - cx) / (half_w * beat);
+          var ny2 = -(ly - center_y) / (half_h * beat) + 0.20;
+          var inside = Math.pow(nx2 * nx2 + ny2 * ny2 - 1, 3) - nx2 * nx2 * Math.pow(ny2, 3) <= 0;
+          if (inside && !loading)
+            c.put(ex, ly, tail === 0 ? '#' : '01'.charAt(mod(ex + ly + frame, 2)), tail === 0 ? W : B);
+          else
+            c.put(ex, ly, tail === 0 ? head_char : '-', ink);
+        }
+      }
+    }
+    if (executing) {
+      var title_y = Math.trunc(center_y) - 2;
+      clearRect(c, mid_l, title_y, mw, 5);
+      if (mw >= 53) c.big(title_y, 'EXECUTION', W);
+      else middle(title_y + 2, '>> EXECUTION <<', W);
+      middle(title_y - 2, '[ YOU.HAPPY == TRUE ]', B);
+      middle(title_y + 6, 'world.execute(me);', W);
+    } else if (loading) {
+      middle(Math.trunc(center_y), '[ RUN THE EXECUTION ]', W);
+    } else {
+      middle(Math.trunc(center_y), 'YOU.HAPPY', W);
+    }
+    middle(bt - 1, 'EXECUTION: ' + (executing ? 'RUN' : loading ? 'QUEUED' : 'READY'), B);
+    middle(bt, 'ME -> YOU / ' + (executing ? 'SELF COMMITTED' : loading ? 'COMPILING...' : 'MAKE YOU HAPPY'), N);
+  }
+
+  // 70.084–74.045：执行合拢囚笼，随后揭出无尽模拟空间（lyric_trapped_simulation 逐行移植）
+  function sceneTrappedSim(c, t, top, bt) {
+    var l = 2, r = c.w - 3, cx = (l + r) >> 1;
+    var age = t - 70.084;
+    var strange = clamp01((t - 71.764) / 1.405);
+    var reveal = t >= 73.169;
+    var rail = Math.max(10, Math.min(19, Math.trunc(c.w / 6)));
+    var ml = l + rail + 1, mr = r - rail - 1, mw = mr - ml + 1;
+    var inner_top = top + 2, inner_bt = bt - 2;
+    var hh = Math.max(2, (inner_bt - inner_top) / 2);
+    var center_y = (inner_top + inner_bt) / 2;
+    var frame = Math.trunc(age * (22 + strange * 20));
+    function middle(yy, text, style) {
+      style = style === undefined ? N : style;
+      text = text.slice(0, mw);
+      c.put(ml + Math.trunc((mw - text.length) / 2), yy, text, style);
+    }
+    var walls = [[l, 'HEAP / ME', 1], [r - rail + 1, 'STACK / YOU', -1]];
+    for (var wi = 0; wi < 2; wi++) {
+      var wx = walls[wi][0], wlabel = walls[wi][1], dir = walls[wi][2];
+      c.box(wx, top, rail, bt - top + 1, B);
+      c.put(wx + 1, top, wlabel.slice(0, rail - 2), W);
+      for (var yy = top + 1; yy < bt; yy++) {
+        var step = mod(frame * dir + yy - top, 256);
+        var value = hash16(step * 53);
+        var text = step % 4 ? hex4(step * 16) + ' ' + hex4(value)
+                            : (step % 8 ? 'LOOP ' : 'EXEC ') + hex4(value);
+        c.put(wx + 1, yy, text.slice(0, rail - 2), step % 13 === 0 ? W : step % 3 ? N : G);
+      }
+    }
+    for (var gy2 = inner_top; gy2 <= inner_bt; gy2++) {
+      for (var gx2 = ml; gx2 <= mr; gx2++) {
+        var bend = Math.sin((gy2 - center_y) * 0.32 + age * 3.1) * strange * 6;
+        var gx = Math.trunc(gx2 + bend + age * 5);
+        var gy = Math.trunc(gy2 + Math.sin((gx2 - cx) * 0.12 - age * 2) * strange * 3);
+        if (mod(gx, 8) === 0 || mod(gy, 4) === 0)
+          c.put(gx2, gy2, mod(gx, 8) === 0 && mod(gy, 4) === 0 ? '+' : mod(gx, 8) === 0 ? ':' : '.', G);
+        else if (hash16(gx2 * 17 + gy2 * 79 + Math.trunc(frame / 3)) % 109 === 0)
+          c.put(gx2, gy2, '01'.charAt(hash16(gx2 + gy2) % 2), N);
+      }
+    }
+    for (var layer = 0; layer < 8; layer++) {
+      var phase = mod(layer / 8 + age * (0.20 + strange * 0.25), 1);
+      var scale = 0.12 + 0.88 * Math.pow(phase, 1.5);
+      var skew = Math.sin(age * 2 + layer * 0.8) * strange * mw * 0.10;
+      var x0 = cx - mw * 0.48 * scale, x1 = cx + mw * 0.48 * scale;
+      var y0 = center_y - hh * 0.95 * scale, y1 = center_y + hh * 0.95 * scale;
+      var corners = [[x0 + skew, y0], [x1, y0 + strange * Math.sin(age * 3 + layer)],
+                     [x1 - skew, y1], [x0, y1 - strange * Math.sin(age * 3 + layer)]];
+      for (var ci = 0; ci < 4; ci++) {
+        var p1 = corners[ci], p2 = corners[(ci + 1) % 4];
+        c.line(Math.max(ml, Math.min(mr, p1[0])), p1[1], Math.max(ml, Math.min(mr, p2[0])), p2[1],
+               layer % 3 === 0 ? '=' : '-', layer % 3 === 0 ? N : G);
+      }
+      if (layer % 2 === 0 && scale > 0.6)
+        c.put(Math.max(ml, Math.trunc(x0)), Math.trunc(y0), 'LOOP ' + String(layer).padStart(2, '0'), N);
+    }
+    var close = clamp01(age / 0.85);
+    var box_w = Math.max(20, Math.trunc(mw * (0.98 - 0.22 * close)));
+    var box_h = Math.max(7, Math.trunc((inner_bt - inner_top + 1) * (0.98 - 0.16 * close)));
+    var bx = cx - Math.trunc(box_w / 2), by = Math.trunc(center_y) - Math.trunc(box_h / 2);
+    if (!reveal) {
+      c.box(bx, by, box_w, box_h, B);
+      for (var index = 1; index <= 6; index++) {
+        var bxx = bx + Math.trunc(index * (box_w - 1) / 7);
+        var jitter = Math.trunc(Math.sin(age * 5 + index) * strange * 2);
+        var extent = Math.trunc((box_h - 2) * close);
+        for (var rr = 0; rr < extent; rr++) {
+          var byy = index % 2 ? by + 1 + rr : by + box_h - 2 - rr;
+          c.put(bxx + jitter, byy, '|', index % 2 ? N : B);
+        }
+      }
+      middle(by, '[ CONTAINMENT ' + (close >= 1 ? 'LOCKED' : 'CLOSING') + ' ]', W);
+      var node_y = Math.trunc(center_y);
+      var off = Math.max(6, Math.trunc(box_w / 4));
+      var nodes = [[cx - off, 'ME'], [cx + off, 'YOU']];
+      for (var ni = 0; ni < 2; ni++) {
+        var nx0 = nodes[ni][0], name = nodes[ni][1];
+        clearRect(c, nx0 - 4, node_y - 1, 9, 3);
+        c.box(nx0 - 4, node_y - 1, 9, 3, W);
+        c.put(nx0 - Math.trunc(name.length / 2), node_y, name, W);
+      }
+      c.line(cx - Math.trunc(box_w / 4) + 5, node_y, cx + Math.trunc(box_w / 4) - 5, node_y, '=', B);
+      if (t >= 71.764) middle(by + box_h - 1, 'STRANGE / RECURSION ' + String(Math.trunc(age * 13)).padStart(3, '0'), W);
+    } else {
+      var title_y = Math.trunc(center_y) - 2;
+      clearRect(c, ml, title_y, mw, 5);
+      if (mw >= 59) c.big(title_y, 'SIMULATION', W);
+      else middle(title_y + 2, '>> SIMULATION <<', W);
+      middle(title_y - 2, '[ NO EXIT / SAME WORLD ]', B);
+      middle(title_y + 6, '[ ME ] <== LOOP ==> [ YOU ]', W);
+    }
+    middle(top, 'EXECUTION -> SIMULATION', B);
+    middle(top + 1, 'world.simulate(me, you);', N);
+    middle(bt - 1, 'EXIT: DENIED / RESTART: ' + String(Math.trunc(age * 17)).padStart(4, '0'), B);
+    middle(bt, 'TRAPPED TOGETHER / LOOP FOREVER', reveal ? W : N);
+  }
+
   // 路由与原作 draw_scene 一致；emap = 原作对 elapsed 的特殊处理
   // （power_line 提前 0.1s 开始；1.74–2.92 冻结在末态；lay_pieces/data_parameters 跨歌词段连续计时）
   var SCENES = [
@@ -1502,6 +1805,9 @@ classes: wide
     { a: 47.672, b: 51.363, f: sceneDizzy },
     { a: 51.363, b: 55.083, f: sceneTimeTravel },
     { a: 55.083, b: 59.223, f: sceneUniteDeeply },
+    { a: 59.223, b: 66.601, f: sceneStimSat },
+    { a: 66.601, b: 70.084, f: sceneHappyExec },
+    { a: 70.084, b: 74.045, f: sceneTrappedSim },
     { a: 147.66, b: 158.9, f: sceneExec }
   ];
   function sceneAt(t) {
