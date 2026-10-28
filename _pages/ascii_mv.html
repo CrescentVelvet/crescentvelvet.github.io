@@ -311,6 +311,16 @@ classes: wide
   }
   // 磷光扫描线（74.045–85.078 的 legacy 版随场景移植时再补）
   function phosphor(c, t, top, bt) {
+    // 74.045–85.078：原作走 legacy_phosphor（无条件亮度扫描行），与 scenes.py:3062 一致
+    if (t >= 74.045 && t < 85.078) {
+      var lrow = top + mod(Math.trunc(t * 9), Math.max(1, bt - top + 1));
+      for (var lx = 2; lx < c.w - 2; lx++) {
+        var lcell = c.cells[lrow][lx];
+        if (lcell[0] !== '' && lcell[0] !== ' ' && (lcell[1] === D || lcell[1] === N || lcell[1] === G))
+          lcell[1] = lcell[1] === G ? N : B;
+      }
+      return;
+    }
     var intensity = glitchIntensity(t);
     if (hash16(Math.trunc(t * 10)) % 100 < intensity * 50) {
       var row = top + mod(Math.trunc(t * 9), Math.max(1, bt - top + 1));
@@ -1787,6 +1797,140 @@ classes: wide
     middle(bt, 'TRAPPED TOGETHER / LOOP FOREVER', reveal ? W : N);
   }
 
+  // ---- legacy 工作台/网格帮手（74.045–85.078 legacy_organic 用，逐行移植）----
+  function legacyPanel(c, x, y, w, h, label) {
+    clearRect(c, x, y, w, h);
+    c.box(x, y, w, h, D);
+    c.put(x + 2, y, ' ' + label.slice(0, Math.max(0, w - 6)) + ' ', N);
+  }
+  // 返回内容区 (l, top, r, bt)；c.w=120 时 side=20
+  function legacyWorkspace(c, t, top, bt, label, status) {
+    status = status === undefined ? 'ACTIVE' : status;
+    c.put(2, top, label, W);
+    c.put(Math.max(3, c.w - status.length - 3), top, status, B);
+    c.put(2, top + 1, '-'.repeat(c.w - 4), G);
+    var side = c.w >= 100 ? Math.min(25, Math.max(17, Math.trunc(c.w / 6))) : 0;
+    if (side) {
+      var lx = 2, rx = c.w - side - 2, ph = bt - top - 2;
+      legacyPanel(c, lx, top + 2, side, ph, 'REGISTER');
+      legacyPanel(c, rx, top + 2, side, ph, 'PROCESS');
+      var k = Math.trunc(t * 7);
+      var left = ['PID 0001 : ME', 'UID 0002 : YOU', 'PC  ' + hex4(hash16(k)), 'SP  ' + hex4(hash16(k + 3))];
+      var right = ['STATE ' + status.slice(0, 7), 'TICK ' + String(Math.trunc(t * 120)).padStart(6, '0'),
+                   'CALL ' + hex4(hash16(k + 7)), 'FLAGS Z C O S'];
+      var height = ph - 2;
+      var ops = ['LOAD', 'PUSH', 'CALL', 'WAIT', 'COPY', 'SYNC', 'RET ', 'JMP '];
+      for (var i = 0; i < height; i++) {
+        var yy = top + 3 + i, a, b;
+        if (i < left.length) { a = left[i]; b = right[i]; }
+        else if (i === 5) { a = 'HEAP ALLOCATION'; b = 'STACK TRACE'; }
+        else {
+          var j = k + i;
+          a = hex4(i * 16) + ' ' + hex4(hash16(j)) + ' ' + hex4(hash16(j + 19));
+          b = ops[j % 8] + ' @' + hex4(hash16(j * 3));
+        }
+        c.put(lx + 2, yy, a.slice(0, side - 4), i < 4 ? N : G);
+        c.put(rx + 2, yy, b.slice(0, side - 4), i < 4 ? N : G);
+      }
+      var sweep = mod(Math.trunc(t * 8), Math.max(1, height));
+      c.put(lx + 1, top + 3 + sweep, '>', B);
+      c.put(rx + side - 2, top + 3 + (height - 1 - sweep), '<', B);
+      return [side + 4, top + 3, c.w - side - 5, bt - 1];
+    }
+    return [4, top + 3, c.w - 5, bt - 1];
+  }
+  // 深度测试参数化点云（round=银行家舍入 pyRound；zbuf 严格 < 取最近面）。
+  // ⚠️ 平台 ULP 噪声说明：z 最近面竞争在候选间距 ~1e-16（1 ULP）时会翻转赢家，
+  // 各平台 libm（UCRT/glibc/Apple）在 ~1.5% 参数上差 1ULP，原作本身跨平台不一致。
+  // 实测 V8/fdlibm 与 glibc 最近（大部分帧 0 差异，少数帧 1–4 格单步 ramp 差），
+  // 故验证参考帧用 WSL/glibc 导出（analyze_ties.py / meshbuf 对拍脚本在 .workbuddy/tmp）。
+  function legacyMesh(c, t, l, top, r, bt, form, pulse) {
+    pulse = pulse || 0;
+    var zbuf = {};
+    for (var u = 0; u < 78; u++) {
+      var a = u * TAU / 78;
+      for (var v = 0; v < 26; v++) {
+        var b = v * TAU / 26, x, y, z;
+        if (form === 'torus') { x = (0.76 + 0.29 * Math.cos(b)) * Math.cos(a); y = (0.76 + 0.29 * Math.cos(b)) * Math.sin(a); z = 0.29 * Math.sin(b); }
+        else if (form === 'sphere') { x = Math.sin(b) * Math.cos(a); y = Math.cos(b); z = Math.sin(b) * Math.sin(a); }
+        else if (form === 'heart') {
+          var radius = 0.5 + 0.5 * Math.cos(b);
+          x = (16 * Math.pow(Math.sin(a), 3) / 17) * radius;
+          y = -(13 * Math.cos(a) - 5 * Math.cos(2 * a) - 2 * Math.cos(3 * a) - Math.cos(4 * a)) / 17 * radius;
+          z = 0.38 * Math.sin(b) * Math.sin(a);
+          x *= 1 + pulse * 0.12; y *= 1 + pulse * 0.12;
+        }
+        else if (form === 'eggplant') { x = Math.sin(b) * Math.cos(a) * (0.43 + 0.16 * Math.cos(b)); y = Math.cos(b) * 1.2; z = Math.sin(b) * Math.sin(a) * 0.6; }
+        else if (form === 'tomato') { x = Math.sin(b) * Math.cos(a); y = Math.cos(b) * 0.68; z = Math.sin(b) * Math.sin(a); }
+        else { x = (0.68 + 0.25 * Math.cos(3 * a + b)) * Math.cos(2 * a); y = (0.68 + 0.25 * Math.cos(3 * a + b)) * Math.sin(2 * a); z = 0.5 * Math.sin(3 * a + b); }
+        var q = rot3(x, y, z, form !== 'heart' ? t : Math.sin(t * 0.45) * 1.2);
+        var p = proj3(q[0], q[1], q[2], l, top, r, bt, 0);
+        var key = pyRound(p[0]) + ',' + pyRound(p[1]);
+        if (!(key in zbuf) || p[2] < zbuf[key][0]) zbuf[key] = [p[2], a, b];
+      }
+    }
+    var ramp = '.,:;=+*#@';
+    Object.keys(zbuf).forEach(function (key) {
+      var e = zbuf[key], z = e[0], a2 = e[1], b2 = e[2];
+      var px = parseInt(key.slice(0, key.indexOf(',')), 10), py = parseInt(key.slice(key.indexOf(',') + 1), 10);
+      if (!(l <= px && px <= r && top <= py && py <= bt)) return;
+      var light = clamp01(0.45 - z * 0.30 + Math.sin(a2 * 2 + b2 + t * 0.3) * 0.13);
+      c.put(px, py, ramp.charAt(Math.trunc(light * (ramp.length - 1))), light > 0.77 ? B : light > 0.40 ? N : G);
+    });
+  }
+  function legacyRing(c, t, l, top, r, b, turns) {
+    var cx = (l + r) / 2, cy = (top + b) / 2;
+    for (var k = 0; k < turns; k++) {
+      var rr = 0.32 + k * 0.058;
+      for (var i = 0; i < 140; i++) {
+        var a = i * TAU / 140;
+        if (mod(i + k * 9, 23) < 5) continue;
+        c.put(cx + Math.cos(a) * (r - l) * rr, cy + Math.sin(a) * (b - top) * rr, k % 2 ? '.' : ':', k !== 1 ? G : D);
+      }
+      a = t * (0.6 + k * 0.1) + k * 2;
+      for (var j = 0; j < 14; j++) {
+        var aa = a - j * 0.018;
+        c.put(cx + Math.cos(aa) * (r - l) * rr, cy + Math.sin(aa) * (b - top) * rr, j === 0 ? '+' : '.', j === 0 ? W : G);
+      }
+    }
+  }
+
+  // 74.045–85.078：legacy 有机体导出（茄子→番茄→虎斑猫，legacy_organic 逐行移植）
+  function sceneLegacyOrganic(c, t, top, bt) {
+    var i = t < 77.576 ? 0 : t < 81.351 ? 1 : t < 85.078 ? 2 : 3;
+    var subject = ['EGGPLANT', 'TOMATO', 'TABBY CAT', 'GOD'][i];
+    var resource = ['NUTRIENTS', 'ANTIOXIDANTS', 'ENJOYMENT', 'EXISTENCE'][i];
+    var area = legacyWorkspace(c, t, top, bt, 'TYPE CAST / ' + subject, 'EXPORT');
+    var l = area[0], y0 = area[1], r = area[2], b = area[3];
+    var cx = (l + r) / 2, cy = (y0 + b) / 2;
+    if (i <= 1) legacyMesh(c, t, l, y0, cx + 6, b, i === 0 ? 'eggplant' : 'tomato');
+    else if (i === 2) {
+      var vs = [[-.9, -.8, 0], [-.75, .4, 0], [0, .75, 0], [.75, .4, 0], [.9, -.8, 0],
+                [.4, -.4, 0], [-.4, -.4, 0], [-.28, 0, -.1], [.28, 0, -.1], [0, .25, -.2]];
+      var es = [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [6, 0], [7, 9], [8, 9], [5, 8], [6, 7]];
+      projected(c, vs, es, l, y0, cx + 8, b, Math.sin(t) * 0.5, N, 1);
+      for (var si = 0; si < 2; si++) {
+        var s = si === 0 ? -1 : 1;
+        for (var j = 0; j < 3; j++) c.line(l + (cx - l) / 2, cy + 1, l + (cx - l) / 2 + s * 11, cy + j - 1, '.', N);
+      }
+    } else {
+      legacyMesh(c, t, l, y0, cx + 8, b, 'sphere');
+      legacyRing(c, t, l, y0, cx + 8, b, 4);
+    }
+    var target = pyRound(mix(cx, r, 0.67));
+    c.box(target - 5, Math.trunc(cy - 2), 11, 5, N);
+    c.put(target - 3, cy, 'YOU_02', W);
+    for (var k = 0; k < 5; k++) {
+      var yy = cy - 2 + k;
+      c.line(cx - 1, yy, target - 6, yy, '.', G);
+      var xx = mix(cx, target - 6, mod(t * 0.8 + k * 0.2, 1));
+      c.put(xx, yy, '>>', k === 2 ? B : D);
+    }
+    c.centerW(y0, 'convert(self, ' + resource.toLowerCase() + ');', W);
+    c.centerW(b, 'TX ' + Math.trunc(mod(t, 3) / 3 * 65535).toString(16).toUpperCase().padStart(4, '0')
+               + '  |  ' + resource + ' -> YOU  |  ACK', N);
+  }
+
   // 路由与原作 draw_scene 一致；emap = 原作对 elapsed 的特殊处理
   // （power_line 提前 0.1s 开始；1.74–2.92 冻结在末态；lay_pieces/data_parameters 跨歌词段连续计时）
   var SCENES = [
@@ -1808,6 +1952,7 @@ classes: wide
     { a: 59.223, b: 66.601, f: sceneStimSat },
     { a: 66.601, b: 70.084, f: sceneHappyExec },
     { a: 70.084, b: 74.045, f: sceneTrappedSim },
+    { a: 74.045, b: 85.078, f: sceneLegacyOrganic },
     { a: 147.66, b: 158.9, f: sceneExec }
   ];
   function sceneAt(t) {
