@@ -197,7 +197,7 @@ classes: wide
 
   /* ---------------- 字符图集 ---------------- */
   var FONT = (14 * SC) + 'px "JetBrains Mono","Cascadia Mono",Consolas,monospace';
-  var EXTRA = '░▒▓█▄■□▲►▶▷●○◉◆·—─│┌┐└┘╔╗╚╝═║≈~^•←→↑↓∞▼┊π▐▌';
+  var EXTRA = '░▒▓█▄■□▲△►▶▷●○◉◆◯·—─│┌┐└┘╔╗╚╝═║≈~^•←→↑↓∞▼┊π▐▌♀♂⚥╱╲';
   var ATLAS = null;
   function buildAtlas() {
     var set = {}, chars = [], i, ch;
@@ -1931,6 +1931,248 @@ classes: wide
                + '  |  ' + resource + ' -> YOU  |  ACK', N);
   }
 
+  // 85.078–88.587：GOD/YOU 辐射光环（scenes.py lyric_god_existence 逐行移植）
+  function sceneGodExistence(c, t, top, bt, elapsed) {
+    var l = 2, r = c.w - 3, cx = (l + r) >> 1, cy = (top + bt) >> 1;
+    for (var ring = 0; ring < 8; ring++) {
+      var radius = 5 + ring * 4 + Math.sin(t * 2 + ring) * 2;
+      var density = 60 - ring * 5;
+      var sign = ring % 2 ? -1 : 1;
+      for (var i = 0; i < density; i++) {
+        var angle = i * TAU / density + t * 0.1 * sign;
+        var x = cx + Math.cos(angle) * radius;
+        var y = cy + Math.sin(angle) * radius * 0.5;
+        var brightness = 1 - ring / 8;
+        c.put(x, y, brightness > 0.7 ? '*' : brightness > 0.4 ? '+' : '.',
+              brightness > 0.8 ? W : brightness > 0.5 ? B : N);
+      }
+    }
+    c.centerW(cy, 'GOD', W);
+    c.centerW(cy + 2, 'YOU', B);
+  }
+
+  // 5×5 位图字形（identity_rewrite/daynight_clock 共用；fill=1 全 #，<1 按 hash 腐蚀）
+  function identityBitmap(c, x, y, text, sx, sy, ink, fill, seed) {
+    fill = fill === undefined ? 1 : fill;
+    seed = seed || 0;
+    var glyphs = {
+      F: ['11111', '11000', '11110', '11000', '11000'],
+      M: ['10001', '11011', '10101', '10001', '10001'],
+      A: ['01110', '11011', '11111', '11011', '11011'],
+      P: ['11110', '11011', '11110', '11000', '11000']
+    };
+    for (var index = 0; index < text.length; index++) {
+      var rows = glyphs[text.charAt(index)];
+      for (var dy = 0; dy < rows.length; dy++) {
+        for (var dx = 0; dx < rows[dy].length; dx++) {
+          if (rows[dy].charAt(dx) !== '1') continue;
+          for (var py = 0; py < sy; py++) {
+            for (var px = 0; px < sx; px++) {
+              var xx = x + (index * 6 + dx) * sx + px, yy = y + dy * sy + py;
+              var on = hash16((index * 31 + dx) * 73 + dy * 137 + px * 19 + py + seed) / 65535 <= fill;
+              c.put(xx, yy, on ? '#' : '.', on ? ink : G);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // 88.587–92.015：F -> M 位图重写（scenes.py lyric_identity_rewrite 逐行移植）
+  function sceneIdentityRewrite(c, t, top, bt) {
+    var l = 2, r = c.w - 3, cx = (l + r) >> 1, cy = (top + bt) >> 1;
+    var age = t - 88.587;
+    var u = clamp01((t - 90.197) / 1.25);
+    var sx = Math.max(2, Math.min(6, Math.floor((r - l) / 22)));
+    var sy = Math.max(1, Math.min(5, Math.floor((bt - top - 8) / 5)));
+    var glyph_w = 5 * sx, glyph_h = 5 * sy;
+    var left_c = Math.floor((l + cx) / 2), right_c = Math.floor((cx + r) / 2), y = cy - Math.floor(glyph_h / 2);
+    c.centerW(top, 'SELF.GENDER / PARAMETER REWRITE', W);
+    c.centerW(top + 1, 'F -> M / TRANSMIT IDENTITY', B);
+    c.box(l, top + 3, cx - l - 1, bt - top - 5, G);
+    c.box(cx + 2, top + 3, r - cx - 1, bt - top - 5, G);
+    for (var row = top + 4; row < bt - 2; row += 2) {
+      var tick = Math.trunc(age * 18) + row;
+      c.put(l + 2, row, hex4(hash16(tick)), G);
+      c.put(r - 5, row, hex4(hash16(tick + 79)), G);
+    }
+    for (var i = 0; i < 6; i++) {
+      var yy = top + 4 + i * Math.max(1, Math.floor((bt - top - 8) / 5));
+      c.line(l + 7, yy, r - 7, yy, '.', G);
+      var progress = mod(age * 0.9 + i * 0.17, 1);
+      var x = mix(left_c, right_c, progress);
+      c.put(x, yy, '>>', u ? W : B);
+    }
+    clearRect(c, left_c - Math.floor(glyph_w / 2) - 1, y - 1, glyph_w + 2, glyph_h + 2);
+    clearRect(c, right_c - Math.floor(glyph_w / 2) - 1, y - 1, glyph_w + 2, glyph_h + 2);
+    identityBitmap(c, left_c - Math.floor(glyph_w / 2), y, 'F', sx, sy, W, 1 - u);
+    identityBitmap(c, right_c - Math.floor(glyph_w / 2), y, 'M', sx, sy, W, u);
+    if (0 < u && u < 1) {
+      for (i = 0; i < 44; i++) {
+        var p = clamp01(u * 1.6 - (i % 11) / 18);
+        var x2 = mix(left_c, right_c, p);
+        var yoff = (hash16(i * 31) % Math.max(1, glyph_h)) - glyph_h / 2;
+        var yy2 = cy + yoff + Math.sin(p * Math.PI) * (i % 2 ? 1 : -1) * 3;
+        c.put(x2, yy2, '01#'.charAt(i % 3), i % 4 === 0 ? W : B);
+      }
+    }
+    c.put(left_c - 4, bt - 3, 'SOURCE F', u < 1 ? N : G);
+    c.put(right_c - 4, bt - 3, 'TARGET M', u >= 1 ? W : N);
+    c.centerW(bt - 1, 'WRITE ' + String(Math.trunc(u * 100)).padStart(3, '0') + '% / '
+             + (u >= 1 ? 'COMMITTED' : !u ? 'COMPILING' : 'REASSEMBLING'), B);
+    c.centerW(bt, u >= 1 ? "self.gender = 'M';" : 'self.gender: F -> M', W);
+  }
+
+  // 92.015–95.465：AM -> PM 时钟加速（scenes.py lyric_daynight_clock 逐行移植）
+  function sceneDaynightClock(c, t, top, bt) {
+    var l = 2, r = c.w - 3, cx = (l + r) >> 1, cy = (top + bt) >> 1;
+    var age = t - 92.015;
+    var flip_at = 94.55;
+    var is_pm = t >= flip_at;
+    var virtual = !is_pm ? 6 + 6 * clamp01((t - 92.015) / (flip_at - 92.015))
+                         : 12 + 6 * clamp01((t - flip_at) / (95.465 - flip_at));
+    var clock_x = Math.floor((l + cx) / 2), display_x = Math.floor((cx + r) / 2);
+    var rx = Math.max(6, (cx - l) * 0.43), ry = Math.max(3, (bt - top - 6) * 0.43);
+    var i, a;
+    c.centerW(top, 'CLOCK.CYCLE / AM -> PM', W);
+    c.centerW(top + 1, 'DAYLIGHT -> NIGHT / TIME ACCELERATING', B);
+    for (i = 0; i < 180; i++) {
+      a = i * TAU / 180;
+      c.put(clock_x + Math.sin(a) * rx, cy - Math.cos(a) * ry, '.', N);
+    }
+    for (var hour = 0; hour < 12; hour++) {
+      a = hour * TAU / 12;
+      c.line(clock_x + Math.sin(a) * rx * 0.9, cy - Math.cos(a) * ry * 0.9,
+             clock_x + Math.sin(a) * rx, cy - Math.cos(a) * ry, '#', B);
+      c.put(clock_x + Math.sin(a) * rx * 0.77 - 1, cy - Math.cos(a) * ry * 0.77, String(hour || 12), N);
+    }
+    var hour_angle = virtual / 12 * TAU, minute_angle = (virtual % 1) * TAU;
+    for (var trail = 4; trail > 0; trail--) {
+      a = minute_angle - trail * 0.13;
+      c.line(clock_x, cy, clock_x + Math.sin(a) * rx * 0.8, cy - Math.cos(a) * ry * 0.8, '.', G);
+    }
+    c.line(clock_x, cy, clock_x + Math.sin(hour_angle) * rx * 0.52, cy - Math.cos(hour_angle) * ry * 0.52, '#', B);
+    c.line(clock_x, cy, clock_x + Math.sin(minute_angle) * rx * 0.83, cy - Math.cos(minute_angle) * ry * 0.83, '*', W);
+    c.put(clock_x, cy, '@', W);
+    c.line(cx, top + 3, cx, bt - 3, '|', G);
+    var radius = Math.max(3, Math.min((r - cx) * 0.22, (bt - top) * 0.34));
+    for (i = 0; i < 120; i++) {
+      a = i * TAU / 120;
+      var x = display_x + Math.cos(a) * radius * 1.6, y = cy + Math.sin(a) * radius;
+      if (!is_pm || Math.cos(a) < 0.45) c.put(x, y, ':', is_pm ? G : N);
+    }
+    if (!is_pm) {
+      for (var ray = 0; ray < 16; ray++) {
+        a = ray * TAU / 16 + age * 0.25;
+        c.line(display_x + Math.cos(a) * radius * 1.8, cy + Math.sin(a) * radius * 1.1,
+               display_x + Math.cos(a) * radius * 2.1, cy + Math.sin(a) * radius * 1.3, '.', G);
+      }
+    } else {
+      for (var star = 0; star < 22; star++) {
+        var sx2 = cx + 2 + hash16(star * 31) % Math.max(1, r - cx - 4);
+        var sy2 = top + 3 + hash16(star * 79) % Math.max(1, bt - top - 6);
+        c.put(sx2, sy2, mod(Math.trunc(age * 5) + star, 5) === 0 ? '+' : '.', G);
+      }
+    }
+    var sx = Math.max(1, Math.min(4, Math.floor((r - cx - 6) / 11)));
+    var sy = Math.max(1, Math.min(4, Math.floor((bt - top - 8) / 5)));
+    var glyph_w = 11 * sx, glyph_h = 5 * sy, y0 = cy - Math.floor(glyph_h / 2);
+    clearRect(c, display_x - Math.floor(glyph_w / 2) - 1, y0 - 1, glyph_w + 2, glyph_h + 2);
+    identityBitmap(c, display_x - Math.floor(glyph_w / 2), y0, is_pm ? 'PM' : 'AM', sx, sy, W);
+    if (t - flip_at >= 0 && t - flip_at < 0.22) {
+      var yy3 = y0 + Math.trunc((t - flip_at) / 0.22 * glyph_h);
+      c.put(display_x - Math.floor(glyph_w / 2), yy3, '='.repeat(glyph_w), W);
+    }
+    var hour2 = Math.trunc(virtual) % 24, minute = Math.trunc((virtual % 1) * 60);
+    c.put(display_x - 2, Math.min(bt - 3, y0 + glyph_h + 1),
+          String(hour2).padStart(2, '0') + ':' + String(minute).padStart(2, '0'), W);
+    c.centerW(bt - 1, is_pm ? '[ PM / NIGHT CYCLE ]' : '[ AM / DAY CYCLE ]', B);
+    c.centerW(bt, 'do_whatever();  // AM -> PM', N);
+  }
+
+  // 95.465–99.349：S -> M 角色切换（scenes.py lyric_gender_role_switch 逐行移植；
+  // dispatch 只调 S->M，F->M 与 AM->PM 分支为死代码未移植）
+  function sceneGenderSwitch(c, t, top, bt, elapsed) {
+    var l = 2, r = c.w - 3, cx = (l + r) >> 1, cy = (top + bt) >> 1;
+    var progress = clamp01(elapsed / 2.5);
+    var row, x, i, a;
+    if (progress < 0.5) {
+      // S 相位：刚性锐角
+      for (row = top; row <= bt; row += 3) {
+        for (x = l; x < r; x += 8) {
+          var offset = Math.trunc(mod(t * 10 + row, 8));
+          var pattern = row % 6 < 3 ? '╱╲' : '╲╱';
+          c.put(x + offset, row, pattern.charAt(0), N);
+          c.put(x + offset + 1, row, pattern.charAt(1), N);
+        }
+      }
+    } else {
+      // M 相位：平滑波纹
+      for (var wave_y = 0; wave_y < 12; wave_y++) {
+        var y = top + Math.trunc(wave_y * (bt - top) / 11);
+        for (x = l; x < r; x++) {
+          var wave = (x - l) / (r - l) * TAU * 3 - t * 2;
+          var amplitude = (bt - top) * 0.1 * (progress - 0.5) * 2;
+          var offset2 = Math.trunc(Math.sin(wave) * amplitude);
+          c.put(x, y + offset2, wave_y % 2 === 0 ? '~' : '≈', wave_y % 3 === 0 ? B : N);
+        }
+      }
+    }
+    if (progress < 0.4) {
+      // S：角状尖刺冠
+      var spike_count = 8;
+      for (i = 0; i < spike_count; i++) {
+        var angle = i * TAU / spike_count + t * 0.5;
+        for (var r_step = 0; r_step < 20; r_step++) {
+          var spike_r = 15 + r_step * 1.5;
+          var spike_x = cx + Math.cos(angle) * spike_r;
+          var spike_y = cy + Math.sin(angle) * spike_r * 0.5;
+          if (Math.abs(mod(angle, TAU / spike_count)) < 0.2) {
+            c.put(spike_x, spike_y, r_step % 2 === 0 ? '▲' : '△',
+                  r_step > 15 ? W : r_step > 10 ? B : N);
+          }
+        }
+      }
+    } else if (progress < 0.6) {
+      // 过渡：爆发
+      var trans = (progress - 0.4) / 0.2;
+      for (i = 0; i < 80; i++) {
+        a = i * TAU / 80;
+        var radius = trans * 60;
+        x = cx + Math.cos(a) * radius + Math.sin(t * 4 + i) * 5 * (1 - trans);
+        var y2 = cy + Math.sin(a) * radius * 0.5 + Math.cos(t * 4 + i) * 3 * (1 - trans);
+        c.put(x, y2, i % 3 === 0 ? '*' : '·', trans < 0.5 ? W : B);
+      }
+    } else {
+      // M：柔和同心圆
+      var circles = (progress - 0.6) / 0.4;
+      for (var ring = 0; ring < 8; ring++) {
+        var ring_r = 8 + ring * 4;
+        var density = Math.trunc(ring_r * 6);
+        var sign = ring % 2 ? -1 : 1;
+        for (i = 0; i < density; i++) {
+          a = i * TAU / density + t * 0.3 * sign;
+          x = cx + Math.cos(a) * ring_r;
+          var y3 = cy + Math.sin(a) * ring_r * 0.5;
+          c.put(x, y3, ring % 2 === 0 ? '○' : '◯', ring < 3 ? W : ring < 5 ? B : N);
+        }
+      }
+    }
+    // 中央大字
+    var size = Math.trunc(10 + Math.sin(t * 1.5) * 1.5);
+    var center_char = progress < 0.5 ? 'S' : 'M';
+    for (var dy = -size; dy <= size; dy++) {
+      for (var dx = -size * 2; dx <= size * 2; dx++) {
+        var dist = Math.hypot(dx / 2, dy);
+        if (size * 0.3 < dist && dist < size * 0.8) {
+          c.put(cx + dx, cy + dy, center_char, dist > size * 0.6 ? W : B);
+        }
+      }
+    }
+    c.centerW(top, 'S → M', progress > 0.8 ? W : B);
+    c.centerW(bt, 'TRANSFORMATION: ' + Math.trunc(progress * 100) + '%', N);
+  }
+
   // 路由与原作 draw_scene 一致；emap = 原作对 elapsed 的特殊处理
   // （power_line 提前 0.1s 开始；1.74–2.92 冻结在末态；lay_pieces/data_parameters 跨歌词段连续计时）
   var SCENES = [
@@ -1953,6 +2195,11 @@ classes: wide
     { a: 66.601, b: 70.084, f: sceneHappyExec },
     { a: 70.084, b: 74.045, f: sceneTrappedSim },
     { a: 74.045, b: 85.078, f: sceneLegacyOrganic },
+    { a: 85.078, b: 88.587, f: sceneGodExistence },
+    { a: 88.587, b: 92.015, f: sceneIdentityRewrite },
+    { a: 92.015, b: 95.465, f: sceneDaynightClock },
+    { a: 95.465, b: 99.349, f: sceneGenderSwitch },
+    { a: 99.349, b: 103.489, f: sceneDizzy },
     { a: 147.66, b: 158.9, f: sceneExec }
   ];
   function sceneAt(t) {
