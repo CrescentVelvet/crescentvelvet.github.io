@@ -1,4 +1,4 @@
-# ASCII MV 编排设计规格
+# 字符演歌（ASCII MV）编排设计规格
 
 > 逆向对象：`https://github.com/yym8224961/world.execute-me-ascii`（main，2026-10）
 > 逆向方式：通读 `player.py`(322 行) 全文 + `scenes.py`(3074 行 / 59 个函数) 的调度层与 6 个代表场景

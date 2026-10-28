@@ -4,6 +4,7 @@
 
 ## 通用约定
 - commit 前缀 = 子网页名；中文一行标题 + ≤2 行正文；**AI 不得 push**；memory 日志与改动同一提交。
+- ⚠️ ascii_mv.html 网页名/前缀已改 **字符演歌**（2026-10-28 定案，URL 不变；此前已提交的 `ascii_mv:` 前缀不改）。
 - 只 `git add` 明确路径，**禁止 `git add -A`**；**同文件禁同消息并发多 Edit**。
 - 托管 Node：`.../node/versions/<先 ls>/node.exe`；无 coreutils ⇒ 用 Glob/Read/Grep/Node。
 - ⚠️ **禁 PowerShell 管道取 git 对象/UTF-8**（cp936 乱码）：`execSync('git show …',{encoding:'utf8'})`；commit message 用 `-F <UTF-8 文件>`。
