@@ -232,6 +232,10 @@ classes: wide
     return 1.0;
   }
   function applyGlitch(c, t, top, bt, intensity) {
+    // 原作 draw_scene 尾部的排除窗口（scenes.py:3058）：
+    // legacy_organic 段与 vibration_sync 段跳过 glitch；192.5s 后 outro 也不跑
+    if (t >= 192.5) return;
+    if ((t >= 74.045 && t < 85.078) || (t >= 103.489 && t < 110.9)) return;
     if (intensity === undefined) intensity = glitchIntensity(t);
     if (intensity < 0.01) return;
     var frame = Math.trunc(t * 24), n = c.w;
@@ -2173,6 +2177,183 @@ classes: wide
     c.centerW(bt, 'TRANSFORMATION: ' + Math.trunc(progress * 100) + '%', N);
   }
 
+  // 心电 P-QRS-T 描迹采样（scenes.py ecg_sample 逐行移植）
+  function ecgSample(phase) {
+    var points = [[0, 0], [0.08, 0], [0.12, 0.15], [0.17, 0], [0.28, 0], [0.31, -0.18],
+                  [0.35, 1.0], [0.39, -0.32], [0.43, 0], [0.52, 0], [0.60, 0.25], [0.70, 0], [1, 0]];
+    phase = mod(phase, 1);
+    for (var i = 1; i < points.length; i++) {
+      var x1 = points[i][0], y1 = points[i][1], x0 = points[i - 1][0], y0 = points[i - 1][1];
+      if (phase <= x1) return mix(y0, y1, (phase - x0) / (x1 - x0));
+    }
+    return 0;
+  }
+
+  // 103.489–110.9：ECG 双通道心率同步（scenes.py lyric_vibration_sync 逐行移植）
+  function sceneVibrationSync(c, t, top, bt, elapsed) {
+    var l = 2, r = c.w - 3;
+    var compact = bt - top < 19;
+    var sync = clamp01((t - 107.22) / (110.221 - 107.22));
+    var complete = t >= 110.221;
+    var phase_lag = 0.28 * (1 - sync);
+    var bpm = 72;
+    c.put(l, top, 'ECG / DUAL CHANNEL', B);
+    c.put(r - 10, top, String(bpm).padStart(3, '0') + ' BPM', W);
+    if (!compact) {
+      var title = complete ? 'COMPLETION / RHYTHM LOCKED' : t >= 107.22 ? 'PHASE SYNCHRONIZING' : t >= 106.293 ? 'VIBRATIONS DETECTED' : 'ACQUIRING YOUR HEARTBEAT';
+      c.centerW(top + 1, title, complete ? W : N);
+    }
+    var plot_top = top + (compact ? 2 : 4);
+    var plot_bt = bt - (compact ? 1 : 3);
+    var split = Math.floor((plot_top + plot_bt) / 2);
+    var x0 = l + 1, x1 = r - 1, span = x1 - x0 + 1;
+    var speed = span / 2.5;
+    var sweep = elapsed * speed + span * 0.30;
+    var head = x0 + mod(Math.trunc(sweep), span);
+    var gap = Math.max(2, Math.trunc(span * 0.025));
+    for (var yy = plot_top; yy <= plot_bt; yy++) {
+      for (var xx = x0; xx <= x1; xx++) {
+        if (mod(xx - x0, 10) === 0 && mod(yy - plot_top, 3) === 0) c.put(xx, yy, '+', G);
+        else if (mod(yy - plot_top, 3) === 0 && mod(xx - x0, 2) === 0) c.put(xx, yy, '.', G);
+      }
+    }
+    for (yy = plot_top; yy <= plot_bt; yy++) c.put(head, yy, ':', G);
+    var lanes = [[plot_top, split, 'YOU', 0], [split + 1, plot_bt, 'ME', phase_lag]];
+    for (var lane = 0; lane < 2; lane++) {
+      var start = lanes[lane][0], end = lanes[lane][1], name = lanes[lane][2], lag = lanes[lane][3];
+      var height = end - start + 1;
+      var baseline = start + Math.trunc((height - 1) * 0.68);
+      var amplitude = Math.max(1, (height - 2) * 0.58);
+      c.put(x0, start, name, lane === 0 || complete ? W : N);
+      var previous = null, previous_age = 0;
+      for (var sample = 0; sample < span * 4; sample++) {
+        var xs = x0 + sample / 4;
+        var age = mod(head - xs, span);
+        if (age > span - gap) { previous = null; continue; }
+        var signal_time = elapsed - age / speed;
+        var phase = signal_time * bpm / 60 - lag;
+        var ys = baseline - ecgSample(phase) * amplitude;
+        ys = Math.max(start, Math.min(end, ys));
+        var ink = age < span * 0.10 ? W : age < span * 0.50 ? B : N;
+        if (lane === 1 && !complete) ink = age < span * 0.15 ? B : N;
+        if (previous !== null) {
+          var px = previous[0], py = previous[1];
+          if (Math.abs(age - previous_age) < 2) {
+            var dy = ys - py;
+            var ch = Math.abs(dy) > 0.65 ? '|' : dy < -0.13 ? '/' : dy > 0.13 ? '\\' : '-';
+            c.line(px, py, xs, ys, ch, ink);
+          }
+        }
+        previous = [xs, ys]; previous_age = age;
+      }
+      var tip = baseline - ecgSample(elapsed * bpm / 60 - lag) * amplitude;
+      tip = Math.max(start, Math.min(end, tip));
+      c.put(head - 1, tip, '=', B);
+      c.put(head, tip, '@', W);
+      if (!compact) {
+        c.put(x1 - 7, start, complete ? 'IN SYNC' : lane === 0 ? 'SENSED' : 'SEEKING', complete ? B : N);
+      }
+    }
+    var indicator = ecgSample(elapsed * bpm / 60) > 0.65 ? '*' : '.';
+    if (!compact) {
+      c.put(l, bt - 1, 'BEAT [' + indicator + ']  /  YOU -> ME', B);
+      var status = 'SYNC ' + String(Math.trunc(sync * 100)).padStart(3, '0') + '%  DELAY '
+                 + String(Math.trunc(phase_lag * 1000 / (bpm / 60))).padStart(3, '0') + 'ms';
+      c.put(r - status.length + 1, bt - 1, status, complete ? W : B);
+    }
+    c.centerW(bt, complete ? '[ COMPLETION / HEARTBEATS SYNCHRONIZED ]' : t < 107.22 ? '[ FEEL YOUR VIBRATIONS ]' : '[ MATCHING YOUR RHYTHM ]', complete ? W : N);
+  }
+
+  // 110.9–118.333：六路连接渐次断开（scenes.py lyric_isolation_disconnect 逐行移植）
+  function sceneIsolationDisconnect(c, t, top, bt, elapsed) {
+    var l = 2, r = c.w - 3, cx = (l + r) / 2, cy = (top + bt) / 2;
+    var rx = (r - l) * 0.39, ry = Math.max(3, (bt - top - 6) * 0.39);
+    var breaks = [0.70, 1.32, 2.20, 3.28, 4.02, 4.88];
+    var gone = 0;
+    for (var bi = 0; bi < breaks.length; bi++) if (elapsed >= breaks[bi]) gone++;
+    c.centerW(top, 'CONNECTION LOSS / ' + String(gone).padStart(2, '0') + ' OF 06', gone > 3 ? R : B);
+    // 雷达弧与数据流全程活跃
+    for (var ring = 0; ring < 3; ring++) {
+      var sweepR = mod(elapsed * 0.34 + ring / 3, 1);
+      for (var sample = 0; sample < 96; sample++) {
+        var a = sample * TAU / 96;
+        if (sample % 7 < 4) {
+          c.put(cx + Math.cos(a) * rx * sweepR, cy + Math.sin(a) * ry * sweepR, '.', G);
+        }
+      }
+    }
+    for (var side = 0; side < 2; side++) {
+      var x = side === 0 ? l : r - 9;
+      for (var row = top + 2; row < bt - 1; row += 2) {
+        var tick = Math.trunc(elapsed * 13) + row * (side ? 1 : -1);
+        c.put(x, row, hex4(hash16(tick * 31)) + ' ' + (hash16(tick) % 6 < gone ? 'LOST' : 'PING'), side ? G : N);
+      }
+    }
+    for (var i = 0; i < breaks.length; i++) {
+      var cut = breaks[i];
+      a = (i + 0.5) * TAU / 6;
+      var nx = cx + Math.cos(a) * rx, ny = cy + Math.sin(a) * ry;
+      var age = elapsed - cut;
+      var next_a = (i + 1.5) * TAU / 6;
+      if (age < 0.4) {
+        c.line(nx, ny, cx + Math.cos(next_a) * rx, cy + Math.sin(next_a) * ry, ':', G);
+      }
+      var steps = Math.max(12, Math.trunc(rx));
+      var rupture = clamp01(age / 1.1);
+      for (var j = 0; j < steps; j++) {
+        var u = j / Math.max(1, steps - 1);
+        if (age >= 0 && Math.abs(u - 0.55) < rupture * 0.6) continue;
+        var jitter = Math.sin(j * 2 + elapsed * 35) * (-0.35 < age && age < 0.5 ? 0.55 : 0.08);
+        var xx = mix(cx, nx, u), yy = mix(cy, ny, u) + jitter;
+        c.put(xx, yy, -0.35 < age && age < 0.2 ? '=' : '.', -0.2 < age && age < 0.2 ? W : age < 0 ? N : G);
+      }
+      if (age < 0) {
+        for (var packet = 0; packet < 3; packet++) {
+          u = mod(elapsed * 0.65 + packet / 3 + i * 0.1, 1);
+          c.put(mix(nx, cx, u), mix(ny, cy, u), '*', W);
+        }
+        c.box(Math.trunc(nx) - 4, Math.trunc(ny) - 1, 9, 3, B);
+        c.put(nx - 3, ny, 'YOU_' + (i + 1), W);
+      } else {
+        // 断裂回弹、火花、衰减冲击环
+        var drift = Math.min(1, age / 2);
+        var ox = nx + Math.cos(a) * drift * 4, oy = ny + Math.sin(a) * drift * 2;
+        c.put(ox - 3, oy, '[LOST]', age < 0.8 ? R : G);
+        if (age < 2.3) {
+          for (var particle = 0; particle < 22; particle++) {
+            var angle = hash16(i * 97 + particle * 19) / 65535 * TAU;
+            var velocity = 2 + hash16(particle * 17 + i) % 8;
+            var distance = age * velocity;
+            var px = nx + Math.cos(angle) * distance, py = ny + Math.sin(angle) * distance * 0.45;
+            if (l < px && px < r && top + 1 < py && py < bt - 1) {
+              c.put(px, py, age < 0.3 ? '*' : '+:. '.charAt(Math.min(3, Math.trunc(age * 1.5))), age < 0.3 ? W : age < 0.9 ? B : G);
+            }
+          }
+          for (var p = 0; p < 30; p++) {
+            angle = p * TAU / 30;
+            px = nx + Math.cos(angle) * age * 8; py = ny + Math.sin(angle) * age * 3.5;
+            if (l < px && px < r && top + 1 < py && py < bt - 1) c.put(px, py, ':', age < 0.5 ? B : G);
+          }
+        }
+        // 重试数据包从 ME 出发，在缺失端点前停住
+        u = mod(elapsed * 0.6 + i * 0.16, 1) * 0.78;
+        c.put(mix(cx, nx, u), mix(cy, ny, u), u > 0.63 ? 'x' : '>', u > 0.63 ? R : N);
+      }
+    }
+    clearRect(c, Math.trunc(cx) - 5, Math.trunc(cy) - 2, 11, 5);
+    c.box(Math.trunc(cx) - 5, Math.trunc(cy) - 2, 11, 5, W);
+    c.put(cx - 2, cy - 1, '[ME]', W);
+    c.put(cx - 3, cy + 1, gone === 6 ? 'NO ACK' : 'RETRY', gone === 6 ? R : B);
+    if (t >= 117.274) {
+      var y2 = Math.trunc(cy) - 2;
+      clearRect(c, l, y2, r - l + 1, 5);
+      c.big(y2, 'ISOLATION', W);
+      c.centerW(y2 + 6, '[ ME ] / ALL CONNECTIONS LOST', R);
+    }
+    c.centerW(bt - 1, 'RECONNECT ' + String(Math.trunc(elapsed * 4)).padStart(3, '0') + ' / ' + (gone ? 'NO RESPONSE' : 'TIMEOUT'), B);
+    c.centerW(bt, 'YOU HAVE LEFT / RETRYING...', N);
+  }
+
   // 路由与原作 draw_scene 一致；emap = 原作对 elapsed 的特殊处理
   // （power_line 提前 0.1s 开始；1.74–2.92 冻结在末态；lay_pieces/data_parameters 跨歌词段连续计时）
   var SCENES = [
@@ -2200,6 +2381,8 @@ classes: wide
     { a: 92.015, b: 95.465, f: sceneDaynightClock },
     { a: 95.465, b: 99.349, f: sceneGenderSwitch },
     { a: 99.349, b: 103.489, f: sceneDizzy },
+    { a: 103.489, b: 110.9, f: sceneVibrationSync },
+    { a: 110.9, b: 118.333, f: sceneIsolationDisconnect },
     { a: 147.66, b: 158.9, f: sceneExec }
   ];
   function sceneAt(t) {
