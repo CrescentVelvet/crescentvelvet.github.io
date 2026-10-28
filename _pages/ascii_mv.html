@@ -100,6 +100,19 @@ classes: wide
     v = Math.imul((v ^ (v >>> 15)) >>> 0, 0x846CA68B) >>> 0;
     return (v ^ (v >>> 16)) & 65535;
   }
+  // Python round()（银行家舍入）——与原作 .5 取偶语义对齐
+  function pyRound(x) {
+    var f = Math.floor(x), d = x - f;
+    if (d > 0.5) return f + 1;
+    if (d < 0.5) return f;
+    return (f % 2 === 0) ? f : f + 1;
+  }
+  // Python %（结果与除数同号）
+  function mod(a, n) { return ((a % n) + n) % n; }
+  function clamp01(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
+  // 东亚宽字符判定（近似 unicodedata.east_asian_width W/F）
+  function isWide(ch) { return ch.charCodeAt(0) > 0x2E7F; }
+  function dw(s) { var w = 0; for (var i = 0; i < s.length; i++) w += isWide(s.charAt(i)) ? 2 : 1; return w; }
 
   /* ---------------- 字符网格 ---------------- */
   function CCanvas(w, h) {
@@ -107,27 +120,36 @@ classes: wide
     this.cells = [];
     for (var y = 0; y < h; y++) {
       var row = [];
-      for (var x = 0; x < w; x++) row.push([' ', K]);
+      for (var x = 0; x < w; x++) row.push([' ', D]);
       this.cells.push(row);
     }
   }
   CCanvas.prototype.clear = function () {
     for (var y = 0; y < this.h; y++)
-      for (var x = 0; x < this.w; x++) { this.cells[y][x][0] = ' '; this.cells[y][x][1] = K; }
+      for (var x = 0; x < this.w; x++) { this.cells[y][x][0] = ' '; this.cells[y][x][1] = D; }
   };
-  // 与原作 player.py 一致：put 用 int() 截断（不是 round）；center 用地板除
+  // 与原作 player.py 一致：put 用 int() 截断（不是 round）；CJK 写双宽、次格置 ''
   CCanvas.prototype.put = function (x, y, s, st) {
     x = Math.trunc(x); y = Math.trunc(y);
     if (y < 0 || y >= this.h) return;
     for (var i = 0; i < s.length; i++) {
-      var xx = x + i;
-      if (xx < 0 || xx >= this.w) continue;
-      this.cells[y][xx][0] = s.charAt(i);
-      this.cells[y][xx][1] = st;
+      var ch = s.charAt(i);
+      var k = isWide(ch) ? 2 : 1;
+      var xx = x;
+      if (xx >= 0 && xx + k <= this.w) {
+        this.cells[y][xx][0] = ch;
+        this.cells[y][xx][1] = st;
+        if (k === 2) { this.cells[y][xx + 1][0] = ''; this.cells[y][xx + 1][1] = st; }
+      }
+      x += k;
     }
   };
   CCanvas.prototype.center = function (y, s, st) {
     this.put(Math.floor((this.w - s.length) / 2), y, s, st);
+  };
+  // 显示宽度居中（CJK 双宽），与原作 c.center 一致
+  CCanvas.prototype.centerW = function (y, s, st) {
+    this.put(Math.floor((this.w - dw(s)) / 2), y, s, st);
   };
   // 与原作 player.py 一致：参数插值法（1.5x 步数），免疫浮点端点
   CCanvas.prototype.line = function (x1, y1, x2, y2, ch, st) {
@@ -160,6 +182,312 @@ classes: wide
       per.push(cv);
     }
     ATLAS = { per: per, idx: idx, miss: idx['?'] };
+  }
+
+  /* ---------------- 情绪曲线 / 全局 glitch / 磷光 ---------------- */
+  // 与原作 scenes.py 位对齐：每次离开累积损伤，此后的 execution 从不重置
+  function glitchIntensity(t) {
+    if (t < 60) return 0.05;
+    if (t < 110) return mix(0.05, 0.25, (t - 60) / 50);
+    if (t < 110.9) return mix(0.25, 0.6, (t - 110) / 37); // 原作原样（疑 /0.9 笔误，先保真）
+    var A = [[110.9, .259], [112.22, .34], [113.1, .43], [114.18, .51], [114.92, .59],
+             [115.78, .66], [117.274, .73], [125.708, .81], [147.66, .92], [177.246, 1.0]];
+    for (var i = 0; i < A.length - 1; i++)
+      if (t < A[i + 1][0]) return mix(A[i][1], A[i + 1][1], clamp01((t - A[i][0]) / (A[i + 1][0] - A[i][0])));
+    return 1.0;
+  }
+  function applyGlitch(c, t, top, bt, intensity) {
+    if (intensity === undefined) intensity = glitchIntensity(t);
+    if (intensity < 0.01) return;
+    var frame = Math.trunc(t * 24), n = c.w;
+    // 行位移
+    if (hash16(frame) % 100 < intensity * 30) {
+      for (var q = 0; q < Math.trunc(intensity * 5); q++) {
+        var row = top + hash16(frame + q * 7) % (bt - top + 1);
+        var shift = Math.trunc((hash16(frame + q * 13) % 20 - 10) * intensity);
+        if (shift !== 0) {
+          var cells = c.cells[row];
+          var sh = mod(shift, n);
+          c.cells[row] = cells.slice(n - sh).concat(cells.slice(0, n - sh));
+        }
+      }
+    }
+    // 色彩腐蚀
+    if (hash16(frame + 100) % 100 < intensity * 40) {
+      for (q = 0; q < Math.trunc(intensity * 15); q++) {
+        var x = hash16(frame + q * 19) % (c.w - 4) + 2;
+        var y = top + hash16(frame + q * 23) % (bt - top + 1);
+        c.cells[y][x][1] = intensity > 0.7 ? R : (intensity > 0.4 ? W : B);
+      }
+    }
+    // 扫描线干扰
+    if (intensity > 0.3) {
+      for (var i = 0; i < Math.trunc(intensity * 3); i++) {
+        row = top + mod(Math.trunc(t * 17) + i * 31, bt - top + 1);
+        for (x = 2; x < c.w - 2; x++) {
+          if (hash16(x + frame) % 100 < intensity * 60) {
+            if (c.cells[row][x][0] === ' ') c.cells[row][x][0] = '=';
+            c.cells[row][x][1] = W;
+          }
+        }
+      }
+    }
+    // 块腐蚀（后期）
+    if (intensity > 0.6) {
+      for (q = 0; q < Math.trunc((intensity - 0.6) * 20); q++) {
+        x = hash16(frame + q * 31) % (c.w - 10) + 2;
+        y = top + hash16(frame + q * 37) % (bt - top - 3);
+        var bw = Math.trunc(3 + hash16(q * 41) % 8);
+        var bh = Math.trunc(2 + hash16(q * 43) % 4);
+        if (hash16(frame + q) % 100 < (intensity - 0.6) * 100) {
+          var chars = '█▓▒░#@%$';
+          for (var dy = 0; dy < bh; dy++)
+            for (var dx = 0; dx < bw; dx++) {
+              if (y + dy < c.h && x + dx < c.w) {
+                c.cells[y + dy][x + dx][0] = chars.charAt(hash16(dx + dy * 3) % chars.length);
+                c.cells[y + dy][x + dx][1] = hash16(q) % 3 === 0 ? R : W;
+              }
+            }
+        }
+      }
+    }
+    // 110.9s 后持久损伤带 + CRT 鬼影行
+    if (t >= 110.9) {
+      var tk = Math.trunc(t * 12);
+      for (var band = 0; band < 1 + Math.trunc(intensity * 5); band++) {
+        row = top + hash16(tk * 7 + band * 41) % (bt - top + 1);
+        var start = 2 + hash16(tk + band * 131) % Math.max(1, c.w - 18);
+        var length = 3 + Math.trunc(intensity * 14);
+        for (var ddx = 0; ddx < length; ddx++) {
+          var xx = start + ddx;
+          if (xx < c.w - 2) c.put(xx, row, '01/:#_'.charAt(hash16(tk + ddx + band) % 6), ddx % 4 ? N : B);
+        }
+      }
+      if (intensity > 0.4) {
+        row = top + hash16(tk * 17) % (bt - top);
+        var srcRow = c.cells[row].slice();
+        var gsh = 2 + Math.trunc(intensity * 5);
+        for (x = 2; x < c.w - gsh - 2; x++) {
+          var cc = srcRow[x][0];
+          if (cc !== ' ' && cc !== '' && hash16(x + tk) % 3 === 0) c.put(x + gsh, row + 1, cc, G);
+        }
+      }
+    }
+  }
+  // 磷光扫描线（74.045–85.078 的 legacy 版随场景移植时再补）
+  function phosphor(c, t, top, bt) {
+    var intensity = glitchIntensity(t);
+    if (hash16(Math.trunc(t * 10)) % 100 < intensity * 50) {
+      var row = top + mod(Math.trunc(t * 9), Math.max(1, bt - top + 1));
+      if (row < c.h) {
+        for (var x = 2; x < c.w - 2; x++) {
+          var cell = c.cells[row][x];
+          if (cell[0] !== ' ' && cell[0] !== '' && (cell[1] === D || cell[1] === N || cell[1] === G))
+            cell[1] = cell[1] === G ? N : B;
+        }
+      }
+    }
+  }
+
+  /* ---------------- 标题接管 title_takeover（15.8–29.709s） ---------------- */
+  // 与原作 player.py FONT 逐字一致（5x5 位图）
+  var TITLE_FONT = {
+    'A': ['01110', '11011', '11111', '11011', '11011'], 'B': ['11110', '11011', '11110', '11011', '11110'],
+    'C': ['01111', '11000', '11000', '11000', '01111'], 'D': ['11110', '11011', '11011', '11011', '11110'],
+    'E': ['11111', '11000', '11110', '11000', '11111'], 'F': ['11111', '11000', '11110', '11000', '11000'],
+    'G': ['01111', '11000', '11011', '11011', '01111'], 'H': ['11011', '11011', '11111', '11011', '11011'],
+    'I': ['11111', '00100', '00100', '00100', '11111'], 'J': ['00111', '00011', '00011', '11011', '01110'],
+    'K': ['11011', '11110', '11100', '11110', '11011'], 'L': ['11000', '11000', '11000', '11000', '11111'],
+    'M': ['10001', '11011', '10101', '10001', '10001'], 'N': ['11001', '11101', '11111', '10111', '10011'],
+    'O': ['01110', '11011', '11011', '11011', '01110'], 'P': ['11110', '11011', '11110', '11000', '11000'],
+    'Q': ['01110', '11011', '11011', '01110', '00011'], 'R': ['11110', '11011', '11110', '11101', '11011'],
+    'S': ['01111', '11000', '01110', '00011', '11110'], 'T': ['11111', '00100', '00100', '00100', '00100'],
+    'U': ['11011', '11011', '11011', '11011', '01110'], 'V': ['11011', '11011', '11011', '01110', '00100'],
+    'W': ['10001', '10001', '10101', '11011', '10001'], 'X': ['11011', '01110', '00100', '01110', '11011'],
+    'Y': ['11011', '11011', '01110', '00100', '00100'], 'Z': ['11111', '00011', '00110', '01100', '11111'],
+    '0': ['01110', '11011', '11011', '11011', '01110'], '1': ['00100', '01100', '00100', '00100', '01110'],
+    '2': ['11110', '00011', '01110', '11000', '11111'], '3': ['11110', '00011', '01110', '00011', '11110'],
+    '4': ['11011', '11011', '11111', '00011', '00011'], '5': ['11111', '11000', '11110', '00011', '11110'],
+    '6': ['01111', '11000', '11110', '11011', '01110'], '7': ['11111', '00011', '00110', '01100', '01100'],
+    '8': ['01110', '11011', '01110', '11011', '01110'], '9': ['01110', '11011', '01111', '00011', '11110'],
+    ';': ['00000', '00100', '00000', '00100', '01000'], '.': ['00000', '00000', '00000', '00000', '00100'],
+    '(': ['00010', '00100', '00100', '00100', '00010'], ')': ['01000', '00100', '00100', '00100', '01000'],
+    '-': ['00000', '00000', '11111', '00000', '00000'], ' ': ['00000', '00000', '00000', '00000', '00000']
+  };
+  var TITLE_INK = null;
+  function titlePixels(w, h) {
+    if (TITLE_INK) return TITLE_INK;
+    var lineH = Math.max(5, Math.min(12, Math.trunc(h * 0.23)));
+    var total = lineH * 2 + 3;
+    var top = Math.max(3, Math.floor((h - total) / 2) - 1);
+    var ink = [];
+    var lines = [['WORLD.', top, Math.trunc(w * 0.86)], ['EXECUTE(ME);', top + lineH + 3, w - 8]];
+    for (var li = 0; li < 2; li++) {
+      var text = lines[li][0], y0 = lines[li][1], span = lines[li][2];
+      var bitmap = [];
+      for (var row = 0; row < 5; row++) {
+        var parts = [];
+        for (var ci = 0; ci < text.length; ci++)
+          parts.push((TITLE_FONT[text.charAt(ci)] || TITLE_FONT[' '])[row]);
+        bitmap.push(parts.join('0'));
+      }
+      var left = Math.floor((w - span) / 2);
+      for (var yy = 0; yy < lineH; yy++) {
+        var brow = bitmap[Math.min(4, Math.trunc(yy * 5 / lineH))];
+        for (var xx = 0; xx < span; xx++)
+          if (brow.charAt(Math.min(brow.length - 1, Math.trunc(xx * brow.length / span))) === '1')
+            ink.push([left + xx, y0 + yy]);
+      }
+    }
+    TITLE_INK = ink;
+    return ink;
+  }
+  // 源帧 = 全帧渲染（t=15.799，正常路径含 chrome/场景/频谱/网格字幕）
+  function sceneTitleTakeover(c, t, source) {
+    var w = c.w, h = c.h;
+    var cx = (w - 1) / 2, cy = (h - 1) / 2;
+    var alphabet = '0123456789ABCDEF<>[]{}();:=/\\|+-*#';
+    var ink = titlePixels(w, h);
+    var elapsed = t - 16;
+    var frame = Math.trunc(elapsed * 24);
+    var lock = clamp01((elapsed - 4.1) / 2.8);
+    var dissolve = clamp01((elapsed - 11.35) / 2.36);
+
+    // 预过渡（15.8–16s：elapsed -0.2–0）
+    if (elapsed < 0) {
+      var buildup = clamp01((elapsed + 0.2) / 0.2);
+      if (mod(Math.trunc(t * 30 * buildup), 2) === 0) {
+        for (var y = 0; y < h; y++)
+          for (var x = 0; x < w; x++)
+            if (hash16(x + y * w + Math.trunc(t * 100)) % 100 < buildup * 50)
+              c.cells[y][x] = ['█', buildup > 0.7 ? W : B];
+      }
+      var waveCount = Math.trunc(buildup * 5) + 1;
+      for (var i = 0; i < waveCount; i++) {
+        var phase = mod(buildup * 3 - i * 0.15, 1);
+        if (phase < 0) continue;
+        var yTop = Math.trunc(phase * h / 2), yBot = h - 1 - yTop;
+        for (x = 0; x < w; x++)
+          if (hash16(x + i) % 3 === 0) {
+            c.put(x, yTop, phase > 0.7 ? '=' : '-', phase > 0.8 ? W : B);
+            c.put(x, yBot, phase > 0.7 ? '=' : '-', phase > 0.8 ? W : B);
+          }
+        var xLeft = Math.trunc(phase * w / 2), xRight = w - 1 - xLeft;
+        for (y = 0; y < h; y++)
+          if (hash16(y + i * 7) % 3 === 0) {
+            c.put(xLeft, y, '|', phase > 0.8 ? W : B);
+            c.put(xRight, y, '|', phase > 0.8 ? W : B);
+          }
+      }
+      if (buildup > 0.5) {
+        var radius = Math.trunc((1 - buildup) * Math.min(w, h) * 0.3);
+        for (i = 0; i < 60; i++) {
+          var ang = i * TAU / 60 + t * 5;
+          c.put(cx + Math.cos(ang) * radius, cy + Math.sin(ang) * radius * 0.5, buildup > 0.8 ? '*' : '+', buildup > 0.9 ? W : B);
+        }
+      }
+      for (i = 0; i < Math.trunc(buildup * 8); i++) {
+        var row2 = hash16(Math.trunc(t * 50) + i) % h;
+        var shift = Math.trunc(Math.sin(t * 20 + i) * buildup * 15);
+        if (shift !== 0) {
+          var cells2 = c.cells[row2];
+          var n2 = cells2.length, sh2 = mod(shift, n2);
+          c.cells[row2] = cells2.slice(n2 - sh2).concat(cells2.slice(0, n2 - sh2));
+        }
+      }
+      return;
+    }
+
+    // 噪声底（行波位移 + 密度随 lock/dissolve 变化）
+    var density = elapsed < 5 ? 0.78 : mix(0.60, 0.10, lock);
+    if (dissolve) density = mix(0.1, 0.48, dissolve);
+    for (var yy = 0; yy < h; yy++) {
+      var rowShift = Math.trunc(Math.sin(elapsed * 4 + yy * 0.31) * clamp01(elapsed / 2) * 9);
+      for (var xx = 0; xx < w; xx++) {
+        var k = hash16(xx * 37 + yy * 911 + Math.trunc(elapsed * 7) * (3 + xx % 7));
+        if (k / 65535 > density) continue;
+        var ch = alphabet.charAt(mod(k + frame + Math.trunc(xx / 7) * 13, alphabet.length));
+        var st = mod(yy + Math.trunc(frame / 2), h) < 2 ? N : (k % 17 === 0 ? D : G);
+        if (lock > 0.5) st = k % 5 === 0 ? G : K;
+        c.put(mod(xx + rowShift, w), yy, ch, st);
+      }
+    }
+    // 源帧吸入（16–18.1s）
+    if (source) {
+      var e = clamp01(elapsed / 2.1);
+      for (yy = 0; yy < h; yy++)
+        for (xx = 0; xx < w; xx++) {
+          var cell = source.cells[yy][xx];
+          ch = cell[0];
+          if (!ch.trim()) continue;
+          k = hash16(xx + yy * w);
+          var angle = Math.atan2((yy - cy) * 2, xx - cx) + e * (1 + k % 7 * 0.13);
+          var radius2 = Math.hypot(xx - cx, (yy - cy) * 2) * (1 + e * 0.9);
+          var px = cx + Math.cos(angle) * radius2 + Math.sin(yy * 0.45 + elapsed * 9) * e * 6;
+          var py = cy + Math.sin(angle) * radius2 / 2;
+          if (e > 0.3 && k % 5 < Math.trunc(e * 5)) ch = alphabet.charAt(mod(k + frame, alphabet.length));
+          else if (ch.charCodeAt(0) > 127) ch = alphabet.charAt(k % alphabet.length);
+          c.put(mod(pyRound(px), w), mod(pyRound(py), h), ch, e < 0.5 ? N : D);
+          void cell;
+        }
+    }
+    // 流动条带（elapsed<4.6）
+    if (elapsed < 4.6) {
+      for (var strand = 0; strand < 7; strand++)
+        for (xx = 0; xx < w; xx++) {
+          var a2 = xx / w * TAU * 1.7 - elapsed * 2 + strand * 0.39;
+          yy = cy + Math.sin(a2) * h * 0.37;
+          if (strand % 2) yy += Math.sin(xx * 0.19 + elapsed * 3) * 2;
+          for (var trail = 0; trail < 3; trail++)
+            c.put(xx, yy + trail, trail ? '.' : alphabet.charAt(mod(xx + frame + strand, alphabet.length)), trail === 0 ? B : G);
+        }
+    }
+    // 标题墨点汇聚（elapsed>=3.1）
+    if (elapsed >= 3.1) {
+      for (i = 0; i < ink.length; i++) {
+        var tx = ink[i][0], ty = ink[i][1];
+        k = hash16(i * 7 + 51);
+        var delay = (k % 1000) / 1000 * 0.95;
+        var u = clamp01((elapsed - 3.1 - delay) / 3.0);
+        var ease = 1 - Math.pow(1 - u, 3);
+        var ox = hash16(i * 17) % w, oy = hash16(i * 29 + 10) % h;
+        if (dissolve) {
+          var ang2 = Math.atan2((ty - cy) * 2, tx - cx) + dissolve * 0.75;
+          var dist = Math.hypot(tx - cx, (ty - cy) * 2) + dissolve * (30 + k % 40);
+          var ix = cx + Math.cos(ang2) * dist, iy = cy + Math.sin(ang2) * dist / 2;
+          if (k % 100 / 100 < dissolve * 0.65) continue;
+        } else {
+          var swirl = Math.sin(u * Math.PI) * (1 - u);
+          ix = mix(ox, tx, ease) + Math.sin(elapsed * 2 + i * 0.7) * swirl * w * 0.24;
+          iy = mix(oy, ty, ease) + Math.cos(elapsed * 2 + i * 0.7) * swirl * h * 0.24;
+        }
+        var ich, ist;
+        if (u > 0.98 && !dissolve) {
+          var sweep = mod(Math.trunc(elapsed * 30), w + 24) - 12;
+          ich = Math.abs(tx - sweep) < 3 ? '#' : '01'.charAt(k % 2);
+          ist = Math.abs(tx - sweep) < 3 ? W : B;
+        } else {
+          ich = alphabet.charAt(mod(k + frame, alphabet.length));
+          ist = k % 3 === 0 ? B : N;
+        }
+        c.put(pyRound(ix), pyRound(iy), ich, ist);
+        if (u < 0.98 || dissolve) c.put(pyRound(ix) - 1, pyRound(iy), '.', G);
+      }
+    }
+    if (elapsed > 7.25 && elapsed < 11.35) {
+      c.center(1, 'M I L I', W);
+      c.center(h - 3, 'world.execute(me);', W);
+    }
+    // 周期性故障行位移（原作 2916-2918，独立于 glitch 体系）
+    if (mod(Math.trunc(elapsed * 12), 11) <= 2) {
+      var grow = hash16(frame) % h;
+      var gsh = Math.trunc(Math.sin(elapsed * 23) * 7);
+      if (gsh) {
+        var gcells = c.cells[grow];
+        var gn = gcells.length, gshn = mod(gsh, gn);
+        c.cells[grow] = gcells.slice(gn - gshn).concat(gcells.slice(0, gn - gshn));
+      }
+    }
   }
 
   /* ---------------- 场景 ---------------- */
@@ -603,41 +931,99 @@ classes: wide
   }
 
   /* ---------------- 版面 chrome ---------------- */
-  // ⚠️ 章节表为近似值（仅 02/DEVOTION、04/EXECUTION 与原作帧核实过）
+  // 与原作 player.py CHAPTERS 一致（5 章）
   var CHAPTERS = [
-    [0, '01 / BOOT'], [16, '-- / TITLE'], [29.709, '02 / DEVOTION'],
-    [59.223, '03 / SIMULATION'], [147.66, '04 / EXECUTION'], [177.246, '05 / OUTRO']
+    [0, '01 / CREATION'], [29.709, '02 / DEVOTION'], [110.9, '03 / ISOLATION'],
+    [125.708, '04 / EXECUTION'], [177.246, '05 / LOVE']
   ];
   function chapterAt(t) {
     var s = '';
     for (var i = 0; i < CHAPTERS.length; i++) if (t >= CHAPTERS[i][0]) s = CHAPTERS[i][1];
     return s;
   }
+  // 与原作 clock 一致：int() 截断（toFixed 会四舍五入，15.799 应是 :15.7 而非 :15.8）
   function fmtT(t) {
-    var m = Math.floor(t / 60), s = t - m * 60;
-    return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s.toFixed(1);
+    var m = Math.floor(Math.trunc(t) / 60), s = Math.trunc(t) % 60;
+    return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s + '.' + (Math.trunc(t * 10) % 10);
   }
+  // 与原作 render() 的版面逐行一致（divider 从 x=2 起、状态行、章节 NORMAL、提示行）
   function drawChrome(c, t, playing, snap) {
     c.put(2, 0, 'WORLD.EXECUTE(ME);', W);
-    var right = fmtT(t) + ' / 03:32  ' + (snap ? 'SNAPSHOT' : playing ? 'PLAYING' : 'PAUSED');
-    c.put(c.w - 2 - right.length, 0, right, D);
+    var state = snap || !playing ? 'PAUSED' : 'RUNNING';
+    var right = fmtT(t) + ' / 03:32  ' + state;
+    c.put(c.w - right.length - 2, 0, right, D);
     var div = '';
-    for (var i = 0; i < c.w; i++) div += '-';
-    c.put(0, 1, div, K);
-    var ch = chapterAt(t);
-    if (ch) c.put(2, 2, ch, D);
-    c.center(39, 'SPACE play/pause   <- -> 5s   R restart', K);
+    for (var i = 0; i < c.w - 4; i++) div += '-';
+    c.put(2, 1, div, D);
+    c.put(2, 2, chapterAt(t), N);
+    c.center(c.h - 1, 'SPACE play/pause   <- -> 5s   R restart   Q quit   H help', D);
   }
+  // 与原作一致：80 列居中、._:=| 五档、pyRound(amp*4)、DIM
   function drawSpectrum(c, t) {
     var sp = window.__SPECTRUM;
     if (!sp) return;
-    var fi = Math.min(sp.frames.length - 1, Math.max(0, Math.round(t * sp.fps)));
-    var fr = sp.frames[fi], x0 = 4, x1 = c.w - 4;
-    for (var x = x0; x < x1; x++) {
-      var v = fr[Math.floor((x - x0) / (x1 - x0) * sp.bands)] / 99;
-      var chh = v > 0.75 ? '#' : v > 0.55 ? '=' : v > 0.35 ? ':' : v > 0.15 ? '.' : ' ';
-      if (chh !== ' ') c.put(x, 34, chh, v > 0.55 ? B : v > 0.15 ? N : D);
+    var fi = Math.min(sp.frames.length - 1, Math.max(0, Math.trunc(t * sp.fps)));
+    var fr = sp.frames[fi], cols = Math.min(80, c.w - 8), start = Math.floor((c.w - cols) / 2);
+    var sy = c.h - 6;
+    for (var i = 0; i < cols; i++) {
+      var amp = fr[Math.trunc(i * sp.bands / cols)];
+      c.put(start + i, sy, '._:=|'.charAt(Math.min(4, pyRound(amp * 4))), D);
     }
+  }
+
+  /* ---------------- 网格字幕（title 源帧用，与原作 wrap/crop 一致） ---------------- */
+  function cropStr(s, n) {
+    var out = '', used = 0;
+    for (var i = 0; i < s.length; i++) {
+      var k = isWide(s.charAt(i)) ? 2 : 1;
+      if (used + k > n) break;
+      out += s.charAt(i); used += k;
+    }
+    return out;
+  }
+  function wrapStr(s, n) {
+    if (dw(s) <= n) return [s];
+    var parts = [];
+    var ascii = !isWide(s.replace(/[^\u2e80-\uffff]/g, '') || '') && /^[\x00-\xff]*$/.test(s);
+    while (s) {
+      var line = cropStr(s, n);
+      if (line.length < s.length && line.indexOf(' ') >= 0 && /^[\x00-\x7f]*$/.test(s))
+        line = line.slice(0, line.lastIndexOf(' '));
+      if (!line) break;
+      parts.push(line);
+      s = s.slice(line.length).replace(/^\s+/, '');
+    }
+    return parts;
+  }
+  function cueAt(tt) { // bisect_right(times, tt) - 1：不看 end，最后一个 time<=tt
+    for (var i = LYRICS.length - 1; i >= 0; i--) if (LYRICS[i].time <= tt) return LYRICS[i];
+    return null;
+  }
+  function drawSubsIntoGrid(c, tt) {
+    var e = cueAt(tt);
+    if (e) {
+      var ens = wrapStr(e.en, c.w - 8).slice(0, 2);
+      var zhs = wrapStr(e.zh, c.w - 8).slice(0, 2);
+      for (var i = 0; i < ens.length; i++) c.centerW(c.h - 5 + i, ens[i], W);
+      for (i = 0; i < zhs.length; i++) c.centerW(c.h - 3 + i, zhs[i], B);
+    } else if (tt > 208) {
+      c.center(c.h - 5, 'PROCESS ENDED. THE LOOP REMAINS.', W);
+    } else {
+      c.center(c.h - 5, '[ instrumental ]', D);
+      c.center(c.h - 3, '[ 间奏 ]', D);
+    }
+  }
+  // 全帧渲染（正常路径：chrome→场景→glitch→磷光→频谱→字幕），供 title 源帧
+  function frameAt(tt) {
+    var c = new CCanvas(GW, GH);
+    drawChrome(c, tt, false, false); // paused=True 与 dump_frames 参考帧一致
+    var sc = sceneAt(tt);
+    sc.f(c, tt, 4, 32, sc.emap ? sc.emap(tt) : tt - sc.a);
+    applyGlitch(c, tt, 4, 32);
+    phosphor(c, tt, 4, 32);
+    drawSpectrum(c, tt);
+    drawSubsIntoGrid(c, tt);
+    return c;
   }
 
   /* ---------------- 字幕（DOM 层） ---------------- */
@@ -672,7 +1058,7 @@ classes: wide
     for (var y = 0; y < GH; y++)
       for (var x = 0; x < GW; x++) {
         var cell = grid.cells[y][x];
-        if (cell[0] === ' ') continue;
+        if (cell[0] === ' ' || cell[0] === '') continue;
         var gi = ATLAS.idx[cell[0]];
         if (gi === undefined) gi = ATLAS.miss;
         g2d.drawImage(ATLAS.per[cell[1]], gi * CW * SC, 0, CW * SC, CH * SC,
@@ -748,19 +1134,30 @@ classes: wide
   function tick() {
     var t = now();
     grid.clear();
-    drawChrome(grid, t, playing, SNAP !== null);
-    var sc = sceneAt(t);
-    sc.f(grid, t, 4, 32, sc.emap ? sc.emap(t) : t - sc.a);
-    drawSpectrum(grid, t);
+    if (t >= 15.8 && t < 29.709) {
+      // title 接管：无 chrome/字幕；16–18.1s 吸入 t=15.799 的完整源帧
+      var source = (t >= 16 && t < 18.1) ? frameAt(15.799) : null;
+      sceneTitleTakeover(grid, t, source);
+      if (lastLy !== -1) { elEn.textContent = ''; elZh.textContent = ''; lastLy = -1; }
+    } else {
+      drawChrome(grid, t, playing, SNAP !== null);
+      var sc = sceneAt(t);
+      sc.f(grid, t, 4, 32, sc.emap ? sc.emap(t) : t - sc.a);
+      applyGlitch(grid, t, 4, 32);
+      phosphor(grid, t, 4, 32);
+      drawSpectrum(grid, t);
+      updateSubs(t);
+    }
     render();
-    updateSubs(t);
     elFill.style.width = (t / DUR * 100).toFixed(2) + '%';
     elTime.textContent = fmtT(t) + ' / 03:32';
     requestAnimationFrame(tick);
   }
   buildAtlas();
   // 调试探针（供 CDP 检查网格内容）
-  window.__amv = { grid: grid, w: GW, h: GH, now: now };
+  window.__amv = { grid: grid, w: GW, h: GH, now: now, frameAt: frameAt,
+                   hash16: hash16, titlePixels: titlePixels, mix: mix, clamp01: clamp01,
+                   CCanvas: CCanvas, sceneTitleTakeover: sceneTitleTakeover };
   tick();
 })();
 </script>
