@@ -1,0 +1,507 @@
+---
+permalink: /ascii_mv.html
+layout: default
+title: ASCII MV
+author_profile: false
+classes: wide
+---
+<!--
+  ASCII MV 播放器（骨架 v1）
+  - 渲染：canvas 2D + 字符图集（7 色 × 字符集预渲染，逐格 drawImage）
+  - 时钟：AudioContext，播放位置 = offset + (ctx.currentTime - startAt)；
+    ⚠️ ctx.currentTime 暂停时照走，不能直接当进度
+  - 音频：本地文件选择（版权原因不入库）；?t=38.5 快照模式无需音频
+  - 字幕：DOM 叠加层（CJK 宽度交给浏览器），不参与字符网格
+  - 数据：assets/data/ascii_mv/{lyrics,spectrum}.js（window.__LYRICS / __SPECTRUM）
+  - 场景：table 驱动，已移植 t=38.5 正弦切线 / t=150.5 EXECUTION 两个验证场景，
+    其余走 fallback；章节表为近似值，后续对照原作逐段核对
+  - 待办：apply_glitch、title_takeover、其余 30+ 场景按时间轴顺序补齐
+-->
+<style>
+  #masthead { height: 0; overflow: hidden; }
+  #page-last-modified { display: none; }
+
+  .amv-wrap {
+    --bg: #0a0a08; --panel: #000; --line: #2a2416;
+    --c0: #afaf5f; --c1: #ffaf5f; --c2: #ffd75f; --c3: #ffffd7;
+    --c4: #ff5f5f; --c5: #875f00; --c6: #5f5f00;
+    background: var(--bg); min-height: 92vh;
+    display: flex; flex-direction: column; align-items: center;
+    gap: 10px; padding: 14px 8px 28px; box-sizing: border-box;
+    font-family: "JetBrains Mono", "Cascadia Mono", Consolas, monospace;
+  }
+  .amv-stage {
+    position: relative; width: min(1080px, 96vw);
+    aspect-ratio: 3 / 2; background: var(--panel);
+    border: 1px solid var(--line); box-shadow: 0 0 48px rgba(255, 175, 95, .07);
+  }
+  .amv-stage canvas { display: block; width: 100%; height: 100%; }
+  .amv-subs {
+    position: absolute; left: 0; right: 0; top: 86.5%;
+    text-align: center; pointer-events: none; line-height: 1.5;
+  }
+  .amv-subs .en { color: var(--c3); font-size: clamp(11px, 1.5vw, 17px); font-weight: 700;
+    text-shadow: 0 0 8px rgba(255, 215, 95, .35); min-height: 1.5em; }
+  .amv-subs .zh { color: var(--c0); font-size: clamp(10px, 1.3vw, 15px); min-height: 1.5em; }
+  .amv-bar {
+    width: min(1080px, 96vw); display: flex; align-items: center; gap: 12px;
+    color: var(--c1); font-size: 12px; flex-wrap: wrap;
+  }
+  .amv-bar input[type=file] { color: var(--c0); font-size: 12px; max-width: 260px; }
+  .amv-bar button {
+    background: var(--panel); color: var(--c2); border: 1px solid var(--line);
+    font: inherit; padding: 3px 14px; cursor: pointer;
+  }
+  .amv-bar button:hover { border-color: var(--c2); }
+  .amv-bar button:disabled { color: var(--c6); cursor: default; }
+  .amv-prog {
+    flex: 1; min-width: 160px; height: 10px; border: 1px solid var(--line);
+    background: var(--panel); cursor: pointer; position: relative;
+  }
+  .amv-prog > i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--c5); display: block; }
+  .amv-prog > i::after { content: ""; position: absolute; right: 0; top: 0; bottom: 0; width: 2px; background: var(--c2); }
+  .amv-note { color: var(--c6); font-size: 11px; width: min(1080px, 96vw); }
+</style>
+
+<div class="amv-wrap">
+  <div class="amv-stage">
+    <canvas id="amv-cv" width="2160" height="1440"></canvas>
+    <div class="amv-subs"><div class="en" id="amv-en"></div><div class="zh" id="amv-zh"></div></div>
+  </div>
+  <div class="amv-bar">
+    <input type="file" id="amv-file" accept="audio/*">
+    <button id="amv-play" disabled>PLAY</button>
+    <div class="amv-prog" id="amv-prog"><i id="amv-fill" style="width:0%"></i></div>
+    <span id="amv-time">--:-- / --:--</span>
+  </div>
+  <div class="amv-note" id="amv-note">
+    音频不入库（版权），请选择本机歌曲文件（world.execute(me);.mp3，时长 03:32）。
+    也可以用 ?t=38.5 快照模式查看单帧。已移植场景：37.1–40.7s 正弦切线、147.7–158.9s EXECUTION，其余为占位。
+  </div>
+</div>
+
+<script src="{{ '/assets/data/ascii_mv/lyrics.js' | relative_url }}"></script>
+<script src="{{ '/assets/data/ascii_mv/spectrum.js' | relative_url }}"></script>
+<script>
+(function () {
+  'use strict';
+  var TAU = Math.PI * 2;
+  var GW = 120, GH = 40, CW = 9, CH = 18, SC = 2;   // 网格 / 单元格 / 超采样
+  var D = 0, N = 1, B = 2, W = 3, R = 4, G = 5, K = 6, Y = 3;
+  var PAL = ['#afaf5f', '#ffaf5f', '#ffd75f', '#ffffd7', '#ff5f5f', '#875f00', '#5f5f00'];
+  var DUR = 211.933;
+
+  function clamp(x, a, b) { a = a || 0; b = b === undefined ? 1 : b; return Math.min(b, Math.max(a, x)); }
+  function mix(a, b, u) { return a + (b - a) * u; }
+  // 与原作 scenes.py 位对齐的确定性 hash
+  function hash16(i) {
+    var v = (i + 0x9E3779B9) >>> 0;
+    v = Math.imul((v ^ (v >>> 16)) >>> 0, 0x7FEB352D) >>> 0;
+    v = Math.imul((v ^ (v >>> 15)) >>> 0, 0x846CA68B) >>> 0;
+    return (v ^ (v >>> 16)) & 65535;
+  }
+
+  /* ---------------- 字符网格 ---------------- */
+  function CCanvas(w, h) {
+    this.w = w; this.h = h;
+    this.cells = [];
+    for (var y = 0; y < h; y++) {
+      var row = [];
+      for (var x = 0; x < w; x++) row.push([' ', K]);
+      this.cells.push(row);
+    }
+  }
+  CCanvas.prototype.clear = function () {
+    for (var y = 0; y < this.h; y++)
+      for (var x = 0; x < this.w; x++) { this.cells[y][x][0] = ' '; this.cells[y][x][1] = K; }
+  };
+  CCanvas.prototype.put = function (x, y, s, st) {
+    x = Math.round(x); y = Math.round(y);
+    if (y < 0 || y >= this.h) return;
+    for (var i = 0; i < s.length; i++) {
+      var xx = x + i;
+      if (xx < 0 || xx >= this.w) continue;
+      this.cells[y][xx][0] = s.charAt(i);
+      this.cells[y][xx][1] = st;
+    }
+  };
+  CCanvas.prototype.center = function (y, s, st) {
+    this.put(Math.round((this.w - s.length) / 2), y, s, st);
+  };
+  CCanvas.prototype.line = function (x1, y1, x2, y2, ch, st) {
+    var dx = Math.abs(x2 - x1), dy = -Math.abs(y2 - y1);
+    var sx = x1 < x2 ? 1 : -1, sy = y1 < y2 ? 1 : -1;
+    var err = dx + dy, x = x1, y = y1;
+    for (;;) {
+      this.put(x, y, ch, st);
+      if (x === x2 && y === y2) break;
+      var e2 = 2 * err;
+      if (e2 >= dy) { err += dy; x += sx; }
+      if (e2 <= dx) { err += dx; y += sy; }
+    }
+  };
+
+  /* ---------------- 字符图集 ---------------- */
+  var FONT = (14 * SC) + 'px "JetBrains Mono","Cascadia Mono",Consolas,monospace';
+  var EXTRA = '░▒▓█▄■□▲►▶▷●◆·—│┌┐└┘╔╗╚╝═║≈~^•←→↑↓∞';
+  var ATLAS = null;
+  function buildAtlas() {
+    var set = {}, chars = [], i, ch;
+    for (i = 32; i < 127; i++) { ch = String.fromCharCode(i); if (!set[ch]) { set[ch] = 1; chars.push(ch); } }
+    for (i = 0; i < EXTRA.length; i++) { ch = EXTRA.charAt(i); if (!set[ch]) { set[ch] = 1; chars.push(ch); } }
+    var idx = {}, per = [];
+    chars.forEach(function (c, n) { idx[c] = n; });
+    for (var p = 0; p < PAL.length; p++) {
+      var cv = document.createElement('canvas');
+      cv.width = chars.length * CW * SC; cv.height = CH * SC;
+      var g = cv.getContext('2d');
+      g.font = FONT; g.textBaseline = 'middle'; g.fillStyle = PAL[p];
+      chars.forEach(function (c, n) {
+        var tw = g.measureText(c).width;
+        g.fillText(c, n * CW * SC + (CW * SC - tw) / 2, CH * SC / 2);
+      });
+      per.push(cv);
+    }
+    ATLAS = { per: per, idx: idx, miss: idx['?'] };
+  }
+
+  /* ---------------- 场景 ---------------- */
+  // 场景一：正弦与切线（t 37.067–40.706）—— 逐列 ~/≈，切线同字符靠色区分
+  function sceneSine(c, t, top, bt, elapsed) {
+    var w = c.w, l = 8, r = w - 8, x, y, i;
+    var cy = Math.round((top + bt) / 2) + 1;
+    var progress = clamp(elapsed / 3.0);
+    var amp = (bt - top) * 0.28;
+    var phase = -t * 0.5;
+    function wy(px, off, a) {
+      off = off || 0; a = a === undefined ? 1 : a;
+      return cy - Math.sin((px - l) / (r - l) * TAU * 2 + phase + off) * amp * a;
+    }
+    function slope(px) {
+      return -Math.cos((px - l) / (r - l) * TAU * 2 + phase) * amp * TAU * 2 / (r - l);
+    }
+    for (y = top; y <= bt; y++)
+      for (x = 2; x < w - 2; x++) {
+        var h = hash16(x * 131 + y * 313);
+        if (h % 1000 < 24) c.put(x, y, '0123456789ABCDEF'.charAt((h >> 4) % 16), h % 9 === 0 ? D : K);
+      }
+    for (x = l; x < r; x++) c.put(x, cy, '.', K);
+    for (y = top + 1; y < bt - 1; y++) c.put(l, y, '|', K);
+    c.put(l, top, '^', D); c.put(r, cy, '>', D);
+    c.put(l - 2, cy - Math.round(amp), '1', K);
+    c.put(l - 2, cy, '0', K);
+    c.put(l - 3, cy + Math.round(amp), '-1', K);
+    for (x = l + 1; x < r; x++) {
+      c.put(x, wy(x, -0.45, 0.85), '.', G);
+      c.put(x, wy(x, 0.45, 0.85), ':', K);
+    }
+    for (x = l + 1; x < r; x++)
+      c.put(x, wy(x), (x - l) % 2 ? '~' : '≈', (x - l) % 3 === 0 ? W : B);
+    var nShow = Math.min(5, Math.floor(progress * 5) + 1), contacts = [];
+    for (i = 0; i < nShow; i++) {
+      var px = l + (r - l) * (i + 0.5) / 5, py = wy(px), s = slope(px);
+      for (var dx = -7; dx <= 7; dx++) {
+        var tx = px + dx, ty = py + s * dx;
+        if (l < tx && tx < r && top < ty && ty < bt)
+          c.put(tx, ty, '≈', i === nShow - 1 ? Y : G);
+      }
+      contacts.push([px, py]);
+    }
+    contacts.forEach(function (cp, i) {
+      c.put(cp[0], cp[1], '●', i === contacts.length - 1 ? W : Y);
+    });
+    if (contacts.length && progress > 0.55) {
+      var lp = contacts[contacts.length - 1];
+      c.put(lp[0] - 2, lp[1] - 2, '[YOU]', W);
+    }
+    if (progress > 0.3) c.center(top + 1, 'y = sin(x)', B);
+    if (progress > 0.6) c.center(top + 2, "y' = cos(x)", W);
+    if (progress > 0.8) {
+      var ph = ((phase % TAU) + TAU) % TAU;
+      c.put(2, bt - 1, 'AMP 0.87  FREQ 0.50Hz  PHASE +' + ph.toFixed(2) + 'rad  ERR 0.000  sync ok', D);
+      c.put(w - 12, bt - 1, 'SINE:TAN', K);
+    }
+  }
+
+  // 场景二：EXECUTION 幕布（t 147.66–158.9）—— ANSI Shadow 字形与原作一致
+  var EXEC_ART = [
+    '███████╗██╗  ██╗███████╗ ██████╗██╗   ██╗████████╗███████╗',
+    '██╔════╝╚██╗██╔╝██╔════╝██╔════╝██║   ██║╚══██╔══╝██╔════╝',
+    '█████╗   ╚███╔╝ █████╗  ██║     ██║   ██║   ██║   ███████╗',
+    '██╔══╝   ██╔██╗ ██╔══╝  ██║     ██║   ██║   ██║   ╚════██║',
+    '███████╗██╔╝ ██╗███████╗╚██████╗╚██████╔╝   ██║   ███████║',
+    '╚══════╝╚═╝  ╚═╝╚══════╝ ╚═════╝ ╚═════╝    ╚═╝   ╚══════╝'
+  ];
+  function glitchIntensity(t) {
+    if (t < 60) return 0.05;
+    if (t < 110) return mix(0.05, 0.25, (t - 60) / 50);
+    var anchors = [[110.9, 0.259], [112.22, 0.34], [113.1, 0.43], [114.18, 0.51],
+      [114.92, 0.59], [115.78, 0.66], [117.274, 0.73], [125.708, 0.81],
+      [147.66, 0.92], [177.246, 1.0]];
+    for (var i = 0; i < anchors.length - 1; i++)
+      if (t < anchors[i + 1][0])
+        return mix(anchors[i][1], anchors[i + 1][1], clamp((t - anchors[i][0]) / (anchors[i + 1][0] - anchors[i][0])));
+    return 1.0;
+  }
+  function sceneExec(c, t, top, bt, elapsed) {
+    var w = c.w, l = 2, r = w - 3, x, y;
+    var cx = Math.round((l + r) / 2), cy = Math.round((top + bt) / 2);
+    var progress = clamp(elapsed / 16.0);
+    var inten = glitchIntensity(t);
+    var frame = Math.floor(t * 24);
+    var scroll = Math.floor(elapsed * 15);
+    for (y = top; y <= bt; y++) {
+      var rowSeed = (y + scroll) * 23;
+      for (x = l; x < r - 5; x += 7) {
+        if (hash16(y * 17 + x) % 3 === 0) {
+          var sym = ['0x', '+=', '==', '&&', '||', '->', '::'][hash16(rowSeed + x) % 7];
+          c.put(x, y, sym, hash16(y + x) % 4 ? N : G);
+        } else {
+          var hv = ('0' + (hash16(rowSeed + x * 13) % 256).toString(16).toUpperCase()).slice(-2);
+          c.put(x, y, hv, N);
+        }
+      }
+    }
+    var close = progress * 0.9;
+    var lxEnd = Math.floor(l + (r - l) * close * 0.5);
+    var rxBeg = Math.floor(r - (r - l) * close * 0.5);
+    var stripes = [['█', B], ['▓', B], ['▒', N], ['░', N]];
+    for (x = l; x < lxEnd; x++)
+      for (y = top; y <= bt; y++) {
+        var sp = stripes[(x - l + Math.floor(y / 3)) % 4];
+        c.put(x, y, sp[0], sp[1]);
+      }
+    for (x = rxBeg; x <= r; x++)
+      for (y = top; y <= bt; y++) {
+        var sp2 = stripes[(x - rxBeg + Math.floor(y / 3)) % 4];
+        c.put(x, y, sp2[0], sp2[1]);
+      }
+    if (lxEnd < cx && cx < rxBeg) {
+      var flash = Math.floor(elapsed * 6) % 4;
+      if (flash < 3) {
+        var col = flash === 0 ? W : (flash === 1 ? Y : R);
+        var startY = cy - Math.floor(EXEC_ART.length / 2);
+        for (var i = 0; i < EXEC_ART.length; i++) {
+          var lineTxt = EXEC_ART[i], yPos = startY + i;
+          if (top < yPos && yPos < bt) {
+            var half = Math.floor(lineTxt.length / 2);
+            var sx0 = Math.max(lxEnd, cx - half), ex0 = Math.min(rxBeg, cx + half);
+            if (sx0 < ex0) {
+              var ls = Math.max(0, lxEnd - (cx - half));
+              var le = Math.min(lineTxt.length, ls + (ex0 - sx0));
+              c.put(sx0, yPos, lineTxt.substring(ls, le), col);
+            }
+          }
+        }
+      }
+    }
+    var msg, mst;
+    if (progress < 0.3) {
+      msg = 'EXECUTION #' + (Math.floor(elapsed / 1.35) % 12 + 1) + '    depth=1'; mst = Y;
+    } else if (progress < 0.6) {
+      msg = 'EXECUTION RUNNING...'; mst = Math.floor(elapsed * 4) % 2 ? Y : W;
+    } else {
+      msg = 'EXECUTION CLOSING'; mst = Math.floor(elapsed * 6) % 2 ? W : R;
+    }
+    c.put(cx - Math.floor(msg.length / 2) - 2, top + 1,
+      ' '.repeat(msg.length + 4), D);
+    c.center(top + 1, msg, mst);
+    var nInd = 8, active = Math.floor(elapsed * 8) % nInd;
+    c.put(l + 8, bt - 1, ' '.repeat(r - l - 16), D);
+    for (var ii = 0; ii < nInd; ii++) {
+      var ix = l + 10 + ii * Math.floor((r - l - 20) / nInd);
+      if (lxEnd < ix && ix < rxBeg)
+        c.put(ix, bt - 1, ii === active ? '▶' : '▷', ii === active ? W : N);
+    }
+    // 损伤累积（收敛版：只污染背景，避开大字带）
+    for (var k = 0; k < Math.floor(inten * 14); k++) {
+      var gx = l + hash16(frame + k * 19) % (r - l);
+      var gy = top + hash16(frame + k * 23) % Math.max(1, bt - top);
+      if (cy - 6 <= gy && gy <= cy + 6) continue;
+      var cell = c.cells[gy] && c.cells[gy][gx];
+      if (cell && cell[0] !== ' ') cell[1] = inten > 0.7 ? R : W;
+    }
+  }
+
+  // 占位场景：低密噪点 + 待移植提示
+  function sceneFallback(c, t, top, bt) {
+    for (var y = top; y <= bt; y++)
+      for (var x = 2; x < c.w - 2; x++) {
+        var h = hash16(x * 131 + y * 313);
+        if (h % 1000 < 14) c.put(x, y, '0123456789ABCDEF'.charAt((h >> 4) % 16), K);
+      }
+    c.center(Math.round((top + bt) / 2), '- SCENE TODO -', D);
+  }
+
+  var SCENES = [
+    { a: 37.067, b: 40.706, f: sceneSine },
+    { a: 147.66, b: 158.9, f: sceneExec }
+  ];
+  function sceneAt(t) {
+    for (var i = 0; i < SCENES.length; i++)
+      if (t >= SCENES[i].a && t < SCENES[i].b) return { f: SCENES[i].f, base: SCENES[i].a };
+    return { f: sceneFallback, base: t };
+  }
+
+  /* ---------------- 版面 chrome ---------------- */
+  // ⚠️ 章节表为近似值（仅 02/DEVOTION、04/EXECUTION 与原作帧核实过）
+  var CHAPTERS = [
+    [0, '01 / BOOT'], [16, '-- / TITLE'], [29.709, '02 / DEVOTION'],
+    [59.223, '03 / SIMULATION'], [147.66, '04 / EXECUTION'], [177.246, '05 / OUTRO']
+  ];
+  function chapterAt(t) {
+    var s = '';
+    for (var i = 0; i < CHAPTERS.length; i++) if (t >= CHAPTERS[i][0]) s = CHAPTERS[i][1];
+    return s;
+  }
+  function fmtT(t) {
+    var m = Math.floor(t / 60), s = t - m * 60;
+    return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s.toFixed(1);
+  }
+  function drawChrome(c, t, playing, snap) {
+    c.put(2, 0, 'WORLD.EXECUTE(ME);', W);
+    var right = fmtT(t) + ' / 03:32  ' + (snap ? 'SNAPSHOT' : playing ? 'PLAYING' : 'PAUSED');
+    c.put(c.w - 2 - right.length, 0, right, D);
+    var div = '';
+    for (var i = 0; i < c.w; i++) div += '-';
+    c.put(0, 1, div, K);
+    var ch = chapterAt(t);
+    if (ch) c.put(2, 2, ch, D);
+    c.center(39, 'SPACE play/pause   <- -> 5s   R restart', K);
+  }
+  function drawSpectrum(c, t) {
+    var sp = window.__SPECTRUM;
+    if (!sp) return;
+    var fi = Math.min(sp.frames.length - 1, Math.max(0, Math.round(t * sp.fps)));
+    var fr = sp.frames[fi], x0 = 4, x1 = c.w - 4;
+    for (var x = x0; x < x1; x++) {
+      var v = fr[Math.floor((x - x0) / (x1 - x0) * sp.bands)] / 99;
+      var chh = v > 0.75 ? '#' : v > 0.55 ? '=' : v > 0.35 ? ':' : v > 0.15 ? '.' : ' ';
+      if (chh !== ' ') c.put(x, 34, chh, v > 0.55 ? B : v > 0.15 ? N : D);
+    }
+  }
+
+  /* ---------------- 字幕（DOM 层） ---------------- */
+  var LYRICS = window.__LYRICS || [];
+  function lyricAt(t) {
+    var lo = 0, hi = LYRICS.length - 1, ans = -1;
+    while (lo <= hi) {
+      var mid = (lo + hi) >> 1;
+      if (LYRICS[mid].time <= t) { ans = mid; lo = mid + 1; } else hi = mid - 1;
+    }
+    if (ans >= 0 && t < LYRICS[ans].end) return LYRICS[ans];
+    return null;
+  }
+  var elEn = document.getElementById('amv-en'), elZh = document.getElementById('amv-zh');
+  var lastLy = -2;
+  function updateSubs(t) {
+    var e = lyricAt(t);
+    var idx = e ? LYRICS.indexOf(e) : -1;
+    if (idx === lastLy) return;
+    lastLy = idx;
+    elEn.textContent = e ? e.en : '';
+    elZh.textContent = e ? e.zh : '';
+  }
+
+  /* ---------------- 渲染 ---------------- */
+  var cvEl = document.getElementById('amv-cv');
+  var g2d = cvEl.getContext('2d');
+  var grid = new CCanvas(GW, GH);
+  function render() {
+    g2d.fillStyle = '#000';
+    g2d.fillRect(0, 0, GW * CW * SC, GH * CH * SC);
+    for (var y = 0; y < GH; y++)
+      for (var x = 0; x < GW; x++) {
+        var cell = grid.cells[y][x];
+        if (cell[0] === ' ') continue;
+        var gi = ATLAS.idx[cell[0]];
+        if (gi === undefined) gi = ATLAS.miss;
+        g2d.drawImage(ATLAS.per[cell[1]], gi * CW * SC, 0, CW * SC, CH * SC,
+          x * CW * SC, y * CH * SC, CW * SC, CH * SC);
+      }
+  }
+
+  /* ---------------- 音频时钟 ---------------- */
+  var qs = new URLSearchParams(location.search);
+  var SNAP = qs.get('t') !== null ? parseFloat(qs.get('t')) : null;
+  var actx = null, buf = null, src = null, startAt = 0, playing = false;
+  var offset = SNAP !== null && isFinite(SNAP) ? clamp(SNAP, 0, DUR - 0.05) : 0;
+  function now() { return playing ? Math.min(offset + (actx.currentTime - startAt), DUR) : offset; }
+  var playBtn = document.getElementById('amv-play');
+  function startSrc() {
+    src = actx.createBufferSource();
+    src.buffer = buf;
+    src.connect(actx.destination);
+    src.onended = function () { if (playing) { playing = false; offset = DUR; playBtn.textContent = 'PLAY'; } };
+    src.start(0, Math.min(offset, DUR - 0.05));
+    startAt = actx.currentTime;
+  }
+  function play() {
+    if (!buf || playing) return;
+    if (offset >= DUR - 0.05) offset = 0;
+    actx.resume();
+    startSrc();
+    playing = true;
+    playBtn.textContent = 'PAUSE';
+  }
+  function pause() {
+    if (!playing) return;
+    offset = now();
+    src.onended = null;
+    try { src.stop(); } catch (e) { }
+    playing = false;
+    playBtn.textContent = 'PLAY';
+  }
+  function seekTo(v) {
+    var wasPlaying = playing;
+    if (playing) pause();
+    offset = clamp(v, 0, DUR - 0.05);
+    if (wasPlaying) play();
+  }
+  document.getElementById('amv-file').addEventListener('change', function (ev) {
+    var f = ev.target.files && ev.target.files[0];
+    if (!f) return;
+    if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+    var rd = new FileReader();
+    rd.onload = function () {
+      actx.decodeAudioData(rd.result, function (b) {
+        buf = b;
+        playBtn.disabled = false;
+        play();
+      }, function () { document.getElementById('amv-note').textContent = '音频解码失败'; });
+    };
+    rd.readAsArrayBuffer(f);
+  });
+  playBtn.addEventListener('click', function () { playing ? pause() : play(); });
+  document.getElementById('amv-prog').addEventListener('click', function (ev) {
+    var rect = this.getBoundingClientRect();
+    seekTo((ev.clientX - rect.left) / rect.width * DUR);
+  });
+  document.addEventListener('keydown', function (ev) {
+    if (ev.code === 'Space') { ev.preventDefault(); playing ? pause() : play(); }
+    else if (ev.key === 'ArrowLeft') seekTo(now() - 5);
+    else if (ev.key === 'ArrowRight') seekTo(now() + 5);
+    else if (ev.key === 'r' || ev.key === 'R') seekTo(0);
+  });
+
+  /* ---------------- 主循环 ---------------- */
+  var elFill = document.getElementById('amv-fill'), elTime = document.getElementById('amv-time');
+  function tick() {
+    var t = now();
+    grid.clear();
+    drawChrome(grid, t, playing, SNAP !== null);
+    var sc = sceneAt(t);
+    sc.f(grid, t, 4, 32, t - sc.base);
+    drawSpectrum(grid, t);
+    render();
+    updateSubs(t);
+    elFill.style.width = (t / DUR * 100).toFixed(2) + '%';
+    elTime.textContent = fmtT(t) + ' / 03:32';
+    requestAnimationFrame(tick);
+  }
+  buildAtlas();
+  // 调试探针（供 CDP 检查网格内容）
+  window.__amv = { grid: grid, w: GW, h: GH, now: now };
+  tick();
+})();
+</script>
