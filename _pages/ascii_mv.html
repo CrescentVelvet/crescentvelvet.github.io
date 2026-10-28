@@ -115,8 +115,9 @@ classes: wide
     for (var y = 0; y < this.h; y++)
       for (var x = 0; x < this.w; x++) { this.cells[y][x][0] = ' '; this.cells[y][x][1] = K; }
   };
+  // 与原作 player.py 一致：put 用 int() 截断（不是 round）；center 用地板除
   CCanvas.prototype.put = function (x, y, s, st) {
-    x = Math.round(x); y = Math.round(y);
+    x = Math.trunc(x); y = Math.trunc(y);
     if (y < 0 || y >= this.h) return;
     for (var i = 0; i < s.length; i++) {
       var xx = x + i;
@@ -126,24 +127,20 @@ classes: wide
     }
   };
   CCanvas.prototype.center = function (y, s, st) {
-    this.put(Math.round((this.w - s.length) / 2), y, s, st);
+    this.put(Math.floor((this.w - s.length) / 2), y, s, st);
   };
+  // 与原作 player.py 一致：参数插值法（1.5x 步数），免疫浮点端点
   CCanvas.prototype.line = function (x1, y1, x2, y2, ch, st) {
-    var dx = Math.abs(x2 - x1), dy = -Math.abs(y2 - y1);
-    var sx = x1 < x2 ? 1 : -1, sy = y1 < y2 ? 1 : -1;
-    var err = dx + dy, x = x1, y = y1;
-    for (;;) {
-      this.put(x, y, ch, st);
-      if (x === x2 && y === y2) break;
-      var e2 = 2 * err;
-      if (e2 >= dy) { err += dy; x += sx; }
-      if (e2 <= dx) { err += dx; y += sy; }
+    var steps = Math.max(1, Math.floor(Math.max(Math.abs(x2 - x1), Math.abs(y2 - y1)) * 1.5));
+    for (var i = 0; i <= steps; i++) {
+      var u = i / steps;
+      this.put(Math.round(x1 + (x2 - x1) * u), Math.round(y1 + (y2 - y1) * u), ch, st);
     }
   };
 
   /* ---------------- 字符图集 ---------------- */
   var FONT = (14 * SC) + 'px "JetBrains Mono","Cascadia Mono",Consolas,monospace';
-  var EXTRA = '░▒▓█▄■□▲►▶▷●◆·—│┌┐└┘╔╗╚╝═║≈~^•←→↑↓∞';
+  var EXTRA = '░▒▓█▄■□▲►▶▷●◆·—─│┌┐└┘╔╗╚╝═║≈~^•←→↑↓∞▐▌';
   var ATLAS = null;
   function buildAtlas() {
     var set = {}, chars = [], i, ch;
@@ -166,6 +163,259 @@ classes: wide
   }
 
   /* ---------------- 场景 ---------------- */
+  // ---- 开场 0–16s：6 段逐行移植自原作 scenes.py（l=2, r=w-3 与 simple_area 一致）----
+
+  // 3D 投影辅助（object_creation 用，与原作 rot/point/projected 数学一致）
+  function rot3(x, y, z, t) {
+    var a = t * 0.37, b = t * 0.23;
+    var x1 = x * Math.cos(a) + z * Math.sin(a), z1 = z * Math.cos(a) - x * Math.sin(a);
+    var y2 = y * Math.cos(b) - z1 * Math.sin(b), z2 = y * Math.sin(b) + z1 * Math.cos(b);
+    return [x1, y2, z2];
+  }
+  function proj3(x, y, z, l, top, r, bt, t) {
+    var p = 3.7 / (3.7 + z);
+    return [(l + r) / 2 + x * (r - l) * 0.34 * p, (top + bt) / 2 + y * (bt - top) * 0.34 * p, z];
+  }
+  function projected(c, vs, edges, l, top, r, bt, t, style, reveal) {
+    var ps = vs.map(function (v) { var q = rot3(v[0], v[1], v[2], t); return proj3(q[0], q[1], q[2], l, top, r, bt, t); });
+    var count = Math.floor(edges.length * clamp(reveal));
+    for (var i = 0; i < count; i++) {
+      var a = ps[edges[i][0]], b = ps[edges[i][1]];
+      c.line(a[0], a[1], b[0], b[1], (a[2] + b[2]) < 0 ? ':' : '.', (a[2] + b[2]) < 0 ? style : G);
+    }
+    for (i = 0; i < ps.length; i++)
+      if (i < vs.length * reveal) c.put(ps[i][0], ps[i][1], ps[i][2] > 0 ? '+' : '@', ps[i][2] > 0 ? N : B);
+  }
+
+  // 场景 0–2.92：BIOS POST 开机自检（1.74s 后冻结在末态）
+  function scenePowerLine(c, t, top, bt, elapsed) {
+    var l = 2, r = c.w - 3, cx = (l + r) >> 1, cy = (top + bt) >> 1;
+    var progress = clamp(elapsed / 1.6);
+    var messages = [
+      ['BIOS v2.1.4 - ME SYSTEM INITIALIZATION', 0.0, W],
+      ['Copyright (C) 2026 Self-Awareness Corp.', 0.1, N],
+      ['', 0.15, N],
+      ['Main Processor : Consciousness Core v1.0', 0.2, N],
+      ['Memory Test : 65536K OK', 0.3, B],
+      ['Primary Master  : SOUL.SYS', 0.4, N],
+      ['Primary Slave   : EMOTION.DAT', 0.5, N],
+      ['Secondary Master: MEMORY.BIN', 0.6, N],
+      ['', 0.7, N],
+      ['Detecting IDE devices...', 0.75, G],
+      ['IDENTITY : [YOU] detected', 0.85, B],
+      ['RELATIONSHIP : initializing...', 0.95, G],
+      ['', 1.0, N],
+      ['Press SPACE to continue...', 1.1, G]
+    ];
+    c.center(top, 'SELF SYSTEM v1.0 - POWER ON SELF TEST', W);
+    var div = ''; for (var i = 0; i < r - l; i++) div += '-';
+    c.put(l, top + 1, div, G);
+    var cy0 = top + 3;
+    for (i = 0; i < messages.length; i++) {
+      var msg = messages[i][0], th = messages[i][1], style = messages[i][2];
+      if (progress > th) {
+        if (msg) {
+          if (progress < th + 0.08) {
+            var reveal = Math.floor((progress - th) / 0.08 * msg.length);
+            c.put(l + 2, cy0, msg.slice(0, reveal), style);
+            if (reveal < msg.length) c.put(l + 2 + reveal, cy0, '_', W);
+          } else c.put(l + 2, cy0, msg, style);
+        }
+        cy0++;
+      }
+    }
+    // 内存测试进度条 ×3
+    if (progress > 0.25 && progress < 0.7) {
+      var bp = (progress - 0.25) / 0.45;
+      for (i = 0; i < 3; i++) {
+        var y = cy + i * 2, bl = Math.floor((r - l - 20) * bp);
+        var bar = '['; for (var j = 0; j < r - l - 20; j++) bar += j < bl ? '=' : ' '; bar += ']';
+        c.put(l + 8, y, bar, i === 0 ? B : N);
+        if (i === 0) {
+          c.put(l + 2, y, 'MEM:', N);
+          c.put(r - 10, y, String(Math.floor(bp * 100)).padStart(3) + '%', bp > 0.95 ? W : B);
+        }
+      }
+    }
+    // 自检结果清单
+    if (progress > 0.7) {
+      var checks = [
+        ['POWER SUPPLY', 'OK', 0.72], ['COOLING SYSTEM', 'OK', 0.77],
+        ['NEURAL NETWORK', 'OK', 0.82], ['EMOTION ENGINE', 'OK', 0.87],
+        ['CONSCIOUSNESS', 'ACTIVE', 0.92]
+      ];
+      for (i = 0; i < checks.length; i++) {
+        if (progress > checks[i][2]) {
+          var name = checks[i][0], st = checks[i][1], yy = cy + 8 + i;
+          c.put(l + 4, yy, name, N);
+          var dots = ''; for (j = 0; j < 40 - name.length; j++) dots += '.';
+          c.put(l + 4 + name.length, yy, dots, G);
+          c.put(r - 12, yy, '[ ' + st + ' ]', st === 'ACTIVE' ? W : B);
+        }
+      }
+    }
+    if (progress > 1.0 && Math.floor(t * 3) % 2 === 0) c.put(l + 2, bt - 2, '_', W);
+    if (progress > 0.95) c.center(bt - 1, 'SYSTEM READY - LOADING ENTITY...', Math.floor(t * 2) % 2 ? B : W);
+  }
+
+  // 场景 2.92–3.873：Protection 护盾成环
+  function sceneProtection(c, t, top, bt, elapsed) {
+    var l = 2, r = c.w - 3, cx = (l + r) >> 1, cy = (top + bt) >> 1;
+    var progress = clamp(elapsed / 0.95);
+    for (var ring = 0; ring < 5; ring++) {
+      var radius = (20 + ring * 8) * progress;
+      var n = Math.floor(radius * 2);
+      for (var i = 0; i < n; i++) {
+        var angle = i * TAU / (radius * 2);
+        var x = cx + Math.cos(angle) * radius, y = cy + Math.sin(angle) * radius * 0.5;
+        if (l < x && x < r && top < y && y < bt)
+          c.put(x, y, ring === 0 ? '#' : ring < 3 ? '+' : '.', ring === 0 ? W : ring < 3 ? B : N);
+      }
+    }
+    c.center(cy, 'PROTECTION', progress > 0.7 ? W : B);
+    if (progress > 0.5) c.center(cy + 2, '[ ACTIVE ]', B);
+  }
+
+  // 场景 3.873–6.38：八枚组件从边缘飞入组装
+  function sceneLayPieces(c, t, top, bt, elapsed) {
+    var l = 2, r = c.w - 3, cx = (l + r) >> 1, cy = (top + bt) >> 1;
+    var pieces = 8, chars = ['[]', '{}', '<>', '//', '\\\\', '||', '==', '##'];
+    for (var i = 0; i < pieces; i++) {
+      var phase = (elapsed - i * 0.15) / 1.2;
+      if (phase < 0) continue;
+      var u = clamp(phase), ease = 1 - Math.pow(1 - u, 3);
+      var angle = i * TAU / pieces;
+      var startR = Math.max(r - l, bt - top) * 0.8, endR = 15;
+      var radius = mix(startR, endR, ease);
+      c.put(cx + Math.cos(angle) * radius, cy + Math.sin(angle) * radius * 0.5,
+        chars[i], ease > 0.9 ? W : ease > 0.6 ? B : N);
+      if (ease < 0.8)
+        for (var tr = 0; tr < 3; tr++) {
+          var trr = mix(startR, endR, Math.max(0, ease - tr * 0.1));
+          c.put(cx + Math.cos(angle) * trr, cy + Math.sin(angle) * trr * 0.5, '.', G);
+        }
+    }
+  }
+
+  // 场景 6.38–7.446：立方体材质化（ENTITY: ME）
+  var CUBE_VS = (function () {
+    var vs = [];
+    [-0.75, 0.75].forEach(function (z) {
+      [-0.8, 0.8].forEach(function (y) {
+        [-0.8, 0.8].forEach(function (x) { vs.push([x, y, z]); });
+      });
+    });
+    return vs;
+  })();
+  var CUBE_EDGES = (function () {
+    var es = [];
+    for (var i = 0; i < 8; i++) for (var j = i + 1; j < 8; j++) {
+      var x = i ^ j, bits = 0;
+      while (x) { bits += x & 1; x >>= 1; }
+      if (bits === 1) es.push([i, j]);
+    }
+    return es;
+  })();
+  function sceneObjectCreation(c, t, top, bt, elapsed) {
+    var l = 2, r = c.w - 3;
+    var reveal = clamp(elapsed / 1.0);
+    projected(c, CUBE_VS, CUBE_EDGES, l, top, r, bt, t, N, reveal);
+    if (reveal > 0.5) c.center((top + bt) >> 1, 'ENTITY: ME', W);
+  }
+
+  // 场景 7.446–11.095：hex 数据参数填充
+  function sceneDataParameters(c, t, top, bt, elapsed) {
+    var l = 2, r = c.w - 3;
+    var progress = clamp(elapsed / 2.6);
+    var cols = Math.max(1, Math.floor((r - l - 10) / 5)), rows = Math.max(1, bt - top - 2);
+    var n = Math.floor(progress * cols * rows);
+    function hex4(v) { return v.toString(16).toUpperCase().padStart(4, '0'); }
+    for (var row = 0; row < rows; row++) {
+      c.put(l + 2, top + 1 + row, hex4(row * cols * 2) + ':', D);
+      for (var col = 0; col < cols; col++) {
+        var i = row * cols + col, xx = l + 9 + col * 5, yy = top + 1 + row;
+        if (i < n) {
+          var scan = (Math.floor(elapsed * 17) % cols) === col;
+          c.put(xx, yy, hex4(hash16(i)), scan ? W : Math.abs(i - n) < cols ? B : N);
+        } else c.put(xx, yy, '....', G);
+      }
+    }
+  }
+
+  // 场景 11.095–16：SIMULATION —— 条件代码块 → yield 二进制数据流
+  function sceneSimulation(c, t, top, bt, elapsed) {
+    var l = 2, r = c.w - 3, cx = (l + r) >> 1, cy = (top + bt) >> 1;
+    if (elapsed < 2) {
+      // Phase 1：代码框 + 打字机
+      var phase1 = elapsed / 2.0;
+      var bw = Math.min(r - l - 10, 70), bh = Math.min(bt - top - 8, 12);
+      var bl = cx - (bw >> 1), btp = cy - (bh >> 1);
+      if (phase1 > 0.1) {
+        var hline = ''; for (var i = 1; i < bw - 1; i++) hline += '─';
+        c.put(bl, btp, '┌' + hline + '┐', Y);
+        c.put(bl, btp + bh - 1, '└' + hline + '┘', Y);
+        for (i = 1; i < bh - 1; i++) {
+          c.put(bl, btp + i, '│', Y);
+          c.put(bl + bw - 1, btp + i, '│', Y);
+        }
+      }
+      var codeLines = ['if ( if I can ) {', '', '', '    yield(world.simulations);', '', '}'];
+      if (phase1 > 0.3) {
+        var total = codeLines.join('').length;
+        var toShow = Math.floor((phase1 - 0.3) * total * 2), count = 0;
+        for (i = 0; i < codeLines.length; i++) {
+          var yPos = btp + 2 + i * 2;
+          if (yPos < btp + bh - 1 && count < toShow) {
+            var shown = codeLines[i].slice(0, Math.min(codeLines[i].length, toShow - count));
+            c.put(bl + 4, yPos, shown, codeLines[i].indexOf('yield') >= 0 ? Y : B);
+            count += codeLines[i].length;
+          }
+        }
+      }
+      if (phase1 > 0.7) {
+        var label = 'CONDITION: TRUE', lx = bl + 2, ly = btp + bh;
+        c.put(lx - 1, ly, '▐', Y);
+        c.put(lx, ly, label, Y);
+        c.put(lx + label.length, ly, '▌', Y);
+      }
+      c.center(top + 1, 'CONTROL FLOW', phase1 > 0.5 ? Y : B);
+      c.put(bl - 2, btp - 2, '2', N);
+    } else {
+      // Phase 2：yield 执行，二进制流下落
+      var phase2 = (elapsed - 2) / 2.9;
+      c.put(l + 3, top + 1, 'YIELD:', Y);
+      c.put(l + 15, top + 1, (Math.floor(phase2 * 784) + 100) + ' SIMULATIONS', B);
+      var numStreams = Math.floor(phase2 * 50) + 20;
+      for (var si = 0; si < numStreams; si++) {
+        var seed = hash16(si * 19);
+        var sx = l + 5 + (seed % (r - l - 10));
+        var speed = 1 + ((seed >> 8) % 3) * 0.5;
+        var len = 8 + ((seed >> 4) % 12);
+        var yBase = top + Math.floor(elapsed * speed * 5) % (bt - top + len);
+        for (var seg = 0; seg < len; seg++) {
+          var yPos = yBase - seg;
+          if (top + 3 < yPos && yPos < bt - 2) {
+            var cs = hash16(si * 23 + seg * 17 + Math.floor(elapsed * 10));
+            var ch = cs % 3 === 0 ? '0' : cs % 3 === 1 ? 'O' : 'o';
+            var bright = 1 - seg / len;
+            c.put(sx, yPos, ch, bright > 0.7 ? Y : bright > 0.4 ? B : N);
+          }
+        }
+      }
+      if (phase2 > 0.3) {
+        var scat = ['C', 'YOU', 'B', 'A', 'E8A', 'D', '&', '=>', '8', '6', '!', 'I'];
+        for (var i = 0; i < scat.length; i++)
+          if (hash16(i * 31 + Math.floor(elapsed * 7)) % 4 === 0) {
+            var sxx = l + 10 + hash16(i * 37) % (r - l - 20);
+            var syy = top + 5 + hash16(i * 41) % (bt - top - 10);
+            c.put(sxx, syy, scat[i], hash16(i) % 3 === 0 ? Y : B);
+          }
+      }
+      if (phase2 > 0.5)
+        c.center(bt - 3, 'Give you all the simulations', Math.floor(elapsed * 4) % 2 ? B : Y);
+    }
+  }
+
   // 场景一：正弦与切线（t 37.067–40.706）—— 逐列 ~/≈，切线同字符靠色区分
   function sceneSine(c, t, top, bt, elapsed) {
     var w = c.w, l = 8, r = w - 8, x, y, i;
@@ -333,14 +583,23 @@ classes: wide
     c.center(Math.round((top + bt) / 2), '- SCENE TODO -', D);
   }
 
+  // 路由与原作 draw_scene 一致；emap = 原作对 elapsed 的特殊处理
+  // （power_line 提前 0.1s 开始；1.74–2.92 冻结在末态；lay_pieces/data_parameters 跨歌词段连续计时）
   var SCENES = [
+    { a: 0, b: 1.74, f: scenePowerLine, emap: function (t) { return t - 0.1; } },
+    { a: 1.74, b: 2.92, f: scenePowerLine, emap: function () { return 1.6; } },
+    { a: 2.92, b: 3.873, f: sceneProtection },
+    { a: 3.873, b: 6.38, f: sceneLayPieces },
+    { a: 6.38, b: 7.446, f: sceneObjectCreation },
+    { a: 7.446, b: 11.095, f: sceneDataParameters },
+    { a: 11.095, b: 16, f: sceneSimulation },
     { a: 37.067, b: 40.706, f: sceneSine },
     { a: 147.66, b: 158.9, f: sceneExec }
   ];
   function sceneAt(t) {
     for (var i = 0; i < SCENES.length; i++)
-      if (t >= SCENES[i].a && t < SCENES[i].b) return { f: SCENES[i].f, base: SCENES[i].a };
-    return { f: sceneFallback, base: t };
+      if (t >= SCENES[i].a && t < SCENES[i].b) return SCENES[i];
+    return { f: sceneFallback, a: t };
   }
 
   /* ---------------- 版面 chrome ---------------- */
@@ -491,7 +750,7 @@ classes: wide
     grid.clear();
     drawChrome(grid, t, playing, SNAP !== null);
     var sc = sceneAt(t);
-    sc.f(grid, t, 4, 32, t - sc.base);
+    sc.f(grid, t, 4, 32, sc.emap ? sc.emap(t) : t - sc.a);
     drawSpectrum(grid, t);
     render();
     updateSubs(t);
