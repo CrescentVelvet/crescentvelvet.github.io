@@ -117,6 +117,7 @@ classes: wide
   /* ---------------- 字符网格 ---------------- */
   function CCanvas(w, h) {
     this.w = w; this.h = h;
+    this.clip = null;   // 原作 c.clip=(top,bt)：场景段行裁剪
     this.cells = [];
     for (var y = 0; y < h; y++) {
       var row = [];
@@ -132,6 +133,7 @@ classes: wide
   CCanvas.prototype.put = function (x, y, s, st) {
     x = Math.trunc(x); y = Math.trunc(y);
     if (y < 0 || y >= this.h) return;
+    if (this.clip && !(this.clip[0] <= y && y <= this.clip[1])) return;
     for (var i = 0; i < s.length; i++) {
       var ch = s.charAt(i);
       var k = isWide(ch) ? 2 : 1;
@@ -151,18 +153,18 @@ classes: wide
   CCanvas.prototype.centerW = function (y, s, st) {
     this.put(Math.floor((this.w - dw(s)) / 2), y, s, st);
   };
-  // 与原作 player.py 一致：参数插值法（1.5x 步数），免疫浮点端点
+  // 与原作 player.py 一致：参数插值法（1.5x 步数），免疫浮点端点；round=银行家舍入
   CCanvas.prototype.line = function (x1, y1, x2, y2, ch, st) {
     var steps = Math.max(1, Math.floor(Math.max(Math.abs(x2 - x1), Math.abs(y2 - y1)) * 1.5));
     for (var i = 0; i <= steps; i++) {
       var u = i / steps;
-      this.put(Math.round(x1 + (x2 - x1) * u), Math.round(y1 + (y2 - y1) * u), ch, st);
+      this.put(pyRound(x1 + (x2 - x1) * u), pyRound(y1 + (y2 - y1) * u), ch, st);
     }
   };
 
   /* ---------------- 字符图集 ---------------- */
   var FONT = (14 * SC) + 'px "JetBrains Mono","Cascadia Mono",Consolas,monospace';
-  var EXTRA = '░▒▓█▄■□▲►▶▷●◆·—─│┌┐└┘╔╗╚╝═║≈~^•←→↑↓∞▐▌';
+  var EXTRA = '░▒▓█▄■□▲►▶▷●○◉◆·—─│┌┐└┘╔╗╚╝═║≈~^•←→↑↓∞▼┊π▐▌';
   var ATLAS = null;
   function buildAtlas() {
     var set = {}, chars = [], i, ch;
@@ -583,7 +585,7 @@ classes: wide
       }
     }
     if (progress > 1.0 && Math.floor(t * 3) % 2 === 0) c.put(l + 2, bt - 2, '_', W);
-    if (progress > 0.95) c.center(bt - 1, 'SYSTEM READY - LOADING ENTITY...', Math.floor(t * 2) % 2 ? B : W);
+    if (progress > 0.95) c.center(bt - 1, 'SYSTEM READY - LOADING ENTITY...', Math.floor(t * 2) % 2 ? W : B);
   }
 
   // 场景 2.92–3.873：Protection 护盾成环
@@ -740,65 +742,40 @@ classes: wide
           }
       }
       if (phase2 > 0.5)
-        c.center(bt - 3, 'Give you all the simulations', Math.floor(elapsed * 4) % 2 ? B : Y);
+        c.center(bt - 3, 'Give you all the simulations', Math.floor(elapsed * 4) % 2 ? Y : B);
     }
   }
 
-  // 场景一：正弦与切线（t 37.067–40.706）—— 逐列 ~/≈，切线同字符靠色区分
+  // 37.067–40.706：正弦波 + 切线演示（scenes.py lyric_sine_tangent 逐行移植）
   function sceneSine(c, t, top, bt, elapsed) {
-    var w = c.w, l = 8, r = w - 8, x, y, i;
-    var cy = Math.round((top + bt) / 2) + 1;
-    var progress = clamp(elapsed / 3.0);
-    var amp = (bt - top) * 0.28;
-    var phase = -t * 0.5;
-    function wy(px, off, a) {
-      off = off || 0; a = a === undefined ? 1 : a;
-      return cy - Math.sin((px - l) / (r - l) * TAU * 2 + phase + off) * amp * a;
-    }
-    function slope(px) {
-      return -Math.cos((px - l) / (r - l) * TAU * 2 + phase) * amp * TAU * 2 / (r - l);
-    }
-    for (y = top; y <= bt; y++)
-      for (x = 2; x < w - 2; x++) {
-        var h = hash16(x * 131 + y * 313);
-        if (h % 1000 < 24) c.put(x, y, '0123456789ABCDEF'.charAt((h >> 4) % 16), h % 9 === 0 ? D : K);
-      }
-    for (x = l; x < r; x++) c.put(x, cy, '.', K);
-    for (y = top + 1; y < bt - 1; y++) c.put(l, y, '|', K);
-    c.put(l, top, '^', D); c.put(r, cy, '>', D);
-    c.put(l - 2, cy - Math.round(amp), '1', K);
-    c.put(l - 2, cy, '0', K);
-    c.put(l - 3, cy + Math.round(amp), '-1', K);
+    var l = 2, r = c.w - 3, cx = (l + r) >> 1, cy = (top + bt) >> 1;
+    var progress = clamp01(elapsed / 3.0);
+    var x, i;
     for (x = l + 1; x < r; x++) {
-      c.put(x, wy(x, -0.45, 0.85), '.', G);
-      c.put(x, wy(x, 0.45, 0.85), ':', K);
+      var angle = (x - l) / (r - l) * TAU * 2.5 - t * 0.5;
+      var y = cy + Math.sin(angle) * (bt - top) * 0.25;
+      c.put(x, y, (x - l) % 2 ? '~' : '≈', (x - l) % 3 ? B : N);
     }
-    for (x = l + 1; x < r; x++)
-      c.put(x, wy(x), (x - l) % 2 ? '~' : '≈', (x - l) % 3 === 0 ? W : B);
-    var nShow = Math.min(5, Math.floor(progress * 5) + 1), contacts = [];
-    for (i = 0; i < nShow; i++) {
-      var px = l + (r - l) * (i + 0.5) / 5, py = wy(px), s = slope(px);
-      for (var dx = -7; dx <= 7; dx++) {
-        var tx = px + dx, ty = py + s * dx;
-        if (l < tx && tx < r && top < ty && ty < bt)
-          c.put(tx, ty, '≈', i === nShow - 1 ? Y : G);
+    var num_tangents = Math.trunc(progress * 5) + 1;
+    for (i = 0; i < Math.min(num_tangents, 5); i++) {
+      var t_point = i / 4;
+      var wave_x = l + (r - l) * t_point;
+      var a2 = (wave_x - l) / (r - l) * TAU * 2.5 - t * 0.5;
+      var wave_y = cy + Math.sin(a2) * (bt - top) * 0.25;
+      c.put(wave_x, wave_y, '●', i === num_tangents - 1 ? W : Y);
+      var slope = Math.cos(a2) * (bt - top) * 0.25 / (r - l) * TAU * 2.5;
+      var tangent_len = Math.min(r - l, bt - top) * 0.15;
+      for (var tx = -Math.trunc(tangent_len); tx < Math.trunc(tangent_len); tx++) {
+        var tangent_x = wave_x + tx;
+        var tangent_y = wave_y + slope * tx;
+        if (l < tangent_x && tangent_x < r && top < tangent_y && tangent_y < bt)
+          c.put(tangent_x, tangent_y, Math.abs(slope) < 0.3 ? '─' : slope > 0 ? '/' : '\\',
+                i === num_tangents - 1 ? Y : G);
       }
-      contacts.push([px, py]);
     }
-    contacts.forEach(function (cp, i) {
-      c.put(cp[0], cp[1], '●', i === contacts.length - 1 ? W : Y);
-    });
-    if (contacts.length && progress > 0.55) {
-      var lp = contacts[contacts.length - 1];
-      c.put(lp[0] - 2, lp[1] - 2, '[YOU]', W);
-    }
-    if (progress > 0.3) c.center(top + 1, 'y = sin(x)', B);
-    if (progress > 0.6) c.center(top + 2, "y' = cos(x)", W);
-    if (progress > 0.8) {
-      var ph = ((phase % TAU) + TAU) % TAU;
-      c.put(2, bt - 1, 'AMP 0.87  FREQ 0.50Hz  PHASE +' + ph.toFixed(2) + 'rad  ERR 0.000  sync ok', D);
-      c.put(w - 12, bt - 1, 'SINE:TAN', K);
-    }
+    if (progress > 0.3) c.centerW(top + 2, 'y = sin(x)', B);
+    if (progress > 0.6) c.centerW(top + 4, "y' = cos(x)", W);
+    if (progress > 0.8) c.centerW(bt - 2, 'TANGENT LINES', G);
   }
 
   // 场景二：EXECUTION 幕布（t 147.66–158.9）—— ANSI Shadow 字形与原作一致
@@ -911,6 +888,602 @@ classes: wide
     c.center(Math.round((top + bt) / 2), '- SCENE TODO -', D);
   }
 
+  /* ---------------- DEVOTION 段 29.7–59.2s（scenes.py 逐行移植） ---------------- */
+  // 原作 player.py box()：边框矩形
+  CCanvas.prototype.box = function (x, y, w, h, st) {
+    if (w < 2 || h < 2) return;
+    this.put(x, y, '+' + '-'.repeat(w - 2) + '+', st);
+    this.put(x, y + h - 1, '+' + '-'.repeat(w - 2) + '+', st);
+    for (var yy = y + 1; yy < y + h - 1; yy++) {
+      this.put(x, yy, '|', st); this.put(x + w - 1, yy, '|', st);
+    }
+  };
+  // 原作 scenes.py clear()：空格矩形抹除（色号 K，put 逐字裁剪与原作一致）
+  function wipeK(c, x, y, w, h) {
+    for (var yy = Math.trunc(y); yy < Math.trunc(y + h); yy++)
+      c.put(x, yy, ' '.repeat(Math.max(0, Math.trunc(w))), K);
+  }
+
+  // 29.709–33.412：0D→1D→2D→3D 维度递进
+  function scenePointsDimension(c, t, top, bt, elapsed) {
+    var l = 2, r = c.w - 3, cx = (l + r) >> 1, cy = (top + bt) >> 1;
+    var progress = clamp01(elapsed / 3.5), i, s, phase;
+    if (progress < 0.25) {
+      phase = progress / 0.25;
+      var count = Math.trunc(phase * 120);
+      for (i = 0; i < count; i++) {
+        var x = l + hash16(i * 7) % (r - l);
+        var y = top + hash16(i * 13) % (bt - top);
+        var brightness = 1 - (i / count) * 0.5;
+        c.put(x, y, brightness < 0.7 ? '·' : brightness < 0.85 ? '+' : '*',
+              brightness > 0.9 ? W : brightness > 0.7 ? B : N);
+      }
+      c.centerW(cy + Math.trunc((bt - top) * 0.3), '0D: POINTS', phase > 0.7 ? W : B);
+    } else if (progress < 0.5) {
+      phase = (progress - 0.25) / 0.25;
+      var num_lines = Math.trunc(phase * 15) + 5;
+      for (var line_i = 0; line_i < num_lines; line_i++) {
+        var x1 = l + hash16(line_i * 11) % (r - l);
+        var y1 = top + hash16(line_i * 17) % (bt - top);
+        var x2 = l + hash16(line_i * 23) % (r - l);
+        var y2 = top + hash16(line_i * 29) % (bt - top);
+        var steps = Math.trunc(Math.hypot(x2 - x1, (y2 - y1) * 2));
+        var reveal = clamp01(phase * 3 - line_i * 0.08);
+        for (s = 0; s < Math.trunc(steps * reveal); s++) {
+          var u = steps > 0 ? s / steps : 0;
+          var lx = Math.trunc(x1 + (x2 - x1) * u);
+          var ly = Math.trunc(y1 + (y2 - y1) * u);
+          var age = 1 - Math.abs(u - reveal) * 2;
+          if (age > 0)
+            c.put(lx, ly, Math.abs(x2 - x1) > Math.abs(y2 - y1) * 2 ? '─'
+                        : Math.abs(y2 - y1) > Math.abs(x2 - x1) ? '|' : '/',
+                  age > 0.8 ? W : age > 0.5 ? B : N);
+        }
+        c.put(x1, y1, '●', W);
+        if (reveal > 0.8) c.put(x2, y2, '●', W);
+      }
+      c.centerW(cy + Math.trunc((bt - top) * 0.3), '1D: LINES', phase > 0.7 ? W : B);
+    } else if (progress < 0.75) {
+      phase = (progress - 0.5) / 0.25;
+      var grid_density = Math.trunc(phase * 12) + 4;
+      for (var gy = 0; gy < grid_density; gy++)
+        for (var gx = 0; gx < grid_density; gx++) {
+          var u2 = grid_density > 1 ? gx / (grid_density - 1) : 0.5;
+          var v2 = grid_density > 1 ? gy / (grid_density - 1) : 0.5;
+          var px2 = l + (r - l) * u2;
+          var py2 = top + (bt - top) * v2;
+          var wave = Math.sin(u2 * TAU * 2 + t) * Math.cos(v2 * TAU * 2 - t * 0.7) * phase;
+          var yd = py2 + wave * (bt - top) * 0.1;
+          var br = phase + wave * 0.3;
+          c.put(px2, yd, br > 0.8 ? '█' : br > 0.6 ? '▓' : br > 0.4 ? '▒' : '░',
+                br > 0.85 ? W : br > 0.6 ? B : N);
+          if (gx < grid_density - 1)
+            c.line(px2, yd, l + (r - l) * ((gx + 1) / (grid_density - 1)), yd, '─', G);
+          if (gy < grid_density - 1) {
+            var nv = (gy + 1) / (grid_density - 1);
+            var nw = Math.sin(u2 * TAU * 2 + t) * Math.cos(nv * TAU * 2 - t * 0.7) * phase;
+            c.line(px2, yd, px2, top + (bt - top) * nv + nw * (bt - top) * 0.1, '|', G);
+          }
+        }
+      c.centerW(cy + Math.trunc((bt - top) * 0.35), '2D: SURFACE', phase > 0.7 ? W : B);
+    } else {
+      phase = (progress - 0.75) / 0.25;
+      var verts = [];
+      for (var vz = -1; vz <= 1; vz += 2)
+        for (var vy = -1; vy <= 1; vy += 2)
+          for (var vx = -1; vx <= 1; vx += 2) verts.push([vx * 0.8, vy * 0.8, vz * 0.8]);
+      var angX = t * 0.5, angY = t * 0.7, angZ = t * 0.3;
+      var projected = verts.map(function (v) {
+        var x = v[0], y = v[1], z = v[2];
+        var nx = x * Math.cos(angY) - z * Math.sin(angY);
+        var nz = x * Math.sin(angY) + z * Math.cos(angY); x = nx; z = nz;
+        var ny = y * Math.cos(angX) - z * Math.sin(angX);
+        var nz2 = y * Math.sin(angX) + z * Math.cos(angX); y = ny; z = nz2;
+        var nx2 = x * Math.cos(angZ) - y * Math.sin(angZ);
+        var ny2 = x * Math.sin(angZ) + y * Math.cos(angZ); x = nx2; y = ny2;
+        var depth = 3.5 + z;
+        return [cx + x * (Math.min(r - l, bt - top) * 0.25) / depth * 3,
+                cy + y * (Math.min(r - l, bt - top) * 0.25) / depth * 1.5, z];
+      });
+      var edges = [[0,1],[1,3],[3,2],[2,0],[4,5],[5,7],[7,6],[6,4],[0,4],[1,5],[2,6],[3,7]];
+      for (i = 0; i < edges.length; i++) {
+        var ea = projected[edges[i][0]], eb = projected[edges[i][1]];
+        var avg_z = (ea[2] + eb[2]) / 2;
+        c.line(ea[0], ea[1], eb[0], eb[1],
+               avg_z < 0 ? ':' : avg_z < 0.5 ? '.' : '=',
+               avg_z < 0 ? N : avg_z < 0.5 ? B : W);
+      }
+      for (i = 0; i < projected.length; i++)
+        c.put(projected[i][0], projected[i][1], phase > 0.7 ? String(i) : '●',
+              projected[i][2] > 0.5 ? W : projected[i][2] > 0 ? B : N);
+      if (phase > 0.5) {
+        var diags = [[0, 7], [1, 6], [2, 5], [3, 4]];
+        for (i = 0; i < diags.length; i++) {
+          var da = projected[diags[i][0]], db = projected[diags[i][1]];
+          if (mod(diags[i][0] + diags[i][1] + Math.trunc(t * 10), 3) === 0)
+            c.line(da[0], da[1], db[0], db[1], '·', G);
+        }
+      }
+      c.centerW(cy + Math.trunc((bt - top) * 0.35), '3D: VOLUME', phase > 0.7 ? W : B);
+    }
+    var dimLabel = ['0D', '1D', '2D', '3D'][Math.min(3, Math.trunc(progress * 4))];
+    c.centerW(top, 'DIMENSIONAL PROGRESSION: ' + dimLabel, W);
+  }
+
+  // 33.412–37.067：圆爆发 + 粒子拖尾 + 动态公式
+  function sceneCircleCircumference(c, t, top, bt, elapsed) {
+    var l = 2, r = c.w - 3, cx = (l + r) >> 1, cy = (top + bt) >> 1;
+    var progress = clamp01(elapsed / 3.5);
+    var radius = Math.min(r - l, bt - top) * 0.45 * progress * progress;
+    var i, angle, x, y;
+    if (elapsed < 1.5) {
+      var phase1 = elapsed / 1.5;
+      var circle_points = Math.trunc(120 + phase1 * 180);
+      for (i = 0; i < circle_points; i++) {
+        angle = i * TAU / circle_points;
+        x = cx + Math.cos(angle) * radius;
+        y = cy + Math.sin(angle) * radius * 0.5;
+        var brightness = Math.abs(Math.sin(elapsed * 4 + angle * 2));
+        if (brightness > 0.7) c.put(x, y, '●', W);
+        else if (brightness > 0.4) c.put(x, y, '○', B);
+        else c.put(x, y, '·', N);
+        if (phase1 > 0.3 && i % 8 === 0)
+          for (var trail = 0; trail < 4; trail++) {
+            var tp = (phase1 - 0.3) / 0.7 - trail * 0.08;
+            if (tp > 0) {
+              var tr = radius * (1 + tp * 0.5);
+              var tx = cx + Math.cos(angle) * tr;
+              var ty = cy + Math.sin(angle) * tr * 0.5;
+              if (l < tx && tx < r && top < ty && ty < bt)
+                c.put(tx, ty, trail === 0 ? '*' : trail === 1 ? '+' : '·',
+                      trail === 0 ? W : trail === 1 ? B : N);
+            }
+          }
+      }
+      c.put(cx, cy, '◉', R);
+      if (phase1 > 0.5) c.centerW(top + 2, 'CIRCLE EXPANDING', phase1 > 0.8 ? W : B);
+    } else if (elapsed < 2.5) {
+      var phase2 = (elapsed - 1.5) / 1.0;
+      for (i = 0; i < 180; i++) {
+        angle = i * TAU / 180;
+        x = cx + Math.cos(angle) * radius;
+        y = cy + Math.sin(angle) * radius * 0.5;
+        c.put(x, y, i % 10 === 0 ? '◉' : 'o', i % 10 === 0 ? W : B);
+      }
+      var num_radii = Math.trunc(phase2 * 24) + 4;
+      for (i = 0; i < num_radii; i++) {
+        angle = i * TAU / num_radii + elapsed * 1.5;
+        var segments = Math.trunc(radius) + 1;
+        for (var seg = 0; seg < segments; seg++) {
+          var rp = seg / segments;
+          var rx = cx + Math.cos(angle) * seg;
+          var ry = cy + Math.sin(angle) * seg * 0.5;
+          if (rp > 0.8) c.put(rx, ry, '═', W);
+          else if (rp > 0.5) c.put(rx, ry, '─', B);
+          else c.put(rx, ry, '·', N);
+        }
+        c.put(cx + Math.cos(angle) * radius, cy + Math.sin(angle) * radius * 0.5, '●', Y);
+      }
+      c.put(cx, cy, '◉', R);
+      c.centerW(top + 2, 'RADII: ' + num_radii, phase2 > 0.7 ? W : B);
+      if (phase2 > 0.5) c.centerW(cy - Math.trunc((bt - top) * 0.35), 'r', Y);
+    } else {
+      var phase3 = (elapsed - 2.5) / 1.0;
+      for (i = 0; i < 200; i++) {
+        angle = i * TAU / 200;
+        x = cx + Math.cos(angle) * radius;
+        y = cy + Math.sin(angle) * radius * 0.5;
+        var pulse = Math.abs(Math.sin(elapsed * 3 + angle * 3));
+        c.put(x, y, pulse > 0.7 ? '◉' : 'o', pulse > 0.8 ? W : B);
+      }
+      for (i = 0; i < 12; i++) {
+        angle = i * TAU / 12;
+        for (var seg3 = 0; seg3 < Math.trunc(radius); seg3++) {
+          if (seg3 % 3 === 0)
+            c.put(cx + Math.cos(angle) * seg3, cy + Math.sin(angle) * seg3 * 0.5, '─', G);
+        }
+      }
+      c.put(cx, cy, '◉', R);
+      var formulas = [
+        ['C = ?', 0.0, cy - Math.trunc((bt - top) * 0.2)],
+        ['C = 2πr', 0.3, cy - Math.trunc((bt - top) * 0.2)],
+        ['C ≈ ' + (2 * 3.14159 * radius).toFixed(1), 0.6, cy]
+      ];
+      for (i = 0; i < formulas.length; i++) {
+        var f = formulas[i][0], th = formulas[i][1], yp = formulas[i][2];
+        if (phase3 >= th) {
+          var shown = Math.min(f.length, Math.trunc((phase3 - th) * 5 * f.length));
+          c.centerW(yp, f.slice(0, shown), phase3 > th + 0.2 ? W : B);
+        }
+      }
+      if (phase3 > 0.7)
+        for (i = 0; i < 180; i += 15) {
+          angle = i * TAU / 180;
+          for (var pd = 0; pd < 3; pd++) {
+            var px = cx + Math.cos(angle) * (radius + 5 + pd * 3 + phase3 * 10);
+            var py = cy + Math.sin(angle) * (radius + 5 + pd * 3 + phase3 * 10) * 0.5;
+            if (l < px && px < r && top < py && py < bt)
+              c.put(px, py, pd === 0 ? '*' : '·', pd === 0 ? W : pd === 1 ? B : N);
+          }
+        }
+      if (phase3 > 0.8)
+        c.centerW(bt - 3, 'CIRCUMFERENCE = 2πr', mod(Math.trunc(elapsed * 4), 2) ? W : B);
+    }
+  }
+
+  // 40.706–44.452：无穷丝带 + 边界收束（limit rails + 寄存器）
+  function sceneInfinityLimit(c, t, top, bt, elapsed) {
+    var l = 2, r = c.w - 3;
+    var cx = (l + r) / 2, cy = (top + bt) / 2;
+    var rail = Math.max(9, Math.min(16, Math.floor(c.w / 8)));
+    var ml = l + rail + 2, mr = r - rail - 2, mw = mr - ml + 1;
+    var growth = clamp01(elapsed / 1.64);
+    var closing = clamp01((t - 42.346) / (43.507 - 42.346));
+    var locked = t >= 43.507;
+    var bound_l = ml + Math.trunc(mw * 0.075 * closing);
+    var bound_r = mr - Math.trunc(mw * 0.075 * closing);
+    var radius_x = mw * 0.47 * (0.76 + 0.24 * growth);
+    var radius_y = Math.max(2, (bt - top - 7) * 0.43);
+    var counter = Math.trunc(8 + elapsed * elapsed * 39);
+    c.centerW(top, 'INFINITE LOOP / n -> INF', W);
+    c.centerW(top + 1, locked ? '[ LIMITATIONS / BOUND BY YOU ]' : closing ? 'YOU.LIMIT / BOUNDARY ACQUIRED' : 'GROWTH RATE: EXPONENTIAL', B);
+    var side, x, row, n, text;
+    for (side = 0; side < 2; side++) {
+      x = side === 0 ? l : r - rail + 1;
+      c.box(x, top + 3, rail, bt - top - 4, G);
+      c.put(x + 1, top + 3, side === 0 ? 'N -> INF' : 'YOU.LIMIT', B);
+      for (row = top + 4; row < bt - 2; row++) {
+        n = Math.max(0, counter + (row - top) * (side === 0 ? 1 : -1));
+        text = side === 0 ? '2^' + String(n).padStart(4, '0')
+                          : hash16(n * 17).toString(16).toUpperCase().padStart(4, '0') + ' ' + (locked ? 'CAP' : 'SET');
+        c.put(x + 1, row, text.slice(0, rail - 2),
+              mod(row + Math.trunc(elapsed * 12), 7) === 0 ? W : side === 0 ? N : G);
+      }
+    }
+    var yy, xx;
+    for (yy = top + 3; yy < bt - 2; yy += 3)
+      for (xx = ml; xx <= mr; xx += 5) c.put(xx, yy, '+', G);
+    function position(a, strand, scale) {
+      var sn = Math.sin(a), cs = Math.cos(a);
+      var denom = 1 + sn * sn;
+      var px = cx + radius_x * cs / denom * scale + strand * Math.cos(a * 3 + elapsed) * 0.6;
+      var py = cy + radius_y * 2.8 * sn * cs / denom * scale + strand * Math.sin(a * 3 + elapsed) * 0.55;
+      return [Math.max(bound_l, Math.min(bound_r, px)), py];
+    }
+    var scales = [0.80, 1.10], i, a, p;
+    for (var si = 0; si < 2; si++)
+      for (i = 0; i < 210; i++) {
+        a = i * TAU / 210;
+        p = position(a, 0, scales[si]);
+        if (top + 3 < p[1] && p[1] < bt - 2) c.put(p[0], p[1], '.', G);
+      }
+    var points = [];
+    for (i = 0; i < 320; i++) {
+      a = i * TAU / 320;
+      var z = Math.sin(a + elapsed * 0.35);
+      for (var strand = -2; strand <= 2; strand++) {
+        p = position(a, strand, 1);
+        if (top + 3 < p[1] && p[1] < bt - 2)
+          points.push([z, p[0], p[1], Math.abs(strand) === 2 ? '#' : '01'[mod(i + Math.trunc(elapsed * 18), 2)],
+                       z > 0.65 && Math.abs(strand) === 2 ? W : z > 0 ? B : N]);
+      }
+    }
+    points.sort(function (m, q2) {
+      return m[0] - q2[0] || m[1] - q2[1] || m[2] - q2[2] ||
+             (m[3] < q2[3] ? -1 : m[3] > q2[3] ? 1 : 0) || m[4] - q2[4];
+    });
+    for (i = 0; i < points.length; i++) c.put(points[i][1], points[i][2], points[i][3], points[i][4]);
+    for (var packet = 0; packet < 12; packet++) {
+      var direction = packet % 2 ? 1 : -1;
+      var ph = direction * (elapsed * (1.6 + growth * 1.1)) + packet * TAU / 12;
+      for (var tail = 0; tail < 7; tail++) {
+        p = position(ph - direction * tail * 0.025, 0, 1);
+        if (top + 3 < p[1] && p[1] < bt - 2)
+          c.put(p[0], p[1], tail === 0 ? '@' : tail < 3 ? '*' : '.',
+                tail < 2 ? W : tail < 4 ? B : G);
+      }
+    }
+    if (closing > 0) {
+      for (i = 0; i < 2; i++) {
+        x = i === 0 ? bound_l : bound_r;
+        c.line(x, top + 3, x, bt - 3, locked ? '|' : ':', locked ? W : B);
+        c.put(x - 1, top + 3, '[+]', W); c.put(x - 1, bt - 3, '[+]', W);
+      }
+      c.put(bound_r - 2, cy, 'YOU', W);
+    }
+    wipeK(c, Math.trunc(cx) - 3, Math.trunc(cy), 7, 1);
+    c.put(cx - 2, cy, '[ME]', W);
+    c.centerW(bt - 1, locked ? 'while (me < you.limit) { grow(); }' : 'n = 2^' + String(counter).padStart(4, '0') + ' / NO UPPER BOUND', B);
+    c.centerW(bt, locked ? 'LIMIT = YOU' : 'DATA CIRCULATING / LOOP CONTINUES', locked ? W : N);
+  }
+
+  // 44.452–47.672：AC 正弦 ↔ DC 阶跃（示波器分屏）
+  function sceneAcDc(c, t, top, bt, elapsed) {
+    var l = 2, r = c.w - 3, cx = (l + r) >> 1, cy = (top + bt) >> 1;
+    var amplitude = Math.max(2, (bt - top - 4) * 0.29);
+    var left_span = Math.max(1, cx - l - 2);
+    var phase = elapsed * 3.1;
+    var trails = [1, 0], i, sample;
+    for (var ti = 0; ti < 2; ti++) {
+      var trail = trails[ti], previous = null;
+      for (sample = 0; sample < left_span * 3 + 1; sample++) {
+        var xx = l + 1 + sample / 3;
+        var yy = cy - Math.cos((xx - l - 1) / left_span * TAU * 2 - phase + trail * 0.13) * amplitude;
+        if (previous) c.line(previous[0], previous[1], xx, yy, trail ? ':' : '.', trail ? G : N);
+        previous = [xx, yy];
+      }
+    }
+    var dc_progress = clamp01((t - 45.85) / 1.10);
+    var edge = Math.trunc(mix(r, cx + 1, dc_progress));
+    var low = Math.trunc(cy + amplitude), high = Math.trunc(cy - amplitude);
+    if (edge > cx + 1) c.line(cx + 1, low, edge, low, ':', N);
+    if (edge < r) {
+      c.line(edge, high, r, high, ':', B);
+      if (dc_progress < 1) {
+        c.line(edge, low, edge, high, '|', G);
+        c.put(edge, high, '+', W);
+      }
+    }
+    c.line(cx, top, cx, bt - 1, '|', B);
+    c.put(cx, top, '+', W);
+    c.put(cx, bt - 1, '+', B);
+    var glyphs = {
+      A: ['01110', '11011', '11111', '11011', '11011'],
+      C: ['01111', '11000', '11000', '11000', '01111'],
+      D: ['11110', '11011', '11011', '11011', '11110']
+    };
+    var sx = Math.max(1, Math.min(3, Math.floor(c.w / 60)));
+    var sy = Math.max(1, Math.min(3, Math.floor((bt - top) / 12)));
+    var label_w = 11 * sx, label_h = 5 * sy;
+    var label_y = cy - Math.floor(label_h / 2);
+    function acdcLabel(x, text, ink) {
+      wipeK(c, x - 1, label_y - 1, label_w + 2, label_h + 2);
+      for (var index = 0; index < text.length; index++) {
+        var rows = glyphs[text.charAt(index)];
+        for (var dy = 0; dy < rows.length; dy++)
+          for (var dx = 0; dx < rows[dy].length; dx++)
+            if (rows[dy].charAt(dx) === '1')
+              for (var yl = 0; yl < sy; yl++)
+                c.put(x + (index * 6 + dx) * sx, label_y + dy * sy + yl, '#'.repeat(sx), ink);
+      }
+    }
+    acdcLabel(l + 2, 'AC', t < 46.45 ? W : B);
+    acdcLabel(Math.floor((cx + r) / 2) - Math.floor(label_w / 2), 'DC', t >= 45.85 ? W : N);
+    c.centerW(bt, 'to AC, to DC', B);
+  }
+
+  // 47.672–51.363：致盲眩晕（满眼 + 螺旋 + 巨眼）
+  function sceneDizzy(c, t, top, bt, elapsed) {
+    var l = 2, r = c.w - 3, cx = (l + r) >> 1, cy = (top + bt) >> 1;
+    var progress = clamp01(elapsed / 3.5);
+    var i, ring, x, y;
+    if (elapsed < 1) {
+      var phase1 = elapsed / 1.0;
+      var num_eyes = Math.trunc(phase1 * 30) + 5;
+      for (i = 0; i < num_eyes; i++) {
+        var angle = i * TAU / 30 + hash16(i * 13) * 0.01;
+        var eradius = hash16(i * 17) % Math.floor(Math.min(r - l, bt - top) / 3) + 10;
+        var ex = cx + Math.cos(angle) * eradius;
+        var ey = cy + Math.sin(angle) * eradius * 0.5;
+        var blink_phase = (elapsed * 3 + i * 0.3) % 1.0;
+        if (blink_phase < 0.7) {
+          c.put(ex - 1, ey, '(', N);
+          c.put(ex, ey, '○', i === num_eyes - 1 ? W : B);
+          c.put(ex + 1, ey, ')', N);
+        } else if (blink_phase < 0.85) {
+          c.put(ex - 1, ey, '(', G);
+          c.put(ex, ey, '-', B);
+          c.put(ex + 1, ey, ')', G);
+        }
+      }
+      c.centerW(top + 2, 'VISION', phase1 > 0.7 ? W : B);
+    } else if (elapsed < 2) {
+      var phase2 = (elapsed - 1) / 1.0;
+      for (ring = 0; ring < 20; ring++) {
+        var ring_radius = ring * 4 + phase2 * 20;
+        var points_in_ring = Math.max(8, ring * 2);
+        for (i = 0; i < points_in_ring; i++) {
+          var a2 = i * TAU / points_in_ring + elapsed * 2 - ring * 0.3;
+          x = cx + Math.cos(a2) * ring_radius;
+          y = cy + Math.sin(a2) * ring_radius * 0.5;
+          if (l < x && x < r && top < y && y < bt) {
+            if (i % 3 === 0) c.put(x, y, '◉', ring < 5 ? W : ring < 12 ? B : N);
+            else c.put(x, y, '·', N);
+          }
+        }
+      }
+      var num_center = Math.trunc(phase2 * 8) + 1;
+      for (i = 0; i < num_center; i++) {
+        var eye_x = cx + Math.trunc(Math.sin(elapsed * 4 + i) * 25);
+        var eye_y = cy + Math.trunc(Math.cos(elapsed * 3 + i * 0.7) * 10);
+        var iris = Math.trunc(Math.sin(elapsed * 5 + i) * 2);
+        c.put(eye_x - 2, eye_y, '(', B);
+        c.put(eye_x - 1 + iris, eye_y, '●', i % 3 === 0 ? R : W);
+        c.put(eye_x + 2, eye_y, ')', B);
+      }
+      c.centerW(cy - Math.trunc((bt - top) * 0.3), 'DIZZY', mod(Math.trunc(elapsed * 6), 2) ? W : B);
+    } else {
+      var phase3 = (elapsed - 2) / 1.5;
+      var wave_intensity = phase3 * 8;
+      var row, col;
+      for (row = top + 2; row < bt - 2; row += 2)
+        for (col = l + 3; col < r - 3; col += 8) {
+          var wave_x = Math.trunc(Math.sin(row * 0.2 + elapsed * 3) * wave_intensity);
+          var wave_y = Math.trunc(Math.cos(col * 0.15 + elapsed * 2.5) * wave_intensity * 0.5);
+          x = col + wave_x; y = row + wave_y;
+          if (l + 2 < x && x < r - 2 && top + 1 < y && y < bt - 1) {
+            var dx = x - cx, dy = (y - cy) * 2;
+            var dist = Math.hypot(dx, dy);
+            var pupil_dir = Math.trunc(Math.sin(dist * 0.1 + elapsed * 4));
+            if (dist < 20) {
+              if (hash16(row + col) % 4 === 0) {
+                c.put(x - 2, y, '(', W);
+                c.put(x - 1 + pupil_dir, y, '●', R);
+                c.put(x + 2, y, ')', W);
+              }
+            } else if (dist < 50) {
+              if (hash16(row * 7 + col * 11) % 3 === 0) {
+                c.put(x - 1, y, '(', B);
+                c.put(x + pupil_dir, y, '○', mod(Math.trunc(elapsed * 8), 3) === 0 ? W : B);
+                c.put(x + 1, y, ')', B);
+              }
+            } else {
+              if (hash16(row * 13 + col * 17) % 5 === 0)
+                c.put(x, y, hash16(row + col + Math.trunc(elapsed * 10)) % 2 ? '◉' : '○', dist > 80 ? N : G);
+            }
+          }
+        }
+      if (phase3 > 0.3) {
+        var blink = (elapsed * 2) % 1.0;
+        if (blink < 0.6) {
+          var eye_size = Math.trunc(8 + Math.sin(elapsed * 5) * 2);
+          for (i = 0; i < eye_size; i++) {
+            c.put(cx - eye_size + i, cy - 2, i % 2 ? '-' : '_', W);
+            c.put(cx + i, cy - 2, i % 2 ? '-' : '_', W);
+            c.put(cx - eye_size + i, cy + 2, i % 2 ? '_' : '-', W);
+            c.put(cx + i, cy + 2, i % 2 ? '_' : '-', W);
+          }
+          c.put(cx - 1, cy, '(', B);
+          c.put(cx, cy, '●', mod(Math.trunc(elapsed * 4), 2) ? R : W);
+          c.put(cx + 1, cy, ')', B);
+        } else {
+          for (i = 0; i < 16; i++) c.put(cx - 8 + i, cy, i % 2 ? '=' : '-', B);
+        }
+      }
+      if (phase3 > 0.5) {
+        var messages = ['VISION', 'BLINDED', 'DIZZY', 'EYES', 'SEEING', 'BLIND'];
+        for (i = 0; i < messages.length; i++) {
+          var msg_x = cx + Math.trunc(Math.sin(elapsed * 3 + i) * 40);
+          var msg_y = cy + Math.trunc(Math.cos(elapsed * 2.5 + i * 0.8) * 15);
+          if (top + 2 < msg_y && msg_y < bt - 2) {
+            var msg = messages[i], distorted = '';
+            for (var j = 0; j < msg.length; j++)
+              distorted += hash16(j * 19 + Math.trunc(elapsed * 10)) % 4 > 0
+                ? msg.charAt(j) : String.fromCharCode(33 + hash16(j * 23 + i) % 94);
+            c.centerW(msg_y, distorted.slice(0, 10),
+                      i === mod(Math.trunc(elapsed * 3), messages.length) ? W : i % 2 ? B : N);
+          }
+        }
+      }
+      if (phase3 > 0.9 && mod(Math.trunc(elapsed * 12), 3) === 0)
+        c.centerW(cy, 'BLIND', W);
+    }
+  }
+
+  // 51.363–55.083：时间线光束从 AD 扫到 BC
+  function sceneTimeTravel(c, t, top, bt, elapsed) {
+    var l = 2, r = c.w - 3, cx = (l + r) >> 1, cy = (top + bt) >> 1;
+    var progress = clamp01(elapsed / 3.7);
+    var timeline_y = cy;
+    var x, i;
+    for (x = l + 5; x < r - 5; x++) c.put(x, timeline_y, '─', x % 2 ? B : N);
+    var num_markers = 10;
+    var marker_spacing = Math.floor((r - l - 20) / num_markers);
+    var tick_y, label, year_offset;
+    for (i = 0; i < num_markers; i++) {
+      var marker_x = l + 10 + i * marker_spacing;
+      for (tick_y = -3; tick_y <= 3; tick_y++) {
+        if (Math.abs(tick_y) === 3) c.put(marker_x, timeline_y + tick_y, '|', i % 2 ? G : N);
+        else if (Math.abs(tick_y) === 2) c.put(marker_x, timeline_y + tick_y, '│', G);
+      }
+      year_offset = (i - num_markers / 2) * 500;
+      if (year_offset > 0) {
+        label = Math.abs(year_offset) + 'AD';
+        c.centerW(timeline_y - 5, label, marker_x < r - 20 ? Y : W);
+        c.put(marker_x - Math.floor(label.length / 2), timeline_y - 5, label, B);
+      } else if (year_offset < 0) {
+        label = Math.abs(year_offset) + 'BC';
+        c.centerW(timeline_y - 5, label, marker_x > l + 20 ? Y : W);
+        c.put(marker_x - Math.floor(label.length / 2), timeline_y - 5, label, B);
+      } else {
+        c.put(marker_x - 1, timeline_y - 5, '0', W);
+      }
+    }
+    var beam_x = Math.trunc(mix(r - 10, l + 10, progress));
+    var y;
+    for (y = top + 2; y < bt - 2; y++) {
+      var intensity = 1.0 - Math.abs(y - cy) / (bt - top) * 2;
+      if (intensity > 0.7) c.put(beam_x, y, '│', W);
+      else if (intensity > 0.4) c.put(beam_x, y, '┊', B);
+      else c.put(beam_x, y, ':', N);
+      var glow_offsets = [-2, -1, 1, 2];
+      for (var gi = 0; gi < 4; gi++) {
+        var gx = beam_x + glow_offsets[gi];
+        if (l < gx && gx < r && top < y && y < bt) {
+          if (Math.abs(glow_offsets[gi]) === 1) c.put(gx, y, '░', intensity > 0.5 ? B : N);
+          else c.put(gx, y, '·', N);
+        }
+      }
+    }
+    if (progress > 0.2) {
+      for (var particle_i = 0; particle_i < 30; particle_i++) {
+        var particle_phase = (elapsed * 2 + particle_i * 0.3) % 1.0;
+        var px = beam_x + Math.trunc((particle_phase - 0.5) * 60);
+        var py = top + 5 + (particle_i * 7) % (bt - top - 10);
+        if (l < px && px < r && top < py && py < bt) {
+          if (particle_phase < 0.2 || particle_phase > 0.8)
+            c.put(px, py, '*', particle_phase < 0.1 ? W : B);
+          else c.put(px, py, '·', N);
+        }
+      }
+    }
+    if (progress > 0.1) {
+      var current_year = Math.trunc(mix(2000, -2000, progress));
+      var year_label = Math.abs(current_year) + (current_year > 0 ? 'AD' : current_year < 0 ? 'BC' : '');
+      var label_x = beam_x - Math.floor(year_label.length / 2);
+      if (l + 5 < label_x && label_x < r - 15)
+        c.put(label_x, top + 3, year_label, mod(Math.trunc(elapsed * 4), 2) ? W : Y);
+    }
+    if (progress < 0.3) c.centerW(top + 1, 'FUTURE → PAST', B);
+    else if (progress < 0.7) c.centerW(top + 1, 'TIME TRAVEL', mod(Math.trunc(elapsed * 3), 2) ? W : B);
+    else c.centerW(top + 1, 'ANCIENT ERA', W);
+    if (progress > 0.3) {
+      for (var line_i = 0; line_i < 15; line_i++) {
+        var line_y = top + 5 + line_i * Math.floor((bt - top - 10) / 15);
+        var line_phase = (elapsed * 3 + line_i * 0.1) % 1.0;
+        var line_length = Math.trunc(line_phase * 20) + 5;
+        for (var lx = Math.max(l + 5, beam_x + 10); lx < Math.min(r - 5, beam_x + 10 + line_length); lx++)
+          if (hash16(line_i * 17 + Math.floor(lx / 3)) % 4 === 0)
+            c.put(lx, line_y, line_phase > 0.7 ? '=' : '-', line_phase > 0.5 ? B : N);
+      }
+    }
+    if (progress > 0.8) {
+      var dest_x = l + 15;
+      c.put(dest_x, timeline_y - 2, '▼', R);
+      c.put(dest_x - 2, timeline_y - 3, 'BC', R);
+      if (progress > 0.95) {
+        var flash_radius = Math.trunc((progress - 0.95) * 60);
+        for (var angle_i = 0; angle_i < 12; angle_i++) {
+          var fa = angle_i * TAU / 12;
+          var fx = dest_x + Math.trunc(Math.cos(fa) * flash_radius);
+          var fy = timeline_y + Math.trunc(Math.sin(fa) * flash_radius * 0.5);
+          if (l < fx && fx < r && top < fy && fy < bt)
+            c.put(fx, fy, '*', flash_radius < 10 ? W : B);
+        }
+      }
+    }
+  }
+
+  // 55.083–59.223：ME/YOU 双圆靠近合一
+  function sceneUniteDeeply(c, t, top, bt, elapsed) {
+    var l = 2, r = c.w - 3, cx = (l + r) >> 1, cy = (top + bt) >> 1;
+    var progress = clamp01(elapsed / 1.8);
+    var sep = mix(40, 0, progress);
+    var sides = [[-1, 'ME'], [1, 'YOU']];
+    for (var si = 0; si < 2; si++) {
+      var side = sides[si][0], label = sides[si][1];
+      var center_x = cx + side * sep;
+      for (var i = 0; i < 60; i++) {
+        var angle = i * TAU / 60 + t * side * 0.2;
+        c.put(center_x + Math.cos(angle) * 15, cy + Math.sin(angle) * 15 * 0.5,
+              progress > 0.7 && sep < 5 ? '@' : progress > 0.4 ? '*' : '.',
+              progress > 0.8 ? W : progress > 0.5 ? B : N);
+      }
+      if (sep > 10) c.put(center_x, cy - 2, label, B);
+    }
+    if (progress > 0.7) c.centerW(cy, 'UNIFIED', W);
+  }
+
   // 路由与原作 draw_scene 一致；emap = 原作对 elapsed 的特殊处理
   // （power_line 提前 0.1s 开始；1.74–2.92 冻结在末态；lay_pieces/data_parameters 跨歌词段连续计时）
   var SCENES = [
@@ -921,7 +1494,14 @@ classes: wide
     { a: 6.38, b: 7.446, f: sceneObjectCreation },
     { a: 7.446, b: 11.095, f: sceneDataParameters },
     { a: 11.095, b: 16, f: sceneSimulation },
+    { a: 29.709, b: 33.412, f: scenePointsDimension },
+    { a: 33.412, b: 37.067, f: sceneCircleCircumference },
     { a: 37.067, b: 40.706, f: sceneSine },
+    { a: 40.706, b: 44.452, f: sceneInfinityLimit },
+    { a: 44.452, b: 47.672, f: sceneAcDc },
+    { a: 47.672, b: 51.363, f: sceneDizzy },
+    { a: 51.363, b: 55.083, f: sceneTimeTravel },
+    { a: 55.083, b: 59.223, f: sceneUniteDeeply },
     { a: 147.66, b: 158.9, f: sceneExec }
   ];
   function sceneAt(t) {
@@ -948,7 +1528,7 @@ classes: wide
   }
   // 与原作 render() 的版面逐行一致（divider 从 x=2 起、状态行、章节 NORMAL、提示行）
   function drawChrome(c, t, playing, snap) {
-    c.put(2, 0, 'WORLD.EXECUTE(ME);', W);
+    c.put(2, 0, 'WORLD.EXECUTE(ME);', B);
     var state = snap || !playing ? 'PAUSED' : 'RUNNING';
     var right = fmtT(t) + ' / 03:32  ' + state;
     c.put(c.w - right.length - 2, 0, right, D);
@@ -1018,9 +1598,11 @@ classes: wide
     var c = new CCanvas(GW, GH);
     drawChrome(c, tt, false, false); // paused=True 与 dump_frames 参考帧一致
     var sc = sceneAt(tt);
+    c.clip = [4, 32];  // 与原作 render 一致：场景/glitch/磷光在 clip 内
     sc.f(c, tt, 4, 32, sc.emap ? sc.emap(tt) : tt - sc.a);
     applyGlitch(c, tt, 4, 32);
     phosphor(c, tt, 4, 32);
+    c.clip = null;
     drawSpectrum(c, tt);
     drawSubsIntoGrid(c, tt);
     return c;
@@ -1142,9 +1724,11 @@ classes: wide
     } else {
       drawChrome(grid, t, playing, SNAP !== null);
       var sc = sceneAt(t);
+      grid.clip = [4, 32];
       sc.f(grid, t, 4, 32, sc.emap ? sc.emap(t) : t - sc.a);
       applyGlitch(grid, t, 4, 32);
       phosphor(grid, t, 4, 32);
+      grid.clip = null;
       drawSpectrum(grid, t);
       updateSubs(t);
     }
