@@ -922,6 +922,63 @@ classes: wide
     }
   }
 
+  // 158.9–162.632：六语数数 EIN/DOS/TROIS/NE/FEM/LIU（scenes.py lyric_multilingual_count 逐行移植）
+  function sceneMultilingualCount(c, t, top, bt) {
+    var l = 2, r = c.w - 3, cx = Math.floor((l + r) / 2), cy = Math.floor((top + bt) / 2);
+    var cues = [[158.9, 'EIN', 1], [159.321, 'DOS', 2], [159.657, 'TROIS', 3],
+                [160.244, 'NE', 4], [160.693, 'FEM', 5], [161.124, 'LIU', 6]];
+    var start = cues[0][0], word = cues[0][1];
+    for (var ci = 0; ci < cues.length; ci++)
+      if (cues[ci][0] <= t + 1e-8) { start = cues[ci][0]; word = cues[ci][1]; }
+    var age = t - start;
+    var firing = t >= 161.584;
+    // 背景 hex 网格
+    for (var yy = top; yy <= bt; yy++) {
+      for (var xx = l; xx < r; xx += 5) {
+        var seed = hash16(xx * 31 + yy * 71 + Math.trunc(t * 18));
+        if (seed % 4 === 0) c.put(xx, yy, hex4(seed), G);
+      }
+    }
+    // 扩散双环
+    var radius = clamp01(age / 0.35);
+    for (var ring = 0; ring < 2; ring++) {
+      var rr = mod(radius + ring * 0.25, 1);
+      for (var i = 0; i < 120; i++) {
+        var a = i * TAU / 120;
+        c.put(cx + Math.cos(a) * (r - l) * 0.48 * rr, cy + Math.sin(a) * (bt - top) * 0.45 * rr,
+              '=', ring === 0 ? B : G);
+      }
+    }
+    if (firing) {
+      c.big(cy - 2, 'EXECUTION', W);
+      c.centerW(cy + 5, '[ SEQUENCE COMPLETE / EXECUTE ]', R);
+      return;
+    }
+    // 用大字位图放大当前单词（glyph 画布 64x5，采样 # 像素按 sx/sy 拉伸）
+    var glyph_width = word.length * 6 - 1;
+    var glyph = new CCanvas(64, 5);
+    glyph.big(0, word, W);
+    var glyph_left = Math.floor((64 - glyph_width) / 2);
+    var sx = Math.max(1, Math.min(4, Math.floor((r - l - 8) / 29)));
+    var sy = Math.max(1, Math.min(4, Math.floor((bt - top - 6) / 5)));
+    var x0 = cx - Math.floor(glyph_width * sx / 2), y0 = cy - Math.floor(5 * sy / 2);
+    clearRect(c, x0 - 1, y0 - 1, glyph_width * sx + 2, 5 * sy + 2);
+    for (var dy = 0; dy < glyph.cells.length; dy++) {
+      var row = glyph.cells[dy];
+      for (var dx = 0; dx < glyph_width; dx++) {
+        if (row[glyph_left + dx][0] === '#') {
+          for (var py = 0; py < sy; py++) c.put(x0 + dx * sx, y0 + dy * sy + py, '#'.repeat(sx), W);
+        }
+      }
+    }
+    c.centerW(top, 'VOCAL SEQUENCE / ' + word, B);
+    c.centerW(bt - 1, '[ ' + word + ' ]', W);
+    var parts = [];
+    for (ci = 0; ci < cues.length; ci++)
+      parts.push(cues[ci][1] === word ? '[' + cues[ci][1] + ']' : cues[ci][1]);
+    c.centerW(bt, parts.join(' / '), B);
+  }
+
   // 占位场景：低密噪点 + 待移植提示
   function sceneFallback(c, t, top, bt) {
     for (var y = top; y <= bt; y++)
@@ -2561,7 +2618,8 @@ classes: wide
     { a: 110.9, b: 118.333, f: sceneIsolationDisconnect },
     { a: 118.333, b: 125.708, f: sceneEraseFragments },
     { a: 125.708, b: 147.66, f: sceneIllegalArgs },
-    { a: 147.66, b: 158.9, f: sceneExec }
+    { a: 147.66, b: 158.9, f: sceneExec },
+    { a: 158.9, b: 162.632, f: sceneMultilingualCount }
   ];
   function sceneAt(t) {
     for (var i = 0; i < SCENES.length; i++)
