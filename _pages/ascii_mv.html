@@ -70,13 +70,13 @@ classes: wide
   </div>
   <div class="amv-bar">
     <input type="file" id="amv-file" accept="audio/*">
-    <button id="amv-play" disabled>PLAY</button>
+    <button id="amv-play">PLAY</button>
     <div class="amv-prog" id="amv-prog"><i id="amv-fill" style="width:0%"></i></div>
     <span id="amv-time">--:-- / --:--</span>
   </div>
   <div class="amv-note" id="amv-note">
-    音频不入库（版权），请选择本机歌曲文件（world.execute(me);.mp3，时长 03:32）。
-    也可以用 ?t=38.5 快照模式查看单帧。已移植场景：37.1–40.7s 正弦切线、147.7–158.9s EXECUTION，其余为占位。
+    不选文件可直接 PLAY 无声播放（画面/字幕/频谱照常）；选择本机歌曲文件（world.execute(me);.mp3，时长 03:32）则有声。
+    音频不入库（版权）。也可以用 ?t=38.5 快照模式查看单帧。全曲场景已逐格移植完毕。
   </div>
 </div>
 
@@ -3186,7 +3186,9 @@ classes: wide
   var SNAP = qs.get('t') !== null ? parseFloat(qs.get('t')) : null;
   var actx = null, buf = null, src = null, startAt = 0, playing = false;
   var offset = SNAP !== null && isFinite(SNAP) ? clamp(SNAP, 0, DUR - 0.05) : 0;
-  function now() { return playing ? Math.min(offset + (actx.currentTime - startAt), DUR) : offset; }
+  // 时钟：有音频用 AudioContext.currentTime，无声播放用 performance.now()
+  function clock() { return buf ? actx.currentTime : performance.now() / 1000; }
+  function now() { return playing ? Math.min(offset + (clock() - startAt), DUR) : offset; }
   var playBtn = document.getElementById('amv-play');
   function startSrc() {
     src = actx.createBufferSource();
@@ -3197,18 +3199,25 @@ classes: wide
     startAt = actx.currentTime;
   }
   function play() {
-    if (!buf || playing) return;
+    if (playing) return;
     if (offset >= DUR - 0.05) offset = 0;
-    actx.resume();
-    startSrc();
+    if (buf) {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      actx.resume();
+      startSrc();
+    } else {
+      startAt = performance.now() / 1000;   // 无声模式：纯视觉播放
+    }
     playing = true;
     playBtn.textContent = 'PAUSE';
   }
   function pause() {
     if (!playing) return;
     offset = now();
-    src.onended = null;
-    try { src.stop(); } catch (e) { }
+    if (buf) {
+      src.onended = null;
+      try { src.stop(); } catch (e) { }
+    }
     playing = false;
     playBtn.textContent = 'PLAY';
   }
@@ -3248,6 +3257,9 @@ classes: wide
   var elFill = document.getElementById('amv-fill'), elTime = document.getElementById('amv-time');
   function tick() {
     var t = now();
+    if (playing && t >= DUR) {          // 无声模式播完：音频模式由 onended 收尾
+      playing = false; offset = DUR; playBtn.textContent = 'PLAY';
+    }
     grid.clear();
     if (t >= 15.8 && t < 29.709) {
       // title 接管：无 chrome/字幕；16–18.1s 吸入 t=15.799 的完整源帧
