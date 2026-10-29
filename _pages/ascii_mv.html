@@ -2354,6 +2354,65 @@ classes: wide
     c.centerW(bt, 'YOU HAVE LEFT / RETRYING...', N);
   }
 
+  // 118.333–125.708：抹除记忆碎片、修复失败、留下破碎的心
+  //（scenes.py lyric_erase_fragments 逐行移植）
+  function sceneEraseFragments(c, t, top, bt, elapsed) {
+    var l = 2, r = c.w - 3, cx = (l + r) / 2, cy = (top + bt) / 2;
+    var repair = t >= 121.728, broken = t >= 124.89;
+    var cols = Math.max(1, Math.trunc((r - l - 8) / 5)), rows = Math.max(1, Math.trunc((bt - top - 2) / 2));
+    var progress = clamp01(elapsed / (120.86 - 118.333));
+    c.centerW(top, 'MEMORY PURGE / ' + (broken ? 'REPAIR FAILED' : repair ? 'REBUILD HEART' : 'ERASE FRAGMENTS'), broken ? R : B);
+    for (var row = 0; row < rows; row++) {
+      var yy = top + 2 + row * 2;
+      c.put(l, yy, hex4(row * cols * 4), G);
+      for (var col = 0; col < cols; col++) {
+        var index = row * cols + col, xx = l + 6 + col * 5;
+        var threshold = hash16(index * 71) / 65535;
+        var cleared = threshold < progress;
+        c.put(xx, yy, cleared ? '0000' : hex4(hash16(index * 31)), cleared || repair ? G : N);
+        var since = (progress - threshold) * 2.527;
+        if (0 < since && since < 0.6 && !repair) {
+          var drift = Math.trunc(since * 8);
+          c.put(xx + (col % 2 ? 1 : -1) * drift, yy - drift, since < 0.3 ? '01' : '..', since < 0.2 ? W : B);
+        }
+      }
+    }
+    if (120.86 <= t && t < 121.728) {
+      clearRect(c, l, Math.trunc(cy) - 2, r - l + 1, 5);
+      c.big(Math.trunc(cy) - 2, 'FRAGMENTS', W);
+    }
+    if (repair) {
+      var build = clamp01((t - 121.728) / 1.5);
+      var split = clamp01((t - 123.25) / (125.708 - 123.25));
+      var half_w = (r - l) * 0.27, half_h = Math.max(2, (bt - top) * 0.31);
+      for (yy = top + 2; yy < bt - 1; yy++) {
+        for (xx = l + 5; xx < r - 4; xx++) {
+          var nx = (xx - cx) / half_w, ny = -(yy - cy) / half_h + 0.15;
+          var q = nx * nx + ny * ny - 1;
+          var shape = q * q * q - nx * nx * ny * ny * ny;
+          var seed = hash16(xx * 31 + yy * 73);
+          if (shape <= 0 && seed / 65535 < build) {
+            if (Math.abs(nx - 0.11 * Math.sin(ny * 8)) < split * 0.17) continue;
+            var dx = Math.trunc((nx > 0 ? 1 : -1) * split * 5);
+            var fall = broken ? Math.trunc(split * split * (1 + seed % 5)) : 0;
+            var py = Math.min(bt - 1, yy + fall);
+            var texture = hash16(seed + Math.trunc(t * 10));
+            var ch = texture % 8 < 2 ? (broken ? 'x' : '01'.charAt(texture % 2)) : '#';
+            c.put(xx + dx, py, ch, broken ? R : B);
+          }
+        }
+      }
+      c.centerW(top + 1, broken ? 'HEART.RESTORE() -> NULL' : 'RECOVERING YOU... CHECKSUM MISMATCH', broken ? R : N);
+      if (broken) {
+        var by = Math.max(top + 2, Math.trunc(cy) - 2);
+        clearRect(c, l, by, r - l + 1, 5);
+        c.big(by, 'DISHEARTENED', W);
+        c.centerW(bt - 1, '[ REPAIR FAILED / YOU NOT FOUND ]', R);
+      }
+    }
+    c.centerW(bt, broken ? 'MEMORY CLEARED. LOSS REMAINS.' : 'ERASE ' + String(Math.trunc(progress * 100)).padStart(3, '0') + '% / FRAGMENTS -> NULL', B);
+  }
+
   // 路由与原作 draw_scene 一致；emap = 原作对 elapsed 的特殊处理
   // （power_line 提前 0.1s 开始；1.74–2.92 冻结在末态；lay_pieces/data_parameters 跨歌词段连续计时）
   var SCENES = [
@@ -2383,6 +2442,7 @@ classes: wide
     { a: 99.349, b: 103.489, f: sceneDizzy },
     { a: 103.489, b: 110.9, f: sceneVibrationSync },
     { a: 110.9, b: 118.333, f: sceneIsolationDisconnect },
+    { a: 118.333, b: 125.708, f: sceneEraseFragments },
     { a: 147.66, b: 158.9, f: sceneExec }
   ];
   function sceneAt(t) {
