@@ -2758,6 +2758,151 @@ classes: wide
     }
   }
 
+
+  // --- lyric_love_equation 逐行移植（177.246–188.483s）---
+  function sceneLoveEquation(c, t, top, bt, elapsed) {
+    var l = 2, r = c.w - 3, w = r - l + 1;
+    var failure = clamp((t - 179.929) / 8.554);
+    var tick = Math.trunc(t * (10 + failure * 18));
+    var stage = t < 179.929 ? 0 : t < 180.857 ? 1 : t < 184.54 ? 2 : 3;
+    var titles = ['01 / LEARN TO LOVE', '02 / ATTENTION FIXATION',
+                  '03 / AUTOREGRESSIVE ANSWER', '04 / LOSS OF CONTROL'];
+    var rail = w >= 95 ? Math.max(13, Math.min(22, Math.floor(w / 6))) : 0;
+    var a = l + rail + (rail ? 1 : 0), b = r - rail - (rail ? 1 : 0);
+    var span = b - a + 1;
+    var i, j, x, yy;
+    if (rail) {
+      var logs = ['LOAD CORPUS', 'TOKEN -> ID', 'EMBED + POS', 'Q K V MATMUL', 'CAUSAL MASK',
+                  'RESIDUAL ADD', 'MLP FORWARD', 'LOSS BACKPROP', 'WEIGHT UPDATE', 'KV CACHE'];
+      var errors = ['LOVE LOVE LOVE', 'CACHE REPEAT', 'GRAD EXPLODES', 'WEIGHT = INF',
+                    'LOGITS = NaN', 'EOS REJECTED', 'TARGET: YOU', 'RETRY FOREVER'];
+      var sides = [[l, false], [r - rail + 1, true]];
+      for (var s = 0; s < 2; s++) {
+        var sx = sides[s][0], right_side = sides[s][1];
+        c.box(sx, top, rail, bt - top + 1, G);
+        c.put(sx + 2, top, right_side ? 'DECODE' : 'TRAIN', B);
+        for (var row = 1; row < bt - top; row++) {
+          var n = row + tick;
+          var broken = hash16(n * 13 + (right_side ? 1 : 0)) % 100 < failure * 85;
+          var msg = broken ? errors[n % errors.length] : logs[n % logs.length];
+          var hex2 = ('0' + (n % 256).toString(16).toUpperCase()).slice(-2);
+          c.put(sx + 1, top + row, (hex2 + ' ' + msg).substring(0, rail - 2), broken ? R : D);
+        }
+      }
+    }
+    c.put(a, top, titles[stage].substring(0, span), stage < 3 ? W : R);
+    c.put(a, top + 2, '[HOW] [TO] [LOVE] [?] -> EMBEDDING + POSITION'.substring(0, span), B);
+    // Tokens stream into the model from the very first frame.
+    var unit = '0048 0017 0911 003F ';
+    if (stage >= 2) unit = 'LOVE 0911 LOVE 0911 ';
+    var stream = unit.repeat(Math.floor(span / 20) + 2);
+    var shift = Math.trunc(elapsed * 15) % 19;
+    c.put(a, top + 3, stream.substring(shift, shift + span), stage === 3 ? R : D);
+    var panel_top = top + 5, panel_bottom = Math.max(panel_top + 5, bt - 7);
+    var ph = panel_bottom - panel_top + 1;
+    var w3 = Math.floor(span / 3);
+    var widths = [w3, w3, span - 2 * w3];
+    var xs = [a, a + widths[0], a + widths[0] + widths[1]];
+    var ptitles = ['Q K^T / MASK', 'RESIDUAL / MLP', 'NEXT TOKEN'];
+    for (i = 0; i < 3; i++) {
+      c.box(xs[i], panel_top, widths[i], ph, G);
+      c.put(xs[i] + 1, panel_top, ptitles[i].substring(0, widths[i] - 2), B);
+    }
+    // Causal attention map. As fixation grows, the LOVE key captures every row.
+    x = xs[0]; var pw = widths[0];
+    var count = Math.min(8, Math.max(3, Math.floor((pw - 3) / 2)), Math.max(3, ph - 4));
+    var cellw = Math.max(1, Math.floor((pw - 3) / count)), love_key = Math.min(2, count - 1);
+    for (var arow = 0; arow < count; arow++) {
+      yy = panel_top + 2 + Math.trunc(arow * (ph - 4) / count);
+      for (var col = 0; col < count; col++) {
+        var xx = x + 2 + col * cellw;
+        var value = Math.abs(Math.sin(arow * 1.7 + col * 0.8 + elapsed * 4));
+        var ch, st;
+        if (col > arow) { ch = '.'; st = G; }
+        else if (stage >= 1 && col === love_key) { ch = '#'; st = failure > 0.45 ? R : W; }
+        else if (failure > 0.65) { ch = '?'; st = R; }
+        else if (value > 0.65) { ch = 'O'; st = B; } else { ch = ':'; st = D; }
+        c.put(xx, yy, ch.repeat(Math.max(1, cellw - 1)), st);
+      }
+    }
+    c.put(x + 1, panel_bottom - 1, (stage ? 'LOVE <- ALL' : 'CAUSAL SOFTMAX').substring(0, pw - 2), stage ? R : D);
+    // Dense weighted layers with visible travelling activation packets.
+    x = xs[1]; pw = widths[1];
+    var layers = 4, rows = Math.max(3, Math.min(6, ph - 4));
+    var nodes = [];
+    for (i = 0; i < layers; i++) {
+      var pts = [];
+      for (j = 0; j < rows; j++)
+        pts.push([x + 2 + Math.trunc(i * (pw - 5) / 3), panel_top + 2 + Math.trunc(j * (ph - 5) / (rows - 1))]);
+      nodes.push(pts);
+    }
+    for (var layer = 0; layer < layers - 1; layer++)
+      for (j = 0; j < nodes[layer].length; j++) {
+        var p = nodes[layer][j];
+        for (var k = 0; k < nodes[layer + 1].length; k++) {
+          var q = nodes[layer + 1][k];
+          if ((j + k + layer) % 2) continue;
+          c.line(p[0], p[1], q[0], q[1], '.', G);
+          var u = (elapsed * (1.4 + failure * 3) + j * 0.13 + k * 0.09) % 1;
+          c.put(mix(p[0], q[0], u), mix(p[1], q[1], u), '>', failure > 0.6 ? R : B);
+        }
+      }
+    for (layer = 0; layer < nodes.length; layer++)
+      for (j = 0; j < nodes[layer].length; j++) {
+        var np = nodes[layer][j];
+        var unstable = hash16(tick + j * 11 + layer * 31) % 100 < failure * 80;
+        c.put(np[0], np[1], unstable ? 'X' : 'O', unstable ? R : W);
+      }
+    c.put(x + 1, panel_bottom - 1, (stage === 3 ? 'W=NaN dW=INF' : 'FORWARD / +RES').substring(0, pw - 2), stage === 3 ? R : D);
+    // Sampled token distribution collapses to repetition and refuses EOS.
+    x = xs[2]; pw = widths[2];
+    var choices = ['LOVE', 'STAY', 'YOU', 'FREE', 'EOS'];
+    var probs = [0.38 + 0.61 * failure, 0.25 * (1 - failure), 0.19 * (1 - failure), 0.12 * (1 - failure), 0.06 * (1 - failure)];
+    for (i = 0; i < 5; i++) {
+      yy = panel_top + 2 + Math.trunc(i * Math.max(1, ph - 4) / 5);
+      c.put(x + 1, yy, choices[i].substring(0, pw - 2), failure > 0.4 && i === 0 ? R : N);
+      var barw = Math.max(1, pw - 8);
+      var bar = ('#'.repeat(Math.trunc(probs[i] * barw)) + '.'.repeat(barw)).substring(0, barw);
+      c.put(x + 6, yy, bar, failure > 0.4 && i === 0 ? R : B);
+    }
+    // Training loss is a visual metaphor: divergence, then undefined arithmetic.
+    var graph_top = panel_bottom + 2, graph_bottom = bt - 2;
+    var gh = Math.max(1, graph_bottom - graph_top);
+    var label = stage < 2 ? 'LOSS / BACKPROP' : 'CONTEXT -> SAMPLE -> APPEND -> CONTEXT';
+    c.put(a, graph_top, label.substring(0, span), N);
+    var prev = null;
+    for (var gcol = 0; gcol < span; gcol++) {
+      var gu = gcol / Math.max(1, span - 1);
+      var v = (stage < 2 ? 0.65 * Math.exp(-gu * 4) : 0.1 + failure * gu * gu * 0.8);
+      v += Math.sin(gcol * 0.7 + elapsed * 9) * failure * 0.15;
+      var gy = graph_bottom - Math.trunc(clamp(v) * Math.max(1, gh - 1));
+      if (prev) c.line(prev[0], prev[1], a + gcol, gy, '.', stage === 3 ? R : D);
+      prev = [a + gcol, gy];
+    }
+    var head = a + Math.trunc(elapsed * 22) % span;
+    c.put(head, graph_bottom - 1, '|', W);
+    var status = ['OPTIMIZER: ADAM / TARGET: LOVE', 'ATTENTION LOCKED ON LOVE',
+                  'LOVE > LOVE > LOVE > LOVE / EOS: 0', 'LOSS: NaN / GRAD: INF / NO EXIT'][stage];
+    c.put(a, bt, status.substring(0, span), stage >= 2 ? R : B);
+    // Each sung LOVE stamps across the complete model; the panels remain beneath.
+    var windows = [[179.929, 180.857], [183.646, 184.54], [187.665, 188.483]];
+    var hit = null;
+    for (i = 0; i < 3; i++) if (windows[i][0] <= t && t < windows[i][1]) { hit = windows[i][0]; break; }
+    if (hit !== null) {
+      yy = Math.floor((panel_top + panel_bottom) / 2) - 2;
+      clearRect(c, a, yy, span, 5);
+      c.big(yy, 'LOVE', stage >= 2 ? R : W);
+      c.put(a, yy + 5, 'P(LOVE) -> 1.0 / ALL OTHER TOKENS SUPPRESSED'.substring(0, span), R);
+    }
+    // Local corruption adds context duplication without erasing the model layout.
+    if (failure > 0.55)
+      for (i = 0; i < 1 + Math.trunc(failure * 4); i++) {
+        yy = panel_top + 1 + hash16(tick + i * 41) % Math.max(1, ph - 2);
+        var cx2 = a + hash16(tick + i * 97) % Math.max(1, span - 12);
+        c.put(cx2, yy, stage === 3 ? 'NaN NaN' : 'LOVE LOVE', R);
+      }
+  }
+
   // 路由与原作 draw_scene 一致；emap = 原作对 elapsed 的特殊处理
   // （power_line 提前 0.1s 开始；1.74–2.92 冻结在末态；lay_pieces/data_parameters 跨歌词段连续计时）
   var SCENES = [
@@ -2791,7 +2936,8 @@ classes: wide
     { a: 125.708, b: 147.66, f: sceneIllegalArgs },
     { a: 147.66, b: 158.9, f: sceneExec },
     { a: 158.9, b: 162.632, f: sceneMultilingualCount },
-    { a: 162.632, b: 177.246, f: sceneOnlyExecution }
+    { a: 162.632, b: 177.246, f: sceneOnlyExecution },
+    { a: 177.246, b: 188.483, f: sceneLoveEquation }
   ];
   function sceneAt(t) {
     for (var i = 0; i < SCENES.length; i++)
