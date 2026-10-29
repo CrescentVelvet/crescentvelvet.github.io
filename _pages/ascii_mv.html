@@ -1,10 +1,18 @@
 ---
 permalink: /ascii_mv.html
-layout: default
+layout: null
 title: 字符演歌
-author_profile: false
-classes: wide
 ---
+<!DOCTYPE html>
+<!-- ⚠️ 必须 layout: null 独立页（同 text_processor/splat-compare 等 app 页约定）：
+     站点默认布局链 default → compress（jekyll-compress-html 只保护 pre），
+     内联脚本的换行会被整页压平 ⇒ 行注释吞掉全部后续 JS（SyntaxError: Unexpected
+     end of input），线上整页 JS 全灭。切不可改回 layout: default。 -->
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>字符演歌 · world.execute(me);</title>
 <!--
   字符演歌播放器（骨架 v1）
   - 渲染：canvas 2D + 字符图集（7 色 × 字符集预渲染，逐格 drawImage）
@@ -21,8 +29,7 @@ classes: wide
   - 待办：apply_glitch、title_takeover、其余 30+ 场景按时间轴顺序补齐
 -->
 <style>
-  #masthead { height: 0; overflow: hidden; }
-  #page-last-modified { display: none; }
+  body { margin: 0; }
 
   .amv-head {
     width: min(1080px, 96vw); display: flex; align-items: baseline; gap: 10px;
@@ -82,6 +89,9 @@ classes: wide
   }
   .amv-load .bar > i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--c2); display: block; }
   .amv-load a { color: var(--c2); cursor: pointer; text-decoration: underline; }
+  /* display:flex 会盖掉 hidden 属性（UA 的 display:none 优先级低于作者样式），
+     必须显式声明，否则加载条在主脚本故障时永远可见、掩盖真实问题 */
+  .amv-load[hidden] { display: none; }
 </style>
 
 <div class="amv-wrap">
@@ -3427,3 +3437,6 @@ classes: wide
   tick();
 })();
 </script>
+</body>
+</html>
+

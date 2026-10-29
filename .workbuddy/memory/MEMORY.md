@@ -44,6 +44,14 @@
 - ⚠️ **本机 Ruby 3.4.10 装在 `D:\Ruby34-x64`，被 Windows 智能应用控制（SAC，`VerifiedAndReputablePolicyState=1`）按「完整路径」误拦部分 `.so`** ⇒ `[BUG] vm_call_super` / `WinError 4551`，Jekyll 起不来。**症状会伪装成别的错**（如 `etc.so` 被拦报「tzinfo 未安装」）。修复跑 `tools/fix_sac_blocked_ruby.py`（原地重建文件即可解除，无需重装/改注册表）；排查用 `ctypes.WinDLL` 逐个试加载 + 查 CodeIntegrity/Operational 日志。`chcp 65001` 无效。
 
 ## 字符演歌（ascii_mv.html，全曲已移植完毕 0–211.933s，2026-10-29）
+- ⚠️ **必须 `layout: null` 独立页**：站点默认链 default→compress（jekyll-compress-html
+  只保护 pre）会把内联脚本换行压平 ⇒ `//` 行注释吞掉全部后续 JS ⇒ 线上整页 JS 静默全灭
+  （2026-10-29 之前本页一直如此）。**全站 app 页（text_processor/splat-compare/diary_tree…）
+  都用 layout: null**，新 app 页照抄。
+- ⚠️ 核对线上必须验「脚本可执行」（`window.__amv` 探针），grep 源码内容一致不算数；
+  本地 E2E 跑的是未压缩 HTML，通过 ≠ 线上可用。
+- `hidden` 属性会被作者样式 `display:flex` 覆盖 ⇒ 需显式 `.amv-load[hidden]{display:none}`。
+- 数据走 jsDelivr 镜像优先（github.io 本机 ~10KB/s）、同源兜底、15s 无字节进展看门狗切换。
 - **再做一首/移植另一部 ASCII MV 必先读两份指南**：`_design/ascii_mv_porting_guide.md`
   （有官方 pyz 参考 → 全帧 0.0% 对拍流程）+ `_design/ascii_mv_authoring_guide.md`
   （无参考自己写 → lyrics.js/spectrum.js 构建、分段、场景美学公式）。
