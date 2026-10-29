@@ -845,83 +845,80 @@ classes: wide
         return mix(anchors[i][1], anchors[i + 1][1], clamp((t - anchors[i][0]) / (anchors[i + 1][0] - anchors[i][0])));
     return 1.0;
   }
+  // 147.66–158.9：EXECUTION 幕布关闭（scenes.py lyric_execution_queue 逐行移植）
   function sceneExec(c, t, top, bt, elapsed) {
-    var w = c.w, l = 2, r = w - 3, x, y;
-    var cx = Math.round((l + r) / 2), cy = Math.round((top + bt) / 2);
-    var progress = clamp(elapsed / 16.0);
-    var inten = glitchIntensity(t);
-    var frame = Math.floor(t * 24);
-    var scroll = Math.floor(elapsed * 15);
-    for (y = top; y <= bt; y++) {
-      var rowSeed = (y + scroll) * 23;
-      for (x = l; x < r - 5; x += 7) {
-        if (hash16(y * 17 + x) % 3 === 0) {
-          var sym = ['0x', '+=', '==', '&&', '||', '->', '::'][hash16(rowSeed + x) % 7];
-          c.put(x, y, sym, hash16(y + x) % 4 ? N : G);
+    var l = 2, r = c.w - 3, cx = Math.floor((l + r) / 2), cy = Math.floor((top + bt) / 2);
+    var progress = clamp01(elapsed / 16.0);
+    // 背景：滚动代码/hex
+    var scroll_speed = Math.trunc(elapsed * 15);
+    for (var row = top; row <= bt; row++) {
+      var line_seed = (row + scroll_speed) * 23;
+      for (var col = l; col < r - 5; col += 7) {
+        var code_types = ['0x', '+=', '==', '&&', '||', '->', '::'];
+        var code_choice = code_types[hash16(line_seed + col) % code_types.length];
+        var hex_val = ('0' + (hash16(line_seed + col * 13) % 256).toString(16).toUpperCase()).slice(-2);
+        if (hash16(row * 17 + col) % 3 === 0) {
+          c.put(col, row, code_choice, hash16(row + col) % 4 ? N : G);
         } else {
-          var hv = ('0' + (hash16(rowSeed + x * 13) % 256).toString(16).toUpperCase()).slice(-2);
-          c.put(x, y, hv, N);
+          c.put(col, row, hex_val, N);
         }
       }
     }
-    var close = progress * 0.9;
-    var lxEnd = Math.floor(l + (r - l) * close * 0.5);
-    var rxBeg = Math.floor(r - (r - l) * close * 0.5);
-    var stripes = [['█', B], ['▓', B], ['▒', N], ['░', N]];
-    for (x = l; x < lxEnd; x++)
-      for (y = top; y <= bt; y++) {
-        var sp = stripes[(x - l + Math.floor(y / 3)) % 4];
-        c.put(x, y, sp[0], sp[1]);
+    // 双侧幕布合拢
+    var curtain_close = progress * 0.9;
+    var left_curtain_x = Math.trunc(l + (r - l) * curtain_close * 0.5);
+    var right_curtain_x = Math.trunc(r - (r - l) * curtain_close * 0.5);
+    for (var x = l; x < left_curtain_x; x++) {
+      for (var y = top; y <= bt; y++) {
+        var stripe = (x - l + Math.floor(y / 3)) % 4;
+        c.put(x, y, stripe === 0 ? '█' : stripe === 1 ? '▓' : stripe === 2 ? '▒' : '░',
+              stripe < 2 ? Y : B);
       }
-    for (x = rxBeg; x <= r; x++)
+    }
+    for (x = right_curtain_x; x <= r; x++) {
       for (y = top; y <= bt; y++) {
-        var sp2 = stripes[(x - rxBeg + Math.floor(y / 3)) % 4];
-        c.put(x, y, sp2[0], sp2[1]);
+        stripe = (x - right_curtain_x + Math.floor(y / 3)) % 4;
+        c.put(x, y, stripe === 0 ? '█' : stripe === 1 ? '▓' : stripe === 2 ? '▒' : '░',
+              stripe < 2 ? Y : B);
       }
-    if (lxEnd < cx && cx < rxBeg) {
-      var flash = Math.floor(elapsed * 6) % 4;
-      if (flash < 3) {
-        var col = flash === 0 ? W : (flash === 1 ? Y : R);
-        var startY = cy - Math.floor(EXEC_ART.length / 2);
+    }
+    // 中央闪烁 EXECUTE 大字（仅画在两帘之间）
+    if (left_curtain_x < cx && right_curtain_x > cx) {
+      var flash_phase = Math.trunc(elapsed * 6) % 4;
+      if (flash_phase < 3) {
+        var start_y = cy - Math.floor(EXEC_ART.length / 2);
         for (var i = 0; i < EXEC_ART.length; i++) {
-          var lineTxt = EXEC_ART[i], yPos = startY + i;
-          if (top < yPos && yPos < bt) {
-            var half = Math.floor(lineTxt.length / 2);
-            var sx0 = Math.max(lxEnd, cx - half), ex0 = Math.min(rxBeg, cx + half);
-            if (sx0 < ex0) {
-              var ls = Math.max(0, lxEnd - (cx - half));
-              var le = Math.min(lineTxt.length, ls + (ex0 - sx0));
-              c.put(sx0, yPos, lineTxt.substring(ls, le), col);
+          var y_pos = start_y + i;
+          if (top < y_pos && y_pos < bt) {
+            var half = Math.floor(EXEC_ART[i].length / 2);
+            var start_x = Math.max(left_curtain_x, cx - half);
+            var end_x = Math.min(right_curtain_x, cx + half);
+            if (start_x < end_x) {
+              var line_start = Math.max(0, left_curtain_x - (cx - half));
+              var line_end = Math.min(EXEC_ART[i].length, line_start + (end_x - start_x));
+              c.put(start_x, y_pos, EXEC_ART[i].slice(line_start, line_end),
+                    flash_phase === 0 ? W : flash_phase === 1 ? Y : R);
             }
           }
         }
       }
     }
-    var msg, mst;
+    // 顶部状态
     if (progress < 0.3) {
-      msg = 'EXECUTION #' + (Math.floor(elapsed / 1.35) % 12 + 1) + '    depth=1'; mst = Y;
+      c.center(top + 1, 'EXECUTION #1    depth=1', Y);
     } else if (progress < 0.6) {
-      msg = 'EXECUTION RUNNING...'; mst = Math.floor(elapsed * 4) % 2 ? Y : W;
+      c.center(top + 1, 'EXECUTION RUNNING...', Math.trunc(elapsed * 4) % 2 ? W : Y);
     } else {
-      msg = 'EXECUTION CLOSING'; mst = Math.floor(elapsed * 6) % 2 ? W : R;
+      c.center(top + 1, 'EXECUTION CLOSING', Math.trunc(elapsed * 6) % 2 ? R : W);
     }
-    c.put(cx - Math.floor(msg.length / 2) - 2, top + 1,
-      ' '.repeat(msg.length + 4), D);
-    c.center(top + 1, msg, mst);
-    var nInd = 8, active = Math.floor(elapsed * 8) % nInd;
-    c.put(l + 8, bt - 1, ' '.repeat(r - l - 16), D);
-    for (var ii = 0; ii < nInd; ii++) {
-      var ix = l + 10 + ii * Math.floor((r - l - 20) / nInd);
-      if (lxEnd < ix && ix < rxBeg)
-        c.put(ix, bt - 1, ii === active ? '▶' : '▷', ii === active ? W : N);
-    }
-    // 损伤累积（收敛版：只污染背景，避开大字带）
-    for (var k = 0; k < Math.floor(inten * 14); k++) {
-      var gx = l + hash16(frame + k * 19) % (r - l);
-      var gy = top + hash16(frame + k * 23) % Math.max(1, bt - top);
-      if (cy - 6 <= gy && gy <= cy + 6) continue;
-      var cell = c.cells[gy] && c.cells[gy][gx];
-      if (cell && cell[0] !== ' ') cell[1] = inten > 0.7 ? R : W;
+    // 底部指示点（帘外跳过）
+    var num_indicators = 8;
+    for (i = 0; i < num_indicators; i++) {
+      var indicator_x = l + 10 + i * Math.floor((r - l - 20) / num_indicators);
+      if (indicator_x < left_curtain_x || indicator_x > right_curtain_x) continue;
+      var indicator_active = (Math.trunc(elapsed * 8) + i) % num_indicators;
+      c.put(indicator_x, bt - 2, i === indicator_active ? '▶' : '▷',
+            i === indicator_active ? W : N);
     }
   }
 
