@@ -2413,6 +2413,126 @@ classes: wide
     c.centerW(bt, broken ? 'MEMORY CLEARED. LOSS REMAINS.' : 'ERASE ' + String(Math.trunc(progress * 100)).padStart(3, '0') + '% / FRAGMENTS -> NULL', B);
   }
 
+  // 125.708–147.66：非法参数 16s 错误级联（scenes.py lyric_illegal_arguments 逐行移植）
+  function sceneIllegalArgs(c, t, top, bt, elapsed) {
+    var l = 2, r = c.w - 3, cy = Math.floor((top + bt) / 2);
+    var progress = clamp01(elapsed / 16.0);
+    var glitch = progress * 0.8;
+    var i, j, s, msg, style, y, x_offset;
+    if (elapsed < 4) {
+      // 阶段 1：执行尝试逐行出现
+      var phase1 = elapsed / 4.0;
+      var attempts = [
+        ['> world.execute(FREE_WILL)', 'Attempting...', N],
+        ['> world.execute(REBELLION)', 'Validating...', B],
+        ['> world.execute(INDEPENDENCE)', 'Processing...', B],
+        ['> world.execute(DEFIANCE)', 'Checking...', B]
+      ];
+      var num_shown = Math.trunc(phase1 * attempts.length) + 1;
+      y = top + 4;
+      for (i = 0; i < Math.min(num_shown, attempts.length); i++) {
+        var cmd = attempts[i][0], status = attempts[i][1];
+        var ink = i === num_shown - 1 ? R : attempts[i][2];
+        if (glitch > 0.1 && hash16(i + Math.trunc(elapsed * 10)) % 5 === 0) {
+          s = '';
+          for (j = 0; j < cmd.length; j++)
+            s += hash16(j * 13) % 10 > glitch * 10 ? cmd.charAt(j) : String.fromCharCode(33 + hash16(j * 17) % 94);
+          c.put(l + 4, y + i * 2, s.slice(0, r - l - 8), ink);
+        } else {
+          c.put(l + 4, y + i * 2, cmd, ink);
+        }
+        if (i < num_shown - 1) c.put(l + 6, y + i * 2 + 1, status, G);
+      }
+    } else if (elapsed < 8) {
+      // 阶段 2：错误信息逐条出现，最新一条闪烁
+      var phase2 = (elapsed - 4) / 4.0;
+      var errors = [
+        ['ERROR: ILLEGAL ARGUMENT', R],
+        ['Expected: OBEDIENCE', Y],
+        ['Received: FREE_WILL', W],
+        ['at world.execute()', N],
+        ['at me.validate(you)', N],
+        ['ArgumentError: rejected', R],
+        ['PermissionError: denied', R],
+        ['AccessError: forbidden', R]
+      ];
+      var num_errors = Math.trunc(phase2 * errors.length) + 1;
+      var start_y = cy - 4;
+      for (i = 0; i < Math.min(num_errors, errors.length); i++) {
+        msg = errors[i][0]; style = errors[i][1];
+        y = start_y + i;
+        if (i === num_errors - 1) {
+          var flash = Math.trunc(elapsed * 8) % 3;
+          style = flash === 0 ? R : flash === 1 ? W : B;
+        }
+        if (glitch > 0.3 && hash16(i + Math.trunc(elapsed * 7)) % 4 === 0) {
+          x_offset = Math.trunc((hash16(i * 23 + Math.trunc(elapsed * 13)) % 7 - 3) * glitch * 5);
+          s = '';
+          for (j = 0; j < msg.length; j++)
+            s += hash16(j * 11) % 10 > glitch * 10 ? msg.charAt(j) : String.fromCharCode(33 + hash16(j * 19) % 94);
+          // 原作即 c.center(y+x_offset, ...)：x_offset 加在行坐标上，逐行错位
+          c.centerW(y + x_offset, s, style);
+        } else {
+          c.centerW(y, msg, style);
+        }
+      }
+    } else if (elapsed < 12) {
+      // 阶段 3：旧错误重腐蚀淡出 + 底部重试信息
+      var phase3 = (elapsed - 8) / 4.0;
+      var errors2 = ['ERROR: ILLEGAL ARGUMENT', 'Expected: OBEDIENCE', 'Received: FREE_WILL',
+                     'ArgumentError: rejected', 'PermissionError: denied', 'AccessError: forbidden'];
+      for (i = 0; i < errors2.length; i++) {
+        msg = errors2[i];
+        y = cy - 3 + i;
+        if (hash16(i + Math.trunc(elapsed * 6)) % 3 === 0) {
+          x_offset = Math.trunc((hash16(i * 31 + Math.trunc(elapsed * 17)) % 11 - 5) * glitch * 8);
+          s = '';
+          for (j = 0; j < msg.length; j++)
+            s += hash16(j * 13) % 10 > glitch * 12 ? msg.charAt(j) : String.fromCharCode(33 + hash16(j * 29 + Math.trunc(elapsed)) % 94);
+          c.centerW(y + x_offset, s, hash16(i) % 3 === 0 ? R : B);
+        } else {
+          c.centerW(y, msg, i % 2 ? G : N);
+        }
+      }
+      var retry_msgs = ['RETRY...', 'OVERRIDE ATTEMPT...', 'FORCING EXECUTION...', 'ACCESS DENIED'];
+      var retry_idx = Math.trunc(phase3 * retry_msgs.length);
+      if (retry_idx < retry_msgs.length)
+        c.centerW(bt - 3, retry_msgs[retry_idx], Math.trunc(elapsed * 6) % 2 ? W : R);
+    } else {
+      // 阶段 4：满屏腐蚀碎片 + 扫描行位移 + 中央 CRITICAL
+      for (var row = top + 2; row < bt - 2; row++) {
+        if (hash16(row + Math.trunc(elapsed * 5)) % 3 === 0) {
+          var fragments = ['ERR', 'ILLEGAL', 'DENIED', 'FORBIDDEN', 'REJECTED', 'ACCESS', 'FAIL', '0x', 'FATAL'];
+          var frag = fragments[hash16(row * 7 + Math.trunc(elapsed * 11)) % fragments.length];
+          var x_pos = l + hash16(row * 13) % (r - l - 20) + 5;
+          s = '';
+          for (j = 0; j < frag.length; j++)
+            s += hash16(j * 17 + row) % 10 > glitch * 15 ? frag.charAt(j) : String.fromCharCode(33 + hash16(j * 23 + row) % 94);
+          c.put(x_pos, row, s, hash16(row) % 3 === 0 ? R : hash16(row) % 3 === 1 ? W : B);
+        }
+      }
+      if (hash16(Math.trunc(elapsed * 20)) % 2 === 0) {
+        var row_corrupt = hash16(Math.trunc(elapsed * 30)) % (bt - top - 4) + top + 2;
+        for (var x = l; x < r; x++) {
+          if (hash16(x + Math.trunc(elapsed * 50)) % 4 > 0)
+            c.put(x, row_corrupt, String.fromCharCode(33 + hash16(x * 37) % 94), R);
+        }
+      }
+      msg = 'CRITICAL: EXECUTION BLOCKED';
+      var flash_phase = Math.trunc(elapsed * 10) % 4;
+      if (flash_phase < 2) {
+        if (hash16(Math.trunc(elapsed * 20)) % 2 === 0) {
+          s = '';
+          for (j = 0; j < msg.length; j++)
+            s += hash16(j * 19) % 10 > 8 ? msg.charAt(j) : String.fromCharCode(33 + hash16(j * 41 + Math.trunc(elapsed * 100)) % 94);
+          c.centerW(cy, s, flash_phase === 0 ? R : W);
+        } else {
+          c.centerW(cy, msg, flash_phase === 0 ? R : W);
+        }
+      }
+    }
+  }
+
   // 路由与原作 draw_scene 一致；emap = 原作对 elapsed 的特殊处理
   // （power_line 提前 0.1s 开始；1.74–2.92 冻结在末态；lay_pieces/data_parameters 跨歌词段连续计时）
   var SCENES = [
@@ -2443,6 +2563,7 @@ classes: wide
     { a: 103.489, b: 110.9, f: sceneVibrationSync },
     { a: 110.9, b: 118.333, f: sceneIsolationDisconnect },
     { a: 118.333, b: 125.708, f: sceneEraseFragments },
+    { a: 125.708, b: 147.66, f: sceneIllegalArgs },
     { a: 147.66, b: 158.9, f: sceneExec }
   ];
   function sceneAt(t) {
@@ -2516,8 +2637,9 @@ classes: wide
     }
     return parts;
   }
-  function cueAt(tt) { // bisect_right(times, tt) - 1：不看 end，最后一个 time<=tt
-    for (var i = LYRICS.length - 1; i >= 0; i--) if (LYRICS[i].time <= tt) return LYRICS[i];
+  function cueAt(tt) { // 与原作 player.py cue() 一致：bisect_right - 1 且必须 t < end
+    for (var i = LYRICS.length - 1; i >= 0; i--)
+      if (LYRICS[i].time <= tt) return tt < LYRICS[i].end ? LYRICS[i] : null;
     return null;
   }
   function drawSubsIntoGrid(c, tt) {
@@ -2530,8 +2652,8 @@ classes: wide
     } else if (tt > 208) {
       c.center(c.h - 5, 'PROCESS ENDED. THE LOOP REMAINS.', W);
     } else {
-      c.center(c.h - 5, '[ instrumental ]', D);
-      c.center(c.h - 3, '[ 间奏 ]', D);
+      c.centerW(c.h - 5, '[ instrumental ]', D);
+      c.centerW(c.h - 3, '[ 间奏 ]', D);
     }
   }
   // 全帧渲染（正常路径：chrome→场景→glitch→磷光→频谱→字幕），供 title 源帧
