@@ -2946,6 +2946,58 @@ classes: wide
       c.centerW(cy + Math.trunc((bt - top) * 0.35), 'TRAPPED', R);
   }
 
+  // --- lyric_outro_wait 逐行移植（192.5–211.933s 终曲）---
+  function sceneOutroWait(c, t, top, bt, elapsed) {
+    var l = 2, r = c.w - 3;
+    var cx = Math.floor((l + r) / 2), cy = Math.floor((top + bt) / 2);
+    var execution_at = 205.811; // Final EXECUTION cue in lyrics.json.
+    var executing = t >= execution_at;
+    var bar_w = Math.min(96, c.w - 12), bar_x = Math.floor((c.w - bar_w) / 2);
+    var inner = bar_w - 4;
+    var progress = Math.min(99, Math.trunc(99 * (1 - Math.pow(1 - clamp(elapsed / 5.0), 3))));
+    var stalled = progress === 99;
+    var style = executing ? R : B;
+    c.centerW(cy - 6, 'world.execute(me);', executing ? style : N);
+    c.box(bar_x, cy - 2, bar_w, 5, style);
+    var filled = Math.min(inner - 1, Math.trunc(inner * progress / 100));
+    var sweep = Math.trunc(t * 18) % Math.max(1, filled);
+    for (var row = 0; row < 3; row++)
+      for (var col = 0; col < inner; col++) {
+        var lit = col < filled;
+        var ch = lit ? (row === 1 ? '#' : '=') : '.';
+        var ink = lit ? style : G;
+        if (lit && mod(col - sweep, Math.max(1, filled)) < 3) ink = executing ? R : W;
+        c.put(bar_x + 2 + col, cy - 1 + row, ch, ink);
+      }
+    if (!executing) {
+      var spinner = '|/-\\'.charAt(Math.trunc(t * 8) % 4);
+      c.centerW(cy + 4, ('0' + progress).slice(-2) + '%  [' + spinner + ']  ' + (stalled ? 'WAITING FOR RESPONSE' : 'EXECUTING'), B);
+      if (stalled) {
+        var retry = Math.max(1, Math.trunc((elapsed - 5) * 2) + 1);
+        c.centerW(cy + 6, 'RETRY ' + ('000' + retry).slice(-4) + '  /  ACK: --  /  REMAINING: 01%', Math.trunc(t * 3) % 2 ? N : G);
+      } else {
+        c.centerW(cy + 6, 'COMMITTING FINAL INSTRUCTION...', G);
+      }
+      return;
+    }
+    // The same five-row bar breaks into red bitmap letters in place.
+    var u = clamp((t - execution_at) / 0.48);
+    var before = [];
+    for (var yy = cy - 2; yy < cy + 3; yy++)
+      before.push(c.cells[yy].map(function (cell) { return [cell[0], cell[1]]; }));
+    clearRect(c, l, cy - 2, r - l + 1, 5);
+    c.big(cy - 2, 'EXECUTION', R);
+    if (u < 1)
+      for (var dy = 0; dy < 5; dy++)
+        for (var x = l; x <= r; x++)
+          if (hash16(x * 71 + dy * 313) / 65535 > u) {
+            var bch = before[dy][x][0];
+            c.cells[cy - 2 + dy][x] = [bch, R];
+          }
+    c.centerW(cy + 4, '[ PROCESS TERMINATED ]', R);
+    c.centerW(cy + 6, 'EXIT CODE: EXECUTION', Math.trunc(t * 2) % 2 ? R : G);
+  }
+
   // 路由与原作 draw_scene 一致；emap = 原作对 elapsed 的特殊处理
   // （power_line 提前 0.1s 开始；1.74–2.92 冻结在末态；lay_pieces/data_parameters 跨歌词段连续计时）
   var SCENES = [
@@ -2981,7 +3033,8 @@ classes: wide
     { a: 158.9, b: 162.632, f: sceneMultilingualCount },
     { a: 162.632, b: 177.246, f: sceneOnlyExecution },
     { a: 177.246, b: 188.483, f: sceneLoveEquation },
-    { a: 188.483, b: 192.5, f: sceneTrappedLoop }
+    { a: 188.483, b: 192.5, f: sceneTrappedLoop },
+    { a: 192.5, b: 300, f: sceneOutroWait }
   ];
   function sceneAt(t) {
     for (var i = 0; i < SCENES.length; i++)
