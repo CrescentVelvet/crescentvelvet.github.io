@@ -2903,6 +2903,49 @@ classes: wide
       }
   }
 
+  // --- lyric_heart 逐行移植（trapped_loop 复用）---
+  function lyricHeart(c, t, top, bt, elapsed, pulse) {
+    var l = 2, r = c.w - 3;
+    var cx = Math.floor((l + r) / 2), cy = Math.floor((top + bt) / 2);
+    var scale = 0.5 + pulse * 0.15 + elapsed * 0.03;
+    for (var angle_i = 0; angle_i < 60; angle_i++)
+      for (var rad_i = 0; rad_i < 15; rad_i++) {
+        var angle = angle_i * TAU / 60;
+        var rad = rad_i / 15;
+        var hx = 16 * Math.pow(Math.sin(angle), 3);
+        var hy = -(13 * Math.cos(angle) - 5 * Math.cos(2 * angle) - 2 * Math.cos(3 * angle) - Math.cos(4 * angle));
+        hx = hx * scale * rad / 17; hy = hy * scale * rad / 17;
+        var px = cx + hx * 4, py = cy + hy * 2;
+        if (l < px && px < r && top < py && py < bt) {
+          var brightness = rad * (1 + pulse * 0.3);
+          c.put(px, py, brightness > 0.8 ? '#' : brightness > 0.5 ? '*' : '.',
+                brightness > 0.9 ? W : brightness > 0.6 ? B : N);
+        }
+      }
+    if (elapsed > 1)
+      c.centerW(cy, '♥', R);
+  }
+
+  // --- lyric_trapped_loop 逐行移植（188.483–192.5s）---
+  function sceneTrappedLoop(c, t, top, bt, elapsed) {
+    var l = 2, r = c.w - 3;
+    var cx = Math.floor((l + r) / 2), cy = Math.floor((top + bt) / 2);
+    var el = Math.min(elapsed, 4);
+    var pulse = pulseAt(t);
+    lyricHeart(c, t, top, bt, Math.min(el, 2), pulse);
+    var num_bars = 8;
+    for (var i = 0; i < num_bars; i++) {
+      var x = l + 5 + i * Math.floor((r - l - 10) / (num_bars - 1));
+      for (var y = top; y <= bt; y++) {
+        c.put(x, y, '|', N);
+        if ((y + Math.trunc(t * 6)) % 7 === 0)
+          c.put(x, y, '▓', W);
+      }
+    }
+    if (el > 1)
+      c.centerW(cy + Math.trunc((bt - top) * 0.35), 'TRAPPED', R);
+  }
+
   // 路由与原作 draw_scene 一致；emap = 原作对 elapsed 的特殊处理
   // （power_line 提前 0.1s 开始；1.74–2.92 冻结在末态；lay_pieces/data_parameters 跨歌词段连续计时）
   var SCENES = [
@@ -2937,7 +2980,8 @@ classes: wide
     { a: 147.66, b: 158.9, f: sceneExec },
     { a: 158.9, b: 162.632, f: sceneMultilingualCount },
     { a: 162.632, b: 177.246, f: sceneOnlyExecution },
-    { a: 177.246, b: 188.483, f: sceneLoveEquation }
+    { a: 177.246, b: 188.483, f: sceneLoveEquation },
+    { a: 188.483, b: 192.5, f: sceneTrappedLoop }
   ];
   function sceneAt(t) {
     for (var i = 0; i < SCENES.length; i++)
