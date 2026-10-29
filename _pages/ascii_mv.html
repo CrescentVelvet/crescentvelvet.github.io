@@ -13,6 +13,7 @@ classes: wide
   - 音频：本地文件选择（版权原因不入库）；?t=38.5 快照模式无需音频
   - 字幕：DOM 叠加层（CJK 宽度交给浏览器），不参与字符网格
   - 数据：assets/data/ascii_mv/{lyrics,spectrum}.js（window.__LYRICS / __SPECTRUM）
+    异步 fetch 加载 + 进度条——同步脚本标签在弱网下会阻塞主脚本（PLAY 无响应、黑屏）
   - 场景：table 驱动，已移植 t=38.5 正弦切线 / t=150.5 EXECUTION 两个验证场景，
     其余走 fallback；章节表为近似值，后续对照原作逐段核对
   - 待办：apply_glitch、title_takeover、其余 30+ 场景按时间轴顺序补齐
@@ -61,6 +62,16 @@ classes: wide
   .amv-prog > i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--c5); display: block; }
   .amv-prog > i::after { content: ""; position: absolute; right: 0; top: 0; bottom: 0; width: 2px; background: var(--c2); }
   .amv-note { color: var(--c6); font-size: 11px; width: min(1080px, 96vw); }
+  .amv-load {
+    width: min(1080px, 96vw); display: flex; align-items: center; gap: 10px;
+    color: var(--c1); font-size: 12px;
+  }
+  .amv-load .bar {
+    flex: 1; height: 6px; border: 1px solid var(--line); background: var(--panel);
+    position: relative;
+  }
+  .amv-load .bar > i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--c2); display: block; }
+  .amv-load a { color: var(--c2); cursor: pointer; text-decoration: underline; }
 </style>
 
 <div class="amv-wrap">
@@ -74,14 +85,16 @@ classes: wide
     <div class="amv-prog" id="amv-prog"><i id="amv-fill" style="width:0%"></i></div>
     <span id="amv-time">--:-- / --:--</span>
   </div>
+  <div class="amv-load" id="amv-load" hidden>
+    <span id="amv-load-txt">数据加载中…</span>
+    <div class="bar"><i id="amv-load-fill" style="width:0%"></i></div>
+  </div>
   <div class="amv-note" id="amv-note">
-    不选文件可直接 PLAY 无声播放（画面/字幕/频谱照常）；选择本机歌曲文件（world.execute(me);.mp3，时长 03:32）则有声。
+    不选文件可直接 PLAY 无声播放（画面/字幕/频谱照常；字幕/频谱数据后台加载，进度见上方进度条）；
+    选择本机歌曲文件（world.execute(me);.mp3，时长 03:32）则有声。
     音频不入库（版权）。也可以用 ?t=38.5 快照模式查看单帧。全曲场景已逐格移植完毕。
   </div>
 </div>
-
-<script src="{{ '/assets/data/ascii_mv/lyrics.js' | relative_url }}"></script>
-<script src="{{ '/assets/data/ascii_mv/spectrum.js' | relative_url }}"></script>
 <script>
 (function () {
   'use strict';
@@ -3163,6 +3176,80 @@ classes: wide
     elZh.textContent = e ? e.zh : '';
   }
 
+  /* ---------------- 数据异步加载（弱网不阻塞播放） ---------------- */
+  // spectrum.js 约 1.8MB，以同步脚本标签引入会在弱网/被重置的连接下卡住整页 JS
+  // （表现为 PLAY 无响应、画布全黑）。改 fetch 流式下载 + 进度条；
+  // 数据晚到只暂时缺字幕/频谱，加载完成后自动补上。
+  var LYRIC_URL = "{{ '/assets/data/ascii_mv/lyrics.js' | relative_url }}";
+  var SPEC_URL = "{{ '/assets/data/ascii_mv/spectrum.js' | relative_url }}";
+  var elLoad = document.getElementById('amv-load'),
+      elLoadTxt = document.getElementById('amv-load-txt'),
+      elLoadFill = document.getElementById('amv-load-fill');
+  function fetchText(url, onBytes) {
+    return fetch(url).then(function (resp) {
+      if (!resp.ok) throw new Error(url.split('/').pop() + ' HTTP ' + resp.status);
+      var total = +resp.headers.get('Content-Length') || 0;
+      if (!resp.body || !resp.body.getReader) return resp.text();   // 老内核退化为一次性下载
+      var rd = resp.body.getReader(), chunks = [], got = 0;
+      return (function pump() {
+        return rd.read().then(function (r) {
+          if (r.done) {
+            var all = new Uint8Array(got), o = 0;
+            for (var i = 0; i < chunks.length; i++) { all.set(chunks[i], o); o += chunks[i].length; }
+            return new TextDecoder('utf-8').decode(all);
+          }
+          chunks.push(r.value); got += r.value.length; onBytes(got, total);
+          return pump();
+        });
+      })();
+    });
+  }
+  function runGlobal(code) {   // 数据文件是 window.__X = ... 赋值，按全局作用域执行
+    var s = document.createElement('script');
+    s.textContent = code;
+    document.body.appendChild(s);
+    s.remove();
+  }
+  function loadData() {
+    elLoad.hidden = false;
+    elLoadFill.style.width = '0%';
+    elLoadTxt.textContent = '数据加载中…';
+    var prog = {}, done = false, failed = false;   // url -> {got, total}
+    function paint() {
+      if (done || failed) return;   // 迟到的进度不能覆盖完成/失败态
+      var got = 0, tot = 0, k;
+      for (k in prog) { got += prog[k].got; tot += prog[k].total; }
+      // 服务器 gzip 时 got（解压字节）可能超过 total（压缩长度），进度封顶 100%
+      elLoadFill.style.width = (tot > 0 ? Math.min(1, got / tot) * 100 : 0).toFixed(1) + '%';
+      elLoadTxt.textContent = '字幕/频谱数据加载中 ' + (got / 1048576).toFixed(1) + ' MB'
+        + (tot > 0 ? ' / ' + (tot / 1048576).toFixed(1) + ' MB' : '…');
+    }
+    function one(url) {
+      return fetchText(url, function (g, t) {
+        if (done || failed) return;
+        prog[url] = { got: g, total: t }; paint();
+      });
+    }
+    Promise.all([one(LYRIC_URL), one(SPEC_URL)]).then(function (codes) {
+      done = true;
+      runGlobal(codes[0]);                 // window.__LYRICS
+      LYRICS = window.__LYRICS || [];
+      lastLy = -2;                         // 强制下一帧重取字幕
+      runGlobal(codes[1]);                 // window.__SPECTRUM（drawSpectrum 每帧现取）
+      elLoad.hidden = true;
+    }).catch(function (e) {
+      failed = true;
+      elLoadFill.style.width = '0%';
+      elLoadTxt.textContent = '';
+      elLoadTxt.appendChild(document.createTextNode('数据加载失败（不影响播放）：' + e.message + ' '));
+      var a = document.createElement('a');
+      a.textContent = '[重试]';
+      a.addEventListener('click', function (ev) { ev.preventDefault(); loadData(); });
+      elLoadTxt.appendChild(a);
+    });
+    paint();
+  }
+
   /* ---------------- 渲染 ---------------- */
   var cvEl = document.getElementById('amv-cv');
   var g2d = cvEl.getContext('2d');
@@ -3283,10 +3370,15 @@ classes: wide
     requestAnimationFrame(tick);
   }
   buildAtlas();
+  loadData();   // 数据后台加载，不阻塞首帧与 PLAY
   // 调试探针（供 CDP 检查网格内容）
   window.__amv = { grid: grid, w: GW, h: GH, now: now, frameAt: frameAt,
                    hash16: hash16, titlePixels: titlePixels, mix: mix, clamp01: clamp01,
-                   CCanvas: CCanvas, sceneTitleTakeover: sceneTitleTakeover };
+                   CCanvas: CCanvas, sceneTitleTakeover: sceneTitleTakeover,
+                   loadState: function () {
+                     return { lyrics: LYRICS.length, spectrum: !!window.__SPECTRUM,
+                              loadHidden: elLoad.hidden, loadTxt: elLoadTxt.textContent };
+                   } };
   tick();
 })();
 </script>
