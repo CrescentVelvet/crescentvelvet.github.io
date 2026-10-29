@@ -3208,9 +3208,14 @@ title: 字符演歌
   // ⚠️ GitHub Pages（Fastly 东京边）本机实测仅 ~10KB/s（直连与代理一样慢），
   // 浏览器 gzip 也救不了；jsDelivr gh 镜像实测 ~134KB/s（13×）。主源走 CDN、
   // 同源兜底；单次连接 STALL_MS 无字节进展判定卡死，自动换下一个镜像重试。
+  // ⚠️ @后锁本次构建的 commit SHA（site.github.build_revision，GitHub Pages 由
+  // jekyll-github-metadata 注入）而非 @master——按 commit 取内容不可变、jsDelivr
+  // 可永久缓存，彻底消除「@master 分支引用最多 ~12h 缓存延迟」的刷新不及时问题；
+  // 本地构建无该变量时 default 回退 master。
+  {% assign amv_rev = site.github.build_revision | default: "master" %}
   var LYRIC_URL = "{{ '/assets/data/ascii_mv/lyrics.js' | relative_url }}";
   var SPEC_URL = "{{ '/assets/data/ascii_mv/spectrum.js' | relative_url }}";
-  var MIRRORS = ['https://cdn.jsdelivr.net/gh/crescentvelvet/crescentvelvet.github.io@master', ''];
+  var MIRRORS = ['https://cdn.jsdelivr.net/gh/crescentvelvet/crescentvelvet.github.io@{{ amv_rev }}', ''];
   var STALL_MS = window.__AMV_STALL_MS || 15000;   // E2E 注入小值压缩等待
   var elLoad = document.getElementById('amv-load'),
       elLoadTxt = document.getElementById('amv-load-txt'),
