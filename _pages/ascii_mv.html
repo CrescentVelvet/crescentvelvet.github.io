@@ -12,6 +12,7 @@ classes: wide
     ⚠️ ctx.currentTime 暂停时照走，不能直接当进度
   - 音频：本地文件选择（版权原因不入库）；?t=38.5 快照模式无需音频
   - 字幕：DOM 叠加层（CJK 宽度交给浏览器），不参与字符网格
+  - 页头：歌曲标题独立元素（.amv-head / #amv-song），后续多曲接入在此加切换 UI
   - 数据：assets/data/ascii_mv/{lyrics,spectrum}.js（window.__LYRICS / __SPECTRUM）
     异步 fetch 加载 + 进度条——同步脚本标签在弱网下会阻塞主脚本（PLAY 无响应、黑屏）
   - 场景：table 驱动，已移植 t=38.5 正弦切线 / t=150.5 EXECUTION 两个验证场景，
@@ -22,6 +23,14 @@ classes: wide
   #masthead { height: 0; overflow: hidden; }
   #page-last-modified { display: none; }
 
+  .amv-head {
+    width: min(1080px, 96vw); display: flex; align-items: baseline; gap: 10px;
+    flex-wrap: wrap; line-height: 1.6;
+  }
+  .amv-head .brand { color: var(--c6); font-size: 12px; letter-spacing: 2px; }
+  .amv-head .song { color: var(--c2); font-size: clamp(15px, 2.4vw, 20px); font-weight: 700;
+    text-shadow: 0 0 10px rgba(255, 215, 95, .3); }
+  .amv-head .artist { color: var(--c0); font-size: 12px; }
   .amv-wrap {
     --bg: #0a0a08; --panel: #000; --line: #2a2416;
     --c0: #afaf5f; --c1: #ffaf5f; --c2: #ffd75f; --c3: #ffffd7;
@@ -75,6 +84,11 @@ classes: wide
 </style>
 
 <div class="amv-wrap">
+  <div class="amv-head">
+    <span class="brand">字符演歌</span>
+    <span class="song" id="amv-song">《world.execute(me);》</span>
+    <span class="artist">Mili</span>
+  </div>
   <div class="amv-stage">
     <canvas id="amv-cv" width="2160" height="1440"></canvas>
     <div class="amv-subs"><div class="en" id="amv-en"></div><div class="zh" id="amv-zh"></div></div>
