@@ -979,6 +979,177 @@ classes: wide
     c.centerW(bt, parts.join(' / '), B);
   }
 
+  // 162.632–177.246：唯一执行的占有循环（scenes.py lyric_only_execution 逐行移植）
+  function sceneOnlyExecution(c, t, top, bt) {
+    var l = 2, r = c.w - 3, cx = Math.floor((l + r) / 2), cy = Math.floor((top + bt) / 2);
+    var age = t - 162.632;
+    var rail = Math.max(10, Math.min(20, Math.floor(c.w / 7)));
+    var ml = l + rail + 1, mr = r - rail - 1, mw = mr - ml + 1;
+    var plot_top = top + 3, plot_bt = bt - 3;
+    var rh = Math.max(2, (plot_bt - plot_top) * 0.45), rw = mw * 0.43;
+    var stage = t < 166.016 ? 0 : t < 169.824 ? 1 : t < 173.643 ? 2 : 3;
+    var frame = Math.trunc(age * 22);
+    var pulse = pulseAt(t);
+    function middle(y, text, ink) {
+      if (ink === undefined) ink = N;
+      text = text.slice(0, mw);
+      c.put(ml + Math.floor((mw - text.length) / 2), y, text, ink);
+    }
+    function banner(y, text, ink) {
+      if (ink === undefined) ink = W;
+      clearRect(c, ml, y, mw, 5);
+      if (text.length * 6 - 1 <= mw) c.big(y, text, ink); else middle(y + 2, text, ink);
+    }
+    // 两侧栏：执念式命令滚动（ONLY ME / KEEP YOU）
+    var rails = [
+      [l, 'ONLY ME', ['SELECT ME', 'KEEP ME', 'DELETE ALT', 'ONLY ME', 'ONE OWNER', 'EXECUTE']],
+      [r - rail + 1, 'KEEP YOU', ['FIND YOU', 'RESTORE YOU', 'COME BACK', 'STAY HERE', 'EXIT DENY', 'RETRY']]
+    ];
+    for (var ri = 0; ri < 2; ri++) {
+      var x = rails[ri][0], label = rails[ri][1], commands = rails[ri][2];
+      c.box(x, top, rail, bt - top + 1, B);
+      c.put(x + 1, top, label, R);
+      for (var yy = top + 1; yy < bt; yy++) {
+        var index = frame + yy;
+        var text = index % 3 ? commands[index % commands.length] : hex4(hash16(index * 71)) + ' LOCK';
+        c.put(x + 1, yy, text.slice(0, rail - 2), index % 7 === 0 ? R : index % 3 ? N : G);
+      }
+    }
+    // 隐函数心形：filled=纹理填充；否则沿轮廓描边
+    function heart(scale, filled) {
+      var beat = 1 + 0.035 * Math.sin(age * TAU * 2.2) + pulse * 0.025;
+      var denW = Math.max(1, rw * scale * beat), denH = Math.max(1, rh * scale * beat);
+      for (yy = plot_top; yy <= plot_bt; yy++) {
+        for (var xx = ml; xx <= mr; xx++) {
+          var nx = (xx - cx) / denW, ny = -(yy - cy) / denH + 0.18;
+          var q = nx * nx + ny * ny - 1;
+          if (q * q * q - nx * nx * ny * ny * ny <= 0) {
+            if (filled) {
+              var texture = hash16(xx * 31 + yy * 73 + frame);
+              c.put(xx, yy, texture % 8 < 2 ? '01'.charAt(texture % 2) : '#', R);
+            } else {
+              var dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+              for (var di = 0; di < 4; di++) {
+                var ex = nx + dirs[di][0] / denW, ey = ny + dirs[di][1] / denH;
+                var eq = ex * ex + ey * ey - 1;
+                if (eq * eq * eq - ex * ex * ey * ey * ey > 0) { c.put(xx, yy, '#', R); break; }
+              }
+            }
+          }
+        }
+      }
+    }
+    function node(x, y, text, ink) {
+      if (ink === undefined) ink = B;
+      x = Math.trunc(x); y = Math.trunc(y);
+      clearRect(c, x - 4, y - 1, 9, 3);
+      c.box(x - 4, y - 1, 9, 3, ink);
+      c.put(x - Math.floor(text.length / 2), y, text, ink);
+    }
+    if (stage === 0) {
+      // 消灭一切其它进程：六路备选连接逐个 NULL 化
+      var progress = clamp01((t - 163.315) / (165.166 - 163.315));
+      var eliminated = Math.min(6, Math.trunc(progress * 6));
+      middle(top, 'ELIMINATE EVERY OTHER PROCESS', B);
+      middle(top + 1, 'ALTERNATIVES: ' + String(6 - eliminated).padStart(2, '0') + ' / TARGET: ONLY ME', R);
+      for (var i = 0; i < 6; i++) {
+        var a = (i + 0.5) * TAU / 6;
+        var nx = cx + Math.cos(a) * rw * 0.85, ny = cy + Math.sin(a) * rh * 0.83;
+        var u = clamp01(progress * 6 - i);
+        c.line(cx, cy, nx, ny, u ? ':' : '=', u ? G : N);
+        if (u < 1) {
+          var packet = mod(age * 1.2 + i * 0.13, 1);
+          c.put(mix(cx, nx, packet), mix(cy, ny, packet), '>', W);
+          node(nx, ny, 'ALT' + (i + 1), B);
+        } else {
+          c.put(nx - 3, ny, '[NULL]', R);
+          for (var spark = 0; spark < 8; spark++) {
+            var ang = spark * TAU / 8;
+            var distance = mod(age + i * 0.17, 1) * 6;
+            var px = nx + Math.cos(ang) * distance, py = ny + Math.sin(ang) * distance * 0.5;
+            if (ml < px && px < mr && plot_top < py && py < plot_bt)
+              c.put(px, py, 'x', spark % 2 ? R : G);
+          }
+        }
+      }
+      node(cx, cy, 'YOU', W);
+      if (t >= 165.166) {
+        banner(cy - 2, 'EXECUTION', R);
+        middle(cy + 5, 'ALL OTHERS -> NULL', W);
+      }
+    } else if (stage === 1) {
+      // 心形即锁：占有式绑定
+      heart(1, true);
+      var bind = clamp01((t - 166.016) / (168.911 - 166.016));
+      for (var ring = 0; ring < 3; ring++) {
+        var radius = mod(ring / 3 + age * 0.35, 1);
+        for (var point_i = 0; point_i < 70; point_i++) {
+          a = point_i * TAU / 70;
+          var rx2 = cx + Math.cos(a) * rw * radius, ry2 = cy + Math.sin(a) * rh * radius;
+          if (plot_top < ry2 && ry2 < plot_bt) c.put(rx2, ry2, ':', G);
+        }
+      }
+      middle(top, 'YOU.OWNER = ME / EXCLUSIVE ACCESS', R);
+      middle(top + 1, 'BIND ' + String(Math.trunc(bind * 100)).padStart(3, '0') + '% / ALTERNATIVES: 0', B);
+      if (mw >= 53 && bt - top >= 22) {
+        banner(cy - 5, 'THE ONLY', W);
+        banner(cy + 1, 'EXECUTION', t >= 168.911 ? R : B);
+      } else {
+        middle(cy - 3, 'THE ONLY', W);
+        banner(cy - 1, 'EXECUTION', t >= 168.911 ? R : B);
+      }
+    } else if (stage === 2) {
+      // 重构 YOU 并拖入锁中
+      var capture = clamp01((t - 169.824) / (172.712 - 169.824));
+      heart(0.86 + 0.14 * capture, true);
+      var mx = cx - mw * 0.18, my = cy + rh * 0.24;
+      var yx = mix(mr - 5, cx + mw * 0.18, capture);
+      var yyy = mix(plot_top + 2, cy - rh * 0.24, capture);
+      for (var tether = 0; tether < 7; tether++) {
+        var offset = tether - 3;
+        var start_x = ml + Math.trunc((mw - 1) * tether / 6);
+        var start_y = tether % 2 ? plot_bt : plot_top;
+        c.line(start_x, start_y, yx, yyy, ':', tether % 3 === 0 ? R : G);
+        var phase = mod(age * 0.85 + tether / 7, 1);
+        c.put(mix(start_x, yx, phase), mix(start_y, yyy, phase), tether % 2 ? '>>' : '<<', B);
+        c.line(mx, my + offset * 0.3, yx, yyy + offset * 0.3, '=', tether === 3 ? N : G);
+      }
+      node(mx, my, 'ME', W);
+      node(yx, yyy, 'YOU', capture > 0.8 ? W : G);
+      middle(top, 'RESTORE(YOU) / RETURN TO ME', R);
+      middle(top + 1, 'RETRY ' + String(Math.trunc((t - 169.824) * 32)).padStart(3, '0') + ' / RELEASE: DISABLED', B);
+      if (t >= 172.712) {
+        banner(cy - 2, 'EXECUTION', R);
+        middle(cy + 5, '[ YOU RESTORED / EXIT LOCKED ]', W);
+      } else if (t >= 171.868) {
+        middle(cy - 1, 'I WILL RUN THE', W);
+      }
+    } else {
+      // 两名囚徒：不可逆共享循环
+      var lock = clamp01((t - 173.643) / 1.332);
+      heart(1, true);
+      var inset = Math.trunc(mw * 0.08 * lock);
+      var bx = ml + inset, bw = mw - 2 * inset;
+      c.box(bx, plot_top, bw, plot_bt - plot_top + 1, R);
+      for (i = 1; i < 10; i++) {
+        x = bx + Math.floor(i * (bw - 1) / 10);
+        var length = Math.trunc((plot_bt - plot_top - 1) * lock);
+        for (var j = 0; j < length; j++) {
+          yy = i % 2 ? plot_top + 1 + j : plot_bt - 1 - j;
+          c.put(x, yy, '|', i % 3 ? B : R);
+        }
+      }
+      node(cx - mw * 0.16, cy, 'ME', W);
+      node(cx + mw * 0.16, cy, 'YOU', W);
+      c.line(cx - mw * 0.16 + 5, cy, cx + mw * 0.16 - 5, cy, '=', R);
+      middle(top, '[ TWO PRISONERS / ONE EXECUTION ]', R);
+      middle(top + 1, 'while (true) { keep(me, you); }', B);
+      middle(Math.min(plot_bt - 1, cy + 4), '[ NO EXIT / NO RELEASE ]', W);
+    }
+    middle(bt - 1, stage > 0 ? 'THE ONLY EXECUTION' : 'EXECUTE(THEM) -> KEEP(ME)', R);
+    middle(bt, 'LOVE.PERMISSION = EXCLUSIVE / EXIT = FALSE', N);
+  }
+
   // 占位场景：低密噪点 + 待移植提示
   function sceneFallback(c, t, top, bt) {
     for (var y = top; y <= bt; y++)
@@ -2619,7 +2790,8 @@ classes: wide
     { a: 118.333, b: 125.708, f: sceneEraseFragments },
     { a: 125.708, b: 147.66, f: sceneIllegalArgs },
     { a: 147.66, b: 158.9, f: sceneExec },
-    { a: 158.9, b: 162.632, f: sceneMultilingualCount }
+    { a: 158.9, b: 162.632, f: sceneMultilingualCount },
+    { a: 162.632, b: 177.246, f: sceneOnlyExecution }
   ];
   function sceneAt(t) {
     for (var i = 0; i < SCENES.length; i++)
