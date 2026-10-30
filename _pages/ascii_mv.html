@@ -3322,6 +3322,13 @@ title: 字符演歌
       luRing(c, cx, cy, rr | 0, u > 0.5 ? '*' : '.', u > 0.55 ? R : u > 0.3 ? N : D, 2);
     }
     c.put(cx | 0, cy | 0, '@', env > 0.45 ? R : B);
+    // 3D 心核：双锥体线框随心跳包络缩放搏动（血管交汇处的立体心脏）
+    var sc3 = (1 + env * 0.3) * (1 + merge * 0.5);
+    var vH = [[0, -1.7 * sc3, 0], [0, 1.7 * sc3, 0],
+              [-sc3, 0, -sc3], [sc3, 0, -sc3], [sc3, 0, sc3], [-sc3, 0, sc3]];
+    var eH = [[0,2],[0,3],[0,4],[0,5],[1,2],[1,3],[1,4],[1,5],[2,3],[3,4],[4,5],[5,2]];
+    projected(c, vH, eH, l, top, r, bt, t * 0.22, merge > 0.8 ? W : R,
+              Math.min(1, 0.25 + e * 0.5));
     if (chainOn > 0) {                                // 金链缠心（shared pain gold chains）
       var cr2 = (17 - chainOn * 6 - merge * 6) | 0;   // 链环收紧
       luChainRing(c, cx, cy, Math.max(6, cr2), t * 0.3, chainOn > 0.6 ? G : D);
@@ -3331,6 +3338,14 @@ title: 字符演歌
       if (merge > 0.85)
         luRing(c, cx, cy, (3 + merge * 6) | 0, '*', W, 0);
     }
+    luLog(c, top + 1, elapsed, [                      // VITALS 监护日志
+      ['VITALS.SYS -- DUAL CORE LINK', 0.3, W],
+      ['> host pulse .......... 72bpm', 1.4, G],
+      ['> guest pulse ......... FOUND', 4.0, B],
+      ['> vessels x5 .......... DEMONIC', 6.4, N],
+      ['> gold chains ......... BOUND', 10.6, G],
+      ['> cores merging ....... LIFELINE', 14.4, R]
+    ]);
   }
   // 48.17–64.40 导歌一（梦境）：四阶段——静谧丝带梦(0-5.5) → 双信子相遇(5.5-10, you&me) →
   // 血色侵蚀梦碎(10-15) → 底部点燃桥接火海(15-16.23, bound by blood and flames)
