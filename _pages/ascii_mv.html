@@ -3234,140 +3234,280 @@ title: 字符演歌
               sb % 3 ? '*' : '+', strike > 0.6 ? W : R);
       }
   }
-  // 16.42–32.35 主歌一（钢铁/王冠）：三段推进——奔跑锻火(0-11.5) →
-  // 金王冠压顶(11.5-13.6, 对应 "gold crown weighing me down") → 王冠崩裂出血脉冲(13.6-15.93, 桥接血脉段)
-  function lu_verse_steel(c, t, top, bt, elapsed) {
+  // ===== 主歌一 16.42–32.35 粒度细分：4 子场景，按歌词行切 =====
+
+  // 16.42–20.57 "Fire burnin' up / new salvation"：锻炉口+双齿轮，跑者奔向炉火
+  function lu_s1_forge(c, t, top, bt, elapsed) {
     var e = elapsed, cx = (c.w - 1) / 2, cy = (top + bt) / 2;
-    var spin = 1 + Math.min(0.5, e * 0.045);          // 齿轮随时间缓缓提速
-    luGear(c, 24, 13, 6, t * 0.9 * spin, B);
-    luGear(c, 41, 18, 4, -t * 1.35 * spin, N);
-    luGear(c, 13, 24, 3, -t * 1.8 * spin, D);
-    var vx = c.w - 3, vy = cy;
-    for (var i = 0; i < 5; i++) {                     // 透视线向右缘汇聚（稀疏虚线）
-      var y0 = top + 3 + i * 5.5;
-      for (var x = 54; x < vx; x += 3)
-        if (hash16(x * 3 + i * 77) % 100 < 55)
-          c.put(x, (y0 + (vy - y0) * (x - 54) / (vx - 54)) | 0, '-', D);
+    var fi = clamp01(e / 1.2);                        // 炉口火焰渐旺
+    var fx = 16, fy = bt - 3;
+    for (var a2 = 0; a2 <= 12; a2++) {                // 砖拱
+      var aa = Math.PI - a2 / 12 * Math.PI;
+      c.put((fx + Math.cos(aa) * 9) | 0, (fy - Math.sin(aa) * 7) | 0, '#', B);
     }
-    var ru = mod(t * 0.55, 1);                        // 跑者光点 + 余烬足迹
-    var rx = 50 + ru * (vx - 50), ry = vy + Math.sin(ru * 9) * 2;
+    c.put(fx - 9, fy, '#', B); c.put(fx + 9, fy, '#', B);
+    for (var f2 = 0; f2 < 6 + fi * 6; f2++)           // 炉膛火
+      luFlame(c, fx - 6 + (f2 * 37) % 13, fy - 1,
+              2 + ((f2 * 13 + (t * 5 | 0)) % 5), f2, t);
+    luGear(c, 7, top + 6, 4, t * 0.8, N);             // 炉侧齿轮
+    luGear(c, 30, top + 4, 3, -t * 1.1, D);
+    var ember = luBox(0.5, 0.5, 0.5, 0, 0, 0);        // 3D 火种绕炉缓旋
+    projected(c, ember, luEdges(0), fx - 7, top + 1, fx + 7, top + 8, t * 0.7,
+              B, clamp01(e / 0.8));
+    var ru = mod(t * 0.5, 1);                         // 跑者自右缘奔向炉口
+    var rx = mix(c.w - 6, fx + 12, ru), ry = fy - 1 - Math.sin(ru * 7) * 1.5;
     c.put(rx | 0, ry | 0, '@', W);
-    c.put((rx - 2) | 0, (ry + 1) | 0, '.', R);
-    c.put((rx - 3) | 0, (ry + 1) | 0, '.', R);
-    for (var x3 = 4; x3 < c.w - 4; x3 += 3)           // 顶部暗红光
-      if (hash16(x3 * 13 + (t * 2 | 0)) % 100 < 12) c.put(x3, top, '.', R);
-    // 王冠：自顶部沉降压顶（smoothstep），随后崩裂
-    var crownIn = clamp01((e - 11.5) / 1.4);          // 11.5–12.9 降入
-    if (crownIn > 0) {
-      var crack = clamp01((e - 13.6) / 1.2);          // 13.6 起崩裂
-      var gold = crack > 0.5 ? (mod(t * 6, 1) < 0.5 ? G : D) : G;
-      var yTop = (top - 5 + crownIn * crownIn * (3 - 2 * crownIn) * (cy - 2 - top + 5)) | 0;
-      var yBot = yTop + 3;
-      var spikes = '\\^/ \\^/ \\^/ \\^/ \\^/', band = '|=================|', base = "'-----------------'";
-      for (var s2 = 0; s2 < spikes.length; s2++)
-        c.put((cx - 9 + s2) | 0, yTop, spikes[s2], crack > 0 ? R : W);
-      for (var s3 = 0; s3 < band.length; s3++)
-        c.put((cx - 9 + s3) | 0, yTop + 1, band[s3], gold);
-      for (var s4 = 0; s4 < base.length; s4++)
-        c.put((cx - 9 + s4) | 0, yTop + 2, base[s4], gold);
-      if (crack > 0) {                                // 裂纹 + 压沉
-        c.put((cx - 3) | 0, yTop + 1, 'x', R);
-        c.put((cx + 2) | 0, yTop + 2, 'x', R);
-        yBot += (crack * 1.5) | 0;
-      }
-      // 崩裂后自王冠漾出血脉冲环（桥接 32.35 血脉段的房心环）
-      if (crack > 0.25) {
-        var pr = mod(t * 1.65, 1);
-        for (var ring2 = 0; ring2 < 2; ring2++) {
-          var rr2 = 4 + pr * (14 + ring2 * 6);
-          var u2 = clamp01(1 - rr2 / 26) * (1 - pr * 0.6);
-          if (u2 > 0.06)
-            luRing(c, cx, yBot, rr2 | 0, ring2 ? '.' : '+',
-                   u2 > 0.55 ? R : u2 > 0.3 ? N : D, 2);
-        }
-      }
-    }
+    for (var tr = 1; tr <= 6; tr++)
+      c.put((rx + tr * 1.6) | 0, (ry + 1) | 0, '.', tr < 3 ? R : D);
+    luParticles(c, t, top, bt, 10, 19, true, true);
   }
-  // 32.35–48.17 主歌一（血脉脉搏）：四阶段——双心共鸣(0-5.6, hear your pulse) →
-  // 恶魔化膨胀(5.6-10.2, demonic) → 金链缠心(10.2-14.5, gold chains) →
-  // 双心合一化梦(14.5-15.82, you are my lifeline，桥接导歌梦境)
-  function lu_verse_pulse(c, t, top, bt, elapsed) {
-    var l = 2, r = c.w - 3, cx = (l + r) / 2, cy = (top + bt) / 2, e = elapsed;
-    var demonic = clamp01((e - 5.6) / 2.5);           // 恶魔化强度
-    var chainOn = clamp01((e - 10.2) / 1.5);          // 金链登场
-    var merge = clamp01((e - 14.5) / 1.32);           // 双心合一（末段）
-    var fadeV = 1 - merge;                            // 血管可见度
-    var nV = 3 + Math.round(demonic * 2);             // 血管 3 → 5 条
-    var spacing = nV > 3 ? 4.4 : 7;
-    var ampMul = (1 + demonic * 0.2) * (1 - merge * 0.5);
-    var midIdx = (nV - 1) / 2;
-    for (var v = 0; v < nV && fadeV > 0.05; v++) {
-      var yMid = cy + (v - midIdx) * spacing;
-      var amp = (2.4 + (v % 3) * 0.7) * ampMul;
-      var ph = t * (1.1 + (v % 3) * 0.13 + demonic * 0.35) + v * 2.1;
-      var vSt = v === midIdx ? R : demonic > 0.5 ? N : D;
-      if (merge > 0) vSt = D;                         // 合一前血管转暗消散
-      for (var x = l; x < r; x++) {
-        var y = yMid + Math.sin(x * 0.075 + ph) * amp;
-        var dy = Math.cos(x * 0.075 + ph) * amp * 0.075;
-        c.put(x, y | 0, Math.abs(dy) < 0.12 ? '-' : dy > 0 ? '\\' : '/', vSt);
-      }
-      if (v === midIdx)                               // 主血管内血细胞流
-        for (var cb = 0; cb < 12; cb++) {
-          var cxx = l + mod(cb * 10.3 + t * (15 + demonic * 8), r - l);
-          c.put(cxx | 0, (cy + Math.sin(cxx * 0.075 + ph) * amp) | 0,
-                cb % 3 ? 'o' : '.', cb % 4 ? R : W);
-        }
-    }
-    // 双心：主心 + 次心（你），错峰跳动，末段向中心合一
-    var rate = 1.65 + demonic * 0.5;
-    var beat = mod(t * rate, 1), env = Math.exp(-beat * 5);
-    if (demonic > 0.4)                                // 恶魔化：不规则第二搏动
-      env += 0.45 * Math.exp(-mod(beat + 0.47, 1) * 7);
-    var hOff = 24 * (1 - merge);                      // 次心偏移（合一 → 0）
-    var hx2 = cx + hOff, hy2 = cy - 3;
-    if (hOff > 1) {                                   // 次心：小环 + 错峰包络
-      var env2 = Math.exp(-mod(beat + 0.4, 1) * 5);
-      luRing(c, hx2, hy2, (2 + env2 * 4) | 0, '.', env2 > 0.5 ? B : N, 0);
-      c.put(hx2 | 0, hy2 | 0, 'o', env2 > 0.5 ? W : B);
-      // 连心脉：次心 → 主心 的血珠流（got you in my veins）
-      for (var lk = 0; lk < 7; lk++) {
-        var lu2 = mod(lk / 7 + t * 0.4, 1);
-        var lx = hx2 + (cx - 3 - hx2) * lu2;
-        var ly = hy2 + (cy - hy2) * lu2 + Math.sin(lu2 * 9) * 1.5;
-        c.put(lx | 0, ly | 0, '.', lk % 2 ? R : W);
+
+  // 20.57–24.32 "Runnin' through the hot coals"：热炭海 + 双跑者并肩（we both）
+  function lu_s1_coals(c, t, top, bt, elapsed) {
+    var e = elapsed, cx = (c.w - 1) / 2, cy = (top + bt) / 2;
+    var beat = mod(t * 1.65, 1), env = Math.exp(-beat * 5);
+    for (var row = 0; row < 3; row++) {               // 三层热炭，亮度随节拍
+      var y = bt - 2 - row * 2;
+      for (var x = 3 + (row % 2); x < c.w - 3; x += 2) {
+        var hs = hash16(x * 31 + row * 77);
+        var glow = (hs % 100) / 100 * (0.5 + env * 0.6);
+        c.put(x, y, hs % 5 ? 'o' : '.',
+              glow > 0.62 ? (hs % 7 ? R : W) : glow > 0.4 ? B : glow > 0.22 ? N : D);
       }
     }
-    for (var ring = 0; ring < 3; ring++) {            // 主心心房扩散环
-      var rr = 2 + beat * (15 + demonic * 4) + ring * 5;
-      var u = clamp01(1 - rr / 25) * (0.4 + env);
-      if (u <= 0.05) continue;
-      luRing(c, cx, cy, rr | 0, u > 0.5 ? '*' : '.', u > 0.55 ? R : u > 0.3 ? N : D, 2);
+    for (var rn = 0; rn < 2; rn++) {                  // 双跑者 + 火星拖尾
+      var ru = mod(t * 0.62 + rn * 0.5, 1);
+      var rx = mix(c.w - 8, 6, ru), ry = cy - 3 + rn * 4 + Math.sin(ru * 9 + rn) * 1.6;
+      c.put(rx | 0, ry | 0, '@', rn ? B : W);
+      for (var tr = 1; tr <= 7; tr++)
+        c.put((rx + tr * 1.7) | 0, (ry + Math.sin(tr) * 0.8) | 0,
+              tr < 2 ? '*' : '.', tr < 3 ? R : tr < 5 ? B : D);
     }
-    c.put(cx | 0, cy | 0, '@', env > 0.45 ? R : B);
-    // 3D 心核：双锥体线框随心跳包络缩放搏动（血管交汇处的立体心脏）
-    var sc3 = (1 + env * 0.3) * (1 + merge * 0.5);
+    for (var sp = 0; sp < 8; sp++) {                  // 炭花爆裂上弹
+      var hs2 = hash16(sp * 91 + 7);
+      var su = mod(t * (0.6 + hs2 % 40 / 50) + hs2 % 89 / 89, 1);
+      c.put((4 + hs2 % (c.w - 10)) | 0, (bt - 2 - su * (5 + hs2 % 4)) | 0,
+            su < 0.3 ? '*' : '.', su < 0.25 ? W : su < 0.5 ? R : D);
+    }
+    for (var x3 = 4; x3 < c.w - 4; x3 += 3)           // 顶部热浪微光
+      if (hash16(x3 * 13 + (t * 2 | 0)) % 100 < 12) c.put(x3, top, '.', R);
+  }
+
+  // 24.32–27.98 "steel and iron / stay defiant"：交叉双剑+铁砧+垂链+双钢锭 3D
+  function lu_s1_iron(c, t, top, bt, elapsed) {
+    var e = elapsed, cx = (c.w - 1) / 2, cy = (top + bt) / 2;
+    var cross = clamp01(e / 0.9);                     // 双剑滑入交叉
+    for (var k = 0; k < 14 * cross; k++) {
+      c.put((cx - 12 + k) | 0, (cy - 6 + k * 0.75) | 0, '=', N);
+      c.put((cx + 12 - k) | 0, (cy - 6 + k * 0.75) | 0, '=', B);
+    }
+    c.put((cx - 13) | 0, (cy - 7) | 0, '>', B);
+    c.put((cx + 13) | 0, (cy - 7) | 0, '<', N);
+    c.put(cx - 1, cy + 3, '[==]', G);                 // 护手+柄
+    c.put(cx - 2, cy + 4, '[====]', G);
+    for (var ax = -6; ax <= 6; ax++) c.put(cx + ax, bt - 3, '#', N);   // 铁砧
+    for (var ax2 = -4; ax2 <= 4; ax2++) c.put(cx + ax2, bt - 2, '=', D);
+    c.put(cx, bt - 4, '#', B);
+    for (var ch = 0; ch < 2; ch++) {                  // 两侧垂链
+      var chx = ch ? c.w - 10 : 9;
+      for (var cy2 = top + 1; cy2 < top + 9 + ch * 3; cy2++)
+        c.put(chx, cy2, '<>[]{}()'.charAt(cy2 % 8), cy2 % 2 ? D : N);
+    }
+    luGear(c, 8, bt - 6, 3, t, D); luGear(c, c.w - 9, bt - 6, 3, -t, D);
+    var ing1 = luBox(1.1, 0.7, 0.7, -1.8, 0, 0);      // 3D 双钢锭对转
+    var ing2 = luBox(1.1, 0.7, 0.7, 1.8, 0, 0);
+    projected(c, ing1.concat(ing2), luEdges(0).concat(luEdges(8)),
+              cx - 16, top + 1, cx + 16, top + 10, t * 0.5, B, clamp01(e / 0.7));
+    luParticles(c, t, top, bt, 8, 23, true, false);
+  }
+
+  // 27.98–32.35 "gold crown weighing me down / can you feel my pain"：
+  // 金冠自顶沉降压弯跪姿人形，四角坠链，崩裂出血脉冲（桥接血脉段）
+  function lu_s1_crown(c, t, top, bt, elapsed) {
+    var e = elapsed, cx = (c.w - 1) / 2, cy = (top + bt) / 2;
+    var press = clamp01(e / 1.1), crack = clamp01((e - 2.2) / 1.4);
+    var figY = cy + 5 + press * 2;                    // 跪姿人形被压下沉
+    c.put(cx, figY - 2, 'o', press > 0.6 ? R : W);
+    c.put(cx, figY - 1, '@', N); c.put(cx, figY, '@', N);
+    c.put(cx - 1, figY, '=', D); c.put(cx + 1, figY, '=', D);
+    var gold = crack > 0.5 ? (mod(t * 6, 1) < 0.5 ? G : D) : G;
+    var yTop = (top + 1 + press * (figY - 6 - top)) | 0;
+    var spikes = '\\^/ \\^/ \\^/ \\^/ \\^/',
+        band = '|=================|', base = "'-----------------'";
+    for (var s2 = 0; s2 < spikes.length; s2++)
+      c.put(cx - 9 + s2, yTop, spikes[s2], crack > 0 ? R : W);
+    for (var s3 = 0; s3 < band.length; s3++)
+      c.put(cx - 9 + s3, yTop + 1, band[s3], gold);
+    for (var s4 = 0; s4 < base.length; s4++)
+      c.put(cx - 9 + s4, yTop + 2, base[s4], gold);
+    for (var cn = 0; cn < 4; cn++) {                  // 冠角坠链连向四角
+      var dir = cn % 2 ? 1 : -1, yy = yTop + 3;
+      for (var cl = 0; cl < 10; cl++) {
+        var cxx = cx + dir * (9 + cl * 2.4), cyy = yy + cl * 1.5;
+        if (cyy > bt || cxx < 2 || cxx > c.w - 3) break;
+        c.put(cxx | 0, cyy | 0, '<>[]{})('.charAt((cl + cn) % 8), D);
+      }
+    }
+    if (crack > 0) {                                  // 崩裂 + 血脉冲环
+      c.put(cx - 3, yTop + 1, 'x', R); c.put(cx + 2, yTop + 2, 'x', R);
+      var pr = mod(t * 1.65, 1);
+      for (var rg = 0; rg < 2; rg++) {
+        var rr = 4 + pr * (13 + rg * 6);
+        var u2 = clamp01(1 - rr / 24) * (1 - pr * 0.6);
+        if (u2 > 0.06)
+          luRing(c, cx, figY, rr | 0, rg ? '.' : '+',
+                 u2 > 0.55 ? R : u2 > 0.3 ? N : D, 2);
+      }
+    }
+    luParticles(c, t, top, bt, 8 + (crack * 14) | 0, 29, true, crack > 0);
+  }
+
+  // ===== 血脉段 32.35–48.17 粒度细分：4 子场景 =====
+
+  // 32.35–36.25 "I can hear your pulse / got you in my veins"：双心错峰+连心脉
+  function lu_s2_pulse(c, t, top, bt, elapsed) {
+    var e = elapsed, l = 2, r = c.w - 3, cx = (l + r) / 2, cy = (top + bt) / 2;
+    var beat = mod(t * 1.65, 1), env = Math.exp(-beat * 5);
+    var env2 = Math.exp(-mod(beat + 0.4, 1) * 5);
+    var hx = cx - 14, hx2 = cx + 14;
+    luRing(c, hx, cy, (3 + env * 5) | 0, '.', env > 0.5 ? R : N, 0);
+    c.put(hx, cy, '@', env > 0.45 ? W : R);
+    luRing(c, hx2, cy, (2 + env2 * 4) | 0, '.', env2 > 0.5 ? B : N, 0);
+    c.put(hx2, cy, 'o', env2 > 0.5 ? W : B);
+    for (var lk = 0; lk < 12; lk++) {                 // 连心脉双向往返血珠
+      var dirB = lk % 2, lu2 = mod(lk / 12 + t * 0.35, 1);
+      var lx = mix(hx + 2, hx2 - 2, dirB ? lu2 : 1 - lu2);
+      c.put(lx | 0, (cy + Math.sin(lu2 * 10 + dirB * 3) * 2.2) | 0,
+            '.', lk % 3 ? R : W);
+    }
+    for (var rg2 = 0; rg2 < 2; rg2++) {               // 主心扩散环
+      var rr = 3 + beat * (13 + rg2 * 6);
+      var u = clamp01(1 - rr / 22) * (0.4 + env);
+      if (u > 0.06) luRing(c, hx, cy, rr | 0, '+', u > 0.55 ? R : N, 2);
+    }
+    for (var v = 0; v < 2; v++) {                     // 背景暗血管
+      var yMid = cy + (v ? 7 : -7);
+      for (var x = l; x < r; x++)
+        c.put(x, (yMid + Math.sin(x * 0.07 + t * 1.1 + v * 2.1) * 2.4) | 0,
+              hash16(x * 7 + v) % 3 ? '.' : '-', D);
+    }
+    luLog(c, top + 1, e, [
+      ['VITALS.SYS -- DUAL CORE LINK', 0.3, W],
+      ['> host pulse .......... 72bpm', 1.2, G],
+      ['> guest pulse ......... FOUND', 2.6, B]
+    ]);
+  }
+
+  // 36.25–40.35 "synergy demonic"：3D 双锥心核恶魔化膨胀 + 五血管放射 + 双角
+  function lu_s2_demonic(c, t, top, bt, elapsed) {
+    var e = elapsed, l = 2, r = c.w - 3, cx = (l + r) / 2, cy = (top + bt) / 2;
+    var grow = clamp01(e / 1.4);
+    var beat = mod(t * (1.65 + grow * 0.5), 1);
+    var env = Math.exp(-beat * 5) +
+              0.45 * Math.exp(-mod(beat + 0.47, 1) * 7);   // 不规则双搏
+    for (var v = 0; v < 5; v++) {                     // 五血管放射（左右对称）
+      var dirA = (v - 2) * 0.28;
+      for (var k = 0; k < 26; k++) {
+        var dx2 = k * 2.6, dy2 = Math.sin(k * 0.4 + t * 2) * 1.8 + k * dirA * 0.55;
+        var st2 = k < 5 ? R : v % 2 ? N : D;
+        c.put((cx + dx2) | 0, (cy + dy2) | 0, k % 4 ? '.' : 'o', st2);
+        c.put((cx - dx2) | 0, (cy + dy2) | 0, k % 4 ? '.' : 'o', st2);
+      }
+    }
+    var sc3 = (0.9 + grow * 0.9) * (1 + env * 0.25);  // 3D 心核搏动
     var vH = [[0, -1.7 * sc3, 0], [0, 1.7 * sc3, 0],
               [-sc3, 0, -sc3], [sc3, 0, -sc3], [sc3, 0, sc3], [-sc3, 0, sc3]];
     var eH = [[0,2],[0,3],[0,4],[0,5],[1,2],[1,3],[1,4],[1,5],[2,3],[3,4],[4,5],[5,2]];
-    projected(c, vH, eH, l, top, r, bt, t * 0.22, merge > 0.8 ? W : R,
-              Math.min(1, 0.25 + e * 0.5));
-    if (chainOn > 0) {                                // 金链缠心（shared pain gold chains）
-      var cr2 = (17 - chainOn * 6 - merge * 6) | 0;   // 链环收紧
-      luChainRing(c, cx, cy, Math.max(6, cr2), t * 0.3, chainOn > 0.6 ? G : D);
+    projected(c, vH, eH, cx - 10, cy - 8, cx + 10, cy + 8, t * 0.3, R, 1);
+    for (var hn = 0; hn < 2; hn++) {                  // 恶魔双角
+      var dir = hn ? 1 : -1;
+      for (var hk = 0; hk < 6; hk++)
+        c.put((cx + dir * (2 + hk * 1.6)) | 0,
+              (cy - 6 - hk * 1.1 + hk * hk * 0.28) | 0,
+              hk % 2 ? '/' : '#', hk < 3 ? R : D);
     }
-    if (merge > 0) {                                  // 合一化梦：余烬升腾 + 白环 handoff
-      luParticles(c, t, top, bt, (40 * merge) | 0, 77, true, true);
-      if (merge > 0.85)
-        luRing(c, cx, cy, (3 + merge * 6) | 0, '*', W, 0);
+    c.put(cx | 0, cy | 0, '@', env > 0.5 ? W : R);
+    luLog(c, top + 1, e, [
+      ['VITALS.SYS -- WARNING', 0.4, R],
+      ['> synergy .............. DEMONIC', 1.2, N],
+      ['> second heartbeat ..... IRREGULAR', 2.4, R]
+    ]);
+  }
+
+  // 40.35–44.17 "they worship me...never see it / broke hearts deep scars"：
+  // 膜拜之眼阵列（半数闭合）+ 中央 3D 偶像球 + 疤痕裂纹
+  function lu_s2_worship(c, t, top, bt, elapsed) {
+    var e = elapsed, l = 2, r = c.w - 3, cx = (l + r) / 2, cy = (top + bt) / 2;
+    for (var px = -8; px <= 8; px += 2) c.put(cx + px, bt - 6, '=', D);   // 基座
+    for (var px2 = -5; px2 <= 5; px2 += 2) c.put(cx + px2, bt - 7, '#', N);
+    var sphW = luSphere(1.8);                         // 3D 偶像球
+    projected(c, sphW[0], sphW[1], cx - 7, bt - 22, cx + 7, bt - 9,
+              t * 0.25, e > 2 ? R : B, 1);
+    for (var row = 0; row < 3; row++) {               // 膜拜之眼三排
+      var y = bt - 4 - row * 3;
+      for (var x = l + 3 + (row % 2) * 3; x < r - 2; x += 6) {
+        var hs = hash16(x * 13 + row * 71);
+        if (hs % 100 < 46) { c.put(x, y, '-', D); continue; }  // 闭合=never see
+        c.put(x, y, 'o', N);
+        var look = x < cx ? 1 : -1;
+        if (hs % 3) c.put(x + look, y, '*', hs % 5 ? B : R);
+      }
     }
-    luLog(c, top + 1, elapsed, [                      // VITALS 监护日志
-      ['VITALS.SYS -- DUAL CORE LINK', 0.3, W],
-      ['> host pulse .......... 72bpm', 1.4, G],
-      ['> guest pulse ......... FOUND', 4.0, B],
-      ['> vessels x5 .......... DEMONIC', 6.4, N],
-      ['> gold chains ......... BOUND', 10.6, G],
-      ['> cores merging ....... LIFELINE', 14.4, R]
+    for (var sc2 = 0; sc2 < 5; sc2++) {               // 顶部蔓延的疤痕裂纹
+      var hs2 = hash16(sc2 * 331 + 5);
+      var sx2 = 6 + hs2 % (c.w - 14), sy2 = top + 1;
+      for (var seg = 0; seg < 4 + hs2 % 5; seg++) {
+        c.put(sx2, sy2, 'x', seg % 2 ? R : D);
+        sx2 += (hs2 >> (seg % 8)) % 3 - 1; sy2++;
+        if (sy2 > cy - 8) break;
+      }
+    }
+    luLog(c, top + 1, e, [
+      ['WORSHIP.SYS -- IDOL ONLINE', 0.4, N],
+      ['> followers ........... 1048576', 1.4, B],
+      ['> true sight .......... 0.00%', 2.6, R]
+    ]);
+  }
+
+  // 44.17–48.17 "shared pain gold chains / you are my lifeline"：
+  // 双心拉近合一 + 金链环收紧，末帧白环化梦 handoff
+  function lu_s2_chains(c, t, top, bt, elapsed) {
+    var e = elapsed, l = 2, r = c.w - 3, cx = (l + r) / 2, cy = (top + bt) / 2;
+    var pull = clamp01(e / 2.2), merge = clamp01((e - 2.6) / 1.4);
+    var beat = mod(t * 1.65, 1), env = Math.exp(-beat * 5);
+    var hOff = 16 * (1 - pull);
+    var hx = cx - hOff, hx2 = cx + hOff;
+    var blink = merge > 0 && mod(t * 6, 1) < 0.5;
+    luRing(c, hx, cy, (3 + env * 4) | 0, '.', blink ? W : R, 0);
+    c.put(hx, cy, '@', env > 0.45 ? W : R);
+    if (hOff > 1.5) {
+      luRing(c, hx2, cy, (2 + env * 3) | 0, '.', R, 0);
+      c.put(hx2, cy, 'o', W);
+      for (var lk = 0; lk < 8; lk++) {                // 连心脉血珠
+        var lu2 = mod(lk / 8 + t * 0.4, 1);
+        c.put((hx + 2 + (hx2 - hx - 4) * lu2) | 0,
+              (cy + Math.sin(lu2 * 9) * 1.6) | 0, '.', lk % 2 ? R : W);
+      }
+    } else c.put(cx, cy, '@', W);                     // 合一：单心白亮
+    var chainOn = clamp01((e - 0.8) / 1.0);           // 金链环收紧
+    if (chainOn > 0)
+      luChainRing(c, cx, cy, Math.max(7, (16 - chainOn * 5 - merge * 5) | 0),
+                  t * 0.35, chainOn > 0.6 ? G : D);
+    if (merge > 0) {                                  // 化梦 handoff
+      luParticles(c, t, top, bt, (36 * merge) | 0, 77, true, true);
+      if (merge > 0.8) luRing(c, cx, cy, (3 + merge * 6) | 0, '*', W, 0);
+    }
+    for (var v = 0; v < 2; v++) {                     // 背景暗血管渐隐
+      var yMid = cy + (v ? 8 : -8);
+      for (var x = l; x < r; x++)
+        c.put(x, (yMid + Math.sin(x * 0.07 + t) * 2) | 0, '.',
+              merge > 0.5 ? K : D);
+    }
+    luLog(c, top + 1, e, [
+      ['VITALS.SYS -- CHAIN PROTOCOL', 0.3, W],
+      ['> shared pain ......... LINKED', 1.2, G],
+      ['> gold chains ......... BOUND', 2.0, G],
+      ['> cores merging ....... LIFELINE', 2.8, R]
     ]);
   }
   // 48.17–64.40 导歌一（梦境）：四阶段——静谧丝带梦(0-5.5) → 双信子相遇(5.5-10, you&me) →
@@ -4231,8 +4371,14 @@ title: 字符演歌
       // 场景表对照官方 MV（BV1C9b76cEks，MV 时间 ≈ 歌曲 + 11s）按歌词时间轴落位
       scenes: [
         { a: 0,      b: 16.42,  f: lu_credits_void },
-        { a: 16.42,  b: 32.35,  f: lu_verse_steel },
-        { a: 32.35,  b: 48.17,  f: lu_verse_pulse },
+        { a: 16.42,  b: 20.57,  f: lu_s1_forge },
+        { a: 20.57,  b: 24.32,  f: lu_s1_coals },
+        { a: 24.32,  b: 27.98,  f: lu_s1_iron },
+        { a: 27.98,  b: 32.35,  f: lu_s1_crown },
+        { a: 32.35,  b: 36.25,  f: lu_s2_pulse },
+        { a: 36.25,  b: 40.35,  f: lu_s2_demonic },
+        { a: 40.35,  b: 44.17,  f: lu_s2_worship },
+        { a: 44.17,  b: 48.17,  f: lu_s2_chains },
         { a: 48.17,  b: 64.40,  f: lu_predream_ribbons },
         { a: 64.40,  b: 72.01,  f: lu_bloodflames },
         { a: 72.01,  b: 80.00,  f: lu_chorus_linkup },
