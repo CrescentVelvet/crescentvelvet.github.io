@@ -3845,6 +3845,24 @@ title: 字符演歌
     lu_bloodflames(c, t, top, bt, 3 + elapsed);       // 复用火柱（更旺）
     var l = 2, r = c.w - 3, cx = (l + r) / 2, cy = (top + bt) / 2;
     var appear = clamp01(elapsed / 2.2);
+    // 3D 纹章核心（浮现前就开始旋转，逐棱随 appear 显形）+ SIGIL.SYS 日志
+    var vsS = luBox(0.8, 0.8, 0.8, 0, 0, 0);
+    projected(c, vsS, luEdges(0), cx - 5, top + 1, cx + 5, top + 8,
+              t * 0.5, appear > 0.8 ? W : R, 1);
+    var LOGS2 = [
+      [0.3, 'SIGIL.SYS  v6.6'],
+      [2.2, 'sigil ........ FORGING'],
+      [4.5, 'hexagram ..... ALIGNED'],
+      [6.5, 'runes ........ LIT'],
+      [7.2, 'SHATTERPROOF']
+    ];
+    for (var g = 0; g < LOGS2.length; g++) {
+      if (elapsed < LOGS2[g][0]) break;
+      var ln = LOGS2[g][1];
+      var sh2 = Math.min(ln.length, ((elapsed - LOGS2[g][0]) * 24) | 0);
+      for (var ch = 0; ch < sh2; ch++)
+        c.put(3 + ch, top + 1 + g, ln[ch], g === 4 ? W : ch < 10 ? B : N);
+    }
     if (appear < 1 && mod(t * 8, 1) > appear + 0.35) return;   // 闪烁式浮现
     var st = elapsed > 7.0 ? W : R;
     luRing(c, cx, cy, 14, '*', st, 2, -t * 0.8);      // 外环逆旋（虚线）
