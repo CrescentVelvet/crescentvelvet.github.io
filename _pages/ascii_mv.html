@@ -3891,6 +3891,32 @@ title: 字符演歌
       for (var by = top + 1; by < bt; by += 2)
         if (hash16(bx * 11 + by * 17) % 100 < 45) c.put(bx, by, '.', G);
     var bob = Math.sin(t * 3) * 0.6;
+    // 中央上方 3D 交叉双剑：两柄长剑绕 z 轴 ±0.5rad 交叉，缓旋
+    function rzVs(vs, ang) {
+      var ca = Math.cos(ang), sa = Math.sin(ang);
+      return vs.map(function (v) {
+        return [v[0] * ca - v[1] * sa, v[0] * sa + v[1] * ca, v[2]];
+      });
+    }
+    var vsD = rzVs(luBox(0.15, 1.6, 0.15, 0, 0, 0), 0.5)
+      .concat(rzVs(luBox(0.15, 1.6, 0.15, 0, 0, 0), -0.5));
+    projected(c, vsD, luEdges(0).concat(luEdges(8)), cx - 7, top + 1, cx + 7, top + 9,
+              t * 0.25, B, 1);
+    // 左上 DUET.SYS 日志
+    var LOGD2 = [
+      [0.3, 'DUET.SYS  v2.0'],
+      [1.6, 'partners ..... BACK2BACK'],
+      [4.0, 'blades ....... CROSSED'],
+      [6.5, 'crystal ...... SHATTERED'],
+      [7.8, 'BLOOD & FLAMES']
+    ];
+    for (var g = 0; g < LOGD2.length; g++) {
+      if (elapsed < LOGD2[g][0]) break;
+      var ln = LOGD2[g][1];
+      var sh2 = Math.min(ln.length, ((elapsed - LOGD2[g][0]) * 24) | 0);
+      for (var ch = 0; ch < sh2; ch++)
+        c.put(3 + ch, top + 1 + g, ln[ch], g === 4 ? R : ch < 10 ? B : N);
+    }
     for (var side = 0; side < 2; side++) {                  // 双人背靠背（朝外）
       var dirS = side ? 1 : -1;
       var fx = (cx + dirS * 9) | 0;
