@@ -3652,6 +3652,26 @@ title: 字符演歌
     var glow = clamp01(travel);
     c.put(cx | 0, cy | 0, glow > 0.9 ? '@' : 'o', glow > 0.75 ? W : R);
     if (glow > 0.85) luRing(c, cx, cy, 4, '*', R, 2);
+    // 3D 中心核：投影框随 travel 扩大 = 冲到眼前（扑面收束）
+    var vsL = luBox(1, 1, 1, 0, 0, 0);
+    var ex = 3 + glow * 17, ey = 2 + glow * 7;
+    projected(c, vsL, luEdges(0), cx - ex, cy - ey, cx + ex, cy + ey,
+              t * 0.6, glow > 0.8 ? W : R, 1);
+    // 左上 CORE.SYS 日志（与隧道收束同步）
+    var LOGL = [
+      [0.2, 'CORE.SYS  v5.0'],
+      [1.5, 'link signal .. LOCK'],
+      [3.0, 'approach ..... NEAR'],
+      [4.5, 'tunnel ....... COLLAPSE'],
+      [6.3, 'LINK ......... UP']
+    ];
+    for (var g = 0; g < LOGL.length; g++) {
+      if (elapsed < LOGL[g][0]) break;
+      var ln = LOGL[g][1];
+      var sh2 = Math.min(ln.length, ((elapsed - LOGL[g][0]) * 24) | 0);
+      for (var ch = 0; ch < sh2; ch++)
+        c.put(3 + ch, top + 1 + g, ln[ch], g === 4 ? W : ch < 10 ? B : N);
+    }
   }
   // 103.51–124.00 主歌二（step in 行军）：楔形波次 '>>>' 推进 + 军旗竖纹 + 十字星闪
   function lu_verse2_stepin(c, t, top, bt, elapsed) {
