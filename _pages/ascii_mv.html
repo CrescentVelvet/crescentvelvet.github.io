@@ -3074,6 +3074,29 @@ title: 字符演歌
         c.put(2 + n2, top + i, '_', W);
     }
   }
+  // 球体经纬线框：返回 [vs, edges]，配 projected() 做 3D 月/星球。
+  function luSphere(rad) {
+    var vs = [], ed = [], i, j;
+    for (i = 1; i <= 3; i++) {                    // 4 条纬线（含近极圈）
+      var phi = i / 4 * Math.PI, base = vs.length;
+      for (j = 0; j < 12; j++) {
+        var th = j / 12 * TAU;
+        vs.push([Math.cos(th) * Math.sin(phi) * rad, Math.cos(phi) * rad,
+                 Math.sin(th) * Math.sin(phi) * rad]);
+        ed.push([base + j, base + (j + 1) % 12]);
+      }
+    }
+    for (j = 0; j < 6; j++) {                     // 6 条经线
+      var th2 = j / 6 * TAU, b2 = vs.length;
+      for (i = 0; i <= 8; i++) {
+        var ph2 = i / 8 * Math.PI;
+        vs.push([Math.cos(th2) * Math.sin(ph2) * rad, Math.cos(ph2) * rad,
+                 Math.sin(th2) * Math.sin(ph2) * rad]);
+        if (i) ed.push([b2 + i - 1, b2 + i]);
+      }
+    }
+    return [vs, ed];
+  }
   // 通用余烬粒子场：n 颗；up=上升/下落；hot=火色（R 配额高）。确定性 hash16。
   function luParticles(c, t, top, bt, n, seed, up, hot) {
     var l = 2, r = c.w - 3, w = r - l, h = bt - top;
@@ -3844,8 +3867,17 @@ title: 字符演歌
   function lu_final_linkup(c, t, top, bt, elapsed) {
     var l = 2, r = c.w - 3, cx = (l + r) / 2;
     var pb = clamp01(elapsed / 3.2);                       // 后拉 0→1（前 3.2s）
-    var moonR = (20 - pb * 6) | 0;                         // 血红巨月：开场裁切、后拉露全
+    // 3D 王座靠背（女王身后暗色投影，先画让 2D 女王压其上）
+    var vsT = luBox(0.5, 2.0, 1.4, 0, 0.4, 0);
+    projected(c, vsT, luEdges(0), cx - 8, top + 4, cx + 8, bt - 8,
+              t * 0.1, N, 1);
+    // 3D 血红巨月球线框：框随 pb 内缩 = 镜头后拉显小，缓旋
     var my = top + 9;
+    var moonR = (20 - pb * 6) | 0;                         // 2D 月面半径同步收缩
+    var sph = luSphere(2.2);
+    var mbox = 10 + pb * 9;
+    projected(c, sph[0], sph[1], cx - mbox, my - 7, cx + mbox, my + 7,
+              t * 0.07, R, 1);
     for (var mr = 0; mr < 72; mr++) {                      // 月面（中密度：红为主、金点缀、暗斑）
       var ma = hash16(mr * 97) % 628 / 100;
       var md = hash16(mr * 31) % Math.max(2, moonR - 3);
@@ -3890,6 +3922,22 @@ title: 字符演歌
     c.put(cx, qy - 5, '|', R);                             // 女王红袍
     c.put(cx - 2, qy - 5, '<', G); c.put(cx + 2, qy - 5, '>', G);   // 两侧侍从剪影
     luParticles(c, t, top, bt, 16, 91, true, true);        // 火星升腾
+    // 左下 REBIRTH.SYS 加冕日志（与岩浆/中央王座分层）
+    var LOG3 = [
+      [0.0, 'REBIRTH.SYS  v3.1'],
+      [1.4, 'molten sea ..... STABLE'],
+      [2.8, 'queen throne ... SEATED'],
+      [4.2, 'red moon ....... RISING'],
+      [5.6, 'blood oath ..... SEALED'],
+      [7.0, 'LINK UP FOREVER']
+    ];
+    for (var g3 = 0; g3 < LOG3.length; g3++) {
+      if (elapsed < LOG3[g3][0]) break;
+      var line3 = LOG3[g3][1];
+      var shown3 = Math.min(line3.length, ((elapsed - LOG3[g3][0]) * 26) | 0);
+      for (var ch3 = 0; ch3 < shown3; ch3++)
+        c.put(3 + ch3, bt - 12 + g3, line3[ch3], g3 === 5 ? R : ch3 < 12 ? B : N);
+    }
     if (elapsed > 7.0) {                                   // 末段全屏白闪顶点（保留）
       var u = clamp01((elapsed - 7.0) / 0.9);
       for (var f3 = 0; f3 < 90 * u; f3++)
@@ -3897,16 +3945,28 @@ title: 字符演歌
               top + 1 + hash16(f3 * 97) % (bt - top - 2), '*', W);
     }
   }
-  // 184.11–188.5 尾奏：余烬雨落，中央链环微光渐暗，末段全黑
+  // 184.11–188.5 尾奏：熔岩地平线 + 余烬雨落 + 中央链环渐暗，末段全黑
   function lu_outro(c, t, top, bt, elapsed) {
     var l = 2, r = c.w - 3, cx = (l + r) / 2, cy = (top + bt) / 2;
-    var fade = clamp01(1 - elapsed / 4.0);
+    var fade = clamp01(1 - elapsed / 5.2);                 // 放缓熄屏
     if (fade <= 0) return;
-    luParticles(c, t, top, bt, (26 * fade | 0) + 4, 97, false, true);
-    var st = fade > 0.6 ? R : fade > 0.3 ? D : G;
-    c.put(cx - 1, cy, '(', st); c.put(cx, cy, 'o', st); c.put(cx + 1, cy, ')', st);
-    if (fade > 0.5 && mod(t * 2, 1) < 0.5)
-      c.centerW(cy + 3, 'L I N K', G);
+    for (var hx = l + 1; hx < r; hx += 2) {                // 熔岩地平线（暗红余辉两行）
+      if (hash16(hx * 41 + (t * 3 | 0)) % 100 < 55 * fade)
+        c.put(hx, bt, '~', fade > 0.5 ? D : G);
+      if (hash16(hx * 83 + 7 + (t * 2 | 0)) % 100 < 30 * fade)
+        c.put(hx, bt - 1, '.', G);
+    }
+    for (var hz = 0; hz < 7; hz++) {                       // 地平线下暗火山锥剪影
+      var hw = 8 - hz;
+      for (var hxx = cx - hw * 3; hxx <= cx + hw * 3; hxx += 3)
+        if (hash16(hxx * 7 + hz * 13) % 100 < 60 * fade)
+          c.put(hxx | 0, bt - 2 - hz, hz > 4 ? '^' : '#', hz > 4 ? D : G);
+    }
+    luParticles(c, t, top, bt, (54 * fade | 0) + 6, 97, false, true);   // 余烬雨落
+    var st = fade > 0.6 ? R : fade > 0.3 ? D : G;          // 中央链环微光渐暗
+    luChainRing(c, cx, cy - 1, (5 + (1 - fade) * 3) | 0, t * 0.15, st);
+    if (fade > 0.35 && mod(t * 2, 1) < 0.5)
+      c.centerW(cy + 4, 'L I N K   U P', fade > 0.6 ? G : D);
   }
 
   /* ---------------- 歌单注册表（多曲架构：?song=key，缺省 world） ---------------- */
