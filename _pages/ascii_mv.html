@@ -3526,6 +3526,15 @@ title: 字符演歌
     c.put(cx - 1, qy - 2, 'o', R); c.put(cx + 1, qy - 2, 'o', R);
     c.put(cx, qy - 1, 'o', W);
     c.put(cx - 1, qy, '<', B); c.put(cx + 1, qy, '>', B);
+    // 3D 线框神座：THRONE.SYS 全息投影，前 3.5s 逐棱显形，缓旋（拉远后半加速）
+    var r3 = clamp01(elapsed / 3.5);
+    var vsT = luBox(2.6, 0.35, 1.8, 0, 1.4, 0)
+      .concat(luBox(1.6, 0.5, 1.2, 0, 0.5, 0))
+      .concat(luBox(1.6, 1.7, 0.3, 0, -1.1, -1.1))
+      .concat(luBox(0.25, 0.4, 1.1, -1.5, 0.3, 0))
+      .concat(luBox(0.25, 0.4, 1.1, 1.5, 0.3, 0));
+    var edT = luEdges(0).concat(luEdges(8), luEdges(16), luEdges(24), luEdges(32));
+    projected(c, vsT, edT, l, top, r, bt, t * (0.1 + pb * 0.25), R, r3);
     for (var lx2 = l + 1; lx2 < r; lx2 += 2)               // 岩浆地面
       if (hash16(lx2 * 23 + (t * 3 | 0)) % 100 < 35)
         c.put(lx2, bt, hash16(lx2 * 5) % 2 ? ',' : '.', hash16(lx2 * 11) % 3 ? R : N);
@@ -3534,6 +3543,14 @@ title: 字符演歌
         c.put(l + 2 + hash16(sh2 * 37 + (t * 9 | 0)) % (c.w - l - 6),
               top + 2 + hash16(sh2 * 51) % (bt - top - 5), '.', W);
     luParticles(c, t, top, bt, 10, 55, true, true);        // 殿内余烬上飘
+    luLog(c, top + 1, elapsed, [                           // 加冕协议事件日志
+      ['THRONE.SYS -- CORONATION PROTOCOL', 0.2, W],
+      ['> heir scan .............. MATCH', 1.2, G],
+      ['> materialize throne ..... RUN', 2.0, N],
+      ['> throne online .......... 100%', 4.2, B],
+      ['> queen seated ........... LOCK', 6.5, N],
+      ['> chamber widening ....... PULLBACK', 9.2, G]
+    ]);
   }
   // 96.03–103.51 长音 Link：红隧道同心矩形扑面，末速收束定格
   function lu_link_hold(c, t, top, bt, elapsed) {
