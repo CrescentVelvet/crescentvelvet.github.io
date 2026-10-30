@@ -3206,8 +3206,8 @@ title: 字符演歌
     var cy = (top + bt) / 2;
     var breathe = 0.8 + 0.2 * Math.sin(t * 0.5);
     for (var i = 0; i < 5; i++)
-      luRibbon(c, cy + (i - 2) * 4.5, (2.5 + i * 0.6) * breathe, 0.055,
-               t * 0.55 + i * 1.7, i === 2 ? R : N);
+      luRibbon(c, cy + (i - 2) * 4.5, (3.0 + i * 0.7) * breathe, 0.055,
+               t * 0.55 + i * 1.7, i === 2 ? R : i % 2 ? B : N);   // 提亮：琥珀高光丝带
     for (var i2 = 0; i2 < 10; i2++) {                 // 脱落碎片上飘
       var hs = hash16(i2 * 733 + 5);
       var sx = 2 + hs % (c.w - 6);
@@ -3369,11 +3369,28 @@ title: 字符演歌
   }
   // 103.51–124.00 主歌二（step in 行军）：楔形波次 '>>>' 推进 + 军旗竖纹 + 十字星闪
   function lu_verse2_stepin(c, t, top, bt, elapsed) {
+    var l = 2, r = c.w - 3;
     var off = mod(t * 2, 6) | 0;                      // 军旗竖纹底
     for (var x = 4 + off; x < c.w - 4; x += 6)
       for (var y = top + 1; y < bt; y++)
         if (hash16(x * 7 + y * 13) % 100 < 40)
           c.put(x, y, '|', (x / 6 | 0) % 5 === 0 ? G : D);
+    for (var layer = 0; layer < 2; layer++) {         // 红色峡谷两重山脊（视差缓移）
+      var par = layer ? 2.2 : 0.8;
+      var rBase = layer ? bt - 2 : bt - 7;
+      for (var rx = l + 1; rx < r; rx++) {
+        var q = Math.floor(rx + t * par);
+        var rh = 2 + Math.sin(q * 0.16 + layer * 2.4) * 1.6 + hash16(q * 7 + layer * 31) % 3;
+        for (var ry = 0; ry < rh; ry++)
+          c.put(rx, (rBase - ry) | 0, layer ? '.' : ':', layer ? G : K);
+      }
+    }
+    for (var sw2 = 0; sw2 < 5; sw2++) {               // 插地巨剑（随行军向左掠过）
+      var sx2 = c.w + 10 - mod(t * 3 + sw2 * 31, c.w + 30);
+      var sy2 = bt - 8 - sw2 % 3;
+      for (var sh = 0; sh < 7; sh++) c.put(sx2 | 0, sy2 + sh, '|', sh < 2 ? N : D);
+      c.put((sx2 - 1) | 0, sy2 + 2, '-', D); c.put((sx2 + 1) | 0, sy2 + 2, '-', D);
+    }
     var cy = (top + bt) / 2;
     var rows = [[-1, 8], [0, 12], [1, 8]];
     for (var w = 0; w < 4; w++) {                     // 四波楔形推进
@@ -3412,7 +3429,7 @@ title: 字符演歌
     }
     var strikes = Math.min(5, Math.floor(elapsed / beat));   // 锻件六档升色
     if (strikes >= 5) {
-      c.put(cx, cy, '◎', R); c.put(cx - 3, cy, '(', R); c.put(cx + 3, cy, ')', R);
+      c.put(cx, cy, '◉', R); c.put(cx - 3, cy, '(', R); c.put(cx + 3, cy, ')', R);
     } else {
       c.put(cx, cy, strikes >= 3 ? 'o' : '#',
             [D, D, N, N, B][strikes]);
@@ -3476,11 +3493,46 @@ title: 字符演歌
       c.put((cx + Math.cos(ra) * 28) | 0, (cy + Math.sin(ra) * 7) | 0, '@', W);
     }
   }
-  // 159.93–167.96 副歌二爆点（强化）：LINK UP 再现 + 水晶碎片喷射 + 中文副标
+  // 159.93–167.96 副歌二爆点：双人背靠背战斗（官方 MV 171–176s 粉发+银发双人特写）
+  // 粉发(R)/银发(W)双人剪影朝外持剑 + 向外曳光 + 水晶碎片 + LINK UP 铬字 + 中文副标
   function lu_chorus2_linkup(c, t, top, bt, elapsed) {
-    lu_chorus_linkup(c, t, top, bt, elapsed);         // 同骨架复用
     var l = 2, r = c.w - 3, cx = (l + r) / 2, cy = (top + bt) / 2;
-    if (elapsed < 2.6) {                              // 水晶碎片径向飞散
+    for (var bx = 6; bx < r; bx += 7)                       // 暗红竖纹战幕
+      for (var by = top + 1; by < bt; by += 2)
+        if (hash16(bx * 11 + by * 17) % 100 < 45) c.put(bx, by, '.', G);
+    var bob = Math.sin(t * 3) * 0.6;
+    for (var side = 0; side < 2; side++) {                  // 双人背靠背（朝外）
+      var dirS = side ? 1 : -1;
+      var fx = (cx + dirS * 9) | 0;
+      var hair = side ? W : R;
+      var fy = (cy - 1 + bob * dirS) | 0;
+      c.put(fx, fy - 4, '@', hair);                         // 发
+      c.put(fx + dirS, fy - 4, '*', hair);                  // 发梢/马尾
+      c.put(fx, fy - 3, 'o', W);                            // 脸
+      c.put(fx, fy - 2, '#', side ? D : G);                 // 身
+      c.put(fx - dirS, fy - 2, '#', D);
+      c.put(fx, fy - 1, '#', side ? D : G);
+      c.put(fx + dirS * 2, fy - 3, '/', side ? W : R);      // 持剑斜挑向外
+      c.put(fx + dirS * 3, fy - 4, '/', side ? W : R);
+      c.put(fx + dirS * 4, fy - 5, '*', B);
+      c.put(fx, fy, '/', G);                                // 腿
+      c.put(fx - dirS, fy + 1, '\\', G);
+      for (var s2 = 0; s2 < 3; s2++) {                      // 向外三条曳光（头亮尾暗）
+        var spd = 26 + s2 * 9;
+        var dist2 = c.w / 2 - 18;
+        var u2 = mod(t * spd + s2 * 37 + side * 53, dist2 + 10);
+        var ty = fy - 3 + (s2 - 1) * 2;
+        var hx = fx + dirS * (5 + u2);
+        if (u2 >= dist2 || hx < l + 2 || hx > r - 2) continue;
+        for (var k2 = 0; k2 < 5; k2++) {
+          var tx = hx - dirS * k2;
+          if (tx < l || tx > r) break;
+          c.put(tx | 0, ty, k2 === 0 ? '@' : k2 < 2 ? '=' : '-',
+                k2 === 0 ? W : k2 < 3 ? (side ? N : R) : D);
+        }
+      }
+    }
+    if (elapsed < 2.6) {                                    // 水晶碎片径向飞散（保留）
       var fly = clamp01(elapsed / 2.6);
       for (var i = 0; i < 24; i++) {
         var hs = hash16(i * 197 + 11);
@@ -3491,35 +3543,78 @@ title: 字符演歌
               fly < 0.3 ? W : fly < 0.6 ? R : fly < 0.8 ? N : D);
       }
     }
-    if (elapsed > 0.5) c.centerW(bt - 3, '血火相连', R);
+    if (elapsed < 1.6) c.big(top + 3, 'LINK UP', elapsed < 0.5 ? W : R);
+    if (elapsed > 0.5) c.centerW(bt - 3, 'BLOOD & FLAMES', R);   // ⚠️ 字集无中文字形，勿用中文
+    luParticles(c, t, top, bt, 12, 83, true, true);
   }
-  // 167.96–176.25 副歌二主体：交火提速 + 中央王座浮现 + 裂纹蔓延 + 红瞳凝视
+  // 167.96–176.25 副歌二主体（官方 MV 179–187s）：红幕剑斗 → 王座升起 → 巨月浮现（接终曲）
   function lu_chorus2_battle(c, t, top, bt, elapsed) {
-    lu_chorus_battle(c, t * 1.35, top, bt, elapsed);  // 提速变奏
     var l = 2, r = c.w - 3, cx = (l + r) / 2;
-    var rise = clamp01(elapsed / 2.5);                // 王座自底升起
+    var bt2 = t * 1.35;                                   // 交火提速变奏
+    var off = mod(bt2 * 2, 4) | 0;                        // 战壕竖线缓滚（暗）
+    for (var x = 6 + off; x < r - 2; x += 5)
+      for (var y = top + 1; y < bt; y += 3) c.put(x, y, '.', G);
+    for (var i = 0; i < 12; i++) {                        // 12 条曳光对射
+      var hs = hash16(i * 613 + 29);
+      var fromL = i % 2 === 0;
+      var speed = 22 + hs % 22;
+      var y0 = top + 2 + (hs >> 5) % (bt - top - 4);
+      var slope = (((hs >> 9) % 5) - 2) * 0.022;
+      var dist = r - l - 8;
+      var u = mod(bt2 * speed + hs % 89, dist + 14);
+      var impact = u >= dist;
+      var hd = impact ? dist : u;
+      var hx = fromL ? l + 4 + hd : r - 4 - hd;
+      var hy = y0 + slope * hd;
+      if (hy < top + 1 || hy > bt - 1) continue;
+      for (var k = 0; k < 8; k++) {
+        var sx = hx + (fromL ? -1 : 1) * k, sy = hy - slope * k;
+        if (sx < l || sx > r) break;
+        var uu = 1 - k / 8;
+        c.put(sx | 0, sy | 0, k === 0 ? '@' : k < 3 ? '=' : '-',
+              k === 0 ? W : uu > 0.66 ? R : uu > 0.4 ? N : D);
+      }
+      if (impact)
+        for (var b = 0; b < 10; b++) {
+          var ba = b / 10 * TAU + hs % 6;
+          c.put((hx + (fromL ? 1 : -1) + Math.cos(ba) * 3) | 0,
+                (hy + Math.sin(ba) * 2) | 0, b % 2 ? '*' : '+', b % 3 ? R : W);
+        }
+    }
+    var rise = clamp01(elapsed / 2.5);                    // 王座自底升起
     var seatH = Math.floor(10 * rise);
     for (var row2 = 0; row2 < seatH; row2++) {
       var wHalf = 4 + row2 * 1.6;
-      for (var x = cx - wHalf; x <= cx + wHalf; x += 2)
-        c.put(x | 0, bt - 1 - row2, row2 > seatH - 3 ? '#' : '=',
+      for (var x2 = cx - wHalf; x2 <= cx + wHalf; x2 += 2)
+        c.put(x2 | 0, bt - 1 - row2, row2 > seatH - 3 ? '#' : '=',
               row2 > seatH - 3 ? N : G);
     }
-    if (rise >= 1) {                                  // 双目红瞳（眨闪）
+    if (rise >= 1) {                                      // 王冠 + 金发 + 双目红瞳（眨闪）
       var blink = mod(t * 3, 1) < 0.5;
+      c.put(cx, bt - 11, '*', W);
+      c.put(cx, bt - 10, '@', B);
       c.put(cx - 2, bt - 8, blink ? '*' : 'o', blink ? W : R);
       c.put(cx + 2, bt - 8, blink ? '*' : 'o', blink ? W : R);
     }
-    var cracks = Math.floor(elapsed * 1.5);           // 裂纹自王座外蔓延
+    var cracks = Math.floor(elapsed * 1.5);               // 裂纹自王座外蔓延
     for (var cr = 0; cr < Math.min(12, cracks); cr++) {
-      var hs = hash16(cr * 271 + 17);
+      var hs2 = hash16(cr * 271 + 17);
       var dir2 = cr % 2 ? 1 : -1;
-      var x2 = cx + dir2 * (6 + hs % 20), y2 = bt - 2 - (hs >> 6) % 5;
-      for (var sg = 0; sg < 3 + hs % 4; sg++) {
-        c.put(x2 | 0, y2 | 0, sg % 2 ? '/' : '\\', D);
-        x2 += dir2 * (1 + hs % 2); y2 -= (hs >> (sg % 8)) & 1;
+      var x3 = cx + dir2 * (6 + hs2 % 20), y2 = bt - 2 - (hs2 >> 6) % 5;
+      for (var sg = 0; sg < 3 + hs2 % 4; sg++) {
+        c.put(x3 | 0, y2 | 0, sg % 2 ? '/' : '\\', D);
+        x3 += dir2 * (1 + hs2 % 2); y2 -= (hs2 >> (sg % 8)) & 1;
       }
     }
+    if (elapsed > 4.5) {                                  // 末 3s 血红巨月浮现（接终曲）
+      var mu = clamp01((elapsed - 4.5) / 3);
+      luRing(c, cx, top + 8, (6 + mu * 8) | 0, '.', R, 0);
+      luRing(c, cx, top + 8, (4 + mu * 6) | 0, '.', B, 2);
+    }
+    if (pulseAt(t) > 0.6)                                 // 低频能量白闪
+      for (var f = 0; f < 30; f++)
+        c.put(l + 2 + hash16(f * 91 + (t * 7 | 0)) % (c.w - l - 6),
+              top + 1 + hash16(f * 53 + 7) % (bt - top - 2), '.', W);
   }
   // 176.25–184.11 终曲：王座炼狱全景（官方 MV 187–195s 拉远镜头）
   // 岩浆海 + 中央岩柱王座 + 金发女王 + 侍从剪影 + 血红巨月，镜头后拉由裁切到完整
@@ -3789,7 +3884,7 @@ title: 字符演歌
       c.center(c.h - 5, 'PROCESS ENDED. THE LOOP REMAINS.', W);
     } else {
       c.centerW(c.h - 5, '[ instrumental ]', D);
-      c.centerW(c.h - 3, '[ 间奏 ]', D);
+      c.centerW(c.h - 3, '[ INTERLUDE ]', D);
     }
   }
   // 全帧渲染（正常路径：chrome→场景→glitch→磷光→频谱→字幕），供 title 源帧
