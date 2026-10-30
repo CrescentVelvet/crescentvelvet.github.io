@@ -3966,6 +3966,32 @@ title: 字符演歌
   // 167.96–176.25 副歌二主体（官方 MV 179–187s）：红幕剑斗 → 王座升起 → 巨月浮现（接终曲）
   function lu_chorus2_battle(c, t, top, bt, elapsed) {
     var l = 2, r = c.w - 3, cx = (l + r) / 2;
+    var rise3 = clamp01(elapsed / 2.5);
+    // 3D 王座线框：rise3 自底部升起（投影框上缘随 rise 上移），缓旋
+    if (rise3 > 0.05) {
+      var vsT2 = luBox(2.0, 0.5, 1.4, 0, -1.5, 0)          // 基座
+        .concat(luBox(1.2, 0.6, 1.0, 0, -0.5, 0))           // 座身
+        .concat(luBox(1.3, 2.2, 0.35, 0, 0.9, -0.45))       // 靠背
+        .concat(luBox(0.25, 0.5, 1.0, -1.1, -0.35, 0))      // 左扶手
+        .concat(luBox(0.25, 0.5, 1.0, 1.1, -0.35, 0));      // 右扶手
+      var eT = luEdges(0).concat(luEdges(8), luEdges(16), luEdges(24), luEdges(32));
+      projected(c, vsT2, eT, cx - 11, bt - 2 - rise3 * 14, cx + 11, bt - 2,
+                0.3 + rise3 * 0.4, rise3 > 0.9 ? G : N, 1);
+    }
+    // 左上 SIEGE.SYS 日志
+    var LOGG = [
+      [0.3, 'SIEGE.SYS  v3.3'],
+      [2.5, 'throne ....... RISING'],
+      [5.0, 'moon ......... APPEARING'],
+      [7.2, 'LINK ......... ETERNAL']
+    ];
+    for (var g = 0; g < LOGG.length; g++) {
+      if (elapsed < LOGG[g][0]) break;
+      var ln = LOGG[g][1];
+      var sh2 = Math.min(ln.length, ((elapsed - LOGG[g][0]) * 24) | 0);
+      for (var ch = 0; ch < sh2; ch++)
+        c.put(3 + ch, top + 1 + g, ln[ch], g === 3 ? R : ch < 10 ? B : N);
+    }
     var bt2 = t * 1.35;                                   // 交火提速变奏
     var off = mod(bt2 * 2, 4) | 0;                        // 战壕竖线缓滚（暗）
     for (var x = 6 + off; x < r - 2; x += 5)
