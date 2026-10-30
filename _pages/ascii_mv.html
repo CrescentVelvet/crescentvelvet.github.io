@@ -3510,25 +3510,18 @@ title: 字符演歌
       ['> cores merging ....... LIFELINE', 2.8, R]
     ]);
   }
-  // 48.17–64.40 导歌一（梦境）：四阶段——静谧丝带梦(0-5.5) → 双信子相遇(5.5-10, you&me) →
-  // 血色侵蚀梦碎(10-15) → 底部点燃桥接火海(15-16.23, bound by blood and flames)
-  function lu_predream_ribbons(c, t, top, bt, elapsed) {
-    var cy = (top + bt) / 2, e = elapsed;
-    var l = 2, r = c.w - 3, cx = (l + r) / 2;
-    var tint = clamp01((e - 10) / 3.5);               // 丝带转血红
-    var ignite = clamp01((e - 15) / 1.23);            // 底部点燃
-    var breathe = (0.8 + 0.2 * Math.sin(t * (0.5 + tint * 0.7))) * (1 - ignite * 0.35);
-    // 3D 梦境核心：上方线框球缓旋，血色侵蚀时转红（与丝带分层）
-    var sphD = luSphere(1.6);
-    projected(c, sphD[0], sphD[1], cx - 8, top + 1, cx + 8, top + 9,
-              t * 0.2, tint > 0.5 ? R : N, 1);
-    luParticles(c, t, top, bt, 12 + (e * 1.5 | 0), 55, true, tint > 0.6);  // 梦尘慢升
-    for (var i = 0; i < 5; i++) {
-      var ph = t * (0.55 + tint * 0.3) + i * 1.7;
-      if (tint > 0 && hash16((t * 8 | 0) * 7 + i) % 100 < 14 * tint) ph += 3.1; // 梦碎抖动
-      var st = tint > 0.45 ? R : i === 2 ? R : i % 2 ? B : N;
-      luRibbon(c, cy + (i - 2) * 4.5, (3.0 + i * 0.7) * breathe, 0.055, ph, st);
-    }
+  // ===== 导歌一 48.17–64.40 粒度细分：2 子场景 =====
+
+  // 48.17–55.13 "You're there in my dreams"：静谧丝带梦 + 梦境球 + 梦尘
+  function lu_s3_dreamt(c, t, top, bt, elapsed) {
+    var cy = (top + bt) / 2, e = elapsed, l = 2, r = c.w - 3, cx = (l + r) / 2;
+    var breathe = 0.8 + 0.2 * Math.sin(t * 0.5);
+    var sphD = luSphere(1.6);                         // 3D 梦境核心缓旋
+    projected(c, sphD[0], sphD[1], cx - 8, top + 1, cx + 8, top + 9, t * 0.2, N, 1);
+    luParticles(c, t, top, bt, 12 + (e * 1.2 | 0), 55, true, false);
+    for (var i = 0; i < 5; i++)
+      luRibbon(c, cy + (i - 2) * 4.5, (3.0 + i * 0.7) * breathe, 0.055,
+               t * 0.55 + i * 1.7, i === 2 ? R : i % 2 ? B : N);
     for (var i2 = 0; i2 < 10; i2++) {                 // 脱落碎片上飘
       var hs = hash16(i2 * 733 + 5);
       var sx = 2 + hs % (c.w - 6);
@@ -3536,144 +3529,145 @@ title: 字符演歌
       var rise = mod(t * 0.5 + (hs % 100) / 100, 1);
       c.put(sx, (sy - rise * 8) | 0, "'", rise < 0.3 ? N : D);
     }
-    // 双信子：沿第 2/4 丝带相向滑行，e≈8.5 相遇爆亮（you and me）
-    var meet = clamp01((e - 5.5) / 3);
-    if (meet > 0 && ignite < 0.6) {
-      var mA = l + meet * (cx - l), mB = r - meet * (r - cx);
-      var yA = cy - 4.5 + Math.sin(mA * 0.055 + t * 0.55 + 1 * 1.7) * 3.7 * breathe;
-      var yB = cy + 4.5 + Math.sin(mB * 0.055 + t * 0.55 + 3 * 1.7) * 5.1 * breathe;
-      c.put(mA | 0, yA | 0, '@', W);
-      c.put(mB | 0, yB | 0, '@', W);
-      if (meet >= 1) {                                // 相遇：中心合光 + 扩散微环
-        var mu2 = mod(t * 1.2, 1);
-        luRing(c, cx, cy, (2 + mu2 * 7) | 0, '.', mu2 < 0.4 ? W : R, 2);
-        c.put(cx | 0, cy | 0, '*', W);
-      }
+    luLog(c, bt - 11, e, [
+      ['DREAM.SYS  v2.0', 0.4, W],
+      ['visitor ...... YOU', 1.6, B],
+      ['depth ........ CALM', 3.2, N]
+    ]);
+  }
+
+  // 55.13–64.40 "It's just you & me in the end"：双信子相遇爆亮 → 血色侵蚀 → 底部点燃
+  function lu_s3_meet(c, t, top, bt, elapsed) {
+    var cy = (top + bt) / 2, e = elapsed, l = 2, r = c.w - 3, cx = (l + r) / 2;
+    var meet = clamp01(e / 2.6);                      // 相向滑行
+    var tint = clamp01((e - 4.2) / 3.0);              // 血色侵蚀
+    var ignite = clamp01((e - 6.8) / 1.5);            // 底部点燃
+    var breathe = (0.8 + 0.2 * Math.sin(t * (0.5 + tint * 0.7))) * (1 - ignite * 0.35);
+    var sphD = luSphere(1.6);
+    projected(c, sphD[0], sphD[1], cx - 8, top + 1, cx + 8, top + 9,
+              t * 0.2, tint > 0.5 ? R : N, 1);
+    luParticles(c, t, top, bt, 14 + (tint * 20) | 0, 55, true, tint > 0.6);
+    for (var i = 0; i < 5; i++) {
+      var ph2 = t * (0.55 + tint * 0.3) + i * 1.7;
+      if (tint > 0 && hash16((t * 8 | 0) * 7 + i) % 100 < 14 * tint) ph2 += 3.1;
+      luRibbon(c, cy + (i - 2) * 4.5, (3.0 + i * 0.7) * breathe, 0.055, ph2,
+               tint > 0.45 ? R : i === 2 ? R : i % 2 ? B : N);
     }
-    if (ignite > 0) {                                 // 点燃：火舌自底烧上丝带末端
+    var mA = l + meet * (cx - l), mB = r - meet * (r - cx);
+    var yA = cy - 4.5 + Math.sin(mA * 0.055 + t * 0.55 + 1.7) * 3.7 * breathe;
+    var yB = cy + 4.5 + Math.sin(mB * 0.055 + t * 0.55 + 3 * 1.7) * 5.1 * breathe;
+    c.put(mA | 0, yA | 0, '@', W);
+    c.put(mB | 0, yB | 0, '@', W);
+    if (meet >= 1) {                                  // 相遇爆亮 + 扩散环
+      var mu2 = mod(t * 1.2, 1);
+      luRing(c, cx, cy, (2 + mu2 * 7) | 0, '.', mu2 < 0.4 ? W : R, 2);
+      c.put(cx | 0, cy | 0, '*', W);
+    }
+    if (ignite > 0)                                   // 火舌烧上丝带末端
       for (var fx = 4; fx < c.w - 4; fx += 2) {
         var fh = hash16(fx * 977 + 7);
         if (fh % 100 < ignite * 85)
           luFlame(c, fx, bt, Math.max(1, (1 + ignite * 5 * (0.6 + 0.4 * Math.sin(t * 7 + fx))) | 0), fx, t);
       }
-      luParticles(c, t, top, bt, (30 * ignite) | 0, 91, true, true);
-    }
-    // 左下 DREAM.SYS 日志（与双信子/相遇环各阶段对应）
-    var LOGD = [
-      [0.0, 'DREAM.SYS  v2.0'],
-      [2.0, 'visitor ...... YOU'],
-      [5.5, 'approach ..... MEET'],
-      [8.5, 'union ........ BURST'],
-      [11.0, 'tint shift ... BLOOD'],
-      [14.0, 'ignition ..... SOON']
-    ];
-    for (var g = 0; g < LOGD.length; g++) {
-      if (e < LOGD[g][0]) break;
-      var ln = LOGD[g][1];
-      var sh2 = Math.min(ln.length, ((e - LOGD[g][0]) * 24) | 0);
-      for (var ch = 0; ch < sh2; ch++)
-        c.put(3 + ch, bt - 11 + g, ln[ch], g === 5 ? R : ch < 10 ? B : N);
-    }
+    luLog(c, bt - 11, e, [
+      ['approach ..... MEET', 0.3, B],
+      ['union ........ BURST', 2.6, W],
+      ['tint shift ... BLOOD', 4.4, R],
+      ['ignition ..... SOON', 6.9, R]
+    ]);
   }
-  // 64.40–72.01 血与火（预热副歌）：火柱渐旺 + 火星喷射 + 压字跟词 +
-  // 末尾向中心收拢聚热、中央白热火柱冲天（桥接 72.01 锻造锤落）
-  function lu_bloodflames(c, t, top, bt, elapsed) {
+
+  // ===== 血与火预热 64.40–72.01 粒度细分：2 子场景 =====
+
+  // 64.40–68.09 "Bound by blood and flames we are shatterproof"：火墙+誓约核心+压字
+  function lu_s4_oath(c, t, top, bt, elapsed) {
     var e = elapsed, cx = (c.w - 1) / 2;
-    var heat = Math.pow(clamp01(e / 7.6), 1.2);       // 前缓后急
-    var conv = clamp01((e - 6.2) / 1.4);              // 末尾聚热收拢
-    // 左上 3D 誓约核心缓旋（heat 越高转越快），与火墙分层
-    var vsO = luBox(0.9, 0.9, 0.9, 0, 0, 0);
+    var heat = Math.pow(clamp01(e / 3.6), 1.2);
+    var vsO = luBox(0.9, 0.9, 0.9, 0, 0, 0);          // 3D 誓约核心
     projected(c, vsO, luEdges(0), 4, top + 1, 24, top + 9,
               t * (0.15 + heat * 0.5), heat > 0.7 ? R : N, 1);
     for (var x = 4; x < c.w - 4; x++) {
       var hs = hash16(x * 977 + 7);
-      var lean = 1 - Math.abs(x - cx) / cx;           // 靠中心越旺
-      var hMax = (6 + hs % 12 + heat * (8 + hs % 9)) * (0.5 + heat * 0.5) * (1 + lean * conv * 0.6);
-      hMax = Math.min(hMax | 0, bt - top - 2);
+      var hMax = Math.min((6 + hs % 12 + heat * (8 + hs % 9)) | 0, bt - top - 6);
       luFlame(c, x, bt, Math.max(2, (hMax * (0.75 + 0.25 * Math.sin(t * 7 + x * 0.9))) | 0), x, t);
       if (hs % 100 < heat * 60) {                     // 火星上抛
         var mu = mod(t * (0.5 + hs % 40 / 60) + hs % 97 / 97, 1);
-        c.put((x + Math.sin(mu * 12 + x) * 2) | 0,
-              (bt - hMax - mu * (6 + heat * 10)) | 0,
+        c.put((x + Math.sin(mu * 12 + x) * 2) | 0, (bt - hMax - mu * 8) | 0,
               mu < 0.25 ? '*' : '.', mu < 0.2 ? W : mu < 0.5 ? R : D);
       }
     }
-    for (var x2 = 4; x2 < c.w - 4; x2++)              // 底部熔岩亮带两行
-      c.put(x2, bt, '#', heat > 0.55 ? R : N);
-    for (var x3 = 4; x3 < c.w - 4; x3 += 2)
-      c.put(x3, bt - 1, '*', heat > 0.75 ? B : N);
-    // 末尾中央白热火柱：越升越高、越收越窄，副歌锤落前的聚热顶点
-    if (conv > 0) {
-      var ph2 = (2 + conv * (bt - top - 8)) | 0;
-      for (var fy = 0; fy < ph2; fy++) {
-        var u = 1 - fy / ph2;
-        var fw = (1 + u * 3 * (1 - conv * 0.5)) | 0;
-        for (var fx2 = -fw; fx2 <= fw; fx2++)
-          c.put((cx + fx2) | 0, bt - 2 - fy,
-                u > 0.6 ? '@' : u > 0.35 ? '#' : '*',
-                u > 0.75 ? W : u > 0.4 ? R : B);
-      }
-    }
-    // 压字跟随两行歌词（原实现错放在 5.5s 后，首行词已从 64.40 开始）
-    if (e > 0.25 && e < 3.4 && mod(t * 2, 1) < 0.75)
-      c.centerW(bt - 4, 'B O U N D   B Y   B L O O D   &   F L A M E S', heat > 0.6 ? R : G);
-    if (e >= 3.9 && e < 6.9 && mod(t * 2, 1) < 0.75)
-      c.centerW(bt - 4, 'C A L L   O U T   Y O U R   N A M E', heat > 0.85 ? R : G);
-    // 左上 OATH.SYS 日志（与誓约核心同区，heat 推进叙事）
-    var LOGO = [
-      [0.3, 'OATH.SYS  v1.9'],
-      [1.5, 'blood bound ... YES'],
-      [3.0, 'flames ....... RISING'],
-      [4.5, 'name ......... CALLED'],
-      [6.0, 'heat ......... FOCUS'],
-      [6.9, 'STRIKE IMMINENT']
-    ];
-    for (var g = 0; g < LOGO.length; g++) {
-      if (e < LOGO[g][0]) break;
-      var ln = LOGO[g][1];
-      var sh2 = Math.min(ln.length, ((e - LOGO[g][0]) * 24) | 0);
-      for (var ch = 0; ch < sh2; ch++)
-        c.put(3 + ch, top + 10 + g, ln[ch], g === 5 ? R : ch < 10 ? B : N);
-    }
+    for (var x2 = 4; x2 < c.w - 4; x2++) c.put(x2, bt, '#', heat > 0.55 ? R : N);
+    for (var x3 = 4; x3 < c.w - 4; x3 += 2) c.put(x3, bt - 1, '*', heat > 0.75 ? B : N);
+    if (e > 0.2 && mod(t * 2, 1) < 0.75)
+      c.centerW(bt - 5, 'B O U N D   B Y   B L O O D   &   F L A M E S',
+                heat > 0.6 ? R : G);
+    luLog(c, top + 10, e, [
+      ['OATH.SYS  v1.9', 0.3, W],
+      ['blood bound ... YES', 1.2, G],
+      ['flames ....... RISING', 2.2, N]
+    ]);
   }
-  // 72.01–80.00 副歌一爆点：冲击波环 + LINK UP 大字 + 双链环阵
-  // 72.01–80.00 副歌一爆点：锻造重锤段落（官方 MV 83–91s 锻炉膛/巨锤砸落/金属火星）
-  // 血红+黑+金：暗砖墙 + 两侧巨齿轮 + 巨锤按节拍砸落 + 锻件逐锤升温 + 开场 LINK UP 铬字
-  function lu_chorus_linkup(c, t, top, bt, elapsed) {
-    var l = 2, r = c.w - 3, cx = (l + r) / 2, cy = (top + bt) / 2;
-    var beat = 1.86, ph = mod(elapsed / beat, 1), cyc = Math.floor(elapsed / beat);
-    for (var by = top + 1; by < bt; by += 2)              // 锻炉砖墙底纹（暗）
+
+  // 68.09–72.01 "I call out your name and you know the truth"：呼名+聚热火柱冲天
+  function lu_s4_call(c, t, top, bt, elapsed) {
+    var e = elapsed, cx = (c.w - 1) / 2;
+    var conv = clamp01(e / 3.9);                      // 火势向中心收拢
+    for (var x = 4; x < c.w - 4; x++) {
+      var hs = hash16(x * 977 + 7);
+      var lean = 1 - Math.abs(x - cx) / cx;
+      var hMax = Math.min(((6 + hs % 12) * (1 + lean * conv * 0.8)) | 0, bt - top - 8);
+      luFlame(c, x, bt, Math.max(2, (hMax * (0.75 + 0.25 * Math.sin(t * 7 + x * 0.9))) | 0), x, t);
+    }
+    for (var x2 = 4; x2 < c.w - 4; x2++) c.put(x2, bt, '#', R);
+    for (var x3 = 4; x3 < c.w - 4; x3 += 2) c.put(x3, bt - 1, '*', B);
+    var ph2 = (2 + conv * (bt - top - 8)) | 0;         // 中央白热火柱越升越高
+    for (var fy = 0; fy < ph2; fy++) {
+      var u = 1 - fy / ph2;
+      var fw = (1 + u * 3 * (1 - conv * 0.5)) | 0;
+      for (var fx2 = -fw; fx2 <= fw; fx2++)
+        c.put((cx + fx2) | 0, bt - 2 - fy,
+              u > 0.6 ? '@' : u > 0.35 ? '#' : '*',
+              u > 0.75 ? W : u > 0.4 ? R : B);
+    }
+    if (e > 0.2 && e < 3.4 && mod(t * 2, 1) < 0.75)
+      c.centerW(bt - 5, 'C A L L   O U T   Y O U R   N A M E', R);
+    luLog(c, top + 10, e, [
+      ['name ......... CALLED', 0.4, B],
+      ['heat ......... FOCUS', 1.8, N],
+      ['STRIKE IMMINENT', 3.1, R]
+    ]);
+  }
+
+  // ===== 副歌一锻造 72.01–80.00 粒度细分：2 子场景 =====
+
+  // 72.01–76.12 "We link link link link up"：3D 锻锤砸砧 + 锻件升温（1-2 锤）
+  function lu_s5_strike(c, t, top, bt, elapsed) {
+    var l = 2, r = c.w - 3, cx = (l + r) / 2, cy = (top + bt) / 2, e = elapsed;
+    var beat = 1.86, ph = mod(e / beat, 1), cyc = Math.floor(e / beat);
+    for (var by = top + 1; by < bt; by += 2)          // 锻炉砖墙底纹（暗）
       for (var bx = l + (by & 1); bx < r; bx += 4)
         if (hash16(bx * 17 + by * 31) % 100 < 50)
           c.put(bx, by, '.', hash16(bx * 7 + by * 3) % 4 ? G : K);
-    luGear(c, 9, top + 10, 5, t * 0.8, B);              // 两侧巨齿轮（金属锻造质感）
+    luGear(c, 9, top + 10, 5, t * 0.8, B);
     luGear(c, c.w - 10, top + 11, 4, -t * 1.1, N);
     luGear(c, 16, bt - 5, 3, -t * 1.4, D);
     luGear(c, c.w - 17, bt - 6, 3, t * 1.2, D);
-    var ay = bt - 6;                                       // 铁砧（上宽下窄梯形）
+    var ay = bt - 6;                                   // 铁砧
     for (var a2 = 0; a2 < 4; a2++) {
       var aw = 24 - a2 * 6;
       for (var ax = -aw; ax <= aw; ax += 2)
         c.put(cx + ax, ay + a2, a2 === 0 ? '#' : a2 < 2 ? '=' : '-',
               a2 === 0 ? B : a2 < 2 ? N : D);
     }
-    var strikes = Math.min(5, cyc);                        // 锻件逐锤升温（5 锤成形链环）
-    if (strikes >= 5) {
-      luChainRing(c, cx, ay - 1, 4, 0, R);
-      c.put(cx, ay - 1, '*', W);
-    } else {
-      var heat = [D, D, N, N, B][strikes];
-      c.put(cx, ay - 1, strikes >= 3 ? 'o' : '#', heat);
-      if (strikes >= 2) { c.put(cx - 2, ay - 1, '(', heat); c.put(cx + 2, ay - 1, ')', heat); }
-    }
-    var drop = ph < 0.42 ? Math.pow(ph / 0.42, 2.2) : 1;  // 巨锤下落（加速）
-    // 3D 线框锻锤：锤头 + 长柄拼装，近直立微晃 + 节拍砸落（替代原 2D T 形锤）
+    var heat2 = [D, D, N, N, B][Math.min(4, cyc)];     // 锻件升温（本段 0-2 锤）
+    c.put(cx, ay - 1, cyc >= 3 ? 'o' : '#', heat2);
+    if (cyc >= 2) { c.put(cx - 2, ay - 1, '(', heat2); c.put(cx + 2, ay - 1, ')', heat2); }
+    var drop = ph < 0.42 ? Math.pow(ph / 0.42, 2.2) : 1;
     var slamY = mix(2.2, -0.9, drop);
     var vs3 = luBox(2.4, 1.0, 1.0, 0, slamY + 1.3, 0)
       .concat(luBox(0.4, 1.3, 0.4, 0, slamY - 1.2, 0));
-    projected(c, vs3, luEdges(0).concat(luEdges(8)), l, top + 1, r, bt - 4,
-              t * 0.1, B, 1);
-    if (ph >= 0.42 && ph <= 0.8) {                         // 砸击瞬间：白闪横线 + 径向火星
+    projected(c, vs3, luEdges(0).concat(luEdges(8)), l, top + 1, r, bt - 4, t * 0.1, B, 1);
+    if (ph >= 0.42 && ph <= 0.8) {                     // 砸击白闪横线 + 径向火星
       var su = (ph - 0.42) / 0.38;
       for (var fx = l + 2; fx < r; fx += 6) c.put(fx, ay - 2, '*', W);
       for (var s2 = 0; s2 < 30; s2++) {
@@ -3686,16 +3680,71 @@ title: 字符演歌
               su < 0.25 ? W : su < 0.55 ? B : su < 0.8 ? N : D);
       }
     }
-    if (elapsed < 1.6)                                    // 开场铬字（熔金 → 血红）
-      c.big(cy - 6, 'LINK UP', elapsed < 0.5 ? W : R);
-    luParticles(c, t, top, bt, 14, 77, true, true);        // 炉膛火星上飘
-    luLog(c, top + 1, elapsed, [                          // 锻造系统事件日志（BIOS 质感）
+    if (e < 1.6) c.big(cy - 6, 'LINK UP', e < 0.5 ? W : R);
+    luParticles(c, t, top, bt, 14, 77, true, true);
+    luLog(c, top + 1, e, [
       ['FORGE.SYS v3.1 -- LINK PROTOCOL', 0.1, W],
       ['> billet heated ......... 1200C', 0.8, G],
       ['> strike 1/5 ................ OK', 1.9, N],
-      ['> strike 2/5 ................ OK', 3.7, N],
-      ['> strike 3/5 ................ OK', 5.6, N],
-      ['> strike 4/5 ................ OK', 7.4, N]
+      ['> strike 2/5 ................ OK', 3.7, N]
+    ]);
+  }
+
+  // 76.12–80.00 "Link link link link up now"：锤加速 + 锻件成环升空 + 轨道曳光
+  function lu_s5_ring(c, t, top, bt, elapsed) {
+    var l = 2, r = c.w - 3, cx = (l + r) / 2, cy = (top + bt) / 2, e = elapsed;
+    var beat = 1.35, ph = mod(e / beat, 1), cyc = Math.floor(e / beat);
+    for (var by = top + 1; by < bt; by += 2)
+      for (var bx = l + (by & 1); bx < r; bx += 4)
+        if (hash16(bx * 17 + by * 31) % 100 < 50)
+          c.put(bx, by, '.', hash16(bx * 7 + by * 3) % 4 ? G : K);
+    luGear(c, 9, top + 10, 5, t * 1.2, B);
+    luGear(c, c.w - 10, top + 11, 4, -t * 1.6, N);
+    luGear(c, 16, bt - 5, 3, -t * 2.0, D);
+    luGear(c, c.w - 17, bt - 6, 3, t * 1.7, D);
+    var ay = bt - 6;
+    for (var a2 = 0; a2 < 4; a2++) {
+      var aw = 24 - a2 * 6;
+      for (var ax = -aw; ax <= aw; ax += 2)
+        c.put(cx + ax, ay + a2, a2 === 0 ? '#' : a2 < 2 ? '=' : '-',
+              a2 === 0 ? B : a2 < 2 ? N : D);
+    }
+    var forged = cyc >= 1;                             // 本段 3 锤内锻件成环
+    var lift = clamp01((e - 2.2) / 1.6);               // 链环升空
+    if (forged) {
+      var ry2 = (ay - 1 - lift * 9) | 0;
+      luChainRing(c, cx, ry2, 4 + lift * 2, t * (0.5 + lift), R);
+      c.put(cx, ry2, '*', W);
+      if (lift >= 1) luTracerOrbit(c, cx, ry2, 9, t * 0.4, B);
+    } else {
+      var heat3 = [N, B, R][Math.min(2, cyc)];
+      c.put(cx, ay - 1, 'o', heat3);
+      c.put(cx - 2, ay - 1, '(', heat3); c.put(cx + 2, ay - 1, ')', heat3);
+    }
+    var drop = ph < 0.42 ? Math.pow(ph / 0.42, 2.2) : 1;
+    var slamY = mix(2.2, -0.9, drop);
+    var vs3 = luBox(2.4, 1.0, 1.0, 0, slamY + 1.3, 0)
+      .concat(luBox(0.4, 1.3, 0.4, 0, slamY - 1.2, 0));
+    projected(c, vs3, luEdges(0).concat(luEdges(8)), l, top + 1, r, bt - 4, t * 0.1, B, 1);
+    if (ph >= 0.42 && ph <= 0.8) {
+      var su = (ph - 0.42) / 0.38;
+      for (var fx = l + 2; fx < r; fx += 6) c.put(fx, ay - 2, '*', W);
+      for (var s2 = 0; s2 < 30; s2++) {
+        var hs2 = hash16(s2 * 131 + cyc * 7);
+        var sa = -Math.PI / 2 + (hs2 % 100 / 100 - 0.5) * 2.8;
+        var sd = su * (8 + hs2 % 12);
+        c.put((cx + Math.cos(sa) * sd * 2.4) | 0,
+              (ay - 1 - Math.abs(Math.sin(sa)) * sd * 0.5 - su * su * 2) | 0,
+              su < 0.3 ? '*' : su < 0.6 ? '+' : '.',
+              su < 0.25 ? W : su < 0.55 ? B : su < 0.8 ? N : D);
+      }
+    }
+    luParticles(c, t, top, bt, 14, 77, true, true);
+    luLog(c, top + 1, e, [
+      ['> strike 3/5 ................ OK', 0.2, N],
+      ['> strike 4/5 ................ OK', 1.6, N],
+      ['> strike 5/5 ................ OK', 2.8, N],
+      ['> chain forged ......... LIFT OFF', 3.6, R]
     ]);
   }
   // 80.00–96.03 副歌一主体：血红殿堂 + 金发女王端坐王座，镜头向后拉远
@@ -4379,9 +4428,12 @@ title: 字符演歌
         { a: 36.25,  b: 40.35,  f: lu_s2_demonic },
         { a: 40.35,  b: 44.17,  f: lu_s2_worship },
         { a: 44.17,  b: 48.17,  f: lu_s2_chains },
-        { a: 48.17,  b: 64.40,  f: lu_predream_ribbons },
-        { a: 64.40,  b: 72.01,  f: lu_bloodflames },
-        { a: 72.01,  b: 80.00,  f: lu_chorus_linkup },
+        { a: 48.17,  b: 55.13,  f: lu_s3_dreamt },
+        { a: 55.13,  b: 64.40,  f: lu_s3_meet },
+        { a: 64.40,  b: 68.09,  f: lu_s4_oath },
+        { a: 68.09,  b: 72.01,  f: lu_s4_call },
+        { a: 72.01,  b: 76.12,  f: lu_s5_strike },
+        { a: 76.12,  b: 80.00,  f: lu_s5_ring },
         { a: 80.00,  b: 96.03,  f: lu_chorus_battle },
         { a: 96.03,  b: 103.51, f: lu_link_hold },
         { a: 103.51, b: 124.00, f: lu_verse2_stepin },
