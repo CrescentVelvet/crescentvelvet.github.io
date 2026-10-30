@@ -3239,64 +3239,110 @@ title: 字符演歌
                 heat > 0.85 ? R : G);
   }
   // 72.01–80.00 副歌一爆点：冲击波环 + LINK UP 大字 + 双链环阵
+  // 72.01–80.00 副歌一爆点：锻造重锤段落（官方 MV 83–91s 锻炉膛/巨锤砸落/金属火星）
+  // 血红+黑+金：暗砖墙 + 两侧巨齿轮 + 巨锤按节拍砸落 + 锻件逐锤升温 + 开场 LINK UP 铬字
   function lu_chorus_linkup(c, t, top, bt, elapsed) {
     var l = 2, r = c.w - 3, cx = (l + r) / 2, cy = (top + bt) / 2;
-    for (var wI = 0; wI < 3; wI++) {                  // 开场三道冲击波
-      var wu = clamp01((elapsed - wI * 0.22) / 1.2);
-      if (wu <= 0 || wu >= 1) continue;
-      luRing(c, cx, cy, (2 + wu * 44) | 0, wu > 0.75 ? '*' : wu > 0.4 ? '+' : '.',
-             wu > 0.8 ? W : wu > 0.55 ? R : wu > 0.3 ? B : D);
+    var beat = 1.86, ph = mod(elapsed / beat, 1), cyc = Math.floor(elapsed / beat);
+    for (var by = top + 1; by < bt; by += 2)              // 锻炉砖墙底纹（暗）
+      for (var bx = l + (by & 1); bx < r; bx += 4)
+        if (hash16(bx * 17 + by * 31) % 100 < 50)
+          c.put(bx, by, '.', hash16(bx * 7 + by * 3) % 4 ? G : K);
+    luGear(c, 11, top + 6, 5, t * 0.8, B);                // 两侧巨齿轮（金属锻造质感）
+    luGear(c, c.w - 12, top + 7, 4, -t * 1.1, N);
+    luGear(c, 16, bt - 5, 3, -t * 1.4, D);
+    luGear(c, c.w - 17, bt - 6, 3, t * 1.2, D);
+    var ay = bt - 6;                                       // 铁砧（上宽下窄梯形）
+    for (var a2 = 0; a2 < 4; a2++) {
+      var aw = 24 - a2 * 6;
+      for (var ax = -aw; ax <= aw; ax += 2)
+        c.put(cx + ax, ay + a2, a2 === 0 ? '#' : a2 < 2 ? '=' : '-',
+              a2 === 0 ? B : a2 < 2 ? N : D);
     }
-    luChainRing(c, cx, cy, 20, t * 0.35, R);          // 链环阵缓旋
-    luChainRing(c, cx, cy, 30, -t * 0.25, N);
-    if (elapsed >= 0.35) {
-      c.big(cy - 5, 'LINK UP', elapsed < 1.2 ? W : R);
-    } else {                                          // 字成形前爆点残光
-      for (var i = 0; i < 30 * (elapsed / 0.35); i++) {
-        var a2 = hash16(i * 91) % 628 / 100;
-        var d2 = 3 + hash16(i * 57) % 18;
-        c.put((cx + Math.cos(a2) * d2 * 2.2) | 0, (cy + Math.sin(a2) * d2) | 0, '*', W);
+    var strikes = Math.min(5, cyc);                        // 锻件逐锤升温（5 锤成形链环）
+    if (strikes >= 5) {
+      luChainRing(c, cx, ay - 1, 4, 0, R);
+      c.put(cx, ay - 1, '*', W);
+    } else {
+      var heat = [D, D, N, N, B][strikes];
+      c.put(cx, ay - 1, strikes >= 3 ? 'o' : '#', heat);
+      if (strikes >= 2) { c.put(cx - 2, ay - 1, '(', heat); c.put(cx + 2, ay - 1, ')', heat); }
+    }
+    var drop = ph < 0.42 ? Math.pow(ph / 0.42, 2.2) : 1;  // 巨锤 T 形下落（加速）
+    var hy = top + 2 + drop * (ay - 4 - top);
+    for (var m = -15; m <= 15; m++) c.put(cx + m, hy | 0, '#', m ? B : W);
+    c.put(cx, (hy + 1) | 0, '#', N); c.put(cx, (hy + 2) | 0, '#', N);
+    if (ph >= 0.42 && ph <= 0.8) {                         // 砸击瞬间：白闪横线 + 径向火星
+      var su = (ph - 0.42) / 0.38;
+      for (var fx = l + 2; fx < r; fx += 6) c.put(fx, ay - 2, '*', W);
+      for (var s2 = 0; s2 < 30; s2++) {
+        var hs2 = hash16(s2 * 131 + cyc * 7);
+        var sa = -Math.PI / 2 + (hs2 % 100 / 100 - 0.5) * 2.8;
+        var sd = su * (8 + hs2 % 12);
+        c.put((cx + Math.cos(sa) * sd * 2.4) | 0,
+              (ay - 1 - Math.abs(Math.sin(sa)) * sd * 0.5 - su * su * 2) | 0,
+              su < 0.3 ? '*' : su < 0.6 ? '+' : '.',
+              su < 0.25 ? W : su < 0.55 ? B : su < 0.8 ? N : D);
       }
     }
-    luParticles(c, t, top, bt, 16, 77, true, true);
+    if (elapsed < 1.6)                                    // 开场铬字（熔金 → 血红）
+      c.big(cy - 6, 'LINK UP', elapsed < 0.5 ? W : R);
+    luParticles(c, t, top, bt, 14, 77, true, true);        // 炉膛火星上飘
   }
-  // 80.00–96.03 副歌一主体（战场交火）：8 条曳光弹道对射 + 命中爆点 + 能量白闪
+  // 80.00–96.03 副歌一主体：血红殿堂 + 金发女王端坐王座，镜头向后拉远
+  // 官方 MV 91–107s：血红高柱殿堂、中央明亮光柱、两侧巨锤剪影、女王王座、镜头拉远露全景
   function lu_chorus_battle(c, t, top, bt, elapsed) {
-    var l = 2, r = c.w - 3;
-    var off = mod(t * 2, 4) | 0;                      // 战壕竖线缓滚（暗）
-    for (var x = 6 + off; x < r - 2; x += 5)
-      for (var y = top + 1; y < bt; y += 3) c.put(x, y, '.', G);
-    for (var i = 0; i < 12; i++) {
-      var hs = hash16(i * 613 + 29);
-      var fromL = i % 2 === 0;
-      var speed = 22 + hs % 22;
-      var y0 = top + 2 + (hs >> 5) % (bt - top - 4);
-      var slope = (((hs >> 9) % 5) - 2) * 0.022;      // 近平直，保证纵向不出界
-      var dist = r - l - 8;
-      var u = mod(t * speed + hs % 89, dist + 14);
-      var impact = u >= dist;
-      var hd = impact ? dist : u;
-      var hx = fromL ? l + 4 + hd : r - 4 - hd;
-      var hy = y0 + slope * hd;
-      if (hy < top + 1 || hy > bt - 1) continue;
-      for (var k = 0; k < 8; k++) {                   // 头亮尾暗曳光
-        var sx = hx + (fromL ? -1 : 1) * k, sy = hy - slope * k;
-        if (sx < l || sx > r) break;
-        var uu = 1 - k / 8;
-        c.put(sx | 0, sy | 0, k === 0 ? '@' : k < 3 ? '=' : '-',
-              k === 0 ? W : uu > 0.66 ? R : uu > 0.4 ? N : D);
+    var l = 2, r = c.w - 3, cx = (l + r) / 2;
+    var pb = clamp01(elapsed / 9);                         // 拉远参数 0→1（前 9s）
+    var beat = 1.86, ph = mod(elapsed / beat, 1);
+    var drop = ph < 0.42 ? Math.pow(ph / 0.42, 2.2) : 1;
+    var moonR = 9 + pb * 5;                                // 殿后血红巨月（拉远露全）
+    luRing(c, cx, top + 9, moonR | 0, '.', R, 0);
+    luRing(c, cx, top + 9, (moonR - 2) | 0, '.', D, 1);
+    for (var i = 0; i < 4; i++) {                          // 殿堂立柱（拉远时向两侧张开）
+      var off = (11 + pb * 24) * (1 + i * 0.6);
+      var body = i % 2 ? G : K;
+      for (var py = top + 3; py < bt - 3; py++) {
+        c.put((cx - off) | 0, py, '#', body);
+        c.put((cx + off) | 0, py, '#', body);
       }
-      if (impact)                                     // 对侧命中爆点
-        for (var b = 0; b < 10; b++) {
-          var ba = b / 10 * TAU + hs % 6;
-          c.put((hx + (fromL ? 1 : -1) + Math.cos(ba) * 3) | 0,
-                (hy + Math.sin(ba) * 2) | 0, b % 2 ? '*' : '+', b % 3 ? R : W);
-        }
+      c.put((cx - off) | 0, top + 2, '=', body);           // 柱头
+      c.put((cx + off) | 0, top + 2, '=', body);
     }
-    if (pulseAt(t) > 0.6)                             // 低频能量白闪
-      for (var f = 0; f < 30; f++)
-        c.put(l + 2 + hash16(f * 91 + (t * 7 | 0)) % (c.w - l - 6),
-              top + 1 + hash16(f * 53 + 7) % (bt - top - 2), '.', W);
+    for (var ray = -1; ray <= 1; ray++) {                  // 中央明亮光柱（金→白）
+      var rx = cx + ray * 4;
+      for (var ry = top + 2; ry < bt - 9; ry++)
+        if (hash16(rx * 13 + ry * 7) % 100 < 66 - ray * ray * 22)
+          c.put(rx, ry, '|', ry < top + 7 ? W : B);
+    }
+    for (var hx2 = 0; hx2 < 2; hx2++) {                    // 两侧巨锤剪影（随节拍捶落）
+      var dirS = hx2 ? 1 : -1;
+      var hxc = (cx + dirS * (30 + pb * 16)) | 0;
+      var hTop = top + 4 + drop * 3;
+      for (var hw = -4; hw <= 4; hw++) c.put(hxc + hw, hTop, '#', K);
+      for (var hh = 1; hh < 9; hh++) c.put(hxc, hTop + hh, '#', hh < 3 ? K : G);
+    }
+    var seatH = (6 + (1 - pb) * 3) | 0;                    // 王座台（拉远略缩）
+    for (var row2 = 0; row2 < seatH; row2++) {
+      var wHalf = 3 + row2 * 1.3;
+      for (var x = cx - wHalf; x <= cx + wHalf; x += 2)
+        c.put(x | 0, bt - 1 - row2, row2 > seatH - 3 ? '#' : '=',
+              row2 > seatH - 3 ? R : G);
+    }
+    var qy = bt - 1 - seatH;                               // 金发女王：王冠(W)+金发(B)+红瞳(R)
+    c.put(cx, qy - 3, '*', W);
+    c.put(cx, qy - 2, '@', B);
+    c.put(cx - 1, qy - 2, 'o', R); c.put(cx + 1, qy - 2, 'o', R);
+    c.put(cx, qy - 1, 'o', W);
+    c.put(cx - 1, qy, '<', B); c.put(cx + 1, qy, '>', B);
+    for (var lx2 = l + 1; lx2 < r; lx2 += 2)               // 岩浆地面
+      if (hash16(lx2 * 23 + (t * 3 | 0)) % 100 < 35)
+        c.put(lx2, bt, hash16(lx2 * 5) % 2 ? ',' : '.', hash16(lx2 * 11) % 3 ? R : N);
+    if (ph >= 0.42 && ph < 0.52)                           // 锤击震屏白点
+      for (var sh2 = 0; sh2 < 8; sh2++)
+        c.put(l + 2 + hash16(sh2 * 37 + (t * 9 | 0)) % (c.w - l - 6),
+              top + 2 + hash16(sh2 * 51) % (bt - top - 5), '.', W);
+    luParticles(c, t, top, bt, 10, 55, true, true);        // 殿内余烬上飘
   }
   // 96.03–103.51 长音 Link：红隧道同心矩形扑面，末速收束定格
   function lu_link_hold(c, t, top, bt, elapsed) {
@@ -3350,6 +3396,8 @@ title: 字符演歌
   // 124.00–135.87 主歌二（熔炉锻打）：锤落节拍 + 砧上链环逐锤成形 + 火花抛物线
   function lu_verse2_forge(c, t, top, bt, elapsed) {
     var l = 2, r = c.w - 3, cx = (l + r) / 2, cy = (top + bt) / 2 + 4;
+    luGear(c, 18, cy - 4, 7, t * 0.5, D);             // 背景巨型机关齿轮（MV 145s 锻造轮机）
+    luGear(c, c.w - 19, cy - 3, 6, -t * 0.7, D);
     var beat = 1.86, ph = mod(elapsed / beat, 1);
     var drop = ph < 0.42 ? Math.pow(ph / 0.42, 2.2) : 1;
     var hy = (top + 1) + drop * (cy - 2 - (top + 1)); // 锤 T 形下落
@@ -3473,22 +3521,58 @@ title: 字符演歌
       }
     }
   }
-  // 176.25–184.11 终曲合流：巨链环 + 火柱 + 丝带 + 轨道曳光全要素同屏，末秒白闪顶点
+  // 176.25–184.11 终曲：王座炼狱全景（官方 MV 187–195s 拉远镜头）
+  // 岩浆海 + 中央岩柱王座 + 金发女王 + 侍从剪影 + 血红巨月，镜头后拉由裁切到完整
   function lu_final_linkup(c, t, top, bt, elapsed) {
-    var l = 2, r = c.w - 3, cx = (l + r) / 2, cy = (top + bt) / 2;
-    for (var x = 6; x < c.w - 6; x += 3) {            // 背景低密火柱
-      var hs = hash16(x * 331 + 3);
-      luFlame(c, x, bt,
-              Math.max(1, (2 + hs % 5 + Math.sin(t * 6 + x) * 1.5 + elapsed * 0.4) | 0), x, t);
+    var l = 2, r = c.w - 3, cx = (l + r) / 2;
+    var pb = clamp01(elapsed / 3.2);                       // 后拉 0→1（前 3.2s）
+    var moonR = (20 - pb * 6) | 0;                         // 血红巨月：开场裁切、后拉露全
+    var my = top + 9;
+    for (var mr = 0; mr < 72; mr++) {                      // 月面（中密度：红为主、金点缀、暗斑）
+      var ma = hash16(mr * 97) % 628 / 100;
+      var md = hash16(mr * 31) % Math.max(2, moonR - 3);
+      var ms = hash16(mr * 7) % 10;
+      c.put((cx + Math.cos(ma) * md * 1.9) | 0, (my + Math.sin(ma) * md * 0.62) | 0,
+            '.', ms < 6 ? R : ms < 8 ? B : D);
     }
-    luChainRing(c, cx, cy, 26, t * 0.5, R);           // 巨链环双环缓旋
-    luChainRing(c, cx, cy, 34, -t * 0.35, D);
-    luRibbon(c, cy - 8, 2.2, 0.05, t * 1.2, R);       // 丝带穿场
-    luRibbon(c, cy + 8, 2.2, 0.05, -t * 1.2 + 2, N);
-    for (var i = 0; i < 4; i++)                       // 环绕轨道曳光
-      luTracerOrbit(c, cx, cy, 22 + i * 4, t * (0.25 + i * 0.05) + i * 1.7,
-                    i % 2 ? W : B);
-    if (elapsed > 7.0) {                              // 末秒全屏白闪顶点
+    luRing(c, cx, my, moonR, '.', R, 0);                   // 月轮双圈：红 + 金勾边
+    luRing(c, cx, my, Math.max(2, moonR - 1), '.', B, 2);
+    for (var ray = -1; ray <= 1; ray++) {                  // 王座后垂直光柱（勾轮廓）
+      var rx2 = cx + ray * 3;
+      for (var ry = top + 2; ry < bt - 10; ry++)
+        if (hash16(rx2 * 13 + ry * 7) % 100 < 40 - ray * ray * 12)
+          c.put(rx2, ry, '|', ry < top + 6 ? W : B);
+    }
+    for (var lx = l + 1; lx < r; lx += 2) {                // 岩浆海（三层明暗翻涌）
+      for (var lr = 0; lr < 3; lr++) {
+        var ly = bt - lr;
+        if (hash16(lx * 23 + lr * 71 + (t * (2 + lr) | 0)) % 100 < 30 + lr * 12)
+          c.put(lx, ly, lr === 0 ? ',' : '.', lr === 0 ? N : lr === 1 ? R : D);
+      }
+    }
+    var spireH = 8;                                        // 中央岩柱（自岩浆拔起，金边勾亮）
+    for (var sp = 0; sp < spireH; sp++) {
+      var sw = 14 - sp * 1.6;
+      for (var sx = -sw; sx <= sw; sx += 2)
+        c.put((cx + sx) | 0, bt - 3 - sp, sp > spireH - 3 ? '=' : '#',
+              sp > spireH - 3 ? N : G);
+      c.put((cx - sw) | 0, bt - 3 - sp, '#', N);
+      c.put((cx + sw) | 0, bt - 3 - sp, '#', N);
+      if (hash16(sp * 37) % 3 === 0) c.put(cx | 0, bt - 3 - sp, '*', R);   // 岩缝熔光
+    }
+    var qy = bt - 3 - spireH;                              // 王座 + 金发女王居中端坐
+    for (var row2 = 0; row2 < 5; row2++) {
+      var wHalf = 2 + row2 * 1.2;
+      for (var x = cx - wHalf; x <= cx + wHalf; x += 2)
+        c.put(x | 0, qy - 1 - row2, row2 > 2 ? '#' : '=', row2 > 2 ? R : N);
+    }
+    c.put(cx, qy - 7, '*', W);                             // 王冠
+    c.put(cx, qy - 6, '@', B);                             // 金发
+    c.put(cx - 1, qy - 6, 'o', R); c.put(cx + 1, qy - 6, 'o', R);   // 红瞳
+    c.put(cx, qy - 5, '|', R);                             // 女王红袍
+    c.put(cx - 2, qy - 5, '<', G); c.put(cx + 2, qy - 5, '>', G);   // 两侧侍从剪影
+    luParticles(c, t, top, bt, 16, 91, true, true);        // 火星升腾
+    if (elapsed > 7.0) {                                   // 末段全屏白闪顶点（保留）
       var u = clamp01((elapsed - 7.0) / 0.9);
       for (var f3 = 0; f3 < 90 * u; f3++)
         c.put(4 + hash16(f3 * 61 + (t | 0)) % (c.w - 8),
@@ -3569,7 +3653,7 @@ title: 字符演歌
       dir: "{{ '/assets/data/ascii_mv/link_up' | relative_url }}",
       chrome: 'LINK UP / 血火相连',
       fileHint: 'Link Up 血火相连.mp3（时长 03:08）',
-      noteTail: '场景已按 B 站官方 MV 逐段移植（16 段 v1），对拍精修中。',
+      noteTail: '场景已按 B 站官方 MV 逐段移植并对拍精修（锻造重锤段 / 血红殿堂拉远 / 王座炼狱终曲）。',
       // 场景表对照官方 MV（BV1C9b76cEks，MV 时间 ≈ 歌曲 + 11s）按歌词时间轴落位
       scenes: [
         { a: 0,      b: 16.42,  f: lu_credits_void },
