@@ -12,21 +12,22 @@ title: 字符演歌
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>字符演歌 · world.execute(me);</title>
+<title>字符演歌</title>
 <!--
   字符演歌播放器（骨架 v1）
   - 渲染：canvas 2D + 字符图集（7 色 × 字符集预渲染，逐格 drawImage）
   - 时钟：AudioContext，播放位置 = offset + (ctx.currentTime - startAt)；
     ⚠️ ctx.currentTime 暂停时照走，不能直接当进度
   - 音频：本地文件选择（版权原因不入库）；?t=38.5 快照模式无需音频
+  - 多曲：?song=key（默认 world）+ 页头切换器；SONGS 注册表每歌一份配置
+    （标题/艺人/时长/数据目录/chrome 标题/场景路由表/章节表），新增歌曲 =
+    注册表加一项 + 独立前缀的场景函数 + assets/data/ascii_mv/<key>/ 数据
   - 字幕：DOM 叠加层（CJK 宽度交给浏览器），不参与字符网格
-  - 页头：歌曲标题独立元素（.amv-head / #amv-song），后续多曲接入在此加切换 UI
-  - 数据：assets/data/ascii_mv/{lyrics,spectrum}.js（window.__LYRICS / __SPECTRUM）
+  - 数据：assets/data/ascii_mv/<key>/{lyrics,spectrum}.js（window.__LYRICS / __SPECTRUM）
     异步 fetch 加载 + 进度条——同步脚本标签在弱网下会阻塞主脚本（PLAY 无响应、黑屏）；
     镜像 jsDelivr gh 优先（GitHub Pages 本机实测仅 ~10KB/s）、同源兜底、卡死自动切换
-  - 场景：table 驱动，已移植 t=38.5 正弦切线 / t=150.5 EXECUTION 两个验证场景，
-    其余走 fallback；章节表为近似值，后续对照原作逐段核对
-  - 待办：apply_glitch、title_takeover、其余 30+ 场景按时间轴顺序补齐
+  - 场景：world.execute(me); 已全曲逐行移植（0–211.933s）；
+    Link Up 血火相连（绝区零克拉蕾 EP）移植中，场景未上时全程 fallback 氛围
 -->
 <style>
   body { margin: 0; }
@@ -36,8 +37,16 @@ title: 字符演歌
     flex-wrap: wrap; line-height: 1.6;
   }
   .amv-head .brand { color: var(--c6); font-size: 12px; letter-spacing: 2px; }
-  .amv-head .song { color: var(--c2); font-size: clamp(15px, 2.4vw, 20px); font-weight: 700;
-    text-shadow: 0 0 10px rgba(255, 215, 95, .3); }
+  .amv-head .songs { display: flex; gap: 6px; flex-wrap: wrap; }
+  .amv-head .songs button {
+    background: none; border: 1px solid var(--line); color: var(--c6);
+    font: inherit; font-size: clamp(12px, 2vw, 16px); font-weight: 700;
+    padding: 1px 10px; cursor: pointer;
+  }
+  .amv-head .songs button.on {
+    color: var(--c2); border-color: var(--c2);
+    text-shadow: 0 0 10px rgba(255, 215, 95, .3);
+  }
   .amv-head .artist { color: var(--c0); font-size: 12px; }
   .amv-wrap {
     --bg: #0a0a08; --panel: #000; --line: #2a2416;
@@ -97,8 +106,10 @@ title: 字符演歌
 <div class="amv-wrap">
   <div class="amv-head">
     <span class="brand">字符演歌</span>
-    <span class="song" id="amv-song">world.execute(me);</span>
-    <span class="artist">Mili</span>
+    <span class="songs" id="amv-songs">
+      <button type="button" data-song="world">world.execute(me);</button><button type="button" data-song="link_up">Link Up 血火相连</button>
+    </span>
+    <span class="artist" id="amv-artist"></span>
   </div>
   <div class="amv-stage">
     <canvas id="amv-cv" width="2160" height="1440"></canvas>
@@ -114,11 +125,7 @@ title: 字符演歌
     <span id="amv-load-txt">数据加载中…</span>
     <div class="bar"><i id="amv-load-fill" style="width:0%"></i></div>
   </div>
-  <div class="amv-note" id="amv-note">
-    不选文件可直接 PLAY 无声播放（画面/字幕/频谱照常；字幕/频谱数据后台加载，进度见上方进度条）；
-    选择本机歌曲文件（world.execute(me);.mp3，时长 03:32）则有声。
-    音频不入库（版权）。也可以用 ?t=38.5 快照模式查看单帧。全曲场景已逐格移植完毕。
-  </div>
+  <div class="amv-note" id="amv-note"></div>
 </div>
 <script>
 (function () {
@@ -127,7 +134,7 @@ title: 字符演歌
   var GW = 120, GH = 40, CW = 9, CH = 18, SC = 2;   // 网格 / 单元格 / 超采样
   var D = 0, N = 1, B = 2, W = 3, R = 4, G = 5, K = 6, Y = 3;
   var PAL = ['#afaf5f', '#ffaf5f', '#ffd75f', '#ffffd7', '#ff5f5f', '#875f00', '#5f5f00'];
-  var DUR = 211.933;
+  var DUR = 0;   // 由 SONGS 注册表按 ?song= 注入（见「歌单注册表」一节）
 
   function clamp(x, a, b) { a = a || 0; b = b === undefined ? 1 : b; return Math.min(b, Math.max(a, x)); }
   function mix(a, b, u) { return a + (b - a) * u; }
@@ -3036,9 +3043,20 @@ title: 字符演歌
     c.centerW(cy + 6, 'EXIT CODE: EXECUTION', Math.trunc(t * 2) % 2 ? R : G);
   }
 
-  // 路由与原作 draw_scene 一致；emap = 原作对 elapsed 的特殊处理
-  // （power_line 提前 0.1s 开始；1.74–2.92 冻结在末态；lay_pieces/data_parameters 跨歌词段连续计时）
-  var SCENES = [
+  /* ---------------- 歌单注册表（多曲架构：?song=key，缺省 world） ---------------- */
+  // 一首歌一份配置：标题/艺人/时长/数据目录/chrome 标题/文件提示/场景路由表/章节表。
+  // 新增歌曲 = 这里加一项 + 独立前缀的场景函数 + assets/data/ascii_mv/<key>/ 数据。
+  // ⚠️ 路由表 emap = 原作对 elapsed 的特殊处理（power_line 提前 0.1s 开始；
+  // 1.74–2.92 冻结在末态；lay_pieces/data_parameters 跨歌词段连续计时）
+  var SONGS = {
+    'world': {
+      title: 'world.execute(me);', artist: 'Mili',
+      dur: 211.933, durTxt: '03:32',
+      dir: "{{ '/assets/data/ascii_mv' | relative_url }}",
+      chrome: 'WORLD.EXECUTE(ME);',
+      fileHint: 'world.execute(me);.mp3（时长 03:32）',
+      noteTail: '全曲场景已逐格移植完毕。',
+      scenes: [
     { a: 0, b: 1.74, f: scenePowerLine, emap: function (t) { return t - 0.1; } },
     { a: 1.74, b: 2.92, f: scenePowerLine, emap: function () { return 1.6; } },
     { a: 2.92, b: 3.873, f: sceneProtection },
@@ -3073,7 +3091,57 @@ title: 字符演歌
     { a: 177.246, b: 188.483, f: sceneLoveEquation },
     { a: 188.483, b: 192.5, f: sceneTrappedLoop },
     { a: 192.5, b: 300, f: sceneOutroWait }
-  ];
+      ],
+      // 与原作 player.py CHAPTERS 一致（5 章）
+      chapters: [
+        [0, '01 / CREATION'], [29.709, '02 / DEVOTION'], [110.9, '03 / ISOLATION'],
+        [125.708, '04 / EXECUTION'], [177.246, '05 / LOVE']
+      ]
+    },
+    'link_up': {
+      title: 'Link Up 血火相连', artist: '三Z-STUDIO / HOYO-MiX',
+      dur: 188.0, durTxt: '03:08',
+      dir: "{{ '/assets/data/ascii_mv/link_up' | relative_url }}",
+      chrome: 'LINK UP / 血火相连',
+      fileHint: 'Link Up 血火相连.mp3（时长 03:08）',
+      noteTail: '场景移植中：当前为占位氛围，字幕/频谱已就绪。',
+      // 章节为按歌词时间轴的初版划分（IGNITION 0–16.42 / PULSE 主歌一+导歌 /
+      // LINK UP 副歌一 / DEFIANT 主歌二+桥段 / SHATTERPROOF 副歌二+尾奏），定场景表时精修
+      scenes: [],   // 待按 B 站官方 MV（BV1C9b76cEks）逐段移植；空 = 全程 fallback
+      chapters: [
+        [0, '01 / IGNITION'], [16.42, '02 / PULSE'], [72.01, '03 / LINK UP'],
+        [103.51, '04 / DEFIANT'], [160.05, '05 / SHATTERPROOF']
+      ]
+    }
+  };
+  var _qsSong = new URLSearchParams(location.search).get('song');
+  var SONG_KEY = SONGS[_qsSong] ? _qsSong : 'world';
+  var SONG = SONGS[SONG_KEY];
+  DUR = SONG.dur;
+  var SCENES = SONG.scenes;
+  var CHAPTERS = SONG.chapters;
+
+  // 页头/标题/说明按歌切换；切换器点击跳 ?song=（保留 t 等其它参数）
+  document.title = '字符演歌 · ' + SONG.title;
+  var elArtist = document.getElementById('amv-artist');
+  if (elArtist) elArtist.textContent = SONG.artist;
+  var elSongs = document.getElementById('amv-songs');
+  if (elSongs) {
+    var tabs = elSongs.querySelectorAll('button');
+    for (var ti = 0; ti < tabs.length; ti++) {
+      if (tabs[ti].getAttribute('data-song') === SONG_KEY) tabs[ti].className = 'on';
+      tabs[ti].addEventListener('click', function () {
+        var u = new URL(location.href);
+        u.searchParams.set('song', this.getAttribute('data-song'));
+        location.href = u.toString();
+      });
+    }
+  }
+  var elNote = document.getElementById('amv-note');
+  if (elNote) elNote.textContent =
+    '不选文件可直接 PLAY 无声播放（画面/字幕/频谱照常；数据后台加载，进度见上方进度条）；' +
+    '选择本机歌曲文件（' + SONG.fileHint + '）则有声。音频不入库（版权）。' +
+    '也可以用 ?t=38.5 快照模式查看单帧。' + SONG.noteTail;
   function sceneAt(t) {
     for (var i = 0; i < SCENES.length; i++)
       if (t >= SCENES[i].a && t < SCENES[i].b) return SCENES[i];
@@ -3081,11 +3149,6 @@ title: 字符演歌
   }
 
   /* ---------------- 版面 chrome ---------------- */
-  // 与原作 player.py CHAPTERS 一致（5 章）
-  var CHAPTERS = [
-    [0, '01 / CREATION'], [29.709, '02 / DEVOTION'], [110.9, '03 / ISOLATION'],
-    [125.708, '04 / EXECUTION'], [177.246, '05 / LOVE']
-  ];
   function chapterAt(t) {
     var s = '';
     for (var i = 0; i < CHAPTERS.length; i++) if (t >= CHAPTERS[i][0]) s = CHAPTERS[i][1];
@@ -3098,9 +3161,9 @@ title: 字符演歌
   }
   // 与原作 render() 的版面逐行一致（divider 从 x=2 起、状态行、章节 NORMAL、提示行）
   function drawChrome(c, t, playing, snap) {
-    c.put(2, 0, 'WORLD.EXECUTE(ME);', B);
+    c.put(2, 0, SONG.chrome, B);
     var state = snap || !playing ? 'PAUSED' : 'RUNNING';
-    var right = fmtT(t) + ' / 03:32  ' + state;
+    var right = fmtT(t) + ' / ' + SONG.durTxt + '  ' + state;
     c.put(c.w - right.length - 2, 0, right, D);
     var div = '';
     for (var i = 0; i < c.w - 4; i++) div += '-';
@@ -3213,8 +3276,8 @@ title: 字符演歌
   // 可永久缓存，彻底消除「@master 分支引用最多 ~12h 缓存延迟」的刷新不及时问题；
   // 本地构建无该变量时 default 回退 master。
   {% assign amv_rev = site.github.build_revision | default: "master" %}
-  var LYRIC_URL = "{{ '/assets/data/ascii_mv/lyrics.js' | relative_url }}";
-  var SPEC_URL = "{{ '/assets/data/ascii_mv/spectrum.js' | relative_url }}";
+  var LYRIC_URL = SONG.dir + '/lyrics.js';
+  var SPEC_URL = SONG.dir + '/spectrum.js';
   var MIRRORS = ['https://cdn.jsdelivr.net/gh/crescentvelvet/crescentvelvet.github.io@{{ amv_rev }}', ''];
   var STALL_MS = window.__AMV_STALL_MS || 15000;   // E2E 注入小值压缩等待
   var elLoad = document.getElementById('amv-load'),
@@ -3426,7 +3489,7 @@ title: 字符演歌
     }
     render();
     elFill.style.width = (t / DUR * 100).toFixed(2) + '%';
-    elTime.textContent = fmtT(t) + ' / 03:32';
+    elTime.textContent = fmtT(t) + ' / ' + SONG.durTxt;
     requestAnimationFrame(tick);
   }
   buildAtlas();
@@ -3435,8 +3498,9 @@ title: 字符演歌
   window.__amv = { grid: grid, w: GW, h: GH, now: now, frameAt: frameAt,
                    hash16: hash16, titlePixels: titlePixels, mix: mix, clamp01: clamp01,
                    CCanvas: CCanvas, sceneTitleTakeover: sceneTitleTakeover,
+                   song: SONG_KEY, dur: DUR,
                    loadState: function () {
-                     return { lyrics: LYRICS.length, spectrum: !!window.__SPECTRUM,
+                     return { song: SONG_KEY, lyrics: LYRICS.length, spectrum: !!window.__SPECTRUM,
                               loadHidden: elLoad.hidden, loadTxt: elLoadTxt.textContent };
                    } };
   tick();

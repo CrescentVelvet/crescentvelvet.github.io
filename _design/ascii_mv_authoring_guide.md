@@ -107,14 +107,25 @@ frames = np.clip(frames, 0, 1)
    参考帧可以入库**），改场景代码后跑 `diff_generic.py` 防回归劣化——
    这是移植链的复用，只是参考帧变成「自己上一版的好帧」。
 
-## 6. 文件落地清单
+## 6. 文件落地清单（多曲架构，2026-10-30 起）
 
 ```
-assets/data/ascii_mv/<歌名>/lyrics.js      ← 歌词时间轴（入库）
-assets/data/ascii_mv/<歌名>/spectrum.js    ← 频谱数据（入库）
-_pages/<歌名>_mv.html                      ← 播放器页面（复制 ascii_mv.html 改造）
+assets/data/ascii_mv/<key>/lyrics.js      ← 歌词时间轴（入库）
+assets/data/ascii_mv/<key>/spectrum.js    ← 频谱数据（入库）
+_pages/ascii_mv.html                      ← 唯一播放器页，?song=<key> 切歌（缺省 world）
 ```
 
-页面改造点：数据文件 `<script src>` 两路、`DUR` 常量、`CHAPTERS`、
-路由表 `SCENES`、场景函数集合、标题文案。版面/chrome/字幕/频谱/glitch/
-phosphor 这些基础设施原样复用。
+**单页注册表，不再每歌复制页面**（旧方案「每歌一页」作废：基础设施两首歌完全
+相同，复制页面等于修 bug 修两遍）。页面内 `SONGS` 注册表每歌一份配置：
+标题/艺人/时长 `dur` 与显示文案 `durTxt`/数据目录 `dir`/chrome 标题 `chrome`/
+文件提示 `fileHint`/说明尾句 `noteTail`/`scenes` 路由表/`chapters` 章节表。
+
+新增一首歌 = 三处：
+
+1. `SONGS` 加一项（场景表可先空 = 全程 fallback，字幕/频谱先跑起来）；
+2. 场景函数（**独立前缀**，如 `lu_`），函数声明有提升，写在路由表之前即可；
+3. `assets/data/ascii_mv/<key>/` 两份数据 + 页头切换器加一个 `<button>`。
+
+歌间隔离约定：`?song=` 只接受注册表内的 key（非法值回退 world）；
+切换器点击跳 `?song=`（保留 `t` 等参数）；`DUR`/chrome/章节全部从 `SONG` 读，
+**禁止再出现按歌硬编码的全局常量**。回归 E2E 场景 D 覆盖切歌全链路。
