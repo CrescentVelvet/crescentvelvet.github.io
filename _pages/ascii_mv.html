@@ -3188,12 +3188,15 @@ title: 字符演歌
               sb % 3 ? '*' : '+', strike > 0.6 ? W : R);
       }
   }
-  // 16.42–32.35 主歌一（钢铁/王冠）：左侧双齿轮啮合 + 右侧透视走廊跑者
+  // 16.42–32.35 主歌一（钢铁/王冠）：三段推进——奔跑锻火(0-11.5) →
+  // 金王冠压顶(11.5-13.6, 对应 "gold crown weighing me down") → 王冠崩裂出血脉冲(13.6-15.93, 桥接血脉段)
   function lu_verse_steel(c, t, top, bt, elapsed) {
-    luGear(c, 24, 13, 6, t * 0.9, B);
-    luGear(c, 41, 18, 4, -t * 1.35, N);
-    luGear(c, 13, 24, 3, -t * 1.8, D);
-    var vx = c.w - 3, vy = (top + bt) / 2;
+    var e = elapsed, cx = (c.w - 1) / 2, cy = (top + bt) / 2;
+    var spin = 1 + Math.min(0.5, e * 0.045);          // 齿轮随时间缓缓提速
+    luGear(c, 24, 13, 6, t * 0.9 * spin, B);
+    luGear(c, 41, 18, 4, -t * 1.35 * spin, N);
+    luGear(c, 13, 24, 3, -t * 1.8 * spin, D);
+    var vx = c.w - 3, vy = cy;
     for (var i = 0; i < 5; i++) {                     // 透视线向右缘汇聚（稀疏虚线）
       var y0 = top + 3 + i * 5.5;
       for (var x = 54; x < vx; x += 3)
@@ -3207,6 +3210,37 @@ title: 字符演歌
     c.put((rx - 3) | 0, (ry + 1) | 0, '.', R);
     for (var x3 = 4; x3 < c.w - 4; x3 += 3)           // 顶部暗红光
       if (hash16(x3 * 13 + (t * 2 | 0)) % 100 < 12) c.put(x3, top, '.', R);
+    // 王冠：自顶部沉降压顶（smoothstep），随后崩裂
+    var crownIn = clamp01((e - 11.5) / 1.4);          // 11.5–12.9 降入
+    if (crownIn > 0) {
+      var crack = clamp01((e - 13.6) / 1.2);          // 13.6 起崩裂
+      var gold = crack > 0.5 ? (mod(t * 6, 1) < 0.5 ? G : D) : G;
+      var yTop = (top - 5 + crownIn * crownIn * (3 - 2 * crownIn) * (cy - 2 - top + 5)) | 0;
+      var yBot = yTop + 3;
+      var spikes = '\\^/ \\^/ \\^/ \\^/ \\^/', band = '|=================|', base = "'-----------------'";
+      for (var s2 = 0; s2 < spikes.length; s2++)
+        c.put((cx - 9 + s2) | 0, yTop, spikes[s2], crack > 0 ? R : W);
+      for (var s3 = 0; s3 < band.length; s3++)
+        c.put((cx - 9 + s3) | 0, yTop + 1, band[s3], gold);
+      for (var s4 = 0; s4 < base.length; s4++)
+        c.put((cx - 9 + s4) | 0, yTop + 2, base[s4], gold);
+      if (crack > 0) {                                // 裂纹 + 压沉
+        c.put((cx - 3) | 0, yTop + 1, 'x', R);
+        c.put((cx + 2) | 0, yTop + 2, 'x', R);
+        yBot += (crack * 1.5) | 0;
+      }
+      // 崩裂后自王冠漾出血脉冲环（桥接 32.35 血脉段的房心环）
+      if (crack > 0.25) {
+        var pr = mod(t * 1.65, 1);
+        for (var ring2 = 0; ring2 < 2; ring2++) {
+          var rr2 = 4 + pr * (14 + ring2 * 6);
+          var u2 = clamp01(1 - rr2 / 26) * (1 - pr * 0.6);
+          if (u2 > 0.06)
+            luRing(c, cx, yBot, rr2 | 0, ring2 ? '.' : '+',
+                   u2 > 0.55 ? R : u2 > 0.3 ? N : D, 2);
+        }
+      }
+    }
   }
   // 32.35–48.17 主歌一（血脉脉搏）：三条正弦血管 + 血细胞流 + 心房脉动环
   function lu_verse_pulse(c, t, top, bt, elapsed) {
