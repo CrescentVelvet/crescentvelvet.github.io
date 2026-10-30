@@ -3354,12 +3354,17 @@ title: 字符演歌
       luParticles(c, t, top, bt, (30 * ignite) | 0, 91, true, true);
     }
   }
-  // 64.40–72.01 血与火（预热副歌）：火柱自底升起渐旺 + 火星喷射 + 压字
+  // 64.40–72.01 血与火（预热副歌）：火柱渐旺 + 火星喷射 + 压字跟词 +
+  // 末尾向中心收拢聚热、中央白热火柱冲天（桥接 72.01 锻造锤落）
   function lu_bloodflames(c, t, top, bt, elapsed) {
-    var heat = clamp01(elapsed / 7.6);
+    var e = elapsed, cx = (c.w - 1) / 2;
+    var heat = Math.pow(clamp01(e / 7.6), 1.2);       // 前缓后急
+    var conv = clamp01((e - 6.2) / 1.4);              // 末尾聚热收拢
     for (var x = 4; x < c.w - 4; x++) {
       var hs = hash16(x * 977 + 7);
-      var hMax = 6 + hs % 12 + heat * (8 + hs % 9);
+      var lean = 1 - Math.abs(x - cx) / cx;           // 靠中心越旺
+      var hMax = (6 + hs % 12 + heat * (8 + hs % 9)) * (0.5 + heat * 0.5) * (1 + lean * conv * 0.6);
+      hMax = Math.min(hMax | 0, bt - top - 2);
       luFlame(c, x, bt, Math.max(2, (hMax * (0.75 + 0.25 * Math.sin(t * 7 + x * 0.9))) | 0), x, t);
       if (hs % 100 < heat * 60) {                     // 火星上抛
         var mu = mod(t * (0.5 + hs % 40 / 60) + hs % 97 / 97, 1);
@@ -3372,9 +3377,23 @@ title: 字符演歌
       c.put(x2, bt, '#', heat > 0.55 ? R : N);
     for (var x3 = 4; x3 < c.w - 4; x3 += 2)
       c.put(x3, bt - 1, '*', heat > 0.75 ? B : N);
-    if (elapsed > 5.5 && mod(t * 2, 1) < 0.7)
-      c.centerW(bt - 4, 'B O U N D   B Y   B L O O D   &   F L A M E S',
-                heat > 0.85 ? R : G);
+    // 末尾中央白热火柱：越升越高、越收越窄，副歌锤落前的聚热顶点
+    if (conv > 0) {
+      var ph2 = (2 + conv * (bt - top - 8)) | 0;
+      for (var fy = 0; fy < ph2; fy++) {
+        var u = 1 - fy / ph2;
+        var fw = (1 + u * 3 * (1 - conv * 0.5)) | 0;
+        for (var fx2 = -fw; fx2 <= fw; fx2++)
+          c.put((cx + fx2) | 0, bt - 2 - fy,
+                u > 0.6 ? '@' : u > 0.35 ? '#' : '*',
+                u > 0.75 ? W : u > 0.4 ? R : B);
+      }
+    }
+    // 压字跟随两行歌词（原实现错放在 5.5s 后，首行词已从 64.40 开始）
+    if (e > 0.25 && e < 3.4 && mod(t * 2, 1) < 0.75)
+      c.centerW(bt - 4, 'B O U N D   B Y   B L O O D   &   F L A M E S', heat > 0.6 ? R : G);
+    if (e >= 3.9 && e < 6.9 && mod(t * 2, 1) < 0.75)
+      c.centerW(bt - 4, 'C A L L   O U T   Y O U R   N A M E', heat > 0.85 ? R : G);
   }
   // 72.01–80.00 副歌一爆点：冲击波环 + LINK UP 大字 + 双链环阵
   // 72.01–80.00 副歌一爆点：锻造重锤段落（官方 MV 83–91s 锻炉膛/巨锤砸落/金属火星）
