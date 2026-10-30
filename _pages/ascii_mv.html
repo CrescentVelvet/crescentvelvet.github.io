@@ -3676,6 +3676,31 @@ title: 字符演歌
   // 103.51–124.00 主歌二（step in 行军）：楔形波次 '>>>' 推进 + 军旗竖纹 + 十字星闪
   function lu_verse2_stepin(c, t, top, bt, elapsed) {
     var l = 2, r = c.w - 3;
+    // 3D 目标堡垒：塔+墙+副塔拼装，投影框随行军扩大=不断逼近
+    var prog = clamp01(elapsed / 20.5);
+    var vsM = luBox(0.5, 1.7, 0.5, 0, 0.3, 0)
+      .concat(luBox(2.0, 0.5, 0.4, 0, -1.1, 0))
+      .concat(luBox(0.4, 1.0, 0.4, -1.5, -0.6, 0));
+    var mw = 6 + prog * 10, mh = 3 + prog * 4;
+    projected(c, vsM, luEdges(0).concat(luEdges(8), luEdges(16)),
+              (l + r) / 2 - mw, top + 1, (l + r) / 2 + mw, top + 1 + mh * 2,
+              0.35, prog > 0.7 ? G : D, 1);
+    // 左上 MARCH.SYS 日志（压行军推进）
+    var LOGM = [
+      [0.3, 'MARCH.SYS  v2.2'],
+      [3.0, 'step in ...... NOW'],
+      [7.0, 'wedge ........ FORMED'],
+      [11.0, 'banners ...... RAISED'],
+      [15.0, 'swords ....... READY'],
+      [19.0, 'forge ........ AHEAD']
+    ];
+    for (var g = 0; g < LOGM.length; g++) {
+      if (elapsed < LOGM[g][0]) break;
+      var ln = LOGM[g][1];
+      var sh2 = Math.min(ln.length, ((elapsed - LOGM[g][0]) * 22) | 0);
+      for (var ch = 0; ch < sh2; ch++)
+        c.put(3 + ch, top + 1 + g, ln[ch], g === 5 ? B : ch < 10 ? B : N);
+    }
     var off = mod(t * 2, 6) | 0;                      // 军旗竖纹底
     for (var x = 4 + off; x < c.w - 4; x += 6)
       for (var y = top + 1; y < bt; y++)
