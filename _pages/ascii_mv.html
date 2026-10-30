@@ -3043,6 +3043,470 @@ title: 字符演歌
     c.centerW(cy + 6, 'EXIT CODE: EXECUTION', Math.trunc(t * 2) % 2 ? R : G);
   }
 
+  /* ---------------- Link Up 场景（lu_ 前缀，对照 B 站官方 MV BV1C9b76cEks）----------------
+   * MV 比歌曲长约 11s（片头冷开场 + 片尾 logo），场景按歌曲时间轴落位、MV 取视觉母题：
+   * 暗场心跳(0-16) → 冷走廊+齿轮(16-32) → 血脉脉冲(32-48) → 红丝带梦境(48-64) →
+   * 血火预热(64-72) → LINK UP 爆点(72-80) → 战场交火(80-96) → 红隧道(96-103) →
+   * 行军 step in(103-124) → 熔炉锻打(124-136) → 梦境回闪(136-152) → 血火+纹章(152-160) →
+   * LINK UP 强化(160-168) → 交火+王座(168-176) → 终曲合流(176-184) → 余烬熄灭(184-188)
+   * 调色：本站琥珀终端系——R(4)=火/血、D/K=暗场、B/W=爆闪；R 是这首歌的灵魂色。
+   */
+  // 通用余烬粒子场：n 颗；up=上升/下落；hot=火色（R 配额高）。确定性 hash16。
+  function luParticles(c, t, top, bt, n, seed, up, hot) {
+    var l = 2, r = c.w - 3, w = r - l, h = bt - top;
+    for (var i = 0; i < n; i++) {
+      var hs = hash16(i * 131 + seed * 313);
+      var spd = 0.5 + (hs % 100) / 85;
+      var y = top + mod((hs >> 8) / 255 * h + t * spd * (up ? -1 : 1), h);
+      var x = l + mod((hs % 65535) + Math.sin(t * 0.6 + i * 1.7) * 3.5, w);
+      var u = ((hs >> 3) % 100) / 100 * (0.72 + 0.28 * Math.sin(t * (2 + hs % 5) + i));
+      var ch = u > 0.78 ? '*' : u > 0.55 ? '+' : u > 0.35 ? '.' : '·';
+      var st = u > 0.88 ? W : u > 0.62 ? B : u > 0.45 ? (hot ? R : N) : D;
+      if (hot && u > 0.7) st = R;
+      c.put(x | 0, y | 0, ch, st);
+    }
+  }
+  // 椭圆环：rx 横向半径（格），纵向按字符高宽比折半；dash>0 虚线间隔，rot 起始角
+  function luRing(c, cx, cy, rx, ch, st, dash, rot) {
+    var ry = Math.max(1, (rx * 0.5) | 0);
+    var steps = Math.max(14, rx * 5);
+    for (var i = 0; i < steps; i++) {
+      if (dash && i % dash) continue;
+      var a = i / steps * TAU + (rot || 0);
+      c.put((cx + Math.cos(a) * rx) | 0, (cy + Math.sin(a) * ry) | 0, ch, st);
+    }
+  }
+  // 正弦丝带：x 全宽，y=yMid+sin(x*k+phase)*amp；按斜率选字符，左端亮右端暗
+  function luRibbon(c, yMid, amp, k, phase, st) {
+    var l = 2, r = c.w - 3;
+    for (var x = l; x <= r; x++) {
+      var y = yMid + Math.sin(x * k + phase) * amp;
+      var dy = Math.cos(x * k + phase) * amp * k;
+      var ch = Math.abs(dy) < 0.2 ? '-' : dy > 0 ? '\\' : '/';
+      var fade = (x - l) / (r - l);
+      c.put(x, y | 0, ch, fade > 0.6 ? st : fade > 0.25 ? N : D);
+    }
+  }
+  // 单列火焰：自 baseY 向上 h 格；底部密亮、顶部稀疏舔舐
+  function luFlame(c, x, baseY, h, seed, t) {
+    for (var i = 0; i < h; i++) {
+      var u = 1 - i / Math.max(1, h);
+      var lick = Math.sin(t * 8 + x * 1.31 + seed) * 0.18;
+      if (u + lick < (i === h - 1 ? 0.45 : -0.15)) continue;
+      var ch = u > 0.55 ? '#' : u > 0.35 ? '*' : u > 0.18 ? '+' : '.';
+      c.put(x, baseY - i, ch, u > 0.5 ? R : u > 0.32 ? B : u > 0.16 ? N : D);
+    }
+  }
+  // 齿轮：rad=纵向半径（格），x 向 ×2 折算字符高宽比；teeth 齿数，ang 转角
+  function luGear(c, gx, gy, rad, ang, st) {
+    var teeth = Math.max(6, rad), steps = Math.max(24, rad * 7);
+    for (var i = 0; i < steps; i++) {
+      var a = i / steps * TAU + ang;
+      var tooth = mod(a / TAU * teeth, 1) < 0.3;
+      var rr = rad + (tooth ? 1 : 0);
+      c.put((gx + Math.cos(a) * rr * 2) | 0, (gy + Math.sin(a) * rr) | 0,
+            tooth ? '#' : 'o', st);
+    }
+    for (var s = 0; s < 4; s++) {
+      var sa = ang + s * TAU / 4;
+      for (var rr2 = 1; rr2 < rad - 1; rr2++)
+        c.put((gx + Math.cos(sa) * rr2 * 2) | 0, (gy + Math.sin(sa) * rr2) | 0,
+              rr2 % 2 ? '-' : '=', D);
+    }
+    c.put(gx, gy, 'O', st);
+  }
+  // 链环：椭圆环上按八方位取链节字符（<>[]{}()），rot 转角
+  function luChainRing(c, cx, cy, rx, rot, st) {
+    var chs = '<>[]{}()';
+    var steps = rx * 5;
+    for (var i = 0; i < steps; i++) {
+      var a = i / steps * TAU + rot;
+      var x = (cx + Math.cos(a) * rx) | 0, y = (cy + Math.sin(a) * rx * 0.5) | 0;
+      c.put(x, y, chs.charAt(Math.floor(mod(a, TAU) / TAU * 8) % 8), st);
+    }
+  }
+  // 轨道曳光：椭圆环上奔跑的发光头 + 渐暗尾迹（u=圈数）
+  function luTracerOrbit(c, cx, cy, rx, u, st) {
+    for (var k = 0; k < 6; k++) {
+      var a = u * TAU - k * 0.09;
+      var uu = 1 - k / 6;
+      c.put((cx + Math.cos(a) * rx) | 0, (cy + Math.sin(a) * rx * 0.5) | 0,
+            k === 0 ? '@' : '.', k === 0 ? W : uu > 0.5 ? st : D);
+    }
+  }
+
+  // 0–16.42 冷开场：黑暗虚空，稀疏余烬上飘，中央心跳光点（credits 由字幕层显示）
+  function lu_credits_void(c, t, top, bt, elapsed) {
+    luParticles(c, t, top, bt, 20, 41, true, false);
+    var cx = (c.w - 1) / 2, cy = (top + bt) / 2;
+    var beat = mod(t * 1.1, 1);                       // lub-dub 双跳包络
+    var env = Math.exp(-beat * 6) + 0.6 * Math.exp(-mod(beat + 0.18, 1) * 6);
+    var rad = 1.5 + env * 3.2;
+    for (var i = 0; i < 48; i++) {
+      var a = i / 48 * TAU;
+      if (hash16(i * 31) % 100 < 30 + env * 70)
+        c.put((cx + Math.cos(a) * rad * 2) | 0, (cy + Math.sin(a) * rad) | 0,
+              env > 0.5 ? '*' : '+', env > 0.7 ? R : env > 0.4 ? B : N);
+    }
+    c.put(cx | 0, cy | 0, '@', env > 0.5 ? W : B);
+    c.put((cx - 1) | 0, cy | 0, '(', env > 0.6 ? R : N);
+    c.put((cx + 1) | 0, cy | 0, ')', env > 0.6 ? R : N);
+    for (var x2 = 4; x2 < c.w - 4; x2 += 2)           // 底部地平微光
+      if (hash16(x2 * 17) % 100 < 38) c.put(x2, bt, '-', G);
+  }
+  // 16.42–32.35 主歌一（钢铁/王冠）：左侧双齿轮啮合 + 右侧透视走廊跑者
+  function lu_verse_steel(c, t, top, bt, elapsed) {
+    luGear(c, 24, 13, 6, t * 0.9, B);
+    luGear(c, 41, 18, 4, -t * 1.35, N);
+    luGear(c, 13, 24, 3, -t * 1.8, D);
+    var vx = c.w - 3, vy = (top + bt) / 2;
+    for (var i = 0; i < 5; i++) {                     // 透视线向右缘汇聚（稀疏虚线）
+      var y0 = top + 3 + i * 5.5;
+      for (var x = 54; x < vx; x += 3)
+        if (hash16(x * 3 + i * 77) % 100 < 55)
+          c.put(x, (y0 + (vy - y0) * (x - 54) / (vx - 54)) | 0, '-', D);
+    }
+    var ru = mod(t * 0.55, 1);                        // 跑者光点 + 余烬足迹
+    var rx = 50 + ru * (vx - 50), ry = vy + Math.sin(ru * 9) * 2;
+    c.put(rx | 0, ry | 0, '@', W);
+    c.put((rx - 2) | 0, (ry + 1) | 0, '.', R);
+    c.put((rx - 3) | 0, (ry + 1) | 0, '.', R);
+    for (var x3 = 4; x3 < c.w - 4; x3 += 3)           // 顶部暗红光
+      if (hash16(x3 * 13 + (t * 2 | 0)) % 100 < 12) c.put(x3, top, '.', R);
+  }
+  // 32.35–48.17 主歌一（血脉脉搏）：三条正弦血管 + 血细胞流 + 心房脉动环
+  function lu_verse_pulse(c, t, top, bt, elapsed) {
+    var l = 2, r = c.w - 3, cx = (l + r) / 2, cy = (top + bt) / 2;
+    for (var v = 0; v < 3; v++) {
+      var yMid = cy + (v - 1) * 7;
+      var amp = 3.2 + v * 0.8, ph = t * (1.1 + v * 0.13) + v * 2.1;
+      for (var x = l; x <= r; x++) {
+        var y = yMid + Math.sin(x * 0.075 + ph) * amp;
+        var dy = Math.cos(x * 0.075 + ph) * amp * 0.075;
+        c.put(x, y | 0, Math.abs(dy) < 0.12 ? '-' : dy > 0 ? '\\' : '/', v === 1 ? R : D);
+      }
+      if (v === 1)                                    // 主血管内血细胞流
+        for (var cb = 0; cb < 12; cb++) {
+          var cxx = l + mod(cb * 10.3 + t * 15, r - l);
+          c.put(cxx | 0, (cy + Math.sin(cxx * 0.075 + ph) * amp) | 0,
+                cb % 3 ? 'o' : '.', cb % 4 ? R : W);
+        }
+    }
+    var beat = mod(t * 1.65, 1), env = Math.exp(-beat * 5);
+    for (var ring = 0; ring < 3; ring++) {            // 心房扩散环
+      var rr = 2 + beat * 15 + ring * 5;
+      var u = clamp01(1 - rr / 25) * (0.4 + env);
+      if (u <= 0.05) continue;
+      luRing(c, cx, cy, rr | 0, u > 0.5 ? '*' : '.', u > 0.55 ? R : u > 0.3 ? N : D);
+    }
+    c.put(cx | 0, cy | 0, '@', env > 0.45 ? R : B);
+  }
+  // 48.17–64.40 导歌一（梦境）：五条红丝带缓漂，偶发字符脱落上飘
+  function lu_predream_ribbons(c, t, top, bt, elapsed) {
+    var cy = (top + bt) / 2;
+    var breathe = 0.8 + 0.2 * Math.sin(t * 0.5);
+    for (var i = 0; i < 5; i++)
+      luRibbon(c, cy + (i - 2) * 4.5, (2.5 + i * 0.6) * breathe, 0.055,
+               t * 0.55 + i * 1.7, i === 2 ? R : N);
+    for (var i2 = 0; i2 < 10; i2++) {                 // 脱落碎片上飘
+      var hs = hash16(i2 * 733 + 5);
+      var sx = 2 + hs % (c.w - 6);
+      var sy = cy + Math.sin(sx * 0.055 + (i2 % 5) * 1.7 + t * 0.55) * 4;
+      var rise = mod(t * 0.5 + (hs % 100) / 100, 1);
+      c.put(sx, (sy - rise * 8) | 0, "'", rise < 0.3 ? N : D);
+    }
+  }
+  // 64.40–72.01 血与火（预热副歌）：火柱自底升起渐旺 + 火星喷射 + 压字
+  function lu_bloodflames(c, t, top, bt, elapsed) {
+    var heat = clamp01(elapsed / 7.6);
+    for (var x = 4; x < c.w - 4; x++) {
+      var hs = hash16(x * 977 + 7);
+      var hMax = 6 + hs % 12 + heat * (8 + hs % 9);
+      luFlame(c, x, bt, Math.max(2, (hMax * (0.75 + 0.25 * Math.sin(t * 7 + x * 0.9))) | 0), x, t);
+      if (hs % 100 < heat * 60) {                     // 火星上抛
+        var mu = mod(t * (0.5 + hs % 40 / 60) + hs % 97 / 97, 1);
+        c.put((x + Math.sin(mu * 12 + x) * 2) | 0,
+              (bt - hMax - mu * (6 + heat * 10)) | 0,
+              mu < 0.25 ? '*' : '.', mu < 0.2 ? W : mu < 0.5 ? R : D);
+      }
+    }
+    for (var x2 = 4; x2 < c.w - 4; x2++)              // 底部熔岩亮带两行
+      c.put(x2, bt, '#', heat > 0.55 ? R : N);
+    for (var x3 = 4; x3 < c.w - 4; x3 += 2)
+      c.put(x3, bt - 1, '*', heat > 0.75 ? B : N);
+    if (elapsed > 5.5 && mod(t * 2, 1) < 0.7)
+      c.centerW(bt - 4, 'B O U N D   B Y   B L O O D   &   F L A M E S',
+                heat > 0.85 ? R : G);
+  }
+  // 72.01–80.00 副歌一爆点：冲击波环 + LINK UP 大字 + 双链环阵
+  function lu_chorus_linkup(c, t, top, bt, elapsed) {
+    var l = 2, r = c.w - 3, cx = (l + r) / 2, cy = (top + bt) / 2;
+    for (var wI = 0; wI < 3; wI++) {                  // 开场三道冲击波
+      var wu = clamp01((elapsed - wI * 0.22) / 1.2);
+      if (wu <= 0 || wu >= 1) continue;
+      luRing(c, cx, cy, (2 + wu * 44) | 0, wu > 0.75 ? '*' : wu > 0.4 ? '+' : '.',
+             wu > 0.8 ? W : wu > 0.55 ? R : wu > 0.3 ? B : D);
+    }
+    luChainRing(c, cx, cy, 20, t * 0.35, R);          // 链环阵缓旋
+    luChainRing(c, cx, cy, 30, -t * 0.25, N);
+    if (elapsed >= 0.35) {
+      c.big(cy - 5, 'LINK UP', elapsed < 1.2 ? W : R);
+    } else {                                          // 字成形前爆点残光
+      for (var i = 0; i < 30 * (elapsed / 0.35); i++) {
+        var a2 = hash16(i * 91) % 628 / 100;
+        var d2 = 3 + hash16(i * 57) % 18;
+        c.put((cx + Math.cos(a2) * d2 * 2.2) | 0, (cy + Math.sin(a2) * d2) | 0, '*', W);
+      }
+    }
+    luParticles(c, t, top, bt, 16, 77, true, true);
+  }
+  // 80.00–96.03 副歌一主体（战场交火）：8 条曳光弹道对射 + 命中爆点 + 能量白闪
+  function lu_chorus_battle(c, t, top, bt, elapsed) {
+    var l = 2, r = c.w - 3;
+    var off = mod(t * 2, 4) | 0;                      // 战壕竖线缓滚（暗）
+    for (var x = 6 + off; x < r - 2; x += 5)
+      for (var y = top + 1; y < bt; y += 3) c.put(x, y, '.', G);
+    for (var i = 0; i < 12; i++) {
+      var hs = hash16(i * 613 + 29);
+      var fromL = i % 2 === 0;
+      var speed = 22 + hs % 22;
+      var y0 = top + 2 + (hs >> 5) % (bt - top - 4);
+      var slope = (((hs >> 9) % 5) - 2) * 0.022;      // 近平直，保证纵向不出界
+      var dist = r - l - 8;
+      var u = mod(t * speed + hs % 89, dist + 14);
+      var impact = u >= dist;
+      var hd = impact ? dist : u;
+      var hx = fromL ? l + 4 + hd : r - 4 - hd;
+      var hy = y0 + slope * hd;
+      if (hy < top + 1 || hy > bt - 1) continue;
+      for (var k = 0; k < 8; k++) {                   // 头亮尾暗曳光
+        var sx = hx + (fromL ? -1 : 1) * k, sy = hy - slope * k;
+        if (sx < l || sx > r) break;
+        var uu = 1 - k / 8;
+        c.put(sx | 0, sy | 0, k === 0 ? '@' : k < 3 ? '=' : '-',
+              k === 0 ? W : uu > 0.66 ? R : uu > 0.4 ? N : D);
+      }
+      if (impact)                                     // 对侧命中爆点
+        for (var b = 0; b < 10; b++) {
+          var ba = b / 10 * TAU + hs % 6;
+          c.put((hx + (fromL ? 1 : -1) + Math.cos(ba) * 3) | 0,
+                (hy + Math.sin(ba) * 2) | 0, b % 2 ? '*' : '+', b % 3 ? R : W);
+        }
+    }
+    if (pulseAt(t) > 0.6)                             // 低频能量白闪
+      for (var f = 0; f < 30; f++)
+        c.put(l + 2 + hash16(f * 91 + (t * 7 | 0)) % (c.w - l - 6),
+              top + 1 + hash16(f * 53 + 7) % (bt - top - 2), '.', W);
+  }
+  // 96.03–103.51 长音 Link：红隧道同心矩形扑面，末速收束定格
+  function lu_link_hold(c, t, top, bt, elapsed) {
+    var l = 2, r = c.w - 3, cx = (l + r) / 2, cy = (top + bt) / 2;
+    var travel = Math.pow(clamp01(elapsed / 7.48), 0.85);
+    for (var i = 0; i < 9; i++) {
+      var depth = mod(i / 9 + travel, 1);             // 0 远 → 1 近
+      var rx = 2 + depth * depth * 52;                // 平方扩张=透视加速
+      var ry = 1 + depth * depth * 13;
+      var st = depth > 0.85 ? W : depth > 0.6 ? R : depth > 0.35 ? N : D;
+      var ch = depth > 0.8 ? '#' : depth > 0.5 ? '+' : '-';
+      for (var x = cx - rx; x <= cx + rx; x += 2) {
+        c.put(x | 0, (cy - ry) | 0, ch, st);
+        c.put(x | 0, (cy + ry) | 0, ch, st);
+      }
+      for (var y = cy - ry; y <= cy + ry; y++) {
+        c.put((cx - rx) | 0, y | 0, ch, st);
+        c.put((cx + rx) | 0, y | 0, ch, st);
+      }
+    }
+    var glow = clamp01(travel);
+    c.put(cx | 0, cy | 0, glow > 0.9 ? '@' : 'o', glow > 0.75 ? W : R);
+    if (glow > 0.85) luRing(c, cx, cy, 4, '*', R, 2);
+  }
+  // 103.51–124.00 主歌二（step in 行军）：楔形波次 '>>>' 推进 + 军旗竖纹 + 十字星闪
+  function lu_verse2_stepin(c, t, top, bt, elapsed) {
+    var off = mod(t * 2, 6) | 0;                      // 军旗竖纹底
+    for (var x = 4 + off; x < c.w - 4; x += 6)
+      for (var y = top + 1; y < bt; y++)
+        if (hash16(x * 7 + y * 13) % 100 < 40)
+          c.put(x, y, '|', (x / 6 | 0) % 5 === 0 ? G : D);
+    var cy = (top + bt) / 2;
+    var rows = [[-1, 8], [0, 12], [1, 8]];
+    for (var w = 0; w < 4; w++) {                     // 四波楔形推进
+      var headX = c.w - 4 - mod(t * (8 + w * 2.2) + w * 31, c.w + 24);
+      for (var ri = 0; ri < 3; ri++) {
+        for (var k = 0; k < rows[ri][1]; k++) {
+          var x = headX - k * 2.4;
+          if (x < 3) break;
+          c.put(x | 0, (cy + rows[ri][0]) | 0, '>',
+                k === 0 ? W : k < 4 ? B : k < 8 ? (ri === 1 ? R : N) : D);
+        }
+      }
+    }
+    var q = Math.floor(t / 1.85) % 4;                 // 四角武器十字星定时闪现
+    var qx = q % 2 ? c.w - 20 : 18, qy = q < 2 ? top + 5 : bt - 5;
+    c.put(qx, qy, '*', W);
+    c.put(qx - 1, qy, '-', R); c.put(qx + 1, qy, '-', R);
+    c.put(qx, qy - 1, '|', R); c.put(qx, qy + 1, '|', R);
+  }
+  // 124.00–135.87 主歌二（熔炉锻打）：锤落节拍 + 砧上链环逐锤成形 + 火花抛物线
+  function lu_verse2_forge(c, t, top, bt, elapsed) {
+    var l = 2, r = c.w - 3, cx = (l + r) / 2, cy = (top + bt) / 2 + 4;
+    var beat = 1.86, ph = mod(elapsed / beat, 1);
+    var drop = ph < 0.42 ? Math.pow(ph / 0.42, 2.2) : 1;
+    var hy = (top + 1) + drop * (cy - 2 - (top + 1)); // 锤 T 形下落
+    c.put(cx, hy | 0, '#', B);
+    c.put(cx, (hy + 1) | 0, '#', N);
+    for (var m = -5; m <= 5; m++) c.put(cx + m, (hy - 1) | 0, '#', m ? B : W);
+    for (var a2 = 0; a2 < 5; a2++) {                  // 砧：上宽下窄梯形
+      var aw = 20 - a2 * 4;
+      for (var ax = -aw; ax <= aw; ax += 2)
+        c.put(cx + ax, cy + 1 + a2, a2 === 0 ? '#' : a2 < 3 ? '=' : '-',
+              a2 === 0 ? B : a2 < 3 ? N : D);
+    }
+    var strikes = Math.min(5, Math.floor(elapsed / beat));   // 锻件六档升色
+    if (strikes >= 5) {
+      c.put(cx, cy, '◎', R); c.put(cx - 3, cy, '(', R); c.put(cx + 3, cy, ')', R);
+    } else {
+      c.put(cx, cy, strikes >= 3 ? 'o' : '#',
+            [D, D, N, N, B][strikes]);
+    }
+    if (ph >= 0.42 && ph <= 0.8) {                    // 砸击瞬间径向火花
+      var su = (ph - 0.42) / 0.38;
+      var cyc = Math.floor(elapsed / beat);
+      for (var s2 = 0; s2 < 26; s2++) {
+        var hs2 = hash16(s2 * 131 + cyc * 7);
+        var sa = -Math.PI / 2 + (hs2 % 100 / 100 - 0.5) * 2.6;
+        var sd = su * (6 + hs2 % 10);
+        c.put((cx + Math.cos(sa) * sd * 2) | 0,
+              (cy - Math.abs(Math.sin(sa)) * sd * 0.5 - su * su * 2) | 0,
+              su < 0.3 ? '*' : su < 0.6 ? '+' : '.',
+              su < 0.25 ? W : su < 0.55 ? R : D);
+      }
+    }
+    var br = 0.5 + 0.5 * Math.sin(t * 2.4);           // 熔炉底部呼吸光
+    for (var x2 = 4; x2 < c.w - 4; x2 += 2)
+      if (hash16(x2 * 29) % 100 < 42 * br)
+        c.put(x2, bt, '.', br > 0.6 ? R : G);
+  }
+  // 135.87–152.18 导歌二（梦境回闪）：亮版丝带 + 旧场景符号碎片慢漂
+  function lu_predream2(c, t, top, bt, elapsed) {
+    var cy = (top + bt) / 2;
+    var breathe = 0.85 + 0.15 * Math.sin(t * 0.7);
+    for (var i = 0; i < 6; i++)
+      luRibbon(c, cy + (i - 2.5) * 3.6, (2 + i * 0.5) * breathe, 0.06,
+               t * 0.8 + i * 1.31, i % 3 === 0 ? R : i % 3 === 1 ? B : N);
+    var fragCh = '@~-=o()#*';                         // 齿轮/弹痕/链环残影
+    for (var f2 = 0; f2 < 14; f2++) {
+      var hs3 = hash16(f2 * 389 + 3);
+      var fx = 6 + mod(hs3 % 100 / 100 * (c.w - 12) + t * (0.6 + hs3 % 30 / 40), c.w - 12);
+      var fy = top + 2 + (hs3 >> 7) % (bt - top - 4) + Math.sin(t + f2) * 1.5;
+      c.put(fx | 0, fy | 0, fragCh.charAt((hs3 >> 3) % fragCh.length),
+            f2 % 4 === 0 ? R : f2 % 4 === 1 ? B : f2 % 4 === 2 ? N : D);
+    }
+  }
+  // 152.18–159.93 血与火·纹章：火焰更旺 + 双环六芒纹章旋转浮现，末秒爆亮转场
+  function lu_bloodflames2(c, t, top, bt, elapsed) {
+    lu_bloodflames(c, t, top, bt, 3 + elapsed);       // 复用火柱（更旺）
+    var l = 2, r = c.w - 3, cx = (l + r) / 2, cy = (top + bt) / 2;
+    var appear = clamp01(elapsed / 2.2);
+    if (appear < 1 && mod(t * 8, 1) > appear + 0.35) return;   // 闪烁式浮现
+    var st = elapsed > 7.0 ? W : R;
+    luRing(c, cx, cy, 14, '*', st, 2, -t * 0.8);      // 外环逆旋（虚线）
+    luRing(c, cx, cy, 8, '+', st, 0, t * 1.1);        // 内环正旋（实线）
+    for (var tri = 0; tri < 2; tri++) {               // 双三角六芒
+      for (var e2 = 0; e2 < 3; e2++) {
+        var a1 = tri * Math.PI + e2 * TAU / 3, a2 = a1 + TAU / 3;
+        for (var s3 = 0; s3 <= 10; s3++) {
+          var u3 = s3 / 10;
+          c.put((cx + (Math.cos(a1) * (1 - u3) + Math.cos(a2) * u3) * 14) | 0,
+                (cy + (Math.sin(a1) * (1 - u3) + Math.sin(a2) * u3) * 7) | 0,
+                '.', st);
+        }
+      }
+    }
+    for (var rn = 0; rn < 8; rn++) {                  // 环上符文点
+      var ra = rn * TAU / 8 + t * 0.5;
+      c.put((cx + Math.cos(ra) * 28) | 0, (cy + Math.sin(ra) * 7) | 0, '@', W);
+    }
+  }
+  // 159.93–167.96 副歌二爆点（强化）：LINK UP 再现 + 水晶碎片喷射 + 中文副标
+  function lu_chorus2_linkup(c, t, top, bt, elapsed) {
+    lu_chorus_linkup(c, t, top, bt, elapsed);         // 同骨架复用
+    var l = 2, r = c.w - 3, cx = (l + r) / 2, cy = (top + bt) / 2;
+    if (elapsed < 2.6) {                              // 水晶碎片径向飞散
+      var fly = clamp01(elapsed / 2.6);
+      for (var i = 0; i < 24; i++) {
+        var hs = hash16(i * 197 + 11);
+        var a = hs % 628 / 100;
+        var d = 4 + fly * (16 + hs % 22);
+        c.put((cx + Math.cos(a) * d * 2) | 0, (cy + Math.sin(a) * d * 0.55) | 0,
+              i % 2 ? '<' : '>',
+              fly < 0.3 ? W : fly < 0.6 ? R : fly < 0.8 ? N : D);
+      }
+    }
+    if (elapsed > 0.5) c.centerW(bt - 3, '血火相连', R);
+  }
+  // 167.96–176.25 副歌二主体：交火提速 + 中央王座浮现 + 裂纹蔓延 + 红瞳凝视
+  function lu_chorus2_battle(c, t, top, bt, elapsed) {
+    lu_chorus_battle(c, t * 1.35, top, bt, elapsed);  // 提速变奏
+    var l = 2, r = c.w - 3, cx = (l + r) / 2;
+    var rise = clamp01(elapsed / 2.5);                // 王座自底升起
+    var seatH = Math.floor(10 * rise);
+    for (var row2 = 0; row2 < seatH; row2++) {
+      var wHalf = 4 + row2 * 1.6;
+      for (var x = cx - wHalf; x <= cx + wHalf; x += 2)
+        c.put(x | 0, bt - 1 - row2, row2 > seatH - 3 ? '#' : '=',
+              row2 > seatH - 3 ? N : G);
+    }
+    if (rise >= 1) {                                  // 双目红瞳（眨闪）
+      var blink = mod(t * 3, 1) < 0.5;
+      c.put(cx - 2, bt - 8, blink ? '*' : 'o', blink ? W : R);
+      c.put(cx + 2, bt - 8, blink ? '*' : 'o', blink ? W : R);
+    }
+    var cracks = Math.floor(elapsed * 1.5);           // 裂纹自王座外蔓延
+    for (var cr = 0; cr < Math.min(12, cracks); cr++) {
+      var hs = hash16(cr * 271 + 17);
+      var dir2 = cr % 2 ? 1 : -1;
+      var x2 = cx + dir2 * (6 + hs % 20), y2 = bt - 2 - (hs >> 6) % 5;
+      for (var sg = 0; sg < 3 + hs % 4; sg++) {
+        c.put(x2 | 0, y2 | 0, sg % 2 ? '/' : '\\', D);
+        x2 += dir2 * (1 + hs % 2); y2 -= (hs >> (sg % 8)) & 1;
+      }
+    }
+  }
+  // 176.25–184.11 终曲合流：巨链环 + 火柱 + 丝带 + 轨道曳光全要素同屏，末秒白闪顶点
+  function lu_final_linkup(c, t, top, bt, elapsed) {
+    var l = 2, r = c.w - 3, cx = (l + r) / 2, cy = (top + bt) / 2;
+    for (var x = 6; x < c.w - 6; x += 3) {            // 背景低密火柱
+      var hs = hash16(x * 331 + 3);
+      luFlame(c, x, bt,
+              Math.max(1, (2 + hs % 5 + Math.sin(t * 6 + x) * 1.5 + elapsed * 0.4) | 0), x, t);
+    }
+    luChainRing(c, cx, cy, 26, t * 0.5, R);           // 巨链环双环缓旋
+    luChainRing(c, cx, cy, 34, -t * 0.35, D);
+    luRibbon(c, cy - 8, 2.2, 0.05, t * 1.2, R);       // 丝带穿场
+    luRibbon(c, cy + 8, 2.2, 0.05, -t * 1.2 + 2, N);
+    for (var i = 0; i < 4; i++)                       // 环绕轨道曳光
+      luTracerOrbit(c, cx, cy, 22 + i * 4, t * (0.25 + i * 0.05) + i * 1.7,
+                    i % 2 ? W : B);
+    if (elapsed > 7.0) {                              // 末秒全屏白闪顶点
+      var u = clamp01((elapsed - 7.0) / 0.9);
+      for (var f3 = 0; f3 < 90 * u; f3++)
+        c.put(4 + hash16(f3 * 61 + (t | 0)) % (c.w - 8),
+              top + 1 + hash16(f3 * 97) % (bt - top - 2), '*', W);
+    }
+  }
+  // 184.11–188.5 尾奏：余烬雨落，中央链环微光渐暗，末段全黑
+  function lu_outro(c, t, top, bt, elapsed) {
+    var l = 2, r = c.w - 3, cx = (l + r) / 2, cy = (top + bt) / 2;
+    var fade = clamp01(1 - elapsed / 4.0);
+    if (fade <= 0) return;
+    luParticles(c, t, top, bt, (26 * fade | 0) + 4, 97, false, true);
+    var st = fade > 0.6 ? R : fade > 0.3 ? D : G;
+    c.put(cx - 1, cy, '(', st); c.put(cx, cy, 'o', st); c.put(cx + 1, cy, ')', st);
+    if (fade > 0.5 && mod(t * 2, 1) < 0.5)
+      c.centerW(cy + 3, 'L I N K', G);
+  }
+
   /* ---------------- 歌单注册表（多曲架构：?song=key，缺省 world） ---------------- */
   // 一首歌一份配置：标题/艺人/时长/数据目录/chrome 标题/文件提示/场景路由表/章节表。
   // 新增歌曲 = 这里加一项 + 独立前缀的场景函数 + assets/data/ascii_mv/<key>/ 数据。
@@ -3052,6 +3516,7 @@ title: 字符演歌
     'world': {
       title: 'world.execute(me);', artist: 'Mili',
       dur: 211.933, durTxt: '03:32',
+      glitch: true,   // 启用 glitch/磷光特效（时间窗按本曲歌词表硬编码，别曲勿开）
       dir: "{{ '/assets/data/ascii_mv' | relative_url }}",
       chrome: 'WORLD.EXECUTE(ME);',
       fileHint: 'world.execute(me);.mp3（时长 03:32）',
@@ -3104,13 +3569,29 @@ title: 字符演歌
       dir: "{{ '/assets/data/ascii_mv/link_up' | relative_url }}",
       chrome: 'LINK UP / 血火相连',
       fileHint: 'Link Up 血火相连.mp3（时长 03:08）',
-      noteTail: '场景移植中：当前为占位氛围，字幕/频谱已就绪。',
-      // 章节为按歌词时间轴的初版划分（IGNITION 0–16.42 / PULSE 主歌一+导歌 /
-      // LINK UP 副歌一 / DEFIANT 主歌二+桥段 / SHATTERPROOF 副歌二+尾奏），定场景表时精修
-      scenes: [],   // 待按 B 站官方 MV（BV1C9b76cEks）逐段移植；空 = 全程 fallback
+      noteTail: '场景已按 B 站官方 MV 逐段移植（16 段 v1），对拍精修中。',
+      // 场景表对照官方 MV（BV1C9b76cEks，MV 时间 ≈ 歌曲 + 11s）按歌词时间轴落位
+      scenes: [
+        { a: 0,      b: 16.42,  f: lu_credits_void },
+        { a: 16.42,  b: 32.35,  f: lu_verse_steel },
+        { a: 32.35,  b: 48.17,  f: lu_verse_pulse },
+        { a: 48.17,  b: 64.40,  f: lu_predream_ribbons },
+        { a: 64.40,  b: 72.01,  f: lu_bloodflames },
+        { a: 72.01,  b: 80.00,  f: lu_chorus_linkup },
+        { a: 80.00,  b: 96.03,  f: lu_chorus_battle },
+        { a: 96.03,  b: 103.51, f: lu_link_hold },
+        { a: 103.51, b: 124.00, f: lu_verse2_stepin },
+        { a: 124.00, b: 135.87, f: lu_verse2_forge },
+        { a: 135.87, b: 152.18, f: lu_predream2 },
+        { a: 152.18, b: 159.93, f: lu_bloodflames2 },
+        { a: 159.93, b: 167.96, f: lu_chorus2_linkup },
+        { a: 167.96, b: 176.25, f: lu_chorus2_battle },
+        { a: 176.25, b: 184.11, f: lu_final_linkup },
+        { a: 184.11, b: 188.5,  f: lu_outro }
+      ],
       chapters: [
         [0, '01 / IGNITION'], [16.42, '02 / PULSE'], [72.01, '03 / LINK UP'],
-        [103.51, '04 / DEFIANT'], [160.05, '05 / SHATTERPROOF']
+        [103.51, '04 / DEFIANT'], [152.18, '05 / SHATTERPROOF']
       ]
     }
   };
@@ -3234,8 +3715,8 @@ title: 字符演歌
     var sc = sceneAt(tt);
     c.clip = [4, 32];  // 与原作 render 一致：场景/glitch/磷光在 clip 内
     sc.f(c, tt, 4, 32, sc.emap ? sc.emap(tt) : tt - sc.a);
-    applyGlitch(c, tt, 4, 32);
-    phosphor(c, tt, 4, 32);
+    // glitch/磷光是 world 曲的移植特效（时间窗按它的歌词表硬编码），按歌开关
+    if (SONG.glitch) { applyGlitch(c, tt, 4, 32); phosphor(c, tt, 4, 32); }
     c.clip = null;
     drawSpectrum(c, tt);
     drawSubsIntoGrid(c, tt);
@@ -3471,8 +3952,9 @@ title: 字符演歌
       playing = false; offset = DUR; playBtn.textContent = 'PLAY';
     }
     grid.clear();
-    if (t >= 15.8 && t < 29.709) {
+    if (SONG.glitch && t >= 15.8 && t < 29.709) {
       // title 接管：无 chrome/字幕；16–18.1s 吸入 t=15.799 的完整源帧
+      // （接管窗按 world 曲歌词表硬编码，别曲勿入——tick 与 frameAt 同规则）
       var source = (t >= 16 && t < 18.1) ? frameAt(15.799) : null;
       sceneTitleTakeover(grid, t, source);
       if (lastLy !== -1) { elEn.textContent = ''; elZh.textContent = ''; lastLy = -1; }
@@ -3481,8 +3963,8 @@ title: 字符演歌
       var sc = sceneAt(t);
       grid.clip = [4, 32];
       sc.f(grid, t, 4, 32, sc.emap ? sc.emap(t) : t - sc.a);
-      applyGlitch(grid, t, 4, 32);
-      phosphor(grid, t, 4, 32);
+      // glitch/磷光按歌开关（时间窗按 world 歌词表硬编码）
+      if (SONG.glitch) { applyGlitch(grid, t, 4, 32); phosphor(grid, t, 4, 32); }
       grid.clip = null;
       drawSpectrum(grid, t);
       updateSubs(t);
