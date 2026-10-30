@@ -3136,14 +3136,20 @@ title: 字符演歌
   }
 
   // 0–16.42 冷开场：黑暗虚空，稀疏余烬上飘，中央心跳光点（credits 由字幕层显示）
+  // 0–16.42 纯器乐冷开场（16.42 才进第一句词）：四阶段渐强——
+  // 苏醒(0-4) → 心跳加速(4-9) → 炉火自地底升起(9-13) → 巨齿轮压境桥接主歌(13-16.42)
   function lu_credits_void(c, t, top, bt, elapsed) {
-    luParticles(c, t, top, bt, 20, 41, true, false);
-    var cx = (c.w - 1) / 2, cy = (top + bt) / 2;
-    var beat = mod(t * 1.1, 1);                       // lub-dub 双跳包络
+    var cx = (c.w - 1) / 2, cy = (top + bt) / 2, e = elapsed;
+    // 余烬随阶段增多且转火色（12 → 60 颗）
+    luParticles(c, t, top, bt, Math.min(60, 12 + e * 3.4) | 0, 41, true, e > 8);
+    // 心跳：频率随时间加速（0.9 → ~1.9Hz），lub-dub 双跳包络
+    var rate = 0.9 + e * 0.06;
+    var beat = mod(t * rate, 1);
     var env = Math.exp(-beat * 6) + 0.6 * Math.exp(-mod(beat + 0.18, 1) * 6);
-    var rad = 1.5 + env * 3.2;
-    for (var i = 0; i < 48; i++) {
-      var a = i / 48 * TAU;
+    var rad = 1.5 + env * (3.2 + e * 0.12);
+    var pulseN = 40 + Math.min(24, e * 2) | 0;        // 脉冲粒子环密度渐增
+    for (var i = 0; i < pulseN; i++) {
+      var a = i / pulseN * TAU;
       if (hash16(i * 31) % 100 < 30 + env * 70)
         c.put((cx + Math.cos(a) * rad * 2) | 0, (cy + Math.sin(a) * rad) | 0,
               env > 0.5 ? '*' : '+', env > 0.7 ? R : env > 0.4 ? B : N);
@@ -3151,8 +3157,36 @@ title: 字符演歌
     c.put(cx | 0, cy | 0, '@', env > 0.5 ? W : B);
     c.put((cx - 1) | 0, cy | 0, '(', env > 0.6 ? R : N);
     c.put((cx + 1) | 0, cy | 0, ')', env > 0.6 ? R : N);
-    for (var x2 = 4; x2 < c.w - 4; x2 += 2)           // 底部地平微光
-      if (hash16(x2 * 17) % 100 < 38) c.put(x2, bt, '-', G);
+    // 阶段三：炉火自底部地平面升起（9–13s）
+    var glow = clamp01((e - 9) / 4);
+    if (glow > 0) {
+      for (var gx = 4; gx < c.w - 4; gx += 2) {
+        var gh = hash16(gx * 17) % 100;
+        if (gh < 38 * glow)                             // 地平微光
+          c.put(gx, bt, '-', glow > 0.6 ? R : G);
+        if (glow > 0.45 && gh < 60 * glow - 22 && gx % 4 === 0)  // 火舌窜起
+          luFlame(c, gx, bt - 1, 1 + ((gh + (t * 3 | 0)) % 3), gx, t);
+      }
+    } else {
+      for (var x2 = 4; x2 < c.w - 4; x2 += 2)           // 未起炉前的冷微光
+        if (hash16(x2 * 17) % 100 < 38) c.put(x2, bt, '-', G);
+    }
+    // 阶段四：双侧巨齿轮压境（13–16.42），暗色剪影缓旋，桥接主歌一的齿轮母题
+    var g = clamp01((e - 13) / 3.4);
+    if (g > 0) {
+      var ease = g * g * (3 - 2 * g);                   // smoothstep 缓入
+      luGear(c, cx - 46 + ease * 26, cy - 3, 11, t * 0.5, g > 0.7 ? N : D);
+      luGear(c, cx + 46 - ease * 26, cy + 4, 8, -t * 0.65, g > 0.7 ? D : K);
+    }
+    // 尾音：入词前一瞬的中心爆点（15.5–16.42），预告「strike when it's red-hot」
+    var strike = clamp01((e - 15.5) / 0.92);
+    if (strike > 0)
+      for (var sb = 0; sb < 40 * strike; sb++) {
+        var sa = hash16(sb * 71) % 628 / 100;
+        var sd = 2 + strike * 14 * (hash16(sb * 13) % 100) / 100;
+        c.put((cx + Math.cos(sa) * sd * 2) | 0, (cy + Math.sin(sa) * sd) | 0,
+              sb % 3 ? '*' : '+', strike > 0.6 ? W : R);
+      }
   }
   // 16.42–32.35 主歌一（钢铁/王冠）：左侧双齿轮啮合 + 右侧透视走廊跑者
   function lu_verse_steel(c, t, top, bt, elapsed) {
