@@ -3747,85 +3747,217 @@ title: 字符演歌
       ['> chain forged ......... LIFT OFF', 3.6, R]
     ]);
   }
-  // 80.00–96.03 副歌一主体：血红殿堂 + 金发女王端坐王座，镜头向后拉远
-  // 官方 MV 91–107s：血红高柱殿堂、中央明亮光柱、两侧巨锤剪影、女王王座、镜头拉远露全景
-  function lu_chorus_battle(c, t, top, bt, elapsed) {
-    var l = 2, r = c.w - 3, cx = (l + r) / 2;
-    var pb = clamp01(elapsed / 9);                         // 拉远参数 0→1（前 9s）
-    var beat = 1.86, ph = mod(elapsed / beat, 1);
-    var drop = ph < 0.42 ? Math.pow(ph / 0.42, 2.2) : 1;
-    var moonR = 9 + pb * 5;                                // 殿后血红巨月（拉远露全）
-    luRing(c, cx, top + 9, moonR | 0, '.', R, 0);
-    luRing(c, cx, top + 9, (moonR - 2) | 0, '.', D, 1);
-    for (var i = 0; i < 4; i++) {                          // 殿堂立柱（拉远时向两侧张开）
-      var off = (11 + pb * 24) * (1 + i * 0.6);
+  // ===== 殿堂段 80.00–96.03 粒度细分：4 子场景 =====
+
+  // 80.00–84.09 "I was left for dead but you salvaged me"：立柱自底升起+神座显形+女王现身
+  function lu_s6_rise(c, t, top, bt, elapsed) {
+    var l = 2, r = c.w - 3, cx = (l + r) / 2, e = elapsed;
+    var rise2 = clamp01(e / 2.6);                     // 柱升起
+    var r3 = clamp01((e - 1.2) / 2.3);                // 神座显形
+    var moonA = clamp01(e / 3.5);                     // 殿后巨月浮现
+    if (moonA > 0.3)
+      luRing(c, cx, top + 9, (6 + moonA * 6) | 0, '.', moonA > 0.6 ? R : D, 1);
+    for (var i = 0; i < 4; i++) {                     // 立柱自底缘生长
+      var off = 11 * (1 + i * 0.6);
       var body = i % 2 ? G : K;
-      for (var py = top + 3; py < bt - 3; py++) {
-        c.put((cx - off) | 0, py, '#', body);
-        c.put((cx + off) | 0, py, '#', body);
+      var hCol = ((bt - 6 - top) * rise2) | 0;
+      for (var py = 0; py < hCol; py++) {
+        var yy = bt - 4 - py;
+        c.put((cx - off) | 0, yy, '#', body);
+        c.put((cx + off) | 0, yy, '#', body);
       }
-      c.put((cx - off) | 0, top + 2, '=', body);           // 柱头
-      c.put((cx + off) | 0, top + 2, '=', body);
+      if (rise2 >= 1) {
+        c.put((cx - off) | 0, top + 2, '=', body);
+        c.put((cx + off) | 0, top + 2, '=', body);
+      }
     }
-    for (var ray = -1; ray <= 1; ray++) {                  // 中央明亮光柱（金→白）
+    for (var ray = -1; ray <= 1; ray++) {             // 中央光柱渐亮
       var rx = cx + ray * 4;
       for (var ry = top + 2; ry < bt - 9; ry++)
-        if (hash16(rx * 13 + ry * 7) % 100 < 66 - ray * ray * 22)
+        if (hash16(rx * 13 + ry * 7) % 100 < (30 + e * 9) - ray * ray * 15)
           c.put(rx, ry, '|', ry < top + 7 ? W : B);
     }
-    for (var hx2 = 0; hx2 < 2; hx2++) {                    // 两侧巨锤剪影（随节拍捶落）
-      var dirS = hx2 ? 1 : -1;
-      var hxc = (cx + dirS * (30 + pb * 16)) | 0;
-      var hTop = top + 4 + drop * 3;
-      for (var hw = -4; hw <= 4; hw++) c.put(hxc + hw, hTop, '#', K);
-      for (var hh = 1; hh < 9; hh++) c.put(hxc, hTop + hh, '#', hh < 3 ? K : G);
-    }
-    var seatH = (6 + (1 - pb) * 3) | 0;                    // 王座台（拉远略缩）
-    for (var row2 = 0; row2 < seatH; row2++) {
-      var wHalf = 3 + row2 * 1.3;
-      for (var x = cx - wHalf; x <= cx + wHalf; x += 2)
-        c.put(x | 0, bt - 1 - row2, row2 > seatH - 3 ? '#' : '=',
-              row2 > seatH - 3 ? R : G);
-    }
-    var qy = bt - 1 - seatH;                               // 金发女王：王冠(W)+金发(B)+红瞳(R)
-    c.put(cx, qy - 3, '*', W);
-    c.put(cx, qy - 2, '@', B);
-    c.put(cx - 1, qy - 2, 'o', R); c.put(cx + 1, qy - 2, 'o', R);
-    c.put(cx, qy - 1, 'o', W);
-    c.put(cx - 1, qy, '<', B); c.put(cx + 1, qy, '>', B);
-    // 3D 线框神座：THRONE.SYS 全息投影，前 3.5s 逐棱显形，缓旋（拉远后半加速）
-    var r3 = clamp01(elapsed / 3.5);
     var vsT = luBox(2.6, 0.35, 1.8, 0, 1.4, 0)
       .concat(luBox(1.6, 0.5, 1.2, 0, 0.5, 0))
       .concat(luBox(1.6, 1.7, 0.3, 0, -1.1, -1.1))
       .concat(luBox(0.25, 0.4, 1.1, -1.5, 0.3, 0))
       .concat(luBox(0.25, 0.4, 1.1, 1.5, 0.3, 0));
     var edT = luEdges(0).concat(luEdges(8), luEdges(16), luEdges(24), luEdges(32));
-    projected(c, vsT, edT, l, top, r, bt, t * (0.1 + pb * 0.25), R, r3);
-    for (var lx2 = l + 1; lx2 < r; lx2 += 2)               // 岩浆地面
+    projected(c, vsT, edT, l, top, r, bt, t * 0.1, r3 >= 1 ? R : N, r3);
+    var qy = bt - 8, qa = clamp01((e - 2.6) / 1.2);   // 女王自光柱现身
+    if (qa > 0) {
+      c.put(cx, qy - 3, '*', W);
+      c.put(cx, qy - 2, '@', B);
+      c.put(cx - 1, qy - 2, 'o', qa > 0.7 && mod(t * 3, 1) < 0.5 ? R : D);
+      c.put(cx + 1, qy - 2, 'o', qa > 0.7 && mod(t * 3, 1) < 0.5 ? R : D);
+      c.put(cx, qy - 1, 'o', W);
+    }
+    for (var lx2 = l + 1; lx2 < r; lx2 += 2)          // 岩浆地面
       if (hash16(lx2 * 23 + (t * 3 | 0)) % 100 < 35)
         c.put(lx2, bt, hash16(lx2 * 5) % 2 ? ',' : '.', hash16(lx2 * 11) % 3 ? R : N);
-    if (ph >= 0.42 && ph < 0.52)                           // 锤击震屏白点
-      for (var sh2 = 0; sh2 < 8; sh2++)
-        c.put(l + 2 + hash16(sh2 * 37 + (t * 9 | 0)) % (c.w - l - 6),
-              top + 2 + hash16(sh2 * 51) % (bt - top - 5), '.', W);
-    luParticles(c, t, top, bt, 10, 55, true, true);        // 殿内余烬上飘
-    luLog(c, top + 1, elapsed, [                           // 加冕协议事件日志
-      ['THRONE.SYS -- CORONATION PROTOCOL', 0.2, W],
-      ['> heir scan .............. MATCH', 1.2, G],
-      ['> materialize throne ..... RUN', 2.0, N],
-      ['> throne online .......... 100%', 4.2, B],
-      ['> queen seated ........... LOCK', 6.5, N],
-      ['> chamber widening ....... PULLBACK', 9.2, G]
+    luParticles(c, t, top, bt, 10, 55, true, true);
+    luLog(c, top + 1, e, [
+      ['THRONE.SYS -- SALVAGE PROTOCOL', 0.2, W],
+      ['> heir scan .............. MATCH', 1.0, G],
+      ['> chamber rebuild ........ RISING', 2.0, B],
+      ['> throne online .......... 100%', 3.2, B]
     ]);
   }
-  // 96.03–103.51 长音 Link：红隧道同心矩形扑面，末速收束定格
-  function lu_link_hold(c, t, top, bt, elapsed) {
+
+  // 84.09–88.26 "Quench this molten lead 'cause it's overheating"：熔铅倾入淬池+蒸汽喷发
+  function lu_s6_quench(c, t, top, bt, elapsed) {
+    var l = 2, r = c.w - 3, cx = (l + r) / 2;
+    var e = elapsed;
+    var pour = clamp01(e / 0.8), boil = clamp01((e - 2.2) / 1.8);
+    var vsQ = luBox(1.4, 0.9, 1.0, 0, 0, 0)           // 3D 坩埚
+      .concat(luBox(0.5, 0.4, 0.5, 1.2, -0.5, 0));
+    projected(c, vsQ, luEdges(0).concat(luEdges(8)), cx - 14, top, cx + 14, top + 10,
+              t * 0.15, B, clamp01(e / 0.6));
+    var mouthY = top + 10, poolY = bt - 5;
+    if (pour > 0)                                   // 熔铅流（亮白带金）
+      for (var sy = mouthY; sy < poolY; sy++) {
+        var wob = Math.sin(sy * 0.8 + t * 9) * 0.8;
+        c.put((cx + 6 + wob) | 0, sy, sy % 3 ? '|' : '#', sy % 4 ? W : B);
+        if (pour < 1 && sy > mouthY + (poolY - mouthY) * pour) break;
+      }
+    for (var px = -16; px <= 16; px++)              // 淬池表面
+      c.put(cx + px, poolY, px % 2 ? '~' : '-', boil > 0.4 ? B : N);
+    for (var px2 = -12; px2 <= 12; px2 += 2)        // 池底熔光
+      c.put(cx + px2, poolY + 1, '#', boil > 0.3 ? R : D);
+    for (var st = 0; st < 14; st++) {               // 蒸汽柱双侧喷发
+      var hs = hash16(st * 57 + 3);
+      var sd2 = mod(t * (0.5 + hs % 30 / 40) + hs % 91 / 91, 1);
+      var sx2 = cx + (st % 2 ? 1 : -1) * (6 + hs % 9);
+      c.put(sx2 | 0, (poolY - 1 - sd2 * 12) | 0,
+            sd2 < 0.4 ? 'O' : '~', sd2 < 0.25 ? W : sd2 < 0.6 ? N : D);
+    }
+    for (var sp2 = 0; sp2 < 16; sp2++) {            // 淬裂火星
+      var hs2 = hash16(sp2 * 131 + (t * 4 | 0));
+      var su = mod(t * 1.4 + hs2 % 97 / 97, 1);
+      c.put((cx - 14 + hs2 % 29) | 0, (poolY - su * (4 + hs2 % 5)) | 0,
+            su < 0.3 ? '*' : '.', su < 0.3 ? W : su < 0.6 ? B : D);
+    }
+    for (var x2 = l + 1; x2 < r; x2 += 2)           // 背景暗砖
+      if (hash16(x2 * 17) % 100 < 22) c.put(x2, top + 14, '.', K);
+    luLog(c, top + 1, e, [
+      ['QUENCH.SYS v1.2', 0.3, W],
+      ['molten lead ... 1400C', 1.0, G],
+      ['overheat ...... VENTING', 2.4, R]
+    ]);
+  }
+
+  // 88.26–92.04 "Link link link link up"：双侧巨锤交替捶落+地面龟裂+中央光柱
+  function lu_s6_hammer(c, t, top, bt, elapsed) {
+    var l = 2, r = c.w - 3, cx = (l + r) / 2;
+    var e = elapsed;
+    var beat = 0.93;                                  // 半拍交替
+    for (var hm = 0; hm < 2; hm++) {
+      var ph = mod((e + hm * beat) / (beat * 2), 1);
+      var drop = ph < 0.35 ? Math.pow(ph / 0.35, 2.2) : 1;
+      var hx2 = cx + (hm ? 1 : -1) * 22;
+      var hy = top + 2 + drop * 12;
+      for (var hw = -6; hw <= 6; hw++) c.put(hx2 + hw, hy | 0, '#', K);
+      for (var hw2 = -4; hw2 <= 4; hw2++) c.put(hx2 + hw2, (hy - 1) | 0, '#', K);
+      for (var hh = 1; hh < 6; hh++) c.put(hx2, (hy - 1 - hh) | 0, '#', hh < 2 ? K : G);
+      if (ph >= 0.35 && ph < 0.62) {                  // 砸击白闪+火星扇
+        var su = (ph - 0.35) / 0.27;
+        for (var fx = -8; fx <= 8; fx += 2)
+          c.put((hx2 + fx) | 0, (hy + 1) | 0, '*', W);
+        for (var s2 = 0; s2 < 16; s2++) {
+          var hs2 = hash16(s2 * 131 + hm * 7);
+          var sa = -Math.PI / 2 + (hs2 % 100 / 100 - 0.5) * 2.4;
+          var sd = su * (6 + hs2 % 9);
+          c.put((hx2 + Math.cos(sa) * sd * 2) | 0,
+                (hy - Math.abs(Math.sin(sa)) * sd * 0.5) | 0,
+                su < 0.3 ? '*' : '.', su < 0.3 ? W : su < 0.6 ? B : D);
+        }
+      }
+    }
+    for (var ray = -1; ray <= 1; ray++) {             // 中央光柱
+      var rx = cx + ray * 4;
+      for (var ry = top + 2; ry < bt - 6; ry++)
+        if (hash16(rx * 13 + ry * 7) % 100 < 60 - ray * ray * 20)
+          c.put(rx, ry, '|', ry < top + 8 ? W : B);
+    }
+    var crackN = Math.floor(e * 2.2);                 // 地面龟裂蔓延
+    for (var ck = 0; ck < Math.min(10, crackN); ck++) {
+      var hs3 = hash16(ck * 271 + 17);
+      var dir = ck % 2 ? 1 : -1;
+      var x2 = cx + dir * (10 + hs3 % 18), y2 = bt - 1;
+      for (var sg = 0; sg < 3 + hs3 % 4; sg++) {
+        c.put(x2 | 0, y2 | 0, sg % 2 ? '/' : '\\', D);
+        x2 += dir * (1 + hs3 % 2); y2--;
+      }
+    }
+    for (var lx2 = l + 1; lx2 < r; lx2 += 2)
+      if (hash16(lx2 * 23 + (t * 3 | 0)) % 100 < 35)
+        c.put(lx2, bt, hash16(lx2 * 5) % 2 ? ',' : '.', hash16(lx2 * 11) % 3 ? R : N);
+    if (mod(t * 2, 1) < 0.6) c.centerW(top + 3, 'L I N K   U P', R);
+    luParticles(c, t, top, bt, 12, 61, true, true);
+  }
+
+  // 92.04–96.03 "Link link link link up now"：镜头拉远——立柱张开+王座全景+巨月+红瞳
+  function lu_s6_pull(c, t, top, bt, elapsed) {
+    var l = 2, r = c.w - 3, cx = (l + r) / 2;
+    var pb = clamp01(elapsed / 4);                    // 拉远 0→1
+    var moonR = (8 + pb * 6) | 0;
+    luRing(c, cx, top + 9, moonR, '.', R, 0);
+    luRing(c, cx, top + 9, Math.max(3, moonR - 2), '.', D, 1);
+    for (var i = 0; i < 4; i++) {                     // 立柱向两侧张开
+      var off = (11 + pb * 26) * (1 + i * 0.6);
+      var body = i % 2 ? G : K;
+      for (var py = top + 3; py < bt - 3; py++) {
+        c.put((cx - off) | 0, py, '#', body);
+        c.put((cx + off) | 0, py, '#', body);
+      }
+      c.put((cx - off) | 0, top + 2, '=', body);
+      c.put((cx + off) | 0, top + 2, '=', body);
+    }
+    for (var ray = -1; ray <= 1; ray++) {
+      var rx = cx + ray * 4;
+      for (var ry = top + 2; ry < bt - 9; ry++)
+        if (hash16(rx * 13 + ry * 7) % 100 < 66 - ray * ray * 22)
+          c.put(rx, ry, '|', ry < top + 7 ? W : B);
+    }
+    var seatH = 6;                                    // 王座台
+    for (var row2 = 0; row2 < seatH; row2++) {
+      var wHalf = 3 + row2 * 1.3;
+      for (var x = cx - wHalf; x <= cx + wHalf; x += 2)
+        c.put(x | 0, bt - 1 - row2, row2 > seatH - 3 ? '#' : '=',
+              row2 > seatH - 3 ? R : G);
+    }
+    var qy = bt - 1 - seatH;                          // 女王+红瞳凝视
+    var blink = mod(t * 3, 1) < 0.6;
+    c.put(cx, qy - 3, '*', W);
+    c.put(cx, qy - 2, '@', B);
+    c.put(cx - 1, qy - 2, 'o', blink ? R : D);
+    c.put(cx + 1, qy - 2, 'o', blink ? R : D);
+    c.put(cx, qy - 1, 'o', W);
+    c.put(cx - 1, qy, '<', B); c.put(cx + 1, qy, '>', B);
+    for (var to2 = 0; to2 < 3; to2++)                 // 曳光绕王座
+      luTracerOrbit(c, cx, qy - 2, 14 + to2 * 5,
+                    t * (0.2 + to2 * 0.07) + to2 * 2, to2 ? N : B);
+    for (var lx2 = l + 1; lx2 < r; lx2 += 2)
+      if (hash16(lx2 * 23 + (t * 3 | 0)) % 100 < 35)
+        c.put(lx2, bt, hash16(lx2 * 5) % 2 ? ',' : '.', hash16(lx2 * 11) % 3 ? R : N);
+    luParticles(c, t, top, bt, 10, 55, true, true);
+    luLog(c, top + 1, elapsed, [
+      ['> chamber widening ....... PULLBACK', 0.3, G],
+      ['> red moon ............... REVEALED', 1.6, R],
+      ['> queen gaze ............. LOCKED', 3.0, W]
+    ]);
+  }
+
+  // ===== 长音 Link 96.03–103.51 粒度细分：2 子场景 =====
+
+  // 96.03–100.00 "Link"：红隧道同心矩形扑面加速
+  function lu_s7_tunnel(c, t, top, bt, elapsed) {
     var l = 2, r = c.w - 3, cx = (l + r) / 2, cy = (top + bt) / 2;
-    var travel = Math.pow(clamp01(elapsed / 7.48), 0.85);
+    var e = elapsed;
+    var travel = Math.pow(clamp01(e / 3.9), 0.8);
     for (var i = 0; i < 9; i++) {
-      var depth = mod(i / 9 + travel, 1);             // 0 远 → 1 近
-      var rx = 2 + depth * depth * 52;                // 平方扩张=透视加速
+      var depth = mod(i / 9 + travel * 1.2, 1);
+      var rx = 2 + depth * depth * 52;
       var ry = 1 + depth * depth * 13;
       var st = depth > 0.85 ? W : depth > 0.6 ? R : depth > 0.35 ? N : D;
       var ch = depth > 0.8 ? '#' : depth > 0.5 ? '+' : '-';
@@ -3838,97 +3970,214 @@ title: 字符演歌
         c.put((cx + rx) | 0, y | 0, ch, st);
       }
     }
-    var glow = clamp01(travel);
-    c.put(cx | 0, cy | 0, glow > 0.9 ? '@' : 'o', glow > 0.75 ? W : R);
-    if (glow > 0.85) luRing(c, cx, cy, 4, '*', R, 2);
-    // 3D 中心核：投影框随 travel 扩大 = 冲到眼前（扑面收束）
-    var vsL = luBox(1, 1, 1, 0, 0, 0);
-    var ex = 3 + glow * 17, ey = 2 + glow * 7;
+    var vsL = luBox(1, 1, 1, 0, 0, 0);                // 3D 核扑面
+    var gl = clamp01(e / 3.9);
+    var ex = 3 + gl * 12, ey = 2 + gl * 5;
     projected(c, vsL, luEdges(0), cx - ex, cy - ey, cx + ex, cy + ey,
-              t * 0.6, glow > 0.8 ? W : R, 1);
-    // 左上 CORE.SYS 日志（与隧道收束同步）
-    var LOGL = [
-      [0.2, 'CORE.SYS  v5.0'],
-      [1.5, 'link signal .. LOCK'],
-      [3.0, 'approach ..... NEAR'],
-      [4.5, 'tunnel ....... COLLAPSE'],
-      [6.3, 'LINK ......... UP']
-    ];
-    for (var g = 0; g < LOGL.length; g++) {
-      if (elapsed < LOGL[g][0]) break;
-      var ln = LOGL[g][1];
-      var sh2 = Math.min(ln.length, ((elapsed - LOGL[g][0]) * 24) | 0);
-      for (var ch = 0; ch < sh2; ch++)
-        c.put(3 + ch, top + 1 + g, ln[ch], g === 4 ? W : ch < 10 ? B : N);
-    }
+              t * 0.6, gl > 0.75 ? W : R, 1);
+    c.put(cx | 0, cy | 0, 'o', gl > 0.6 ? W : R);
+    luLog(c, top + 1, e, [
+      ['CORE.SYS  v5.0', 0.2, W],
+      ['link signal .. LOCK', 1.0, B],
+      ['approach ..... NEAR', 2.2, N]
+    ]);
   }
-  // 103.51–124.00 主歌二（step in 行军）：楔形波次 '>>>' 推进 + 军旗竖纹 + 十字星闪
-  function lu_verse2_stepin(c, t, top, bt, elapsed) {
-    var l = 2, r = c.w - 3;
-    // 3D 目标堡垒：塔+墙+副塔拼装，投影框随行军扩大=不断逼近
-    var prog = clamp01(elapsed / 20.5);
-    var vsM = luBox(0.5, 1.7, 0.5, 0, 0.3, 0)
+
+  // 100.00–103.51 "Link"（收束）：白爆 + 巨型 LINK 定格
+  function lu_s7_link(c, t, top, bt, elapsed) {
+    var l = 2, r = c.w - 3, cx = (l + r) / 2, cy = (top + bt) / 2;
+    var e = elapsed;
+    var burst = clamp01(e / 0.7);                     // 白爆
+    if (burst < 1) {
+      for (var w2 = 0; w2 < 60 * burst; w2++) {
+        var hs = hash16(w2 * 71);
+        var a2 = hs % 628 / 100, d2 = 2 + burst * 26 * (hs % 100) / 100;
+        c.put((cx + Math.cos(a2) * d2 * 2) | 0, (cy + Math.sin(a2) * d2) | 0,
+              w2 % 3 ? '*' : '+', W);
+      }
+      for (var rg = 0; rg < 3; rg++)
+        luRing(c, cx, cy, (2 + burst * (16 + rg * 7)) | 0,
+               burst > 0.6 ? '*' : '+', burst > 0.5 ? W : R, 2);
+    } else {
+      c.big(cy - 4, 'LINK', mod(t * 3, 1) < 0.7 ? W : R);
+      luRing(c, cx, cy, 22, '.', R, 2);
+      luRing(c, cx, cy, 26, '.', D, 3);
+    }
+    luParticles(c, t, top, bt, 16, 83, true, true);
+    luLog(c, top + 1, e, [
+      ['tunnel ....... COLLAPSE', 0.2, R],
+      ['LINK ......... UP', 1.4, W]
+    ]);
+  }
+
+  // ===== 主歌二 step in 103.51–124.00 粒度细分：5 子场景 =====
+
+  // 103.51–106.15 "It's time to step in they try but they can't win"：楔形方阵压近+脚步震波
+  function lu_s8_step(c, t, top, bt, elapsed) {
+    var l = 2, r = c.w - 3, cx = (l + r) / 2, cy = (top + bt) / 2;
+    var e = elapsed;
+    var prog = clamp01(e / 2.6);
+    var vsM = luBox(0.5, 1.7, 0.5, 0, 0.3, 0)          // 3D 目标堡垒（远）
       .concat(luBox(2.0, 0.5, 0.4, 0, -1.1, 0))
       .concat(luBox(0.4, 1.0, 0.4, -1.5, -0.6, 0));
-    var mw = 6 + prog * 10, mh = 3 + prog * 4;
     projected(c, vsM, luEdges(0).concat(luEdges(8), luEdges(16)),
-              (l + r) / 2 - mw, top + 1, (l + r) / 2 + mw, top + 1 + mh * 2,
-              0.35, prog > 0.7 ? G : D, 1);
-    // 左上 MARCH.SYS 日志（压行军推进）
-    var LOGM = [
-      [0.3, 'MARCH.SYS  v2.2'],
-      [3.0, 'step in ...... NOW'],
-      [7.0, 'wedge ........ FORMED'],
-      [11.0, 'banners ...... RAISED'],
-      [15.0, 'swords ....... READY'],
-      [19.0, 'forge ........ AHEAD']
-    ];
-    for (var g = 0; g < LOGM.length; g++) {
-      if (elapsed < LOGM[g][0]) break;
-      var ln = LOGM[g][1];
-      var sh2 = Math.min(ln.length, ((elapsed - LOGM[g][0]) * 22) | 0);
-      for (var ch = 0; ch < sh2; ch++)
-        c.put(3 + ch, top + 1 + g, ln[ch], g === 5 ? B : ch < 10 ? B : N);
+              cx - 8, top + 1, cx + 8, top + 8, 0.35, D, 1);
+    var rows = [[-1, 10], [0, 16], [1, 10]];
+    for (var ri = 0; ri < 3; ri++)                    // 楔形三排推进
+      for (var k = 0; k < rows[ri][1]; k++) {
+        var x = (r - 4 - k * 2.2 - prog * 10) | 0;
+        if (x < 3) break;
+        c.put(x, (cy + rows[ri][0]) | 0, '>',
+              k === 0 ? W : k < 4 ? B : k < 8 ? R : N);
+      }
+    var step = mod(t * 2.4, 1);                       // 脚步震波环
+    luRing(c, cx, bt - 2, (2 + step * 18) | 0, '.', step < 0.3 ? B : D, 2);
+    for (var x2 = 4; x2 < c.w - 4; x2 += 6)           // 军旗竖纹
+      for (var y2 = top + 1; y2 < bt; y2++)
+        if (hash16(x2 * 7 + y2 * 13) % 100 < 30)
+          c.put(x2, y2, '|', (x2 / 6 | 0) % 5 === 0 ? G : D);
+    luLog(c, top + 1, e, [
+      ['MARCH.SYS  v2.2', 0.3, W],
+      ['step in ...... NOW', 1.0, B],
+      ['cant win ..... AGREED', 2.0, N]
+    ]);
+  }
+
+  // 106.15–110.21 "stay sharp like a weapon / they're not gonna stop us"：刃墙推进+出鞘曳光
+  function lu_s8_weapon(c, t, top, bt, elapsed) {
+    var l = 2, r = c.w - 3;
+    var bx2;
+    for (bx2 = 0; bx2 < 12; bx2++) {                  // 刃墙：斜插刀列
+      var bx3 = 6 + bx2 * 6;
+      var tilt = bx2 % 3 - 1;
+      for (var bl = 0; bl < 8; bl++) {
+        var by = bt - 2 - bl;
+        c.put((bx3 + tilt * bl * 0.4) | 0, by, bl < 2 ? '=' : '|', bl < 2 ? G : N);
+      }
+      c.put((bx3 + tilt * 3.2) | 0, bt - 10, '>', B);
     }
-    var off = mod(t * 2, 6) | 0;                      // 军旗竖纹底
-    for (var x = 4 + off; x < c.w - 4; x += 6)
-      for (var y = top + 1; y < bt; y++)
-        if (hash16(x * 7 + y * 13) % 100 < 40)
-          c.put(x, y, '|', (x / 6 | 0) % 5 === 0 ? G : D);
-    for (var layer = 0; layer < 2; layer++) {         // 红色峡谷两重山脊（视差缓移）
-      var par = layer ? 2.2 : 0.8;
-      var rBase = layer ? bt - 2 : bt - 7;
-      for (var rx = l + 1; rx < r; rx++) {
-        var q = Math.floor(rx + t * par);
-        var rh = 2 + Math.sin(q * 0.16 + layer * 2.4) * 1.6 + hash16(q * 7 + layer * 31) % 3;
-        for (var ry = 0; ry < rh; ry++)
-          c.put(rx, (rBase - ry) | 0, layer ? '.' : ':', layer ? G : K);
+    for (var tr = 0; tr < 5; tr++) {                  // 出鞘曳光
+      var hs = hash16(tr * 613 + 29);
+      var y0 = top + 3 + (hs >> 5) % (bt - top - 8);
+      var u = mod(t * (26 + hs % 20) + hs % 89, c.w - 8);
+      var tx2 = l + 4 + u;
+      for (var k = 0; k < 6; k++) {
+        var uu = 1 - k / 6;
+        c.put((tx2 - k) | 0, y0, k === 0 ? '@' : '-', k === 0 ? W : uu > 0.5 ? R : D);
       }
     }
-    for (var sw2 = 0; sw2 < 5; sw2++) {               // 插地巨剑（随行军向左掠过）
-      var sx2 = c.w + 10 - mod(t * 3 + sw2 * 31, c.w + 30);
-      var sy2 = bt - 8 - sw2 % 3;
-      for (var sh = 0; sh < 7; sh++) c.put(sx2 | 0, sy2 + sh, '|', sh < 2 ? N : D);
-      c.put((sx2 - 1) | 0, sy2 + 2, '-', D); c.put((sx2 + 1) | 0, sy2 + 2, '-', D);
+    for (var sp = 0; sp < 12; sp++) {                 // 磨刀火花
+      var hs2 = hash16(sp * 91 + (t * 6 | 0));
+      var su = mod(t * 1.6 + hs2 % 97 / 97, 1);
+      c.put((4 + hs2 % (c.w - 10)) | 0, (bt - 8 - su * 4) | 0,
+            su < 0.3 ? '*' : '.', su < 0.3 ? W : su < 0.6 ? B : D);
     }
-    var cy = (top + bt) / 2;
-    var rows = [[-1, 8], [0, 12], [1, 8]];
-    for (var w = 0; w < 4; w++) {                     // 四波楔形推进
-      var headX = c.w - 4 - mod(t * (8 + w * 2.2) + w * 31, c.w + 24);
-      for (var ri = 0; ri < 3; ri++) {
-        for (var k = 0; k < rows[ri][1]; k++) {
-          var x = headX - k * 2.4;
-          if (x < 3) break;
-          c.put(x | 0, (cy + rows[ri][0]) | 0, '>',
-                k === 0 ? W : k < 4 ? B : k < 8 ? (ri === 1 ? R : N) : D);
-        }
+    luLog(c, top + 1, elapsed, [
+      ['whetstone ..... ON', 0.4, B],
+      ['edge .......... RAZOR', 1.6, W],
+      ['stop us ....... NEVER', 2.8, R]
+    ]);
+  }
+
+  // 110.21–114.04 "One mind one heart we'll be fearless"：双心合一+无畏金环
+  function lu_s8_heart(c, t, top, bt, elapsed) {
+    var l = 2, r = c.w - 3, cx = (l + r) / 2, cy = (top + bt) / 2;
+    var e = elapsed;
+    var pull = clamp01(e / 2.4);
+    var beat = mod(t * 1.65, 1), env = Math.exp(-beat * 5);
+    var hOff = 18 * (1 - pull);
+    var hx = cx - hOff, hx2 = cx + hOff;
+    var one = hOff < 1.5;
+    var glow = one && mod(t * 4, 1) < 0.5;
+    luRing(c, hx, cy, (3 + env * 5) | 0, '.', one ? G : W, 0);
+    c.put(hx, cy, '@', glow ? W : B);
+    if (!one) {
+      luRing(c, hx2, cy, (3 + env * 4) | 0, '.', R, 0);
+      c.put(hx2, cy, '@', env > 0.5 ? R : N);
+      for (var lk = 0; lk < 8; lk++) {                // 同步脉线
+        var lu2 = mod(lk / 8 + t * 0.5, 1);
+        c.put((hx + 2 + (hx2 - hx - 4) * lu2) | 0,
+              (cy + Math.sin(lu2 * 8) * 1.4) | 0, '.', lk % 2 ? R : W);
+      }
+    } else {
+      for (var rg = 0; rg < 3; rg++) {                // 合一无畏金环扩散
+        var rr = 3 + beat * (12 + rg * 5);
+        var u = clamp01(1 - rr / 22) * (0.5 + env);
+        if (u > 0.06) luRing(c, cx, cy, rr | 0, '+', u > 0.5 ? G : N, 2);
+      }
+      c.centerW(top + 3, 'F E A R L E S S', G);
+    }
+    for (var x2 = l + 1; x2 < r; x2 += 3)             // 底纹暗旗
+      if (hash16(x2 * 13) % 100 < 20) c.put(x2, bt, '.', D);
+    luLog(c, top + 1, e, [
+      ['sync .......... 50%', 0.4, N],
+      ['one mind ...... YES', 1.6, B],
+      ['FEARLESS ...... ON', 2.6, G]
+    ]);
+  }
+
+  // 114.04–118.12 "Maybe it's a blessing even though I been cursed"：光环/锁链双重性对切
+  function lu_s8_curse(c, t, top, bt, elapsed) {
+    var l = 2, r = c.w - 3, cx = (l + r) / 2, cy = (top + bt) / 2;
+    var sway = Math.sin(t * 0.9) * 0.5 + 0.5;         // 0诅咒 ↔ 1祝福
+    luRing(c, cx - 20, cy - 4, (8 + sway * 3) | 0, '.', G, 2, t * 0.1);  // 祝福光环
+    for (var gl = 0; gl < 10; gl++) {
+      var hs = hash16(gl * 37 + 11);
+      var a2 = hs % 628 / 100;
+      c.put((cx - 20 + Math.cos(a2 + t * 0.2) * 12) | 0,
+            (cy - 4 + Math.sin(a2 + t * 0.2) * 5) | 0, '.', G);
+    }
+    luChainRing(c, cx + 20, cy - 2, (10 - sway * 3) | 0, t * 0.2, D);    // 诅咒锁链
+    luChainRing(c, cx + 20, cy - 2, (6 - sway * 2) | 0, -t * 0.3, K);
+    var lit = sway > 0.5;                             // 中央人形半金半暗
+    c.put(cx, cy - 3, 'o', lit ? W : N);
+    c.put(cx, cy - 2, '@', lit ? G : D);
+    c.put(cx, cy - 1, '@', lit ? G : D);
+    c.put(cx - 1, cy - 1, '<', D); c.put(cx + 1, cy - 1, '>', D);
+    c.put(cx, cy, sway > 0.3 && sway < 0.7 ? '=' : lit ? '|' : 'x', lit ? G : R);
+    for (var x2 = l; x2 < cx - 8; x2 += 3)            // 左右底纹分化
+      if (hash16(x2 * 7) % 100 < 26) c.put(x2, bt, '.', G);
+    for (var x3 = cx + 8; x3 < r; x3 += 3)
+      if (hash16(x3 * 7) % 100 < 26) c.put(x3, bt, 'x', D);
+    luLog(c, top + 1, elapsed, [
+      ['blessing ...... HALF', 0.4, G],
+      ['curse ......... HALF', 1.4, R],
+      ['balance ....... HELD', 2.6, N]
+    ]);
+  }
+
+  // 118.12–124.00 "Take up this double-edged sword / my life is yours / pulse veins"：
+  // 3D 双刃剑旋转 + 血脉回归
+  function lu_s8_sword(c, t, top, bt, elapsed) {
+    var l = 2, r = c.w - 3, cx = (l + r) / 2, cy = (top + bt) / 2;
+    var e = elapsed;
+    var rev = clamp01(e / 0.9);                       // 剑显形
+    var vsS = luBox(0.16, 2.4, 0.28, 0, 0.9, 0)       // 3D 双刃剑
+      .concat(luBox(0.5, 0.12, 0.3, 0, -1.6, 0))
+      .concat(luBox(0.9, 0.14, 0.3, 0, -1.3, 0))
+      .concat(luBox(0.2, 0.5, 0.24, 0, -1.95, 0));
+    projected(c, vsS, luEdges(0).concat(luEdges(8), luEdges(16), luEdges(24)),
+              cx - 14, top + 1, cx + 14, bt - 3, t * 0.35, e > 3 ? R : B, rev);
+    for (var v = 0; v < 2; v++) {                     // 血脉回归双血管
+      var yMid = bt - 4 - v * 2;
+      for (var x = l; x < r; x++)
+        c.put(x, (yMid + Math.sin(x * 0.09 + t * 1.3 + v * 2) * 1.2) | 0,
+              Math.abs(Math.cos(x * 0.09 + t * 1.3)) < 0.14 ? '-' :
+              v ? '/' : '\\', v ? N : R);
+      for (var cb = 0; cb < 6; cb++) {
+        var cxx = l + mod(cb * 13.7 + t * 11, r - l);
+        c.put(cxx | 0, (yMid + Math.sin(cxx * 0.09 + t * 1.3 + v * 2) * 1.2) | 0,
+              'o', v ? N : R);
       }
     }
-    var q = Math.floor(t / 1.85) % 4;                 // 四角武器十字星定时闪现
-    var qx = q % 2 ? c.w - 20 : 18, qy = q < 2 ? top + 5 : bt - 5;
-    c.put(qx, qy, '*', W);
-    c.put(qx - 1, qy, '-', R); c.put(qx + 1, qy, '-', R);
-    c.put(qx, qy - 1, '|', R); c.put(qx, qy + 1, '|', R);
+    if (e > 1.2 && mod(t * 2, 1) < 0.7)
+      c.centerW(top + 2, 'M Y   L I F E   I S   Y O U R S', G);
+    luParticles(c, t, top, bt, 8, 47, true, false);
+    luLog(c, top + 1, e, [
+      ['blade ......... DOUBLE', 0.4, W],
+      ['edge .......... BOTH WAYS', 1.8, B],
+      ['veins ......... REJOINED', 3.4, R]
+    ]);
   }
   // 124.00–135.87 主歌二（熔炉锻打）：锤落节拍 + 砧上链环逐锤成形 + 火花抛物线
   function lu_verse2_forge(c, t, top, bt, elapsed) {
@@ -4434,9 +4683,17 @@ title: 字符演歌
         { a: 68.09,  b: 72.01,  f: lu_s4_call },
         { a: 72.01,  b: 76.12,  f: lu_s5_strike },
         { a: 76.12,  b: 80.00,  f: lu_s5_ring },
-        { a: 80.00,  b: 96.03,  f: lu_chorus_battle },
-        { a: 96.03,  b: 103.51, f: lu_link_hold },
-        { a: 103.51, b: 124.00, f: lu_verse2_stepin },
+        { a: 80.00,  b: 84.09,  f: lu_s6_rise },
+        { a: 84.09,  b: 88.26,  f: lu_s6_quench },
+        { a: 88.26,  b: 92.04,  f: lu_s6_hammer },
+        { a: 92.04,  b: 96.03,  f: lu_s6_pull },
+        { a: 96.03,  b: 100.00, f: lu_s7_tunnel },
+        { a: 100.00, b: 103.51, f: lu_s7_link },
+        { a: 103.51, b: 106.15, f: lu_s8_step },
+        { a: 106.15, b: 110.21, f: lu_s8_weapon },
+        { a: 110.21, b: 114.04, f: lu_s8_heart },
+        { a: 114.04, b: 118.12, f: lu_s8_curse },
+        { a: 118.12, b: 124.00, f: lu_s8_sword },
         { a: 124.00, b: 135.87, f: lu_verse2_forge },
         { a: 135.87, b: 152.18, f: lu_predream2 },
         { a: 152.18, b: 159.93, f: lu_bloodflames2 },
