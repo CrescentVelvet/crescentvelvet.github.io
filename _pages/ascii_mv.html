@@ -3378,6 +3378,10 @@ title: 字符演歌
     var tint = clamp01((e - 10) / 3.5);               // 丝带转血红
     var ignite = clamp01((e - 15) / 1.23);            // 底部点燃
     var breathe = (0.8 + 0.2 * Math.sin(t * (0.5 + tint * 0.7))) * (1 - ignite * 0.35);
+    // 3D 梦境核心：上方线框球缓旋，血色侵蚀时转红（与丝带分层）
+    var sphD = luSphere(1.6);
+    projected(c, sphD[0], sphD[1], cx - 8, top + 1, cx + 8, top + 9,
+              t * 0.2, tint > 0.5 ? R : N, 1);
     luParticles(c, t, top, bt, 12 + (e * 1.5 | 0), 55, true, tint > 0.6);  // 梦尘慢升
     for (var i = 0; i < 5; i++) {
       var ph = t * (0.55 + tint * 0.3) + i * 1.7;
@@ -3413,6 +3417,22 @@ title: 字符演歌
           luFlame(c, fx, bt, Math.max(1, (1 + ignite * 5 * (0.6 + 0.4 * Math.sin(t * 7 + fx))) | 0), fx, t);
       }
       luParticles(c, t, top, bt, (30 * ignite) | 0, 91, true, true);
+    }
+    // 左下 DREAM.SYS 日志（与双信子/相遇环各阶段对应）
+    var LOGD = [
+      [0.0, 'DREAM.SYS  v2.0'],
+      [2.0, 'visitor ...... YOU'],
+      [5.5, 'approach ..... MEET'],
+      [8.5, 'union ........ BURST'],
+      [11.0, 'tint shift ... BLOOD'],
+      [14.0, 'ignition ..... SOON']
+    ];
+    for (var g = 0; g < LOGD.length; g++) {
+      if (e < LOGD[g][0]) break;
+      var ln = LOGD[g][1];
+      var sh2 = Math.min(ln.length, ((e - LOGD[g][0]) * 24) | 0);
+      for (var ch = 0; ch < sh2; ch++)
+        c.put(3 + ch, bt - 11 + g, ln[ch], g === 5 ? R : ch < 10 ? B : N);
     }
   }
   // 64.40–72.01 血与火（预热副歌）：火柱渐旺 + 火星喷射 + 压字跟词 +
