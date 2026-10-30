@@ -3051,6 +3051,29 @@ title: 字符演歌
    * LINK UP 强化(160-168) → 交火+王座(168-176) → 终曲合流(176-184) → 余烬熄灭(184-188)
    * 调色：本站琥珀终端系——R(4)=火/血、D/K=暗场、B/W=爆闪；R 是这首歌的灵魂色。
    */
+  // 长方体线框：半长 hx,hy,hz + 中心偏移，返回 [顶点集, 棱线索引]（供 3D 主体拼装）
+  function luBox(hx, hy, hz, ox, oy, oz) {
+    var v = [], E = [[0,1],[2,3],[4,5],[6,7],[0,2],[1,3],[4,6],[5,7],[0,4],[1,5],[2,6],[3,7]];
+    for (var i = 0; i < 8; i++)
+      v.push([ox + (i & 1 ? hx : -hx), oy + (i & 2 ? hy : -hy), oz + (i & 4 ? hz : -hz)]);
+    return v;
+  }
+  function luEdges(base, n) {
+    var E = [[0,1],[2,3],[4,5],[6,7],[0,2],[1,3],[4,6],[5,7],[0,4],[1,5],[2,6],[3,7]], e = [];
+    for (var i = 0; i < E.length; i++) e.push([E[i][0] + base, E[i][1] + base]);
+    return e.slice(0, n || 12);
+  }
+  // 打字机事件日志（world BIOS 质感）：rows=[[text, 起始elapsed, style]]，逐字打出
+  function luLog(c, top, elapsed, rows) {
+    for (var i = 0; i < rows.length; i++) {
+      var txt = rows[i][0], th = rows[i][1], st = rows[i][2];
+      if (elapsed < th || !txt) continue;
+      var n2 = Math.floor(clamp01((elapsed - th) / 0.4) * txt.length);
+      c.put(2, top + i, txt.slice(0, n2), st);
+      if (n2 < txt.length && mod(elapsed * 2, 1) < 0.6)
+        c.put(2 + n2, top + i, '_', W);
+    }
+  }
   // 通用余烬粒子场：n 颗；up=上升/下落；hot=火色（R 配额高）。确定性 hash16。
   function luParticles(c, t, top, bt, n, seed, up, hot) {
     var l = 2, r = c.w - 3, w = r - l, h = bt - top;
@@ -3405,8 +3428,8 @@ title: 字符演歌
       for (var bx = l + (by & 1); bx < r; bx += 4)
         if (hash16(bx * 17 + by * 31) % 100 < 50)
           c.put(bx, by, '.', hash16(bx * 7 + by * 3) % 4 ? G : K);
-    luGear(c, 11, top + 6, 5, t * 0.8, B);                // 两侧巨齿轮（金属锻造质感）
-    luGear(c, c.w - 12, top + 7, 4, -t * 1.1, N);
+    luGear(c, 9, top + 10, 5, t * 0.8, B);              // 两侧巨齿轮（金属锻造质感）
+    luGear(c, c.w - 10, top + 11, 4, -t * 1.1, N);
     luGear(c, 16, bt - 5, 3, -t * 1.4, D);
     luGear(c, c.w - 17, bt - 6, 3, t * 1.2, D);
     var ay = bt - 6;                                       // 铁砧（上宽下窄梯形）
@@ -3425,10 +3448,13 @@ title: 字符演歌
       c.put(cx, ay - 1, strikes >= 3 ? 'o' : '#', heat);
       if (strikes >= 2) { c.put(cx - 2, ay - 1, '(', heat); c.put(cx + 2, ay - 1, ')', heat); }
     }
-    var drop = ph < 0.42 ? Math.pow(ph / 0.42, 2.2) : 1;  // 巨锤 T 形下落（加速）
-    var hy = top + 2 + drop * (ay - 4 - top);
-    for (var m = -15; m <= 15; m++) c.put(cx + m, hy | 0, '#', m ? B : W);
-    c.put(cx, (hy + 1) | 0, '#', N); c.put(cx, (hy + 2) | 0, '#', N);
+    var drop = ph < 0.42 ? Math.pow(ph / 0.42, 2.2) : 1;  // 巨锤下落（加速）
+    // 3D 线框锻锤：锤头 + 长柄拼装，近直立微晃 + 节拍砸落（替代原 2D T 形锤）
+    var slamY = mix(2.2, -0.9, drop);
+    var vs3 = luBox(2.4, 1.0, 1.0, 0, slamY + 1.3, 0)
+      .concat(luBox(0.4, 1.3, 0.4, 0, slamY - 1.2, 0));
+    projected(c, vs3, luEdges(0).concat(luEdges(8)), l, top + 1, r, bt - 4,
+              t * 0.1, B, 1);
     if (ph >= 0.42 && ph <= 0.8) {                         // 砸击瞬间：白闪横线 + 径向火星
       var su = (ph - 0.42) / 0.38;
       for (var fx = l + 2; fx < r; fx += 6) c.put(fx, ay - 2, '*', W);
@@ -3445,6 +3471,14 @@ title: 字符演歌
     if (elapsed < 1.6)                                    // 开场铬字（熔金 → 血红）
       c.big(cy - 6, 'LINK UP', elapsed < 0.5 ? W : R);
     luParticles(c, t, top, bt, 14, 77, true, true);        // 炉膛火星上飘
+    luLog(c, top + 1, elapsed, [                          // 锻造系统事件日志（BIOS 质感）
+      ['FORGE.SYS v3.1 -- LINK PROTOCOL', 0.1, W],
+      ['> billet heated ......... 1200C', 0.8, G],
+      ['> strike 1/5 ................ OK', 1.9, N],
+      ['> strike 2/5 ................ OK', 3.7, N],
+      ['> strike 3/5 ................ OK', 5.6, N],
+      ['> strike 4/5 ................ OK', 7.4, N]
+    ]);
   }
   // 80.00–96.03 副歌一主体：血红殿堂 + 金发女王端坐王座，镜头向后拉远
   // 官方 MV 91–107s：血红高柱殿堂、中央明亮光柱、两侧巨锤剪影、女王王座、镜头拉远露全景
