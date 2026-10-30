@@ -3806,6 +3806,27 @@ title: 字符演歌
   // 135.87–152.18 导歌二（梦境回闪）：亮版丝带 + 旧场景符号碎片慢漂
   function lu_predream2(c, t, top, bt, elapsed) {
     var cy = (top + bt) / 2;
+    // 右上 3D 水晶簇：三根晶柱拼装缓旋，对应旧场景碎片回闪
+    var vsC = luBox(0.18, 1.3, 0.18, 0, 0.1, 0)
+      .concat(luBox(0.18, 0.9, 0.18, 0.5, -0.2, 0))
+      .concat(luBox(0.18, 0.7, 0.18, -0.45, -0.3, 0));
+    projected(c, vsC, luEdges(0).concat(luEdges(8), luEdges(16)),
+              c.w - 26, top + 2, c.w - 6, top + 13, t * 0.18, B, 1);
+    // 左上 FLASH.SYS 日志（回闪叙事）
+    var LOGP = [
+      [0.3, 'FLASH.SYS  v0.8'],
+      [3.0, 'recall ....... ON'],
+      [6.0, 'fragments .... DRIFT'],
+      [9.0, 'memories ..... FADE'],
+      [12.0, 'resolve ...... SHATTERPROOF']
+    ];
+    for (var g = 0; g < LOGP.length; g++) {
+      if (elapsed < LOGP[g][0]) break;
+      var ln = LOGP[g][1];
+      var sh2 = Math.min(ln.length, ((elapsed - LOGP[g][0]) * 24) | 0);
+      for (var ch = 0; ch < sh2; ch++)
+        c.put(3 + ch, top + 1 + g, ln[ch], g === 4 ? R : ch < 10 ? B : N);
+    }
     var breathe = 0.85 + 0.15 * Math.sin(t * 0.7);
     for (var i = 0; i < 6; i++)
       luRibbon(c, cy + (i - 2.5) * 3.6, (2 + i * 0.5) * breathe, 0.06,
