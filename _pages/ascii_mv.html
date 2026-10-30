@@ -3309,19 +3309,49 @@ title: 字符演歌
         luRing(c, cx, cy, (3 + merge * 6) | 0, '*', W, 0);
     }
   }
-  // 48.17–64.40 导歌一（梦境）：五条红丝带缓漂，偶发字符脱落上飘
+  // 48.17–64.40 导歌一（梦境）：四阶段——静谧丝带梦(0-5.5) → 双信子相遇(5.5-10, you&me) →
+  // 血色侵蚀梦碎(10-15) → 底部点燃桥接火海(15-16.23, bound by blood and flames)
   function lu_predream_ribbons(c, t, top, bt, elapsed) {
-    var cy = (top + bt) / 2;
-    var breathe = 0.8 + 0.2 * Math.sin(t * 0.5);
-    for (var i = 0; i < 5; i++)
-      luRibbon(c, cy + (i - 2) * 4.5, (3.0 + i * 0.7) * breathe, 0.055,
-               t * 0.55 + i * 1.7, i === 2 ? R : i % 2 ? B : N);   // 提亮：琥珀高光丝带
+    var cy = (top + bt) / 2, e = elapsed;
+    var l = 2, r = c.w - 3, cx = (l + r) / 2;
+    var tint = clamp01((e - 10) / 3.5);               // 丝带转血红
+    var ignite = clamp01((e - 15) / 1.23);            // 底部点燃
+    var breathe = (0.8 + 0.2 * Math.sin(t * (0.5 + tint * 0.7))) * (1 - ignite * 0.35);
+    luParticles(c, t, top, bt, 12 + (e * 1.5 | 0), 55, true, tint > 0.6);  // 梦尘慢升
+    for (var i = 0; i < 5; i++) {
+      var ph = t * (0.55 + tint * 0.3) + i * 1.7;
+      if (tint > 0 && hash16((t * 8 | 0) * 7 + i) % 100 < 14 * tint) ph += 3.1; // 梦碎抖动
+      var st = tint > 0.45 ? R : i === 2 ? R : i % 2 ? B : N;
+      luRibbon(c, cy + (i - 2) * 4.5, (3.0 + i * 0.7) * breathe, 0.055, ph, st);
+    }
     for (var i2 = 0; i2 < 10; i2++) {                 // 脱落碎片上飘
       var hs = hash16(i2 * 733 + 5);
       var sx = 2 + hs % (c.w - 6);
       var sy = cy + Math.sin(sx * 0.055 + (i2 % 5) * 1.7 + t * 0.55) * 4;
       var rise = mod(t * 0.5 + (hs % 100) / 100, 1);
       c.put(sx, (sy - rise * 8) | 0, "'", rise < 0.3 ? N : D);
+    }
+    // 双信子：沿第 2/4 丝带相向滑行，e≈8.5 相遇爆亮（you and me）
+    var meet = clamp01((e - 5.5) / 3);
+    if (meet > 0 && ignite < 0.6) {
+      var mA = l + meet * (cx - l), mB = r - meet * (r - cx);
+      var yA = cy - 4.5 + Math.sin(mA * 0.055 + t * 0.55 + 1 * 1.7) * 3.7 * breathe;
+      var yB = cy + 4.5 + Math.sin(mB * 0.055 + t * 0.55 + 3 * 1.7) * 5.1 * breathe;
+      c.put(mA | 0, yA | 0, '@', W);
+      c.put(mB | 0, yB | 0, '@', W);
+      if (meet >= 1) {                                // 相遇：中心合光 + 扩散微环
+        var mu2 = mod(t * 1.2, 1);
+        luRing(c, cx, cy, (2 + mu2 * 7) | 0, '.', mu2 < 0.4 ? W : R, 2);
+        c.put(cx | 0, cy | 0, '*', W);
+      }
+    }
+    if (ignite > 0) {                                 // 点燃：火舌自底烧上丝带末端
+      for (var fx = 4; fx < c.w - 4; fx += 2) {
+        var fh = hash16(fx * 977 + 7);
+        if (fh % 100 < ignite * 85)
+          luFlame(c, fx, bt, Math.max(1, (1 + ignite * 5 * (0.6 + 0.4 * Math.sin(t * 7 + fx))) | 0), fx, t);
+      }
+      luParticles(c, t, top, bt, (30 * ignite) | 0, 91, true, true);
     }
   }
   // 64.40–72.01 血与火（预热副歌）：火柱自底升起渐旺 + 火星喷射 + 压字
