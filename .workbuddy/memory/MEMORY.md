@@ -8,6 +8,7 @@
 - 只 `git add` 明确路径，**禁止 `git add -A`**；**同文件禁同消息并发多 Edit**。
 - 托管 Node：`.../node/versions/<先 ls>/node.exe`；无 coreutils ⇒ 用 Glob/Read/Grep/Node。
 - ⚠️ **禁 PowerShell 管道取 git 对象/UTF-8**（cp936 乱码）：`execSync('git show …',{encoding:'utf8'})`；commit message 用 `-F <UTF-8 文件>`。
+- ⚠️ wsl.exe 会对**直接传入的 `/mnt/...` 参数**做路径翻译拼到 Win cwd 后（10-31 踩坑）⇒ 一律 `wsl bash -lc "cd /mnt/... && ..."`；tmp 下 montage.py 等需 PIL 的脚本系统 python3 跑不了，用 `~/miniconda3/envs/sharp/bin/python`。
 - 重构 memory 前确认 git 干净。
 
 ## 无头验证（skill `cdp-browser-e2e`）
