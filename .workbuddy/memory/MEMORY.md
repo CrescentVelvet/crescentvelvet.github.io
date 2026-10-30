@@ -59,6 +59,10 @@
   均支持 AMV_* 环境变量换歌）；设计规格 `_design/ascii_mv_design.md`（版面契约必读）。
 - 核心定案：参考帧必须 WSL/glibc 导出（UCRT 与 V8 浮点行为不同）；提取用 Node+DOM 桩
   （headless Edge 已废）；逐行移植禁「理解后重写」；随机全走 hash16 确定性伪随机。
+- **多曲架构（2026-10-30 定案，作废旧指南「每歌一页」）**：单页 `?song=key`，SONGS
+  注册表每歌一份配置（dur/dir/chrome/scenes/chapters…），新歌曲=注册表加项+前缀场景
+  函数+`assets/data/ascii_mv/<key>/` 数据+页头 button；歌相关禁再硬编码全局常量。
+  第二首《Link Up 血火相连》（绝区零 EP，188s）数据已备，场景按 B 站 MV BV1C9b76cEks 移植中。
 
 ## 论文调研（paper_retrieval.html）
 - 深色 token 抄 media_paper 报告页，**不引入 diary-tools.css**，自声明 box-sizing；隐藏 `#page-last-modified`；目录解析自索引页链接；镜像 raw→jsdelivr 单试 8s。
