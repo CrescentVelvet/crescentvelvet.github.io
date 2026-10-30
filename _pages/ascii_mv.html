@@ -3441,6 +3441,10 @@ title: 字符演歌
     var e = elapsed, cx = (c.w - 1) / 2;
     var heat = Math.pow(clamp01(e / 7.6), 1.2);       // 前缓后急
     var conv = clamp01((e - 6.2) / 1.4);              // 末尾聚热收拢
+    // 左上 3D 誓约核心缓旋（heat 越高转越快），与火墙分层
+    var vsO = luBox(0.9, 0.9, 0.9, 0, 0, 0);
+    projected(c, vsO, luEdges(0), 4, top + 1, 24, top + 9,
+              t * (0.15 + heat * 0.5), heat > 0.7 ? R : N, 1);
     for (var x = 4; x < c.w - 4; x++) {
       var hs = hash16(x * 977 + 7);
       var lean = 1 - Math.abs(x - cx) / cx;           // 靠中心越旺
@@ -3475,6 +3479,22 @@ title: 字符演歌
       c.centerW(bt - 4, 'B O U N D   B Y   B L O O D   &   F L A M E S', heat > 0.6 ? R : G);
     if (e >= 3.9 && e < 6.9 && mod(t * 2, 1) < 0.75)
       c.centerW(bt - 4, 'C A L L   O U T   Y O U R   N A M E', heat > 0.85 ? R : G);
+    // 左上 OATH.SYS 日志（与誓约核心同区，heat 推进叙事）
+    var LOGO = [
+      [0.3, 'OATH.SYS  v1.9'],
+      [1.5, 'blood bound ... YES'],
+      [3.0, 'flames ....... RISING'],
+      [4.5, 'name ......... CALLED'],
+      [6.0, 'heat ......... FOCUS'],
+      [6.9, 'STRIKE IMMINENT']
+    ];
+    for (var g = 0; g < LOGO.length; g++) {
+      if (e < LOGO[g][0]) break;
+      var ln = LOGO[g][1];
+      var sh2 = Math.min(ln.length, ((e - LOGO[g][0]) * 24) | 0);
+      for (var ch = 0; ch < sh2; ch++)
+        c.put(3 + ch, top + 10 + g, ln[ch], g === 5 ? R : ch < 10 ? B : N);
+    }
   }
   // 72.01–80.00 副歌一爆点：冲击波环 + LINK UP 大字 + 双链环阵
   // 72.01–80.00 副歌一爆点：锻造重锤段落（官方 MV 83–91s 锻炉膛/巨锤砸落/金属火星）
