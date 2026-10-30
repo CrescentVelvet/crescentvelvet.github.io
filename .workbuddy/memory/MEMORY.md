@@ -63,6 +63,10 @@
   注册表每歌一份配置（dur/dir/chrome/scenes/chapters…），新歌曲=注册表加项+前缀场景
   函数+`assets/data/ascii_mv/<key>/` 数据+页头 button；歌相关禁再硬编码全局常量。
   第二首《Link Up 血火相连》（绝区零 EP，188s）数据已备，场景按 B 站 MV BV1C9b76cEks 移植中。
+- ⚠️ **场景绘制字集仅 ASCII 32–126 + EXTRA 符号，无中文**（centerW('中文') 渲染成 '?'）：
+  中文只能走 DOM 字幕层；'◎' 也不在 EXTRA（用 '◉'）。B 站截帧 shot_mv.js v2：
+  video position:fixed 拽出容器铺满视口+白名单 display:none（body visibility:hidden 会白屏；
+  顶栏 z-index 压过 fixed 视频只能 display:none；#app>div:not 宽匹配会误杀播放器祖先）。
 
 ## 论文调研（paper_retrieval.html）
 - 深色 token 抄 media_paper 报告页，**不引入 diary-tools.css**，自声明 box-sizing；隐藏 `#page-last-modified`；目录解析自索引页链接；镜像 raw→jsdelivr 单试 8s。
