@@ -3242,32 +3242,72 @@ title: 字符演歌
       }
     }
   }
-  // 32.35–48.17 主歌一（血脉脉搏）：三条正弦血管 + 血细胞流 + 心房脉动环
+  // 32.35–48.17 主歌一（血脉脉搏）：四阶段——双心共鸣(0-5.6, hear your pulse) →
+  // 恶魔化膨胀(5.6-10.2, demonic) → 金链缠心(10.2-14.5, gold chains) →
+  // 双心合一化梦(14.5-15.82, you are my lifeline，桥接导歌梦境)
   function lu_verse_pulse(c, t, top, bt, elapsed) {
-    var l = 2, r = c.w - 3, cx = (l + r) / 2, cy = (top + bt) / 2;
-    for (var v = 0; v < 3; v++) {
-      var yMid = cy + (v - 1) * 7;
-      var amp = 3.2 + v * 0.8, ph = t * (1.1 + v * 0.13) + v * 2.1;
-      for (var x = l; x <= r; x++) {
+    var l = 2, r = c.w - 3, cx = (l + r) / 2, cy = (top + bt) / 2, e = elapsed;
+    var demonic = clamp01((e - 5.6) / 2.5);           // 恶魔化强度
+    var chainOn = clamp01((e - 10.2) / 1.5);          // 金链登场
+    var merge = clamp01((e - 14.5) / 1.32);           // 双心合一（末段）
+    var fadeV = 1 - merge;                            // 血管可见度
+    var nV = 3 + Math.round(demonic * 2);             // 血管 3 → 5 条
+    var spacing = nV > 3 ? 4.4 : 7;
+    var ampMul = (1 + demonic * 0.2) * (1 - merge * 0.5);
+    var midIdx = (nV - 1) / 2;
+    for (var v = 0; v < nV && fadeV > 0.05; v++) {
+      var yMid = cy + (v - midIdx) * spacing;
+      var amp = (2.4 + (v % 3) * 0.7) * ampMul;
+      var ph = t * (1.1 + (v % 3) * 0.13 + demonic * 0.35) + v * 2.1;
+      var vSt = v === midIdx ? R : demonic > 0.5 ? N : D;
+      if (merge > 0) vSt = D;                         // 合一前血管转暗消散
+      for (var x = l; x < r; x++) {
         var y = yMid + Math.sin(x * 0.075 + ph) * amp;
         var dy = Math.cos(x * 0.075 + ph) * amp * 0.075;
-        c.put(x, y | 0, Math.abs(dy) < 0.12 ? '-' : dy > 0 ? '\\' : '/', v === 1 ? R : D);
+        c.put(x, y | 0, Math.abs(dy) < 0.12 ? '-' : dy > 0 ? '\\' : '/', vSt);
       }
-      if (v === 1)                                    // 主血管内血细胞流
+      if (v === midIdx)                               // 主血管内血细胞流
         for (var cb = 0; cb < 12; cb++) {
-          var cxx = l + mod(cb * 10.3 + t * 15, r - l);
+          var cxx = l + mod(cb * 10.3 + t * (15 + demonic * 8), r - l);
           c.put(cxx | 0, (cy + Math.sin(cxx * 0.075 + ph) * amp) | 0,
                 cb % 3 ? 'o' : '.', cb % 4 ? R : W);
         }
     }
-    var beat = mod(t * 1.65, 1), env = Math.exp(-beat * 5);
-    for (var ring = 0; ring < 3; ring++) {            // 心房扩散环
-      var rr = 2 + beat * 15 + ring * 5;
+    // 双心：主心 + 次心（你），错峰跳动，末段向中心合一
+    var rate = 1.65 + demonic * 0.5;
+    var beat = mod(t * rate, 1), env = Math.exp(-beat * 5);
+    if (demonic > 0.4)                                // 恶魔化：不规则第二搏动
+      env += 0.45 * Math.exp(-mod(beat + 0.47, 1) * 7);
+    var hOff = 24 * (1 - merge);                      // 次心偏移（合一 → 0）
+    var hx2 = cx + hOff, hy2 = cy - 3;
+    if (hOff > 1) {                                   // 次心：小环 + 错峰包络
+      var env2 = Math.exp(-mod(beat + 0.4, 1) * 5);
+      luRing(c, hx2, hy2, (2 + env2 * 4) | 0, '.', env2 > 0.5 ? B : N, 0);
+      c.put(hx2 | 0, hy2 | 0, 'o', env2 > 0.5 ? W : B);
+      // 连心脉：次心 → 主心 的血珠流（got you in my veins）
+      for (var lk = 0; lk < 7; lk++) {
+        var lu2 = mod(lk / 7 + t * 0.4, 1);
+        var lx = hx2 + (cx - 3 - hx2) * lu2;
+        var ly = hy2 + (cy - hy2) * lu2 + Math.sin(lu2 * 9) * 1.5;
+        c.put(lx | 0, ly | 0, '.', lk % 2 ? R : W);
+      }
+    }
+    for (var ring = 0; ring < 3; ring++) {            // 主心心房扩散环
+      var rr = 2 + beat * (15 + demonic * 4) + ring * 5;
       var u = clamp01(1 - rr / 25) * (0.4 + env);
       if (u <= 0.05) continue;
-      luRing(c, cx, cy, rr | 0, u > 0.5 ? '*' : '.', u > 0.55 ? R : u > 0.3 ? N : D);
+      luRing(c, cx, cy, rr | 0, u > 0.5 ? '*' : '.', u > 0.55 ? R : u > 0.3 ? N : D, 2);
     }
     c.put(cx | 0, cy | 0, '@', env > 0.45 ? R : B);
+    if (chainOn > 0) {                                // 金链缠心（shared pain gold chains）
+      var cr2 = (17 - chainOn * 6 - merge * 6) | 0;   // 链环收紧
+      luChainRing(c, cx, cy, Math.max(6, cr2), t * 0.3, chainOn > 0.6 ? G : D);
+    }
+    if (merge > 0) {                                  // 合一化梦：余烬升腾 + 白环 handoff
+      luParticles(c, t, top, bt, (40 * merge) | 0, 77, true, true);
+      if (merge > 0.85)
+        luRing(c, cx, cy, (3 + merge * 6) | 0, '*', W, 0);
+    }
   }
   // 48.17–64.40 导歌一（梦境）：五条红丝带缓漂，偶发字符脱落上飘
   function lu_predream_ribbons(c, t, top, bt, elapsed) {
