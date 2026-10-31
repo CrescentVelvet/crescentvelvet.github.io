@@ -4478,63 +4478,149 @@ title: 字符演歌
 
   // ===== 血与火预热 64.40–72.01 粒度细分：2 子场景 =====
 
-  // 64.40–68.09 "Bound by blood and flames we are shatterproof"：火墙+誓约核心+压字
-  function lu_s4_oath(c, t, top, bt, elapsed) {
-    var e = elapsed, cx = (c.w - 1) / 2;
-    var heat = Math.pow(clamp01(e / 3.6), 1.2);
-    var vsO = luBox(0.9, 0.9, 0.9, 0, 0, 0);          // 3D 誓约核心
-    projected(c, vsO, luEdges(0), 4, top + 1, 24, top + 9,
-              t * (0.15 + heat * 0.5), heat > 0.7 ? R : N, 1);
-    for (var x = 4; x < c.w - 4; x++) {
-      var hs = hash16(x * 977 + 7);
-      var hMax = Math.min((6 + hs % 12 + heat * (8 + hs % 9)) | 0, bt - top - 6);
-      luFlame(c, x, bt, Math.max(2, (hMax * (0.75 + 0.25 * Math.sin(t * 7 + x * 0.9))) | 0), x, t);
-      if (hs % 100 < heat * 60) {                     // 火星上抛
-        var mu = mod(t * (0.5 + hs % 40 / 60) + hs % 97 / 97, 1);
-        c.put((x + Math.sin(mu * 12 + x) * 2) | 0, (bt - hMax - mu * 8) | 0,
-              mu < 0.25 ? '*' : '.', mu < 0.2 ? W : mu < 0.5 ? R : D);
-      }
+  // 誓约盾的两半共用轮廓，先合拢再压缩成锻件；火种始终留在同一中轴。
+  function luOathShield(c,cx,cy,close,compress,t) {
+    var gap=(1-close)*23,sx=mix(1,0.8,compress),sy=mix(1,0.16,compress);
+    function face(points,side,st,ch) {
+      luCoalFacet(c,points.map(function(p){return [cx+side*(p[0]*sx+gap),cy+p[1]*sy];}),st,ch);
     }
-    for (var x2 = 4; x2 < c.w - 4; x2++) c.put(x2, bt, '#', heat > 0.55 ? R : N);
-    for (var x3 = 4; x3 < c.w - 4; x3 += 2) c.put(x3, bt - 1, '*', heat > 0.75 ? B : N);
-    if (e > 0.2 && mod(t * 2, 1) < 0.75)
-      c.centerW(bt - 5, 'B O U N D   B Y   B L O O D   &   F L A M E S',
-                heat > 0.6 ? R : G);
-    luLog(c, top + 10, e, [
-      ['OATH.SYS  v1.9', 0.3, W],
-      ['blood bound ... YES', 1.2, G],
-      ['flames ....... RISING', 2.2, N]
-    ]);
+    for(var side=-1;side<=1;side+=2) {
+      face([[0,-10],[19,-7],[23,-1],[19,7],[0,13]],side,N,'▓');
+      face([[0,-9],[17,-6],[20,-1],[16,6],[0,11]],side,B,'█');
+      face([[0,-7.7],[15,-5],[17,-1],[14,5],[0,9.3]],side,R,'▓');
+      face([[0,-7.7],[6,-6.5],[7,4],[0,9.3]],side,G,'▒');
+      face([[18,-5],[20,-1],[16,6],[0,11],[2,9],[14,5]],side,W,'·');
+      for(var rivet=0;rivet<3;rivet++)c.put(cx+side*(17*sx+gap),cy+(-4+rivet*4)*sy,'◆',B);
+    }
+    if(compress<0.8) {
+      var flame=1.0-compress*0.75;
+      luMeetFlame(c,cx,cy+1,flame,Math.sin(t*2)*0.025,t,0);
+      if(close>0.95)c.line(cx,cy+6*sy,cx,cy+9*sy,'│',B);
+    } else c.line(cx-9,cy,cx+9,cy,'▄',W);
   }
 
-  // 68.09–72.01 "I call out your name and you know the truth"：呼名+聚热火柱冲天
-  function lu_s4_call(c, t, top, bt, elapsed) {
-    var e = elapsed, cx = (c.w - 1) / 2;
-    var conv = clamp01(e / 3.9);                      // 火势向中心收拢
-    for (var x = 4; x < c.w - 4; x++) {
-      var hs = hash16(x * 977 + 7);
-      var lean = 1 - Math.abs(x - cx) / cx;
-      var hMax = Math.min(((6 + hs % 12) * (1 + lean * conv * 0.8)) | 0, bt - top - 8);
-      luFlame(c, x, bt, Math.max(2, (hMax * (0.75 + 0.25 * Math.sin(t * 7 + x * 0.9))) | 0), x, t);
+  // 两岸火舌、炉壁与斜向熔流，中央保留盾徽轮廓；所有阶段沿同一绝对时间推进。
+  function luOathHall(c,t,top,bt,age,focus) {
+    var cx=(c.w-1)/2;
+    for(var side=-1;side<=1;side+=2) {
+      for(var col=0;col<3;col++) {
+        var x=cx+side*(34+col*10),base=29-col*2;
+        luCoalFacet(c,[[x-3,6+col],[x+3,6+col],[x+3,base],[x-3,base]],G,'▓');
+        c.line(x-side*2,7+col,x-side*2,base,'│',N);
+        c.line(x-5,base,x+5,base,'▄',N);
+      }
+      for(var lane=0;lane<3;lane++) {
+        var x=cx+side*(27+lane*13)*(1-focus*0.38);
+        var size=(0.85+lane*0.13)*(1-focus*0.5);
+        luMeetFlame(c,x,29-lane*0.45,size,side*(0.12+focus*0.65),t+lane,side);
+      }
+      c.line(cx+side*8,28,cx+side*54,31,'─',R);
+      c.line(cx+side*12,29,cx+side*48,31,'·',B);
     }
-    for (var x2 = 4; x2 < c.w - 4; x2++) c.put(x2, bt, '#', R);
-    for (var x3 = 4; x3 < c.w - 4; x3 += 2) c.put(x3, bt - 1, '*', B);
-    var ph2 = (2 + conv * (bt - top - 8)) | 0;         // 中央白热火柱越升越高
-    for (var fy = 0; fy < ph2; fy++) {
-      var u = 1 - fy / ph2;
-      var fw = (1 + u * 3 * (1 - conv * 0.5)) | 0;
-      for (var fx2 = -fw; fx2 <= fw; fx2++)
-        c.put((cx + fx2) | 0, bt - 2 - fy,
-              u > 0.6 ? '@' : u > 0.35 ? '#' : '*',
-              u > 0.75 ? W : u > 0.4 ? R : B);
+    for(var i=0;i<24;i++) {
+      var seed=hash16(i*191+43),u=mod(t*0.35+seed/65535,1),side=seed%2?1:-1;
+      var x=cx+side*(25+seed%29)*(1-focus*u*0.7),y=30-u*(14+seed%8);
+      c.put(x,y,u<0.3?'+':'.',u<0.3?B:G);
     }
-    if (e > 0.2 && e < 3.4 && mod(t * 2, 1) < 0.75)
-      c.centerW(bt - 5, 'C A L L   O U T   Y O U R   N A M E', R);
-    luLog(c, top + 10, e, [
-      ['name ......... CALLED', 0.4, B],
-      ['heat ......... FOCUS', 1.8, N],
-      ['STRIKE IMMINENT', 3.1, R]
-    ]);
+  }
+
+  // 共享连续时间轴，68.09s 只切换标题而不重置盾徽、火势或波纹。
+  function luOathSequence(c,t,top,bt,age) {
+    var cx=(c.w-1)/2,close=clamp01(age/1.5),lock=close*close*(3-2*close);
+    var call=Math.max(0,age-3.69),focus=clamp01((call-1.7)/2.22),press=focus*focus*(3-2*focus);
+    luOathHall(c,t,top,bt,age,focus);
+    var shieldY=mix(16.5,26,press);
+    // 三层砧座逐步承托落下的盾徽，压缩后的金属面成为下一镜锻件。
+    if(call>0)for(var tier=0;tier<3;tier++) {
+      var w=(16+tier*6)*clamp01(call/1.3),y=28+tier;
+      c.line(cx-w,y,cx+w,y,tier===0?'▄':'▓',tier===0?N:G);
+    }
+    luOathShield(c,cx,shieldY,lock,press,t);
+    if(age>1.5 && age<2.05) {
+      var a=age-1.5;
+      luRing(c,cx,17,23+a*42,'·',a<0.12?W:B,2);
+      for(var i=0;i<12;i++) {
+        var angle=i/12*TAU,r=21+a*(18+i%4*4);
+        c.put(cx+Math.cos(angle)*r,17+Math.sin(angle)*r/2,'+',a<0.16?W:N);
+      }
+    }
+    // 两侧碎玻璃击中外缘，沿反弹弹道离开；盾徽轮廓始终保持完整。
+    if(age>1.9 && age<3.6)for(var side=-1;side<=1;side+=2)for(var shard=0;shard<3;shard++) {
+      var a=age-2.02-shard*0.23;
+      if(a<0||a>0.9)continue;
+      var strike=0.24,after=Math.max(0,a-strike);
+      var x=cx+side*(a<strike?mix(47,22,a/strike):22+after*24+after*after*12);
+      var y=12+shard*4+after*after*13-after*4;
+      luCoalFacet(c,[[x-side*3,y-1],[x+side*2,y],[x-side,y+2]],R,'▓');
+      c.put(x,y,a>strike&&after<0.1?'*':'/',after<0.1?W:B);
+      if(after>0&&after<0.18)for(var j=0;j<5;j++)
+        c.put(cx+side*(22+after*(18+j*4)),12+shard*4+(j-2)*after*10,'+',W);
+    }
+    // 血色绶带从两侧穿过盾后，波动连接而不覆盖盾面图案。
+    if(age>1.4 && focus<0.8)for(var side=-1;side<=1;side+=2)for(var n=0;n<25;n++) {
+      var x=cx+side*(24+n),y=19+Math.sin(n*0.12-t*2+side)*1.6;
+      c.line(x,y-0.6,x,y+0.6,'▒',R);
+    }
+    if(call>0) {
+      // 三次呼唤由盾心向外传播，最后一圈收束到光柱。
+      for(var ring=0;ring<3;ring++) {
+        var a=call-ring*0.58;if(a<0||a>1.7)continue;
+        var r=10+a*28;
+        for(var i=0;i<120;i++) {
+          var theta=i/120*TAU;
+          var x=cx+Math.cos(theta)*r,y=shieldY+Math.sin(theta)*r/2;
+          if(Math.abs(x-cx)<24 && Math.abs(y-shieldY)<10*(1-press))continue;
+          var next=theta+TAU/120;
+          c.line(x,y,cx+Math.cos(next)*r,shieldY+Math.sin(next)*r/2,Math.abs(Math.sin(theta))>0.7?'─':'│',a<0.3?W:a<0.9?B:N);
+          if(i%20===0)c.put(x,y,'◆',B);
+        }
+      }
+      // 熔流从两侧向中心奔涌，轨迹上的亮点和其拖尾共用坐标。
+      if(focus>0)for(var side=-1;side<=1;side+=2)for(var stream=0;stream<3;stream++) {
+        for(var n=0;n<40;n++) {
+          var u=n/39,x=cx+side*(45*(1-u)),y=27-Math.sin(u*Math.PI)*(4+stream*2)*(1-focus*0.2);
+          c.put(x,y,n%3?'▒':'▓',R);
+          if(mod(u-t*0.8+stream*0.24,1)<0.12)c.put(x,y,'█',B);
+        }
+      }
+      // 白热柱有外焰、金色中层与白芯；向上生长，不冒充实体锻锤。
+      if(focus>0.12) {
+        var grow=clamp01((focus-0.12)/0.88),height=23*grow;
+        for(var dy=0;dy<height;dy++) {
+          var y=26-dy,width=(4+grow*3)*(1-dy/Math.max(1,height)*0.45);
+          var sway=Math.sin(t*6-dy*0.48)*0.65;
+          c.line(cx-width+sway,y,cx+width+sway,y,'▒',R);
+          c.line(cx-width*0.7+sway,y,cx+width*0.7+sway,y,'▓',B);
+          c.line(cx-width*0.28,y,cx+width*0.28,y,'█',W);
+        }
+        c.line(cx-16,27,cx+16,27,'▄',B);
+      }
+    }
+    // 保留上一镜的完整入口；火势从下向上揭出誓约盾。
+    if(age<0.75) {
+      var entry=new CCanvas(c.w,c.h);entry.clip=[top+1,bt-1];lu_s3_meet(entry,t,top,bt,9.27);
+      var edge=bt-age/0.75*(bt-top);
+      for(var y=top+1;y<bt;y++)for(var x=2;x<c.w-2;x++) {
+        if(age>0&&y>edge)continue;
+        var cell=entry.cells[y][x];c.put(x,y,cell[0],cell[1]);
+      }
+    }
+  }
+
+  // 64.40–68.09：火种受金属护翼包覆，誓约盾合拢并抵住碎片冲击。
+  function lu_s4_oath(c,t,top,bt,elapsed) {
+    luOathSequence(c,t,top,bt,elapsed);
+    clearRect(c,0,top,c.w,1);c.put(3,top,elapsed<1.5?'31 / BOUND BY BLOOD AND FLAME':'32 / SHATTERPROOF',N);
+    c.put(c.w-24,top,elapsed<1.5?'OATH / CLOSING':'OATH / UNBROKEN',R);
+    clearRect(c,0,bt,c.w,1);c.center(bt,elapsed<1.5?'ONE FLAME / ONE VOW':'LET THE WORLD BREAK AGAINST US',B);
+  }
+
+  // 68.09–72.01：盾心发出呼唤波纹 → 两岸熔流聚拢 → 誓约化锻件、白热柱升起。
+  function lu_s4_call(c,t,top,bt,elapsed) {
+    luOathSequence(c,t,top,bt,3.69+elapsed);
+    clearRect(c,0,top,c.w,1);c.put(3,top,elapsed<1.7?'33 / I CALL OUT YOUR NAME':'34 / THE FIRE ANSWERS',N);
+    c.put(c.w-24,top,elapsed<1.7?'ECHO / RESONATING':'HEAT / CONVERGING',R);
+    clearRect(c,0,bt,c.w,1);c.center(bt,elapsed<1.7?'YOUR NAME / THROUGH THE FLAMES':'ALL FIRE / ONE HEART / ONE STRIKE',B);
   }
 
   // ===== 副歌一锻造 72.01–80.00 粒度细分：2 子场景 =====
