@@ -3715,10 +3715,23 @@ title: 字符演歌
     luCrownHeart(c,x,y,scale,1+beat*0.12,beat>0.24);
   }
 
+  // 断裂前是承重链；断裂后每一节脱开，被同一股右上气流卷走并消散。
+  function luCrownChainPose(cx,top,side,link,age,anchor,press) {
+    var u=link/9,ax=cx+side*46;
+    if(age<=0) return {x:mix(ax,anchor[0],u)+side*Math.sin(u*Math.PI)*(1-press)*4,
+      y:mix(top+1,anchor[1],u),fade:1,angle:0};
+    var life=0.9+link*0.055;
+    if(age>=life)return null;
+    return {x:mix(ax,cx+side*30,u)+age*12+age*age*11+Math.sin(age*5+link*0.4)*age*2,
+      y:mix(top+1,20,u)-age*(6+link*0.5)+Math.sin(age*6+u*3)*age*2,
+      fade:1-age/life,angle:age*(2.5+link*0.12)*side};
+  }
+
   // 27.98–32.35：锁链金冠压下 → 红晶受压、冠身开裂 → 双心脉动。
   function lu_s1_crown(c, t, top, bt, elapsed) {
     var e=elapsed,cx=(c.w-1)/2;
-    var fall=clamp01((e-0.35)/1.45),press=fall*fall*(3-2*fall);
+    // 位移按时间平方增长，落到底部之前持续加速，不再缓出减速。
+    var fall=clamp01((e-0.35)/1.45),press=fall*fall;
     var crack=clamp01((e-1.9)/0.45),impact=e-2.35;
     // 80ms 顿挫之后才释放碎块，随后按重力下坠。
     var age=Math.max(0,impact-0.08),release=clamp01(age/0.8);
@@ -3768,16 +3781,19 @@ title: 字符演歌
       function face(points,st,ch) {
         luCoalFacet(c,points.map(function(p) {return point(p[0],p[1]);}),st,ch);
       }
-      // 锁链逐渐绷直；破冠后下半链脱开，上半链衰减回弹。
-      var anchor=point(30,-1),ax=cx+side*46;
+      // 链环逐节旋转解体，最后只剩顺风飘散的金色细屑。
+      var anchor=point(30,-1);
       for(var link=0;link<10;link++) {
-        if(age>0.05 && link>5)continue;
-        var u=link/9,lx=mix(ax,anchor[0],u)+side*Math.sin(u*Math.PI)*(1-press)*4;
-        var ly=mix(top+1,age>0.05?16:anchor[1],u)-Math.sin(age*14)*Math.exp(-age*4)*3;
-        c.line(lx-1.5,ly,lx,ly-0.8,'/',N);
-        c.line(lx,ly-0.8,lx+1.5,ly,'\\',B);
-        c.line(lx+1.5,ly,lx,ly+0.8,'/',N);
-        c.line(lx,ly+0.8,lx-1.5,ly,'\\',G);
+        var pose=luCrownChainPose(cx,top,side,link,age,anchor,press);
+        if(!pose)continue;
+        if(pose.fade<0.32) { c.put(pose.x,pose.y,pose.fade<0.14?'.':'/',G);continue; }
+        var verts=[[-1.5,0],[0,-0.8],[1.5,0],[0,0.8]],ca=Math.cos(pose.angle),sa=Math.sin(pose.angle);
+        for(var edge=0;edge<4;edge++) {
+          var q=verts[edge],r=verts[(edge+1)%4];
+          c.line(pose.x+q[0]*ca-q[1]*2*sa,pose.y+q[0]*sa/2+q[1]*ca,
+            pose.x+r[0]*ca-r[1]*2*sa,pose.y+r[0]*sa/2+r[1]*ca,
+            edge%2?'/':'\\',pose.fade<0.6?G:edge===1?B:N);
+        }
       }
       var outline=[[0,-14],[8,-4],[16,-11],[22,-3],[33,-9],[30,0],[29,4],[0,4]];
       face(outline.map(function(p) {return [p[0]+0.8,p[1]+0.6];}),R,'▓');
@@ -3907,40 +3923,91 @@ title: 字符演歌
     c.center(bt,sync<1?'TWO HEARTS / ONE BLOODLINE':'YOUR PULSE RUNS THROUGH ME',B);
   }
 
-  // 36.25–40.35 "synergy demonic"：3D 双锥心核恶魔化膨胀 + 五血管放射 + 双角
-  function lu_s2_demonic(c, t, top, bt, elapsed) {
-    var e = elapsed, l = 2, r = c.w - 3, cx = (l + r) / 2, cy = (top + bt) / 2;
-    var grow = clamp01(e / 1.4);
-    var beat = mod(t * (1.65 + grow * 0.5), 1);
-    var env = Math.exp(-beat * 5) +
-              0.45 * Math.exp(-mod(beat + 0.47, 1) * 7);   // 不规则双搏
-    for (var v = 0; v < 5; v++) {                     // 五血管放射（左右对称）
-      var dirA = (v - 2) * 0.28;
-      for (var k = 0; k < 26; k++) {
-        var dx2 = k * 2.6, dy2 = Math.sin(k * 0.4 + t * 2) * 1.8 + k * dirA * 0.55;
-        var st2 = k < 5 ? R : v % 2 ? N : D;
-        c.put((cx + dx2) | 0, (cy + dy2) | 0, k % 4 ? '.' : 'o', st2);
-        c.put((cx - dx2) | 0, (cy + dy2) | 0, k % 4 ? '.' : 'o', st2);
+  // 36.25–40.35：双心沿血管合流 → 角冠与翼膜展开 → 同一颗魔性心核共振。
+  function lu_s2_demonic(c,t,top,bt,elapsed) {
+    var e=elapsed,cx=(c.w-1)/2,cy=18;
+    var merge=clamp01(e/1.55),pull=merge*merge*(3-2*merge);
+    var open=clamp01((e-1.35)/1.1),unfurl=1-Math.pow(1-open,3);
+    var power=luHeartBeat(t,0),breath=1+power*0.045;
+    luIntroRoom(c,t,top,bt);
+
+    // 上一镜的大血管向中央收束，形成魔翼背后的供血弧线。
+    for(var side=-1;side<=1;side+=2)for(var branch=-1;branch<=1;branch+=2) {
+      for(var k=0;k<=58;k++) {
+        var u=k/58,x=cx+side*(7+u*47*(1-pull*0.35));
+        var y=cy+branch*(4+Math.sin(u*Math.PI)*7*(1-pull*0.3));
+        var flow=mod(u-t*0.65+side*0.13,1);
+        c.put(x,y+branch,'▓',R);
+        c.put(x,y,'▒',flow<0.1?B:R);
+        if(flow<0.04)c.put(x,y,'█',W);
       }
     }
-    var sc3 = (0.9 + grow * 0.9) * (1 + env * 0.25);  // 3D 心核搏动
-    var vH = [[0, -1.7 * sc3, 0], [0, 1.7 * sc3, 0],
-              [-sc3, 0, -sc3], [sc3, 0, -sc3], [sc3, 0, sc3], [-sc3, 0, sc3]];
-    var eH = [[0,2],[0,3],[0,4],[0,5],[1,2],[1,3],[1,4],[1,5],[2,3],[3,4],[4,5],[5,2]];
-    projected(c, vH, eH, cx - 10, cy - 8, cx + 10, cy + 8, t * 0.3, R, 1);
-    for (var hn = 0; hn < 2; hn++) {                  // 恶魔双角
-      var dir = hn ? 1 : -1;
-      for (var hk = 0; hk < 6; hk++)
-        c.put((cx + dir * (2 + hk * 1.6)) | 0,
-              (cy - 6 - hk * 1.1 + hk * hk * 0.28) | 0,
-              hk % 2 ? '/' : '#', hk < 3 ? R : D);
+
+    // 宽幅翼膜展开而非线框双角；每片膜有暗红内面、金色骨架和锋利尾尖。
+    if(unfurl>0) for(side=-1;side<=1;side+=2) {
+      var flex=Math.sin(e*3.2+side*0.3)*0.65*unfurl;
+      function wing(points,st,ch) {
+        luCoalFacet(c,points.map(function(p) {
+          return [cx+side*(10+p[0]*unfurl)*breath,cy+(p[1]+Math.abs(p[0])/37*flex)*unfurl];
+        }),st,ch);
+      }
+      wing([[0,-2],[12,-7],[36,-10],[29,-3],[40,5],[28,3],[23,10],[14,5],[6,11],[0,4]],R,'▓');
+      wing([[2,-1],[13,-5],[32,-8],[23,-1],[35,4],[22,2],[19,7],[12,3],[7,8]],R,'▒');
+      wing([[1,-2],[12,-7],[36,-10],[13,-5],[2,0]],B);
+      wing([[11,-5],[14,-5],[25,2],[23,8],[21,2]],N);
+      wing([[1,0],[3,-1],[14,4],[7,9],[10,4]],N);
+      wing([[13,-5],[15,-4],[37,4],[32,3]],B);
     }
-    c.put(cx | 0, cy | 0, '@', env > 0.5 ? W : R);
-    luLog(c, top + 1, e, [
-      ['VITALS.SYS -- WARNING', 0.4, R],
-      ['> synergy .............. DEMONIC', 1.2, N],
-      ['> second heartbeat ..... IRREGULAR', 2.4, R]
-    ]);
+
+    // 两颗心保持原来的绝对时间心跳，汇合时尺寸连续过渡到中央大心核。
+    var heartSize=mix(1.3,1.9,unfurl);
+    if(merge<1) {
+      for(side=-1;side<=1;side+=2)
+        luBeatingHeart(c,cx+side*24*(1-pull),cy,t,0,heartSize);
+    } else luBeatingHeart(c,cx,cy,t,0,heartSize);
+
+    if(unfurl>0) {
+      // 双角从心核两瓣延伸，色面和高光随同一开合比例成长。
+      for(side=-1;side<=1;side+=2) {
+        function horn(points,st,ch) {
+          luCoalFacet(c,points.map(function(p) {return [cx+side*p[0],cy-4+(p[1]-cy+4)*unfurl];}),st,ch);
+        }
+        horn([[8,15],[12,8],[23,5],[20,9],[17,9],[15,16]],R,'▓');
+        horn([[9,14],[13,8],[22,5],[17,10],[14,15]],B);
+        horn([[12,12],[14,8],[20,6],[15,10]],W);
+      }
+      // 眼缝是心核中的切面光，避免画成单薄的人物五官。
+      if(open>0.45) {
+        luCoalFacet(c,[[cx-11,16],[cx-3,18],[cx-4,19],[cx-10,18]],W);
+        luCoalFacet(c,[[cx+11,16],[cx+3,18],[cx+4,19],[cx+10,18]],W);
+        c.put(cx,22,'◆',power>0.5?W:B);
+      }
+      if(e>2.5) {
+        // 同心震波跟随双拍外扩，尖角符印围绕翼根交替亮起。
+        var wave=mod((t-30.5)*1.1-0.15,1);
+        if(wave<0.65)luRing(c,cx,cy,18+wave*35,'·',wave<0.15?B:R,3);
+        for(var i=0;i<6;i++) {
+          var a=i*TAU/6+e*0.18;
+          c.put(cx+Math.cos(a)*47,cy+Math.sin(a)*12,'◆',power>0.6?B:R);
+        }
+      }
+    }
+
+    // 第一个瞬间逐格接住前镜，随后中心先露出正在合流的双心。
+    if(e<0.32) {
+      var entry=new CCanvas(c.w,c.h);entry.clip=[top+1,bt-1];
+      lu_s2_pulse(entry,t,top,bt,3.9);
+      var gap=clamp01(e/0.32)*c.w*0.6;
+      for(var y=top+1;y<bt;y++)for(var x=2;x<c.w-2;x++) {
+        if(e>0 && Math.abs(x-cx)<gap)continue;
+        var cell=entry.cells[y][x];c.put(x,y,cell[0],cell[1]);
+      }
+    }
+    clearRect(c,0,top,c.w,1);
+    c.put(3,top,e<1.55?'18 / TWO SOULS CONVERGE':'19 / SYNERGY DEMONIC',N);
+    c.put(c.w-23,top,e<1.55?'CORE / CONVERGING':'POWER / RESONATING',R);
+    clearRect(c,0,bt,c.w,1);
+    c.center(bt,e<1.55?'ONE RHYTHM / ONE CORE':'OUR BLOOD / OUR POWER',B);
   }
 
   // 40.35–44.17 "they worship me...never see it / broke hearts deep scars"：
