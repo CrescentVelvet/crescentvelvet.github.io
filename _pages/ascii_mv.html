@@ -4123,115 +4123,174 @@ title: 字符演歌
     c.center(bt,e<1.85?'GOLD ON THE OUTSIDE':'BROKEN HEART / HIDDEN SCARS',B);
   }
 
-  // 椭圆链环带实体外圈和暗孔；按切线旋转，让整条金链有明确的连接关系。
-  function luLifelineLink(c,x,y,angle,st) {
-    var cs=Math.cos(angle),sn=Math.sin(angle);
-    for(var yy=-3;yy<=3;yy++)for(var xx=-5;xx<=5;xx++) {
+  // 正面椭圆环与侧向窄环交替相扣，金属厚边内保留可辨的孔洞。
+  function luLifelineLink(c,x,y,angle,edge,flash) {
+    var cs=Math.cos(angle),sn=Math.sin(angle),minor=4.0;
+    if(edge) {
+      c.line(x-5*cs,y-2.5*sn,x+5*cs,y+2.5*sn,'═',flash?W:B);
+      return;
+    }
+    for(var yy=-4;yy<=4;yy++)for(var xx=-6;xx<=6;xx++) {
       var u=xx*cs+yy*2*sn,v=-xx*sn+yy*2*cs;
-      var outer=u*u/16+v*v/5.3,inner=u*u/7+v*v/1.2;
-      if(outer<=1 && inner>=1)c.put(x+xx,y+yy,outer>0.74?'█':'▓',u-v>1?B:st);
+      var outer=u*u/28+v*v/(minor*minor);
+      var inner=u*u/12+v*v/(edge?0.12:3.2);
+      if(outer<=1 && inner>=1)c.put(x+xx,y+yy,outer>0.72?'█':'▓',flash?W:v<0?B:N);
     }
   }
 
-  // 44.17–48.17：面具碎片退场 → 金链束住伤心 → 链环解开，牵出红色生命线。
+  // 两条链各自贯穿画面；中央绞合，拉紧后只有轻微受力震颤。
+  function luLifelinePose(e,strand,k) {
+    var bind=clamp01(e/1.3),ease=bind*bind*(3-2*bind),dir=strand?1:-1;
+    var x=k*6.8+dir*(1-ease)*27;
+    var amp=mix(7,2.5,ease);
+    var y=dir*Math.tanh(x/15)*amp;
+    var shake=Math.sin(e*34+k*0.7)*0.25*Math.exp(-Math.max(0,e-1.3)*4)*ease;
+    return {x:x,y:18+y+shake,angle:Math.atan(dir*amp/15*(1-Math.pow(Math.tanh(x/15),2))*2),
+      age:e-2.02-Math.abs(k)*0.105-strand*0.035};
+  }
+
+  function luLifelineRibbons(c,t,e,cx,cy,size) {
+    var loose=clamp01((e-2.2)/1.35),phase=luHeartBeat(t,0);
+    for(var side=-1;side<=1;side+=2)for(var n=0;n<53*loose;n++) {
+      var u=n/53,x=cx+side*(4+n),y=cy+side*Math.sin(u*4.6-e*1.8)*3.5*loose;
+      var width=1.2+Math.sin(u*Math.PI)*1.2;
+      c.line(x,y-width,x,y+width,'▒',R);c.put(x,y,'▓',R);
+      if(n%3===0)c.put(x,y-width,'─',phase>0.45?B:N);
+    }
+    luBeatingHeart(c,cx,cy,t,0,size);
+  }
+
+  // 44.17–48.17：双链绞合束心 → 锁扣崩裂 → 逐节粉碎，红色生命线留存。
   function lu_s2_chains(c,t,top,bt,elapsed) {
     var e=elapsed,cx=(c.w-1)/2,cy=18;
-    var bind=clamp01(e/1.45),ease=bind*bind*(3-2*bind);
-    var release=clamp01((e-2.0)/1.25),loose=release*release*(3-2*release);
+    var release=clamp01((e-2.02)/1.55),heartSize=mix(1.35,1.12,clamp01(e/1.3))*(1-0.14*release);
     luIntroRoom(c,t,top,bt);
-    // 伤心仍在同一位置跳动；链条从两侧合拢，其松开过程反过来牵引红丝带。
-    var heartSize=mix(1.35,1.2,ease)*(1-0.2*loose);
-    var phase=luHeartBeat(t,0);
     luBeatingHeart(c,cx,cy,t,0,heartSize);
-
-    // 两道实体金链形成交叉约束，前后链用不同亮度区分。
-    for(var strand=0;strand<2;strand++) {
-      var slope=strand?-0.19:0.19;
-      for(var k=-6;k<=6;k++) {
-        var side=k<0?-1:1,xx=k*7;
-        var x=cx+xx+side*(1-ease)*28+side*loose*15;
-        var y=cy+slope*xx+(strand?1:-1)+loose*(strand?-1:1)*6;
-        // 从中央开始解开，其余链节被牵引着依次向外退出。
-        var cut=clamp01((release-Math.abs(k)*0.065)*2.8);
-        if(cut>0.85)continue;
-        if(cut>0.4) {
-          c.put(x+side*cut*5,y-cut*3,'/',G);
-          continue;
-        }
-        luLifelineLink(c,x,y,Math.atan(slope*2)+side*cut*1.2,strand?N:R);
-      }
-    }
-    if(e>0.8 && release<0.6) {
-      // 中央的菱形锁扣在第二拍打开，白热裂口与心核相连。
-      var lockX=cx,lockY=cy;
-      luCoalFacet(c,[[lockX,lockY-4],[lockX-5,lockY],[lockX,lockY+4],[lockX+5,lockY]],B);
-      luCoalFacet(c,[[lockX,lockY-2],[lockX-2,lockY],[lockX,lockY+2],[lockX+2,lockY]],R);
-      if(release>0)c.line(cx-3*release,cy-3,cx+3*release,cy+3,'/',W);
-    }
-
-    // 金链解开后，宽红丝带从同一个心核伸展，给下一段梦境留下运动母题。
-    if(release>0) {
-      for(var side=-1;side<=1;side+=2) {
-        for(var n=0;n<53*loose;n++) {
-          var u=n/53,x=cx+side*(4+n);
-          var y=cy+side*Math.sin(u*4.6-e*1.8)*3.5*loose;
-          var width=1.2+Math.sin(u*Math.PI)*1.2;
-          c.line(x,y-width,x,y+width,'▒',R);
-          c.put(x,y,'▓',R);
-          if(n%3===0)c.put(x,y-width,'─',phase>0.45?B:N);
+    if(e>2.2)luLifelineRibbons(c,t,e,cx,cy,heartSize);
+    for(var strand=0;strand<2;strand++)for(var k=-10;k<=10;k++) {
+      var p=luLifelinePose(e,strand,k),x=cx+p.x,y=p.y,age=p.age;
+      if(age<0.09) {
+        luLifelineLink(c,x,y,p.angle,(k+strand)%2===0,age>=0);
+        if(age>=0)c.line(x-2,y-2,x+2,y+2,'/',W);
+      } else if(age<0.78) {
+        // 每节链沿自身环周碎成八块，短促外爆后下坠，最后细化为金尘。
+        var a=age-0.09;
+        for(var j=0;j<8;j++) {
+          var seed=hash16((k+12)*337+strand*173+j*29),theta=j/8*TAU+p.angle;
+          var vx=Math.cos(theta)*(7+seed%9)+(k<0?-4:4);
+          var vy=Math.sin(theta)*(4+seed%5);
+          var px=x+Math.cos(theta)*4+vx*a,py=y+Math.sin(theta)*1.5+vy*a+9*a*a;
+          if(a<0.25)c.line(px,py,px-Math.cos(theta)*1.7,py-Math.sin(theta)*0.8,j%2?'■':'▄',a<0.1?W:B);
+          else if(a<0.49)c.put(px,py,j%2?'+':'*',N);
+          else if(seed%3!==0)c.put(px,py,'.',G);
         }
       }
-      // 丝带从心核后经过，重画完整心核保证主体不被横向抹掉。
-      luBeatingHeart(c,cx,cy,t,0,heartSize);
     }
-    if(e>3.15) {
-      for(var i=0;i<16;i++) {
-        var seed=hash16(i*197+11),u=clamp01((e-3.15)/0.85);
-        c.put(cx+(seed%2?1:-1)*(14+u*(seed%35)),cy-u*(4+seed%10),'.',G);
-      }
+    if(e>0.75 && e<2.2) {
+      luCoalFacet(c,[[cx,cy-3],[cx-5,cy],[cx,cy+3],[cx+5,cy]],B);
+      luCoalFacet(c,[[cx,cy-1.5],[cx-2,cy],[cx,cy+1.5],[cx+2,cy]],R);
+      if(e>1.78)c.line(cx-1,cy-2,cx+1,cy+2,'/',e>2.02?W:R);
     }
-    // 两半面具沿自身位置向外退出，避免用整屏硬切打断心核的连续性。
+    if(e>=2.02 && e<2.3)luRing(c,cx,cy,3+(e-2.02)*65,'·',e<2.1?W:B,2);
     if(e<0.65) {
-      var entry=new CCanvas(c.w,c.h);entry.clip=[top+1,bt-1];
-      lu_s2_worship(entry,t,top,bt,3.82);
+      var entry=new CCanvas(c.w,c.h);entry.clip=[top+1,bt-1];lu_s2_worship(entry,t,top,bt,3.82);
       var gap=clamp01(e/0.65)*c.w*0.6;
       for(var y=top+1;y<bt;y++)for(var x=2;x<c.w-2;x++) {
         if(e>0 && Math.abs(x-cx)<gap)continue;
-        var ox=Math.round(x-(x<cx?-1:1)*e*10);
-        if(ox<2||ox>=c.w-2)continue;
+        var ox=Math.round(x-(x<cx?-1:1)*e*10);if(ox<2||ox>=c.w-2)continue;
         var cell=entry.cells[y][ox];c.put(x,y,cell[0],cell[1]);
       }
     }
-    clearRect(c,0,top,c.w,1);
-    c.put(3,top,e<2?'22 / SHARED PAIN, GOLD CHAINS':'23 / YOU ARE MY LIFELINE',N);
-    c.put(c.w-22,top,e<2?'BOND / UNDER LOAD':'BOND / SET FREE',R);
-    clearRect(c,0,bt,c.w,1);
-    c.center(bt,e<2?'WE CARRY THE SAME WOUND':'HOLD ON / FOLLOW THE RED THREAD',B);
+    clearRect(c,0,top,c.w,1);c.put(3,top,e<2.02?'22 / GOLD CHAINS, ONE BOND':'23 / SHATTER EVERY LINK',N);
+    c.put(c.w-23,top,e<2.02?'TENSION / INTERLOCKED':'FRACTURE / CASCADE',R);
+    clearRect(c,0,bt,c.w,1);c.center(bt,e<2.02?'TWO CHAINS / ONE SHARED WOUND':'GOLD INTO DUST / LIFE GOES ON',B);
   }
   // ===== 导歌一 48.17–64.40 粒度细分：2 子场景 =====
 
-  // 48.17–55.13 "You're there in my dreams"：静谧丝带梦 + 梦境球 + 梦尘
-  function lu_s3_dreamt(c, t, top, bt, elapsed) {
-    var cy = (top + bt) / 2, e = elapsed, l = 2, r = c.w - 3, cx = (l + r) / 2;
-    var breathe = 0.8 + 0.2 * Math.sin(t * 0.5);
-    var sphD = luSphere(1.6);                         // 3D 梦境核心缓旋
-    projected(c, sphD[0], sphD[1], cx - 8, top + 1, cx + 8, top + 9, t * 0.2, N, 1);
-    luParticles(c, t, top, bt, 12 + (e * 1.2 | 0), 55, true, false);
-    for (var i = 0; i < 5; i++)
-      luRibbon(c, cy + (i - 2) * 4.5, (3.0 + i * 0.7) * breathe, 0.055,
-               t * 0.55 + i * 1.7, i === 2 ? R : i % 2 ? B : N);
-    for (var i2 = 0; i2 < 10; i2++) {                 // 脱落碎片上飘
-      var hs = hash16(i2 * 733 + 5);
-      var sx = 2 + hs % (c.w - 6);
-      var sy = cy + Math.sin(sx * 0.055 + (i2 % 5) * 1.7 + t * 0.55) * 4;
-      var rise = mod(t * 0.5 + (hs % 100) / 100, 1);
-      c.put(sx, (sy - rise * 8) | 0, "'", rise < 0.3 ? N : D);
+  // 尖拱的厚石框、内沿金线与柱脚；纵向坐标按字符宽高比折算。
+  function luDreamArch(c,cx,cy,r,st) {
+    var pts=[[-0.72,0.84],[-0.72,-0.24],[-0.57,-0.62],[0,-1],[0.57,-0.62],[0.72,-0.24],[0.72,0.84]];
+    for(var i=0;i<pts.length-1;i++) {
+      for(var band=0;band<3;band++) {
+        var q=pts[i],p=pts[i+1],s=r-band*1.2;
+        c.line(cx+q[0]*s,cy+q[1]*s/2,cx+p[0]*s,cy+p[1]*s/2,band===0?'█':band===1?'▓':'·',band===0?st:band===1?R:N);
+      }
     }
-    luLog(c, bt - 11, e, [
-      ['DREAM.SYS  v2.0', 0.4, W],
-      ['visitor ...... YOU', 1.6, B],
-      ['depth ........ CALM', 3.2, N]
-    ]);
+    for(var side=-1;side<=1;side+=2) {
+      c.line(cx+side*r*0.72-3,cy+r*0.42,cx+side*r*0.72+3,cy+r*0.42,'▄',st);
+      c.put(cx+side*r*0.57,cy-r*0.31,'◆',B);
+    }
+  }
+
+  // 48.17–55.13：生命线卷成梦窗 → 穿过高拱回廊 → 金色门扉打开，双火相望。
+  function lu_s3_dreamt(c,t,top,bt,elapsed) {
+    var e=elapsed,cx=(c.w-1)/2,cy=18,enter=clamp01(e/2.25),travel=clamp01((e-2.25)/2.3),open=clamp01((e-4.55)/2.1);
+    luIntroRoom(c,t,top,bt);
+    // 金尘固定种子缓缓上升，不用随机闪屏。
+    for(var i=0;i<34;i++) {
+      var seed=hash16(i*271+19),x=4+seed%111,y=6+mod(seed/1000-e*(0.4+seed%4*0.1),24);
+      c.put(x,y,seed%5===0?'+':'.',seed%5===0?N:G);
+    }
+    if(e<2.25) {
+      // 同一颗心核留在窗心，红丝带沿椭圆卷起；窗的八瓣由外向内显现。
+      var radius=mix(7,22,enter),iris=new CCanvas(c.w,c.h);iris.clip=[top+1,bt-1];
+      luIntroRose(iris,t,top,bt,radius,e*0.16,false);
+      for(var y=top+1;y<bt;y++)for(var x=2;x<c.w-2;x++) {
+        if(Math.hypot(x-cx,(y-18)*2)>mix(21,0,enter)) {var cell=iris.cells[y][x];if(cell[0]!==' ')c.put(x,y,cell[0],cell[1]);}
+      }
+      for(var side=-1;side<=1;side+=2)for(var n=0;n<54;n++) {
+        var u=n/53,a=u*Math.PI+e*0.4;
+        var x=mix(cx+side*(4+n),cx+side*Math.cos(a)*radius,enter);
+        var y=mix(cy+side*Math.sin(u*4.6-7.2)*3.5,cy+side*Math.sin(a)*radius/2,enter);
+        c.line(x,y-0.6,x,y+0.6,'▒',R);if(n%4===0)c.put(x,y,'·',B);
+      }
+      luBeatingHeart(c,cx,cy,t,0,mix(0.96,0.55,enter));
+    } else {
+      // 由玫瑰窗向后拉开成殿堂；三道高拱与地面反光明确给出空间纵深。
+      for(var layer=2;layer>=0;layer--) {
+        var r=(22+layer*17)*(0.7+travel*0.3);
+        luDreamArch(c,cx,18,r,layer===0?N:layer===1?R:G);
+      }
+      var rose=new CCanvas(c.w,c.h);rose.clip=[top+1,bt-1];
+      luIntroRose(rose,t,top,bt,mix(22,7,travel),e*0.16,false);
+      var shift=Math.round(travel*8);
+      for(var y=top+1;y<bt;y++)for(var x=2;x<c.w-2;x++) {var cell=rose.cells[y][x];if(cell[0]!==' ')c.put(x,y-shift,cell[0],cell[1]);}
+      // 厚门扉向两侧拉开，中央金光投到地面，避免单根光棒占满画面。
+      var half=8+open*12,doorTop=13,doorBottom=27;
+      for(var side=-1;side<=1;side+=2) {
+        var dx=cx+side*half;
+        luCoalFacet(c,[[dx,doorTop],[dx+side*7,doorTop+2],[dx+side*7,doorBottom-2],[dx,doorBottom]],R,'▓');
+        c.line(dx,doorTop,dx,doorBottom,'█',B);
+        c.line(dx+side*2,doorTop+1,dx+side*2,doorBottom-1,'│',N);
+        c.put(dx+side*4,21,'◆',W);
+      }
+      for(var y=14;y<27;y++) {
+        var light=travel*(1.0+open*3.5)*(0.8+0.15*Math.sin(t*3+y));
+        c.line(cx-light,y,cx+light,y,'▒',N);
+        if(travel>0.15)c.line(cx-light*0.55,y,cx+light*0.55,y,'▓',B);
+        if(travel>0.5)c.line(cx-0.6,y,cx+0.6,y,'█',W);
+      }
+      for(var row=0;row<4;row++) {
+        var yy=27+row,ww=(3+row*4)*travel,off=Math.sin(t*2+row)*1.5;
+        c.line(cx-ww+off,yy,cx+ww+off,yy%2?'─':'·',row<2?N:G);
+      }
+      if(open>0)for(var side=-1;side<=1;side+=2) {
+        var px=cx+side*(5+open*11),py=21+Math.sin(t*2+side)*0.55,s=1.5+open*2;
+        luCoalFacet(c,[[px,py-s],[px-side*s,py+0.3],[px,py+s*0.7],[px+side*s*0.6,py]],R,'▓');
+        c.line(px,py-s*0.65,px,py+s*0.3,'◆',side<0?B:W);
+      }
+    }
+    // 入口逐格保留生命线末态，再沿外缘揭开。
+    if(e<0.6) {
+      var entry=new CCanvas(c.w,c.h);entry.clip=[top+1,bt-1];lu_s2_chains(entry,t,top,bt,4);
+      for(var y=top+1;y<bt;y++)for(var x=2;x<c.w-2;x++) {
+        if(e>0 && Math.abs(x-cx)<e/0.6*60)continue;
+        var cell=entry.cells[y][x];c.put(x,y,cell[0],cell[1]);
+      }
+    }
+    clearRect(c,0,top,c.w,1);c.put(3,top,e<2.25?'24 / A WINDOW IN THE DREAM':e<4.55?'25 / HALL OF ECHOES':'26 / YOU ARE STILL HERE',N);
+    c.put(c.w-21,top,e<4.55?'DEPTH / DESCENDING':'TWO FLAMES / AWAKE',R);
+    clearRect(c,0,bt,c.w,1);c.center(bt,e<2.25?'THE RED THREAD REMEMBERS':e<4.55?'EVERY ARCH LEADS BACK TO YOU':'BEYOND THE GOLDEN DOOR',B);
   }
 
   // 55.13–64.40 "It's just you & me in the end"：双信子相遇爆亮 → 血色侵蚀 → 底部点燃
