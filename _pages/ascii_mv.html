@@ -3262,7 +3262,7 @@ title: 字符演歌
   }
 
   var LU_INTRO_TITLE = null;
-  function luIntroTitle(c, e, top, bt) {
+  function luIntroTitleDots() {
     if (!LU_INTRO_TITLE) {
       var dots = [], text = 'LINK UP';
       for (var k = 0; k < text.length; k++) for (var y = 0; y < 5; y++)
@@ -3271,6 +3271,10 @@ title: 字符演歌
             dots.push([19 + k * 12 + x * 2 + sx, 12 + y * 2 + sy]);
       LU_INTRO_TITLE = dots;
     }
+    return LU_INTRO_TITLE;
+  }
+  function luIntroTitle(c, e, top, bt) {
+    luIntroTitleDots();
     var cx = (c.w - 1) / 2, cy = (top + bt) / 2;
     for (var i = 0; i < LU_INTRO_TITLE.length; i++) {
       var p = LU_INTRO_TITLE[i], h = hash16(i * 37);
@@ -3348,30 +3352,108 @@ title: 字符演歌
 
   // ===== 主歌一 16.42–32.35 粒度细分：4 子场景，按歌词行切 =====
 
-  // 16.42–20.57 "Fire burnin' up / new salvation"：锻炉口+双齿轮，跑者奔向炉火
+  // 16.42–20.57：标题余烬落入炉心 → 巨型炉门升起 → 解锁晶核、火焰喷涌。
   function lu_s1_forge(c, t, top, bt, elapsed) {
-    var e = elapsed, cx = (c.w - 1) / 2, cy = (top + bt) / 2;
-    var fi = clamp01(e / 1.2);                        // 炉口火焰渐旺
-    var fx = 16, fy = bt - 3;
-    for (var a2 = 0; a2 <= 12; a2++) {                // 砖拱
-      var aa = Math.PI - a2 / 12 * Math.PI;
-      c.put((fx + Math.cos(aa) * 9) | 0, (fy - Math.sin(aa) * 7) | 0, '#', B);
+    var e = elapsed, cx = (c.w - 1) / 2, cy = 19;
+    var rise = 1 - Math.pow(1 - clamp01(e / 1.2), 3);
+    var release = clamp01((e - 2.05) / 1.35);
+    var lift = (1 - rise) * 18, base = bt - 2 + lift;
+    luIntroRoom(c, t, top, bt);
+
+    // 标题画框收拢成炉门；最后一帧标题的格点沿弧线落入同一个火种。
+    if (e < 0.85) {
+      var fall = clamp01(e / 0.85), ease = fall * fall;
+      luIntroGate(c, cx, 18, 23, 0, R, false, mix(2.25, 1.1, ease));
+      luIntroTitleDots();
+      for (var i = 0; i < LU_INTRO_TITLE.length; i++) {
+        var p = LU_INTRO_TITLE[i], seed = hash16(i * 37);
+        var px = mix(p[0], cx + (seed % 9 - 4), ease);
+        var py = mix(p[1], bt - 3, ease) - Math.sin(fall * Math.PI) * (seed % 4);
+        c.put(px, py, fall < 0.25 ? '█' : fall < 0.65 ? '#' : '*', i % 5 ? B : W);
+      }
     }
-    c.put(fx - 9, fy, '#', B); c.put(fx + 9, fy, '#', B);
-    for (var f2 = 0; f2 < 6 + fi * 6; f2++)           // 炉膛火
-      luFlame(c, fx - 6 + (f2 * 37) % 13, fy - 1,
-              2 + ((f2 * 13 + (t * 5 | 0)) % 5), f2, t);
-    luGear(c, 7, top + 6, 4, t * 0.8, N);             // 炉侧齿轮
-    luGear(c, 30, top + 4, 3, -t * 1.1, D);
-    var ember = luBox(0.5, 0.5, 0.5, 0, 0, 0);        // 3D 火种绕炉缓旋
-    projected(c, ember, luEdges(0), fx - 7, top + 1, fx + 7, top + 8, t * 0.7,
-              B, clamp01(e / 0.8));
-    var ru = mod(t * 0.5, 1);                         // 跑者自右缘奔向炉口
-    var rx = mix(c.w - 6, fx + 12, ru), ry = fy - 1 - Math.sin(ru * 7) * 1.5;
-    c.put(rx | 0, ry | 0, '@', W);
-    for (var tr = 1; tr <= 6; tr++)
-      c.put((rx + tr * 1.6) | 0, (ry + 1) | 0, '.', tr < 3 ? R : D);
-    luParticles(c, t, top, bt, 10, 19, true, true);
+
+    // 两侧传动轮有实体齿圈、内轮毂与八根辐条；不使用稀疏线框小物件。
+    for (var side = -1; side <= 1; side += 2) {
+      var gx = cx + side * 39, gy = cy + 2 + lift * 0.35;
+      for (var y = top + 1; y < bt; y++) for (var x = gx - 12; x <= gx + 12; x++) {
+        var dx = x - gx, dy = (y - gy) * 2, rr = Math.hypot(dx, dy);
+        var ang = Math.atan2(dy, dx) + side * (e * 0.5 + release * 0.8);
+        var tooth = Math.cos(ang * 12) > 0.15;
+        if (rr > 8 && rr < (tooth ? 11.5 : 10)) c.put(x, y, rr > 10 ? '█' : '▓', rr > 10 ? N : R);
+        else if (rr < 2.5) c.put(x, y, '█', B);
+        else if (rr < 8 && Math.abs(Math.sin(ang * 4)) < 0.18) c.put(x, y, '=', N);
+      }
+      for (var chain = top + 1; chain < bt - 1; chain++) {
+        c.put(gx + side * 10, chain, (chain + (e * 7 | 0)) % 3 ? '║' : '□', G);
+      }
+    }
+
+    // 尖拱炉门：多层金属倒角、红色内壁、黑色炉膛，轮廓占据整幅画面的中心。
+    for (y = top + 1; y < bt; y++) for (x = cx - 29; x <= cx + 29; x++) {
+      dx = Math.abs(x - cx);
+      var roof = 6 + lift + Math.pow(dx / 26, 1.65) * 9;
+      var innerRoof = 9 + lift + Math.pow(dx / 22, 1.65) * 8;
+      if (dx <= 27 && y >= roof && y <= base) {
+        var rim = dx > 23 || y < innerRoof || y > base - 2;
+        if (rim) {
+          var edge = dx > 26 || y < roof + 0.8 || y > base - 0.7;
+          c.put(x, y, edge ? '█' : dx > 24 ? '▓' : '▒', edge ? B : R);
+          if (dx > 24 && (y - Math.floor(lift)) % 4 === 0) c.put(x, y, '◆', W);
+        } else c.put(x, y, ' ', K);
+      }
+    }
+
+    // 火焰由连续的实体舌面组成：红色外焰、金色内焰、白热根部。
+    var fire = clamp01(e / 0.9), flameBase = bt - 3;
+    for (var tongue = -3; tongue <= 3; tongue++) {
+      var height = fire * (10 + release * 10 - Math.abs(tongue) * 1.7);
+      height += fire * Math.sin(e * 6 + tongue * 2) * 1.1;
+      for (var h = 0; h < height; h++) {
+        var q = h / height, fx = cx + tongue * 4 + Math.sin(q * 6 - e * 4 + tongue) * q * 2.2;
+        var width = (1 - q) * (3.3 + release * 1.6);
+        for (var xx = -Math.ceil(width); xx <= width; xx++) {
+          var dist = Math.abs(xx) / Math.max(0.1, width);
+          if (dist > 1) continue;
+          c.put(fx + xx, flameBase - h, dist > 0.72 ? '▒' : '█', dist > 0.72 ? R : q < 0.24 ? W : B);
+        }
+      }
+    }
+
+    // 两半锁环向左右退开，中心熔金菱晶升起；三条晶面按光向分色。
+    var coreY = mix(bt - 4, 18, rise), size = 4 + release * 3;
+    for (side = -1; side <= 1; side += 2) {
+      var lockX = cx + side * release * 12;
+      for (var a = -Math.PI / 2; a <= Math.PI / 2; a += 0.025) {
+        var lx = lockX + side * Math.cos(a) * 11;
+        var ly = coreY + Math.sin(a) * 5.5;
+        c.put(lx, ly, '█', B);
+        c.put(lx + side, ly, '▓', R);
+      }
+    }
+    for (y = coreY - size; y <= coreY + size; y++) {
+      var half = (1 - Math.abs(y - coreY) / size) * size * 0.8;
+      for (x = cx - half; x <= cx + half; x++)
+        c.put(x, y, '█', x < cx - 1 ? R : x <= cx + 1 ? W : B);
+    }
+
+    // 从炉口喷出的确定性火星带弧线拖尾，外围留黑以强调速度与火焰轮廓。
+    for (i = 0; i < 24; i++) {
+      seed = hash16(i * 137 + 47);
+      var age = mod(e * 0.7 + seed / 65535, 1);
+      var dir = i % 2 ? 1 : -1;
+      var sx = cx + dir * (8 + age * (18 + release * 18));
+      var sy = bt - 4 - Math.sin(age * Math.PI * 0.85) * (8 + seed % 12);
+      if (e > 0.8) {
+        c.put(sx - dir * 1.5, sy + 0.7, '.', R);
+        c.put(sx, sy, age < 0.6 ? '+' : '.', age < 0.3 ? W : B);
+      }
+    }
+    clearRect(c, 0, top, c.w, 1);
+    c.put(3, top, e < 2.05 ? '07 / WAKE THE FURNACE' : '08 / A NEW SALVATION', N);
+    c.put(c.w - 24, top, release > 0 ? 'CORE / UNBOUND' : 'CORE / IGNITING', R);
+    clearRect(c, 0, bt, c.w, 1);
+    c.center(bt, e < 2.05 ? 'ASHES BECOME FIRE' : 'FROM FIRE, WE RISE', B);
   }
 
   // 20.57–24.32 "Runnin' through the hot coals"：热炭海 + 双跑者并肩（we both）
