@@ -3185,37 +3185,51 @@ title: 字符演歌
   // ===== 0–16.42 开幕重制：2D 锻锤 → 克拉蕾像素肖像 → LINK UP 标题锁存 → 余烬交接 =====
   // 工业殿堂背景：实体柱、尖拱长窗、地砖透视线；避免大画面只剩纯黑。
   function luOpenHall(c, t, top, bt, heat) {
-    var l = 2, r = c.w - 3, cx = (l + r) / 2;
-    for (var y = top + 2; y < bt - 2; y += 2)
-      for (var x = 4 + ((y >> 1) % 2) * 2; x < r - 2; x += 4)
-        if (hash16(x * 41 + y * 97) % 100 < 58)
-          c.put(x, y, (x + y) % 3 ? ':' : '=', heat && (x + y) % 4 === 0 ? G : (x + y) % 5 === 0 ? G : K);
-    var cols = [7, 25, c.w - 26, c.w - 8];
-    for (var ci = 0; ci < cols.length; ci++) {
-      var px = cols[ci];
-      c.put(px - 2, top + 2, '=====', N);
-      c.put(px - 2, bt - 3, '=====', N);
-      for (y = top + 3; y < bt - 3; y++) {
-        c.put(px, y, y % 4 ? '|' : '+', ci === 1 || ci === 2 ? D : G);
-        if (y % 5 === 0) c.put(px + 1, y, '.', K);
+    var l = 2, r = c.w - 3, cx = (l + r) / 2, y, x;
+    // 远景砖墙：低频横带先把黑底撑起来，火段再把同一结构染成红色。
+    for (y = top + 2; y < bt - 3; y += 2) {
+      var seam = y % 4 === 0;
+      for (x = 4; x < r - 2; x += 2) {
+        var hh = hash16(x * 41 + y * 97 + (seam ? 7 : 0));
+        if (hh % 100 < (heat ? 76 : 58))
+          c.put(x, y, seam ? (hh % 3 ? '-' : '=') : (hh % 4 ? '.' : ':'),
+            heat && hh % 11 < 3 ? R : (hh % 5 ? K : G));
       }
     }
-    // 两侧长窗：厚框 + 竖向窗棂，亮度低于主体但足以撑起空间。
-    for (var side = 0; side < 2; side++) {
-      var wx = side ? c.w - 21 : 12;
-      c.line(wx, top + 9, wx + 4, top + 5, '/', G);
-      c.line(wx + 4, top + 5, wx + 8, top + 9, '\\', G);
-      c.line(wx, top + 9, wx, bt - 6, '|', G);
-      c.line(wx + 8, top + 9, wx + 8, bt - 6, '|', G);
-      for (y = top + 9; y < bt - 6; y++)
-        for (x = wx + 1; x < wx + 8; x++)
-          if (x === wx + 4 || (y + x) % 5 === 0)
-            c.put(x, y, x === wx + 4 ? '|' : ':', heat ? N : G);
-      c.put(wx, bt - 6, '=========', D);
+    // 厚柱与铆钉：四根竖向构件提供透视尺度，也让主体边缘不再漂浮。
+    var cols = [6, 24, c.w - 25, c.w - 7];
+    for (var ci = 0; ci < cols.length; ci++) {
+      var px = cols[ci];
+      c.put(px - 2, top + 2, '=======', ci === 1 || ci === 2 ? D : N);
+      c.put(px - 2, bt - 4, '=======', ci === 1 || ci === 2 ? D : N);
+      for (y = top + 3; y < bt - 4; y++) {
+        c.put(px, y, y % 4 ? '║' : '+', ci === 1 || ci === 2 ? D : (heat ? R : G));
+        if (y % 5 === 1) c.put(px + 1, y, 'o', heat ? N : K);
+      }
     }
+    // 两侧尖拱窗，保留空心让火光有“门洞”方向。
+    for (var side = 0; side < 2; side++) {
+      var wx = side ? c.w - 23 : 11;
+      c.line(wx, top + 9, wx + 5, top + 4, '/', heat ? N : G);
+      c.line(wx + 5, top + 4, wx + 10, top + 9, '\\', heat ? N : G);
+      c.line(wx, top + 9, wx, bt - 7, '|', G);
+      c.line(wx + 10, top + 9, wx + 10, bt - 7, '|', G);
+      for (y = top + 9; y < bt - 7; y++) {
+        c.put(wx + 5, y, '│', heat && y % 3 === 0 ? B : G);
+        if ((y + side) % 4 === 0) c.put(wx + 2, y, ':', heat ? R : K);
+        if ((y + side) % 5 === 0) c.put(wx + 8, y, ':', heat ? R : K);
+      }
+      c.put(wx, bt - 7, '===========', heat ? N : D);
+    }
+    // 前景地砖：向砧台汇聚的斜线与热红边，形成纵深和落锤方向。
     for (x = l; x <= r; x++) {
-      c.put(x, bt - 1, x % 6 ? '-' : '+', x % 9 ? G : N);
-      if (x % 3 === 0) c.line(cx, bt - 8, x, bt - 1, '.', K);
+      c.put(x, bt - 2, x % 7 ? '-' : '+', x % 9 ? G : N);
+      if (x % 3 === 0) c.line(cx, bt - 8, x, bt - 2, heat && x % 5 === 0 ? R : K, K);
+    }
+    if (heat) {
+      for (x = 8; x < c.w - 8; x += 4)
+        c.put(x, bt - 3, x % 8 ? ':' : '*', x % 8 ? R : B);
+      c.line(3, bt - 5, c.w - 4, bt - 5, '.', R);
     }
   }
 
@@ -3240,95 +3254,85 @@ title: 字符演歌
     }
   }
 
-  // 0–3.8：打桩机式金柱压锤，两连击；柱体从上到下同宽，冲击驱动整屏震动。
+  // 0–3.8：大型 2D 落锤，两连击；实心锤头占据中轴，冲击驱动整屏震动。
   function lu_open_forge(c, t, top, bt, e) {
-    var cx = (c.w - 1) / 2, anvilY = bt - 6, i, x, y;
+    var cx = (c.w - 1) / 2, anvilY = bt - 7, i, x, y;
     luOpenHall(c, t, top, bt, true);
-    luParticles(c, t, top, bt, 42, 91, true, true);
+    luParticles(c, t, top, bt, 72, 91, true, true);
     // 左侧炉膛：厚砖拱与跳动火柱。
-    c.put(3, top + 8, '+================+', N);
-    c.put(3, top + 9, '|', N); c.put(20, top + 9, '|', N);
-    for (y = top + 10; y < anvilY + 2; y++) {
-      c.put(3, y, '|', G); c.put(20, y, '|', G);
-      for (x = 5; x < 20; x += 2)
-        if (hash16(x * 31 + y * 7) % 100 < 42)
-          luFlame(c, x, anvilY + 1, 2 + (x + y + (t * 5 | 0)) % 5, x + y, t);
+    c.put(3, top + 6, '+=================+', N);
+    for (y = top + 7; y <= anvilY + 1; y++) {
+      c.put(3, y, '|', G); c.put(21, y, '|', G);
+      for (x = 5; x < 21; x++) if ((x + y) % 3 === 0)
+        c.put(x, y, y > anvilY - 2 ? '█' : '▓', y > anvilY - 2 ? R : G);
     }
-    c.put(3, anvilY + 2, '+================+', N);
+    c.put(3, anvilY + 2, '+=================+', N);
+    for (x = 6; x < 20; x += 2) luFlame(c, x, anvilY + 1, 4 + (x % 5), x + 17, t);
     // 右侧悬链与铆钉，给柱锤运动提供明确参照。
     for (var chain = 0; chain < 2; chain++) {
-      x = c.w - 16 + chain * 7;
-      for (y = top + 2; y < anvilY - 2; y += 2)
-        c.put(x + Math.sin(y * 0.5 + t) * 0.5, y, y % 4 ? 'o' : 'O', D);
+      x = c.w - 18 + chain * 8;
+      for (y = top + 3; y < anvilY - 1; y += 2)
+        c.put(x + Math.sin(y * 0.45 + t * 1.5) * 0.5, y, y % 4 ? 'o' : 'O', chain ? D : G);
+      c.put(x - 2, top + 2, '[###]', N);
     }
     // 铁砧：白亮锻件 + 厚砧面 + 收腰 + 宽底座。
-    for (x = cx - 16; x <= cx + 16; x++) c.put(x, anvilY, '=', N);
-    for (x = cx - 8; x <= cx + 8; x++) c.put(x, anvilY - 1, x % 3 ? '#' : '=', W);
-    for (y = anvilY + 1; y <= anvilY + 2; y++)
-      for (x = cx - 9 + (y - anvilY - 1) * 2; x <= cx + 9 - (y - anvilY - 1) * 2; x++)
-        c.put(x, y, '#', y === anvilY + 1 ? G : D);
-    for (x = cx - 18; x <= cx + 18; x++) {
-      c.put(x, anvilY + 3, '=', N);
-      if (x > cx - 16 && x < cx + 16) c.put(x, anvilY + 4, '#', G);
+    for (x = cx - 22; x <= cx + 22; x++) c.put(x, anvilY, x % 4 ? '═' : '╔', W);
+    for (x = cx - 12; x <= cx + 12; x++) c.put(x, anvilY - 1, x % 3 ? '█' : '▓', B);
+    for (y = anvilY + 1; y <= anvilY + 3; y++) {
+      var half = 13 - (y - anvilY - 1) * 3;
+      for (x = cx - half; x <= cx + half; x++) c.put(x, y, y === anvilY + 1 ? '▓' : '█', y === anvilY + 1 ? N : D);
     }
+    for (x = cx - 25; x <= cx + 25; x++) c.put(x, anvilY + 4, x % 5 ? '═' : '╚', N);
+    for (x = cx - 8; x <= cx + 8; x++) c.put(x, anvilY - 2, '█', R);
     // 1.05s / 2.95s 两次压锤：慢抬、急坠、压停、回升。
-    var q = mod(e, 1.9), raised = anvilY - 12, impact = anvilY - 1, bottomY;
-    if (q < 0.85) bottomY = raised + Math.sin(q / 0.85 * Math.PI) * 0.6;
-    else if (q < 1.05) {
-      var fall = (q - 0.85) / 0.2;
-      bottomY = mix(raised, impact, fall * fall);
-    } else if (q < 1.28) bottomY = impact;
-    else {
-      var back = clamp01((q - 1.28) / 0.62);
-      bottomY = mix(impact, raised, 1 - Math.pow(1 - back, 3));
-    }
+    var q = mod(e, 1.9), raised = top + 2, impact = anvilY - 4, headY;
+    if (q < 0.78) headY = raised + Math.sin(q / 0.78 * Math.PI) * 0.5;
+    else if (q < 1.05) headY = mix(raised, impact, Math.pow((q - 0.78) / 0.27, 2.6));
+    else if (q < 1.22) headY = impact;
+    else headY = mix(impact, raised, 1 - Math.pow(1 - clamp01((q - 1.22) / 0.68), 3));
     // 柱锤导轨：左右限位，突出这是垂直打桩机而非手持锤。
     for (y = top + 1; y <= anvilY; y++) {
-      c.put(cx - 13, y, y % 4 ? '|' : '+', D);
-      c.put(cx + 13, y, y % 4 ? '|' : '+', D);
+      c.put(cx - 17, y, y % 4 ? '│' : '+', D);
+      c.put(cx + 17, y, y % 4 ? '│' : '+', D);
       if (y % 5 === 0) {
-        c.put(cx - 15, y, '[', G); c.put(cx + 14, y, ']', G);
+        c.put(cx - 19, y, '[', G); c.put(cx + 18, y, ']', G);
       }
     }
     // 下落时同宽残影，确保读作整根柱体在高速下压。
-    if (q >= 0.85 && q < 1.05)
-      for (i = 1; i <= 2; i++)
-        for (x = cx - 10; x <= cx + 10; x++)
-          c.put(x, bottomY - i * 3, '=', D);
-    // 金柱本体：20 格等宽，从顶部贯通到当前压点；中心亮金、边缘暗金。
-    for (y = top + 1; y <= bottomY; y++) {
-      for (x = cx - 10; x <= cx + 10; x++) {
-        var edge = x === cx - 10 || x === cx + 10;
-        var ch = edge ? '=' : '#';
-        var st = edge ? G : (x < cx - 5 ? N : (y + x) % 9 === 0 ? W : B);
-        c.put(x, y, ch, st);
-      }
-      if (y % 6 === 2) {
-        c.put(cx - 7, y, '====', N);
-        c.put(cx + 4, y, '====', N);
+    if (q >= 0.78 && q < 1.05) for (i = 1; i <= 4; i++) {
+      var ghostY = headY - i * 2;
+      for (x = cx - 15; x <= cx + 15; x++) c.put(x, ghostY, i < 3 ? '▓' : '░', i < 2 ? N : D);
+    }
+    // 28 格宽的实心金柱锤：上下同粗，边缘暗金，中段压入“12T”铭牌。
+    for (y = top + 1; y <= headY; y++)
+      for (x = cx - 3; x <= cx + 3; x++) c.put(x, y, y % 3 ? '▓' : '█', x === cx ? W : B);
+    for (y = headY; y < headY + 6; y++) {
+      for (x = cx - 15; x <= cx + 15; x++) {
+        var edge = x === cx - 15 || x === cx + 15 || y === headY || y === headY + 5;
+        c.put(x, y, edge ? (y === headY || y === headY + 5 ? '═' : '║') : (x % 4 ? '█' : '▓'), edge ? W : (x < cx - 8 ? N : B));
       }
     }
-    c.put(cx - 8, Math.max(top + 2, bottomY - 4), ' 12T PILE RAM ', R);
+    c.put(cx - 8, headY + 2, '12T', R);
     // 最近一次撞击的火花、地面冲击环和瞬时亮闪。
     var hit = e >= 2.95 ? 2.95 : e >= 1.05 ? 1.05 : -99, age = e - hit;
-    luOpenSparks(c, cx, anvilY - 1, age, hit > 2 ? 2 : 1, 170);
-    if (age >= 0 && age < 0.65) {
-      var rr = 4 + age * 62;
-      for (i = 0; i < 86; i++) {
-        var a = i / 86 * TAU;
+    luOpenSparks(c, cx, anvilY - 1, age, hit > 2 ? 2 : 1, 220);
+    if (age >= 0 && age < 0.72) {
+      var rr = 5 + age * 68;
+      for (i = 0; i < 120; i++) {
+        var a = i / 120 * TAU;
         c.put(cx + Math.cos(a) * rr, anvilY + Math.sin(a) * rr * 0.16,
-              age < 0.2 ? '*' : '.', age < 0.2 ? B : R);
+              age < 0.16 ? (i % 3 ? '█' : '*') : (i % 2 ? '+' : '.'), age < 0.16 ? W : (age < 0.42 ? R : G));
       }
-      if (age < 0.12) {
-        for (i = 0; i < 8; i++) {
+      if (age < 0.14) {
+        for (i = 0; i < 9; i++) {
           y = anvilY - 5 + i;
-          c.line(cx - 42 + i * 3, y, cx + 42 - i * 3, y, i % 2 ? '=' : '-', i % 2 ? W : B);
+          c.line(cx - 48 + i * 4, y, cx + 48 - i * 4, y, i % 2 ? '═' : '─', i % 2 ? W : B);
         }
       }
     }
-    c.put(3, top, 'FORGE 01 // PILE RAM', W);
-    c.put(c.w - 31, top, 'STRIKE ' + (e >= 2.95 ? '02' : e >= 1.05 ? '01' : '00') + ' / GOLD RAM', R);
-    c.put(3, bt, 'ANVIL LOCKED  //  SCREEN SHOCK ' + (age >= 0 && age < 0.5 ? 'ACTIVE' : 'READY'), age >= 0 && age < 0.5 ? W : N);
+    c.put(3, top, 'FORGE 01 // DROP HAMMER', W);
+    c.put(c.w - 31, top, 'STRIKE ' + (e >= 2.95 ? '02' : e >= 1.05 ? '01' : '00') + ' / 12T', R);
+    c.put(3, bt, 'ANVIL LOCKED  //  IMPACT ' + (age >= 0 && age < 0.5 ? 'DETECTED' : 'ARMED'), age >= 0 && age < 0.5 ? W : N);
   }
 
   // 46×30 全身像素立绘：金发双马尾、红瞳、黑白礼服、长靴；武器由下层像素单独构成。
@@ -3438,6 +3442,10 @@ title: 字符演歌
   function lu_open_clare(c, t, top, bt, e) {
     luOpenHall(c, t, top, bt, false);
     luParticles(c, t, top, bt, 54, 137, true, true);
+    var figureCx = (c.w - 1) / 2, figureCy = top + 15;
+    // 红月轮廓先于人物出现，给金发与黑礼服一个清楚的剪影边界。
+    luRing(c, figureCx, figureCy, 28 + Math.sin(t * 1.4) * 1.5, '.', R, 3, t * 0.08);
+    luRing(c, figureCx, figureCy, 32 + Math.sin(t * 1.1 + 1) * 1.2, ':', G, 4, -t * 0.05);
     var mapW = 46, mapH = 30;
     var ink = luOpenClareInk(), x0 = Math.floor((c.w - mapW * 2) / 2), y0 = top + 1;
     var bob = e > 1.7 ? Math.round(Math.sin(t * 2.2) * 0.5) : 0;
@@ -3458,6 +3466,13 @@ title: 字符演歌
         c.put(tx, ty, p[4] === 'E' && blink ? '==' : p[2] + p[2], p[3]);
       }
     }
+    // 面部焦点：两枚红瞳和金发高光在远景缩放时仍保持可读。
+    if (e > 0.72) {
+      c.put(x0 + 40, y0 + 8, '██', R);
+      c.put(x0 + 50, y0 + 8, '██', R);
+      c.put(x0 + 42, y0 + 5, '▓▓▓▓', W);
+      c.put(x0 + 52, y0 + 5, '▓▓▓▓', W);
+    }
     var label = 'CLARE // BLOODBOUND HEIR';
     c.put(3, top, label.slice(0, Math.floor(clamp01(e / 0.8) * label.length)), W);
     c.put(c.w - 31, top, 'FULL-BODY PIXEL // READY', N);
@@ -3465,6 +3480,8 @@ title: 字符演歌
       c.put(3, bt, 'TWIN TAILS / CRIMSON GREATAXE', B);
       c.put(c.w - 25, bt, 'CLARE REF // OK', R);
     }
+    for (var foot = figureCx - 13; foot <= figureCx + 13; foot++)
+      c.put(foot, bt - 2, foot % 3 ? '.' : '=', foot % 3 ? K : R);
   }
 
   // LINK UP 巨型点阵标题；机制与 world.execute(me) 标题接管一致：散点→飞行→锁存→扫光。
@@ -3478,7 +3495,7 @@ title: 字符演歌
       for (var ci = 0; ci < text.length; ci++) parts.push(TITLE_FONT[text.charAt(ci)][row]);
       bitmap.push(parts.join('0'));
     }
-    var span = Math.min(96, w - 16), lineH = Math.min(13, bt - top - 10);
+    var span = Math.min(104, w - 10), lineH = Math.min(15, bt - top - 8);
     var left = Math.floor((w - span) / 2), y0 = top + Math.floor((bt - top - lineH) / 2);
     var ink = [];
     for (var yy = 0; yy < lineH; yy++) {
@@ -3494,17 +3511,22 @@ title: 字符演歌
   function lu_open_title(c, t, top, bt, e) {
     var ink = luOpenTitleInk(c.w, top, bt), cx = (c.w - 1) / 2, cy = (top + bt) / 2;
     var frame = Math.trunc(e * 24), alphabet = '01ABCDEF#*+';
-    // 暗色数据雨逐步退去，让位给高亮标题，但背景从不全黑。
-    var density = mix(0.32, 0.075, clamp01(e / 3.5));
+    // 红热光晕先亮起，再收束成标题；背景始终保留工业空间。
+    var density = mix(0.16, 0.035, clamp01(e / 3.5));
     for (var y = top; y <= bt; y++)
       for (var x = 2; x < c.w - 2; x++) {
         var h = hash16(x * 37 + y * 911 + Math.trunc(e * 6) * 13);
         if (h / 65535 < density)
-          c.put(x, y, alphabet.charAt(h % alphabet.length), h % 7 ? K : G);
+          c.put(x, y, h % 5 ? '.' : ':', h % 11 === 0 ? R : (h % 3 ? K : G));
       }
-    luParticles(c, t, top, bt, 46, 211, true, true);
-    for (var ring = 0; ring < 2; ring++)
-      luRing(c, cx, cy, 30 + ring * 17 + Math.sin(t * 2 + ring) * 2, ring ? '.' : ':', ring ? G : R, 3, t * (ring ? -0.08 : 0.12));
+    for (var glow = 0; glow < 3; glow++)
+      luRing(c, cx, cy, 42 + glow * 12 + Math.sin(t * 1.7 + glow) * 2,
+        glow === 0 ? '*' : (glow === 1 ? ':' : '.'), glow === 0 ? R : (glow === 1 ? B : G), 2 + glow, t * (glow ? -0.08 : 0.12));
+    for (x = 4; x < c.w - 4; x += 2) {
+      var scan = cy + Math.sin(x * 0.24 + t * 2.2) * 4;
+      c.put(x, scan, x % 4 ? '─' : '═', x % 5 ? G : R);
+    }
+    luParticles(c, t, top, bt, 24, 211, true, true);
     for (var i = 0; i < ink.length; i++) {
       var tx = ink[i][0], ty = ink[i][1], hs = hash16(i * 17 + 51);
       var delay = (hs % 1000) / 1000 * 0.9;
@@ -3516,10 +3538,10 @@ title: 字符演歌
       var iy = mix(oy, ty, ease) + Math.cos(e * 2 + i * 0.7) * swirl * 5;
       if (u >= 0.995) {
         var sweep = mod(Math.trunc(e * 30), c.w + 24) - 12;
-        c.put(tx, ty, Math.abs(tx - sweep) < 4 ? '@' : '#', Math.abs(tx - sweep) < 4 ? W : B);
+        c.put(tx, ty, Math.abs(tx - sweep) < 4 ? '█' : (i % 5 ? '▓' : '█'), Math.abs(tx - sweep) < 4 ? W : B);
       } else {
         c.put(ix, iy, alphabet.charAt((hs + frame) % alphabet.length), hs % 3 ? N : B);
-        if (i % 2 === 0) c.put(ix - 1, iy, '.', G);
+        if (i % 2 === 0) c.put(ix - 1, iy, '.', hs % 5 ? G : R);
       }
     }
     c.put(2, top + 1, '+', N); c.put(c.w - 3, top + 1, '+', N);
@@ -3538,16 +3560,16 @@ title: 字符演歌
     luOpenHall(c, t, top, bt, true);
     luParticles(c, t, top, bt, 64, 251, true, true);
     // 碎裂不是散场变黑：中央炉火在标题余烬里升起，形成结尾视觉锚点并桥接主歌。
-    var ignite = clamp01((e - 0.85) / 1.5);
+    var ignite = clamp01((e - 0.65) / 1.35);
     if (ignite > 0) {
-      for (var fx = cx - 9; fx <= cx + 9; fx++) {
-        var fh = 2 + ignite * (6 + hash16(fx * 37 + 411) % 15);
+      for (var fx = cx - 13; fx <= cx + 13; fx++) {
+        var fh = 3 + ignite * (7 + hash16(fx * 37 + 411) % 17);
         luFlame(c, fx, bt - 2, fh, fx + 17, t);
       }
       if (ignite > 0.35)
         for (var fy = bt - 2; fy > bt - 2 - ignite * 19; fy--) {
-          c.put(cx, fy, fy % 3 ? '#' : '=', ignite > 0.75 ? W : B);
-          if (fy % 2 === 0) { c.put(cx - 2, fy, ':', R); c.put(cx + 2, fy, ':', R); }
+          c.put(cx, fy, fy % 3 ? '█' : '═', ignite > 0.75 ? W : B);
+          if (fy % 2 === 0) { c.put(cx - 3, fy, ':', R); c.put(cx + 3, fy, ':', R); }
         }
     }
     for (var i = 0; i < ink.length; i++) {
@@ -3557,7 +3579,7 @@ title: 字符演歌
       var a = Math.atan2((ty - cy) * 2, tx - cx) + u * 0.35;
       var dist = Math.hypot(tx - cx, (ty - cy) * 2) + u * u * (25 + hs % 35);
       var x = cx + Math.cos(a) * dist, y = cy + Math.sin(a) * dist / 2;
-      c.put(x, y, u < 0.35 ? '#' : u < 0.7 ? '*' : '.', u < 0.25 ? B : u < 0.65 ? R : G);
+      c.put(x, y, u < 0.35 ? '█' : u < 0.7 ? '*' : '.', u < 0.25 ? B : u < 0.65 ? R : G);
       if (i % 4 === 0) c.put(x - 1, y, '.', R);
     }
     var flash = clamp01(e / 0.25) * clamp01((2.62 - e) / 0.5);
