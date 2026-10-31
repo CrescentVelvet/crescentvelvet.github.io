@@ -3734,17 +3734,18 @@ title: 字符演歌
       fade:1-age/life,angle:age*(2.5+link*0.12)*side};
   }
 
-  // 两剑绕握柄向外倾倒：保持长度与色面，触地后短促反弹再平放。
+  // 刃尖相向倒下，握柄同步向两侧滑退；平放后两剑尖之间保留间隙。
   function luFallenSwordPose(e,side) {
     var delay=side<0?0:0.09,u=clamp01((e-delay)/1.05),turn=u*u;
-    var angle=side*mix(-0.88,Math.PI/2,turn);
-    var y=23+3.5*Math.sqrt(turn)+2.5*Math.sin(Math.PI*turn);
+    var angle=-side*mix(0.88,Math.PI/2,turn);
+    var retreat=u*u*(3-2*u);
+    var y=23+3.5*u+0.5*Math.sin(Math.PI*u);
     var hit=e-delay-1.05;
     if(hit>0 && hit<0.25) {
       var bounce=Math.sin(hit/0.25*Math.PI)*(1-hit/0.25);
-      y-=bounce*0.65;angle-=side*bounce*0.045;
+      y-=bounce*0.65;angle+=side*bounce*0.045;
     }
-    return {x:side*13,y:y,angle:angle};
+    return {x:side*mix(13,44.5,retreat),y:y,angle:angle};
   }
 
   // 27.98–32.35：锁链金冠压下 → 红晶受压、冠身开裂 → 双心脉动。
@@ -4122,46 +4123,90 @@ title: 字符演歌
     c.center(bt,e<1.85?'GOLD ON THE OUTSIDE':'BROKEN HEART / HIDDEN SCARS',B);
   }
 
-  // 44.17–48.17 "shared pain gold chains / you are my lifeline"：
-  // 双心拉近合一 + 金链环收紧，末帧白环化梦 handoff
-  function lu_s2_chains(c, t, top, bt, elapsed) {
-    var e = elapsed, l = 2, r = c.w - 3, cx = (l + r) / 2, cy = (top + bt) / 2;
-    var pull = clamp01(e / 2.2), merge = clamp01((e - 2.6) / 1.4);
-    var beat = mod(t * 1.65, 1), env = Math.exp(-beat * 5);
-    var hOff = 16 * (1 - pull);
-    var hx = cx - hOff, hx2 = cx + hOff;
-    var blink = merge > 0 && mod(t * 6, 1) < 0.5;
-    luRing(c, hx, cy, (3 + env * 4) | 0, '.', blink ? W : R, 0);
-    c.put(hx, cy, '@', env > 0.45 ? W : R);
-    if (hOff > 1.5) {
-      luRing(c, hx2, cy, (2 + env * 3) | 0, '.', R, 0);
-      c.put(hx2, cy, 'o', W);
-      for (var lk = 0; lk < 8; lk++) {                // 连心脉血珠
-        var lu2 = mod(lk / 8 + t * 0.4, 1);
-        c.put((hx + 2 + (hx2 - hx - 4) * lu2) | 0,
-              (cy + Math.sin(lu2 * 9) * 1.6) | 0, '.', lk % 2 ? R : W);
+  // 椭圆链环带实体外圈和暗孔；按切线旋转，让整条金链有明确的连接关系。
+  function luLifelineLink(c,x,y,angle,st) {
+    var cs=Math.cos(angle),sn=Math.sin(angle);
+    for(var yy=-3;yy<=3;yy++)for(var xx=-5;xx<=5;xx++) {
+      var u=xx*cs+yy*2*sn,v=-xx*sn+yy*2*cs;
+      var outer=u*u/16+v*v/5.3,inner=u*u/7+v*v/1.2;
+      if(outer<=1 && inner>=1)c.put(x+xx,y+yy,outer>0.74?'█':'▓',u-v>1?B:st);
+    }
+  }
+
+  // 44.17–48.17：面具碎片退场 → 金链束住伤心 → 链环解开，牵出红色生命线。
+  function lu_s2_chains(c,t,top,bt,elapsed) {
+    var e=elapsed,cx=(c.w-1)/2,cy=18;
+    var bind=clamp01(e/1.45),ease=bind*bind*(3-2*bind);
+    var release=clamp01((e-2.0)/1.25),loose=release*release*(3-2*release);
+    luIntroRoom(c,t,top,bt);
+    // 伤心仍在同一位置跳动；链条从两侧合拢，其松开过程反过来牵引红丝带。
+    var heartSize=mix(1.35,1.2,ease)*(1-0.2*loose);
+    var phase=luHeartBeat(t,0);
+    luBeatingHeart(c,cx,cy,t,0,heartSize);
+
+    // 两道实体金链形成交叉约束，前后链用不同亮度区分。
+    for(var strand=0;strand<2;strand++) {
+      var slope=strand?-0.19:0.19;
+      for(var k=-6;k<=6;k++) {
+        var side=k<0?-1:1,xx=k*7;
+        var x=cx+xx+side*(1-ease)*28+side*loose*15;
+        var y=cy+slope*xx+(strand?1:-1)+loose*(strand?-1:1)*6;
+        // 从中央开始解开，其余链节被牵引着依次向外退出。
+        var cut=clamp01((release-Math.abs(k)*0.065)*2.8);
+        if(cut>0.85)continue;
+        if(cut>0.4) {
+          c.put(x+side*cut*5,y-cut*3,'/',G);
+          continue;
+        }
+        luLifelineLink(c,x,y,Math.atan(slope*2)+side*cut*1.2,strand?N:R);
       }
-    } else c.put(cx, cy, '@', W);                     // 合一：单心白亮
-    var chainOn = clamp01((e - 0.8) / 1.0);           // 金链环收紧
-    if (chainOn > 0)
-      luChainRing(c, cx, cy, Math.max(7, (16 - chainOn * 5 - merge * 5) | 0),
-                  t * 0.35, chainOn > 0.6 ? G : D);
-    if (merge > 0) {                                  // 化梦 handoff
-      luParticles(c, t, top, bt, (36 * merge) | 0, 77, true, true);
-      if (merge > 0.8) luRing(c, cx, cy, (3 + merge * 6) | 0, '*', W, 0);
     }
-    for (var v = 0; v < 2; v++) {                     // 背景暗血管渐隐
-      var yMid = cy + (v ? 8 : -8);
-      for (var x = l; x < r; x++)
-        c.put(x, (yMid + Math.sin(x * 0.07 + t) * 2) | 0, '.',
-              merge > 0.5 ? K : D);
+    if(e>0.8 && release<0.6) {
+      // 中央的菱形锁扣在第二拍打开，白热裂口与心核相连。
+      var lockX=cx,lockY=cy;
+      luCoalFacet(c,[[lockX,lockY-4],[lockX-5,lockY],[lockX,lockY+4],[lockX+5,lockY]],B);
+      luCoalFacet(c,[[lockX,lockY-2],[lockX-2,lockY],[lockX,lockY+2],[lockX+2,lockY]],R);
+      if(release>0)c.line(cx-3*release,cy-3,cx+3*release,cy+3,'/',W);
     }
-    luLog(c, top + 1, e, [
-      ['VITALS.SYS -- CHAIN PROTOCOL', 0.3, W],
-      ['> shared pain ......... LINKED', 1.2, G],
-      ['> gold chains ......... BOUND', 2.0, G],
-      ['> cores merging ....... LIFELINE', 2.8, R]
-    ]);
+
+    // 金链解开后，宽红丝带从同一个心核伸展，给下一段梦境留下运动母题。
+    if(release>0) {
+      for(var side=-1;side<=1;side+=2) {
+        for(var n=0;n<53*loose;n++) {
+          var u=n/53,x=cx+side*(4+n);
+          var y=cy+side*Math.sin(u*4.6-e*1.8)*3.5*loose;
+          var width=1.2+Math.sin(u*Math.PI)*1.2;
+          c.line(x,y-width,x,y+width,'▒',R);
+          c.put(x,y,'▓',R);
+          if(n%3===0)c.put(x,y-width,'─',phase>0.45?B:N);
+        }
+      }
+      // 丝带从心核后经过，重画完整心核保证主体不被横向抹掉。
+      luBeatingHeart(c,cx,cy,t,0,heartSize);
+    }
+    if(e>3.15) {
+      for(var i=0;i<16;i++) {
+        var seed=hash16(i*197+11),u=clamp01((e-3.15)/0.85);
+        c.put(cx+(seed%2?1:-1)*(14+u*(seed%35)),cy-u*(4+seed%10),'.',G);
+      }
+    }
+    // 两半面具沿自身位置向外退出，避免用整屏硬切打断心核的连续性。
+    if(e<0.65) {
+      var entry=new CCanvas(c.w,c.h);entry.clip=[top+1,bt-1];
+      lu_s2_worship(entry,t,top,bt,3.82);
+      var gap=clamp01(e/0.65)*c.w*0.6;
+      for(var y=top+1;y<bt;y++)for(var x=2;x<c.w-2;x++) {
+        if(e>0 && Math.abs(x-cx)<gap)continue;
+        var ox=Math.round(x-(x<cx?-1:1)*e*10);
+        if(ox<2||ox>=c.w-2)continue;
+        var cell=entry.cells[y][ox];c.put(x,y,cell[0],cell[1]);
+      }
+    }
+    clearRect(c,0,top,c.w,1);
+    c.put(3,top,e<2?'22 / SHARED PAIN, GOLD CHAINS':'23 / YOU ARE MY LIFELINE',N);
+    c.put(c.w-22,top,e<2?'BOND / UNDER LOAD':'BOND / SET FREE',R);
+    clearRect(c,0,bt,c.w,1);
+    c.center(bt,e<2?'WE CARRY THE SAME WOUND':'HOLD ON / FOLLOW THE RED THREAD',B);
   }
   // ===== 导歌一 48.17–64.40 粒度细分：2 子场景 =====
 
