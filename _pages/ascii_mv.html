@@ -3182,7 +3182,7 @@ title: 字符演歌
     }
   }
 
-  // ===== 0–16.42 开幕重制：2D 锻锤 → 克拉蕾像素肖像 → LINK UP 标题锁存 → 余烬交接 =====
+  // ===== 0–16.42 开幕：MV 近景动作 → 教堂拱窗 → 乌鸦 → 高窗前角色 =====
   // 工业殿堂背景：实体柱、尖拱长窗、地砖透视线；避免大画面只剩纯黑。
   function luOpenHall(c, t, top, bt, heat) {
     var l = 2, r = c.w - 3, cx = (l + r) / 2, y, x;
@@ -3583,23 +3583,198 @@ title: 字符演歌
     c.center(bt, e > 1.8 ? 'STRIKE WHEN IT IS RED-HOT' : 'LINK UP // BLOOD & FLAME', e > 1.8 ? W : R);
   }
 
-  function lu_credits_void(c, t, top, bt, elapsed) {
-    if (elapsed < 4.2) {
-      // 三次柱锤 0.90/2.05/3.20s 触砧，最后一击碎裂场景后交给标题。
-      var hit = elapsed >= 3.20 && elapsed < 3.72 ? 3.20 :
-                elapsed >= 2.05 && elapsed < 2.57 ? 2.05 :
-                elapsed >= 0.90 && elapsed < 1.42 ? 0.90 : -1;
-      if (hit > 0) {
-        var age = elapsed - hit, amp = 3.6 * Math.exp(-age * 7);
-        c.sx = Math.round(Math.sin(age * 75) * amp);
-        c.sy = Math.round(Math.sin(age * 53 + 0.8) * amp * 0.65);
-      }
-      lu_open_forge(c, t, top, bt, elapsed);
-      c.sx = 0; c.sy = 0;
-      return;
+  // ===== 开幕参考帧重制：近景动作 → 拱窗 → 乌鸦 → 高窗前角色 =====
+  // 这些结构取自 B 站 MV 开幕截帧；红门、齿轮和锻炉留给后段场景。
+  function luOpenRefBase(c, t, top, bt, windowP) {
+    var cx = (c.w - 1) / 2, floor = bt - 3, y, x;
+    for (y = top; y <= bt; y++) for (x = 2; x < c.w - 2; x++) {
+      var h = hash16(x * 29 + y * 173 + Math.floor(t * 3) * 97);
+      if (h % 19 === 0) c.put(x, y, h % 3 ? '.' : ':', h % 5 ? G : K);
     }
-    if (elapsed < 14.8) return lu_open_title(c, t, top, bt, elapsed - 4.2);
-    return lu_open_handoff(c, t, top, bt, elapsed - 14.8);
+    // 两侧高柱和向中央汇聚的暗色梁，保持截图里的纵深。
+    for (var side = 0; side < 2; side++) {
+      var px = side ? c.w - 13 : 12;
+      c.line(px, top, px - (side ? -5 : 5), floor, '|', G);
+      c.line(px + (side ? -5 : 5), top + 1, px, floor, '/', K);
+      c.line(px + (side ? -2 : 2), top + 2, px + (side ? -2 : 2), floor, '|', D);
+    }
+    // 哥特拱窗：近景阶段只留侧梁，第二镜头起才让拱窗进入画面。
+    var base = floor - 1, half = 25 + Math.round((1 - windowP) * 8), archTop = top + 2;
+    if (windowP > 0.16) {
+      c.line(cx - half, base, cx - half + half, archTop, '/', windowP > 0.35 ? N : G);
+      c.line(cx + half, base, cx + half - half, archTop, '\\', windowP > 0.35 ? N : G);
+      c.line(cx - half, base, cx - half, floor, '|', G);
+      c.line(cx + half, base, cx + half, floor, '|', G);
+      for (var wy = archTop + 3; wy < base - 2; wy++) {
+        var rise = (wy - archTop) / Math.max(1, base - archTop), span = Math.max(3, Math.floor(half * rise));
+        for (var wx2 = cx - span + 2; wx2 <= cx + span - 2; wx2++)
+          if ((wx2 + wy) % 4 === 0) c.put(wx2, wy, rise < 0.4 ? ':' : '.', windowP > 0.7 ? W : B);
+      }
+      for (var wi = -4; wi <= 4; wi++) {
+        var wx = cx + wi * 5, glow = windowP * (1 - Math.abs(wi) * 0.07);
+        var ws = glow > 0.72 ? W : glow > 0.35 ? B : N;
+        c.line(wx, archTop + 4, wx, base - 2, glow > 0.18 ? '|' : '.', ws);
+        if (wi % 2 === 0) c.put(wx - 1, base - 3, '++', ws);
+      }
+      c.line(cx, archTop, cx, base, windowP > 0.55 ? W : N);
+    }
+    for (x = 5; x < c.w - 5; x += 9) {
+      c.line(cx, floor, x, bt, '/', x % 18 ? K : G);
+      c.put(x, bt - 1, x % 18 ? '.' : '+', x % 18 ? D : N);
+    }
+    c.put(3, top, 'CAM 01 // CATHEDRAL MEMORY', windowP > 0.55 ? W : N);
+    c.put(c.w - 34, top, 'LUX GATE // ' + Math.round(windowP * 100) + '%', R);
+  }
+
+  function lu_open_ref_close(c, t, top, bt, e) {
+    luOpenRefBase(c, t, top, bt, 0.08);
+    var cx = 58 + Math.sin(t * 0.7) * 2, bodyTop = top + 7;
+    // 截图前两秒是人物和武器的裁切近景：用大面积黑衣、白发和红边建立轮廓。
+    for (var i = 0; i < 18; i++) {
+      var y = bodyTop + i, left = cx - 10 - Math.floor(i * 0.4), right = cx + 9 + Math.floor(i * 0.55);
+      for (var bx = left; bx <= right; bx++)
+        if (hash16(bx * 17 + y * 31) % 5 !== 0)
+          c.put(bx, y, i % 4 ? '#' : '%', i % 5 ? K : D);
+      if (i < 14) {
+        c.put(left - 3 - (i % 4), y - 1, i % 3 ? '/' : '\\', i % 4 ? W : B);
+        c.put(right + 4 + (i % 3), y - 1, i % 3 ? '\\' : '/', i % 4 ? W : B);
+      }
+    }
+    c.line(cx - 18, bodyTop + 3, cx - 34, bodyTop + 14, '/', R);
+    c.line(cx + 15, bodyTop + 2, cx + 28, bodyTop + 16, '\\', R);
+    c.put(cx - 8, bodyTop + 3, '::', W);
+    c.put(cx - 1, bodyTop + 5, '@', R);
+    c.put(cx + 8, bodyTop + 5, '@', R);
+    luLog(c, top + 2, e, [
+      ['FOCUS.LOCK / HAIR TRACE', 0.15, W],
+      ['STEEL EDGE ... BREATHING', 0.55, N]
+    ]);
+    for (i = 0; i < 26; i++) {
+      var sx = 8 + hash16(i * 31 + 5) % (c.w - 16), sy = top + 4 + hash16(i * 47 + 8) % 20;
+      c.put(sx + Math.sin(t * 2 + i) * 2, sy, i % 4 ? '.' : '*', i % 5 ? G : B);
+    }
+    c.put(3, bt, 'CLOSE // HAIR / STEEL / RED EYE', B);
+  }
+
+  function lu_open_ref_window(c, t, top, bt, e) {
+    var p = clamp01(e / 2.0);
+    luOpenRefBase(c, t, top, bt, p);
+    var cx = (c.w - 1) / 2, floor = bt - 3;
+    for (var i = 0; i < 16; i++) {
+      var y = top + 5 + i;
+      c.put(cx - 24 + (i % 3), y, i % 4 ? '|' : '+', p > i / 20 ? (i % 3 ? B : W) : G);
+      c.put(cx + 24 - (i % 3), y, i % 4 ? '|' : '+', p > i / 20 ? (i % 3 ? B : W) : G);
+    }
+    if (p > 0.35) {
+      for (i = 0; i < 18; i++) {
+        var sx = cx + (hash16(i * 71) % 45) - 22;
+        var sy = floor - 1 - hash16(i * 113) % 9;
+        c.put(sx, sy, i % 3 ? '.' : '*', i % 4 ? B : W);
+      }
+    }
+    var sweep = Math.floor(mod(t * 14, c.w - 12)) + 6;
+    c.line(sweep, top + 4, sweep - 8, bt - 4, '/', p > 0.7 ? W : B);
+    c.line(sweep + 2, top + 4, sweep - 6, bt - 4, '/', p > 0.7 ? B : G);
+    luLog(c, top + 2, e, [
+      ['LIGHT.GATE / OPENING', 0.1, W],
+      ['WINDOWS = 09 / SIGNAL IN', 0.65, N]
+    ]);
+    c.put(3, bt, 'WINDOW OPEN // LIGHT ENTERS', p > 0.7 ? W : N);
+  }
+
+  function lu_open_ref_crows(c, t, top, bt, e) {
+    var p = clamp01(e / 2.0);
+    luOpenRefBase(c, t, top, bt, 0.7);
+    var floor = bt - 3;
+    // 乌鸦群从两侧向镜头中心掠过；近处较亮、远处只留小点。
+    for (var i = 0; i < 34; i++) {
+      var z = 1 + hash16(i * 37) % 6;
+      var start = i % 2 ? c.w + 8 : -8;
+      var speed = 6 + z * 1.7;
+      var x = start + (i % 2 ? -1 : 1) * (t * speed * 3 + hash16(i * 17) % 90);
+      x = mod(x, c.w + 20) - 10;
+      var y = floor - 2 - hash16(i * 89) % Math.max(3, Math.floor((floor - top) * 0.7));
+      var wing = Math.sin(t * (4 + z * 0.2) + i) > 0 ? '^' : 'v';
+      var st = z > 4 ? D : z > 2 ? G : B;
+      c.put(x, y, wing, st);
+      if (z < 3) c.put(x - (i % 2 ? 1 : -1), y, i % 2 ? '/' : '\\', st);
+      if (z <= 2 && i < 12) {
+        c.put(x - 2, y, '<', W); c.put(x + 1, y, '>', W);
+        c.put(x - 1, y - 1, 'v', B);
+      }
+    }
+    for (var j = 0; j < 14; j++) {
+      var gx = 15 + hash16(j * 41) % 90;
+      c.put(gx, floor - 1 - hash16(j * 53) % 4, j % 3 ? '-' : '_', j % 4 ? G : B);
+    }
+    // 近地面的乌鸦剪影：截图里最容易丢失的细节用亮边补足。
+    for (var bird = 0; bird < 10; bird++) {
+      var bx2 = 8 + bird * 11 + Math.round(Math.sin(t * 1.8 + bird) * 2);
+      var by2 = floor - 3 - (bird % 3);
+      c.put(bx2 - 2, by2, '<', bird % 3 ? B : W);
+      c.put(bx2, by2 - 1, 'v', bird % 2 ? G : B);
+      c.put(bx2 + 2, by2, '>', bird % 3 ? B : W);
+      c.put(bx2, by2 + 1, '|', K);
+    }
+    luLog(c, top + 2, e, [
+      ['FLOCK.SYS / VECTOR FIELD', 0.05, W],
+      ['WINGS = 034 / AISLE LOCK', 0.65, R]
+    ]);
+    c.put(3, bt, 'FLOCK // WINGS CROSS THE AISLE', p > 0.5 ? W : N);
+  }
+
+  function lu_open_ref_figure(c, t, top, bt, e) {
+    var p = clamp01(e / 10.62), windowP = 1, cx = (c.w - 1) / 2;
+    luOpenRefBase(c, t, top, bt, windowP);
+    var headY = top + 12 - Math.round(p * 2), floor = bt - 2;
+    var wind = Math.round(Math.sin(t * 2.3) * 2), hairL = 20 + Math.round(p * 7), hairR = 21 + Math.round(p * 6);
+    // 长发先于身体落定，模拟截帧里从远景向人物推进的镜头。
+    for (var i = 0; i < 18; i++) {
+      var hy = headY - 5 + i;
+      c.put(cx - hairL - Math.floor(i * 0.42) + wind, hy, i % 3 ? '#' : '%', i % 4 ? W : B);
+      c.put(cx + hairR + Math.floor(i * 0.32) + wind, hy, i % 3 ? '#' : '%', i % 4 ? W : B);
+      if (i > 3 && i % 2 === 0) {
+        c.line(cx - hairL - Math.floor(i * 0.42) + wind, hy,
+          cx - hairL - 7 - Math.floor(i * 0.3) + wind, hy + 1, '\\', B);
+        c.line(cx + hairR + Math.floor(i * 0.32) + wind, hy,
+          cx + hairR + 7 + Math.floor(i * 0.25) + wind, hy + 1, '/', B);
+      }
+    }
+    c.put(cx - 4, headY - 3, '###', W); c.put(cx + 2, headY - 3, '###', W);
+    c.put(cx - 5, headY, ':::', W); c.put(cx + 3, headY, ':::', W);
+    c.put(cx - 2, headY + 1, '@', R); c.put(cx + 3, headY + 1, '@', R);
+    c.put(cx, headY + 3, '-', R);
+    // 黑色礼服和两条向下的腿，红色只做衣摆边缘与眼睛的强调。
+    for (i = 0; i < 13; i++) {
+      var yy = headY + 5 + i, half = 5 + Math.floor(i * 0.82);
+      c.line(cx - half, yy, cx + half, yy, i % 3 ? '#' : '%', i % 4 ? K : D);
+      if (i % 3 === 0) { c.put(cx - half, yy, '=', R); c.put(cx + half, yy, '=', R); }
+    }
+    c.put(cx - 3, headY + 5, '=====', W);
+    c.put(cx - 5, headY + 8, '==#==', B);
+    c.line(cx - 2, headY + 17, cx - 4, floor, '|', W);
+    c.line(cx + 3, headY + 17, cx + 6, floor, '|', W);
+    c.line(cx - 7, headY + 7, cx - 16 - Math.round(p * 4), headY + 13, '\\', W);
+    c.line(cx + 7, headY + 7, cx + 15 + Math.round(p * 3), headY + 14, '/', W);
+    for (i = 0; i < 30; i++) {
+      var dx = 7 + hash16(i * 97) % 106, dy = top + 4 + hash16(i * 131) % 24;
+      c.put(dx, dy, i % 5 ? '.' : '*', i % 6 ? G : B);
+    }
+    luRing(c, cx, headY + 1, 17 + Math.round(p * 4), '.', p > 0.55 ? R : G, 2, t * 0.08);
+    luLog(c, top + 2, e, [
+      ['FIGURE.SYS / HIGH WINDOW', 0.15, W],
+      ['EYES = CRIMSON / LINK UP', 1.25, R],
+      ['CAMERA PUSH / DEPTH +03', 4.2, B]
+    ]);
+    if (p > 0.64) c.center(top + 1, 'LINK UP // BLOODBOUND', R);
+    c.put(3, bt, p > 0.7 ? 'PUSH IN // CRIMSON EYES LOCKED' : 'FIGURE ENTERS THE HIGH WINDOW', p > 0.7 ? W : N);
+  }
+
+  function lu_credits_void(c, t, top, bt, elapsed) {
+    if (elapsed < 1.8) return lu_open_ref_close(c, t, top, bt, elapsed);
+    if (elapsed < 3.8) return lu_open_ref_window(c, t, top, bt, elapsed - 1.8);
+    if (elapsed < 5.8) return lu_open_ref_crows(c, t, top, bt, elapsed - 3.8);
+    return lu_open_ref_figure(c, t, top, bt, elapsed - 5.8);
   }
   // ===== 主歌一 16.42–32.35 粒度细分：4 子场景，按歌词行切 =====
 
@@ -5267,9 +5442,9 @@ title: 字符演歌
       title: 'Link Up 血火相连', artist: '三Z-STUDIO / HOYO-MiX',
       dur: 188.0, durTxt: '03:08',
       dir: "{{ '/assets/data/ascii_mv/link_up' | relative_url }}",
-      chrome: 'LINK UP / 血火相连',
+      chrome: 'LINK UP / BLOOD & FLAME',
       fileHint: 'Link Up 血火相连.mp3（时长 03:08）',
-      noteTail: '场景已按 B 站官方 MV 逐段移植并对拍精修（锻造重锤段 / 血红殿堂拉远 / 王座炼狱终曲）。',
+      noteTail: '场景按 B 站官方 MV 逐段移植构图与镜头节奏，再以状态日志、线框光门和确定性粒子重绘。',
       // 场景表对照官方 MV（BV1C9b76cEks，MV 时间 ≈ 歌曲 + 11s）按歌词时间轴落位
       scenes: [
         { a: 0,      b: 16.42,  f: lu_credits_void },
@@ -5583,23 +5758,9 @@ title: 字符演歌
   var cvEl = document.getElementById('amv-cv');
   var g2d = cvEl.getContext('2d');
   var grid = new CCanvas(GW, GH);
-  // Link Up 开幕柱锤冲击：真正移动整块画布，连同 chrome/频谱一起震。
+  // Link Up 开幕按 MV 镜头推进；不再使用锻锤冲击式整屏震动。
   function updateOpeningShake(t) {
-    if (SONG_KEY !== 'link_up' || t >= 4.2) {
-      if (cvEl.style.transform) cvEl.style.transform = '';
-      return;
-    }
-    var hit = t >= 3.20 && t < 3.72 ? 3.20 :
-              t >= 2.05 && t < 2.57 ? 2.05 :
-              t >= 0.90 && t < 1.42 ? 0.90 : -1;
-    if (hit < 0) {
-      if (cvEl.style.transform) cvEl.style.transform = '';
-      return;
-    }
-    var age = t - hit, amp = 8 * Math.exp(-age * 8);
-    var sx = Math.round(Math.sin(age * 75) * amp);
-    var sy = Math.round(Math.sin(age * 53 + 0.8) * amp * 0.65);
-    cvEl.style.transform = 'translate3d(' + sx + 'px,' + sy + 'px,0)';
+    if (cvEl.style.transform) cvEl.style.transform = '';
   }
   function render() {
     g2d.fillStyle = '#000';
