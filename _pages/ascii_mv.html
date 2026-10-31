@@ -3691,45 +3691,123 @@ title: 字符演歌
     c.center(bt,e < 1.65 ? 'TWO FLAMES / TWO BLADES' : 'FORGED TOGETHER / NEVER BOW',B);
   }
 
-  // 27.98–32.35 "gold crown weighing me down / can you feel my pain"：
-  // 金冠自顶沉降压弯跪姿人形，四角坠链，崩裂出血脉冲（桥接血脉段）
+  // 冠冕下的红晶心核：实体切面与白热裂光，纵向缩放表达受压。
+  function luCrownHeart(c, cx, cy, scale, squeeze, glow) {
+    function face(points, st, ch) {
+      luCoalFacet(c, points.map(function(p) { return [cx+p[0]*scale, cy+p[1]*scale*squeeze*0.5]; }),st,ch);
+    }
+    face([[0,-2],[-5,-6],[-10,-3],[-10,1],[0,10],[10,1],[10,-3],[5,-6]],R);
+    face([[-5,-5],[-9,-2],[-7,1],[0,7],[0,-1]],N,'▓');
+    face([[0,-1],[5,-5],[9,-2],[7,2],[0,7]],R,'▓');
+    face([[-6,-4],[-8,-2],[-5,0],[-2,0]],B);
+    if(glow) face([[0,-2],[-1,1],[2,3],[0,7],[3,3],[1,0]],W);
+  }
+
+  // 27.98–32.35：锁链金冠压下 → 红晶受压、冠身开裂 → 双心脉动。
   function lu_s1_crown(c, t, top, bt, elapsed) {
-    var e = elapsed, cx = (c.w - 1) / 2, cy = (top + bt) / 2;
-    var press = clamp01(e / 1.1), crack = clamp01((e - 2.2) / 1.4);
-    var figY = cy + 5 + press * 2;                    // 跪姿人形被压下沉
-    c.put(cx, figY - 2, 'o', press > 0.6 ? R : W);
-    c.put(cx, figY - 1, '@', N); c.put(cx, figY, '@', N);
-    c.put(cx - 1, figY, '=', D); c.put(cx + 1, figY, '=', D);
-    var gold = crack > 0.5 ? (mod(t * 6, 1) < 0.5 ? G : D) : G;
-    var yTop = (top + 1 + press * (figY - 6 - top)) | 0;
-    var spikes = '\\^/ \\^/ \\^/ \\^/ \\^/',
-        band = '|=================|', base = "'-----------------'";
-    for (var s2 = 0; s2 < spikes.length; s2++)
-      c.put(cx - 9 + s2, yTop, spikes[s2], crack > 0 ? R : W);
-    for (var s3 = 0; s3 < band.length; s3++)
-      c.put(cx - 9 + s3, yTop + 1, band[s3], gold);
-    for (var s4 = 0; s4 < base.length; s4++)
-      c.put(cx - 9 + s4, yTop + 2, base[s4], gold);
-    for (var cn = 0; cn < 4; cn++) {                  // 冠角坠链连向四角
-      var dir = cn % 2 ? 1 : -1, yy = yTop + 3;
-      for (var cl = 0; cl < 10; cl++) {
-        var cxx = cx + dir * (9 + cl * 2.4), cyy = yy + cl * 1.5;
-        if (cyy > bt || cxx < 2 || cxx > c.w - 3) break;
-        c.put(cxx | 0, cyy | 0, '<>[]{})('.charAt((cl + cn) % 8), D);
+    var e=elapsed,cx=(c.w-1)/2;
+    var fall=clamp01((e-0.25)/1.65),press=fall*fall*(3-2*fall);
+    var crack=clamp01((e-2.15)/0.65),release=clamp01((e-2.8)/1.25);
+    var crownY=mix(11,21,press),spread=release*release*28;
+    luIntroRoom(c,t,top,bt);
+
+    // 厚重的三层石台在受力处断开；红色裂缝从中心向两侧蔓延。
+    for(var tier=0;tier<3;tier++) {
+      var py=bt-3+tier,half=23+tier*8;
+      c.line(cx-half,py,cx+half,py,tier===0?'▄':'▓',tier===0?N:G);
+    }
+    if(crack>0) for(var side=-1;side<=1;side+=2) {
+      c.line(cx,bt-3,cx+side*12*crack,bt-2,'/',R);
+      c.line(cx+side*12*crack,bt-2,cx+side*30*crack,bt-1,'─',R);
+    }
+
+    // 心核先被冠冕压扁；断裂后两个完整心核向下一镜的双心位置展开。
+    if(release===0) luCrownHeart(c,cx,26,1.05,1-press*0.48,crack>0.1);
+    else for(side=-1;side<=1;side+=2) {
+      var pulse=1+Math.sin((e-2.8)*9+side*0.45)*0.06*release;
+      luCrownHeart(c,cx+side*14*release,mix(26,18,release),mix(0.5,0.85,release)*pulse,1,true);
+      if(release>0.65) luRing(c,cx+side*14*release,18,11+(release-0.65)*18,'·',R,3);
+    }
+
+    for(side=-1;side<=1;side+=2) {
+      // 断开的半冠向外翻起；几何面、镶边和宝石共用同一个局部坐标系。
+      var tilt=side*release*0.35,cs=Math.cos(tilt),sn=Math.sin(tilt);
+      function point(x,y) {
+        var xx=x*side;
+        return [cx+side*spread+xx*cs-y*2*sn,crownY-release*7+xx*sn/2+y*cs];
+      }
+      function face(points,st,ch) {
+        luCoalFacet(c,points.map(function(p) {return point(p[0],p[1]);}),st,ch);
+      }
+      // 锁链逐渐绷直；破冠后链端随半冠外甩，不悬空停留。
+      var anchor=point(30,-1),ax=cx+side*46;
+      for(var link=0;link<10;link++) {
+        var u=link/9,lx=mix(ax,anchor[0],u)+side*Math.sin(u*Math.PI)*(1-press)*4;
+        var ly=mix(top+1,anchor[1],u);
+        c.line(lx-1.5,ly,lx,ly-0.8,'/',N);
+        c.line(lx,ly-0.8,lx+1.5,ly,'\\',B);
+        c.line(lx+1.5,ly,lx,ly+0.8,'/',N);
+        c.line(lx,ly+0.8,lx-1.5,ly,'\\',G);
+      }
+      var outline=[[0,-14],[8,-4],[16,-11],[22,-3],[33,-9],[30,0],[29,4],[0,4]];
+      face(outline.map(function(p) {return [p[0]+0.8,p[1]+0.6];}),R,'▓');
+      face(outline,B);
+      // 中央高尖、两侧尖的左右切面与窄高光。
+      face([[0,-14],[0,0],[8,-4]],N);
+      face([[16,-11],[12,0],[21,-2]],N);
+      face([[33,-9],[26,0],[30,0]],N);
+      face([[0,-13],[1,-10],[1,-1],[0,-1]],W);
+      face([[16,-10],[17,-8],[14,0],[13,0]],W);
+      face([[32,-8],[32,-6],[29,0],[28,0]],W);
+      face([[0,0],[30,0],[29,1],[0,1]],W);
+      face([[0,1],[29,1],[28,3],[0,3]],N,'▓');
+      face([[0,3],[29,3],[29,4],[0,4]],B);
+      for(var gem=0;gem<2;gem++) {
+        var gx=9+gem*13;
+        face([[gx,0.6],[gx-3,2],[gx,3.4],[gx+3,2]],R);
+        face([[gx,1],[gx-1.5,2],[gx,2.6]],W);
+      }
+      // 静止裂口变为真正分开的轮廓，裂隙从中心沿冠带延展。
+      if(crack>0 && release<0.7) {
+        var previous=point(0,-9);
+        for(var k=1;k<=8*crack;k++) {
+          var next=point((k%2?1:3)*crack,-9+k*1.6);
+          c.line(previous[0],previous[1],next[0],next[1],'█',K);
+          c.put(next[0]+side,next[1],'+',R);
+          previous=next;
+        }
       }
     }
-    if (crack > 0) {                                  // 崩裂 + 血脉冲环
-      c.put(cx - 3, yTop + 1, 'x', R); c.put(cx + 2, yTop + 2, 'x', R);
-      var pr = mod(t * 1.65, 1);
-      for (var rg = 0; rg < 2; rg++) {
-        var rr = 4 + pr * (13 + rg * 6);
-        var u2 = clamp01(1 - rr / 24) * (1 - pr * 0.6);
-        if (u2 > 0.06)
-          luRing(c, cx, figY, rr | 0, rg ? '.' : '+',
-                 u2 > 0.55 ? R : u2 > 0.3 ? N : D, 2);
+    // 金屑沿弹道外抛，中心只保留连接两颗心核的红色脉冲。
+    if(release>0) {
+      for(var i=0;i<22;i++) {
+        var seed=hash16(i*151+29),dir=i%2?1:-1;
+        var age=release,xx=cx+dir*(4+age*(12+seed%28));
+        var yy=21-age*(4+seed%13)+age*age*13;
+        c.put(xx,yy,i%3?'◆':'+',age<0.5?B:R);
+      }
+      for(var step=0;step<=28*release;step++) {
+        var x=cx-14*release+step;
+        var y=18+Math.sin(step*0.8-e*8)*0.7*release;
+        c.put(x,y,'·',R);
       }
     }
-    luParticles(c, t, top, bt, 8 + (crack * 14) | 0, 29, true, crack > 0);
+
+    // 双剑末帧从上向下退场，像冠冕的阴影压过原来的誓约。
+    if(e<0.6) {
+      var entry=new CCanvas(c.w,c.h);entry.clip=[top+1,bt-1];
+      lu_s1_iron(entry,27.98,top,bt,3.66);
+      var cut=top+(bt-top)*clamp01(e/0.6);
+      for(var y=top+1;y<bt;y++)for(var x=2;x<c.w-2;x++) {
+        if(y<=cut)continue;
+        var cell=entry.cells[y][x];c.put(x,y,cell[0],cell[1]);
+      }
+    }
+    clearRect(c,0,top,c.w,1);
+    c.put(3,top,e<2.15?'13 / THE WEIGHT OF GOLD':e<2.8?'14 / CAN YOU FEEL MY PAIN':'15 / BLOOD REMEMBERS',N);
+    c.put(c.w-22,top,e<2.15?'CROWN / DESCENDING':e<2.8?'LOAD / FRACTURE':'PULSE / LINKED',R);
+    clearRect(c,0,bt,c.w,1);
+    c.center(bt,e<2.8?'HEAVY IS THE CROWN':'ONE WOUND / TWO HEARTS',B);
   }
 
   // ===== 血脉段 32.35–48.17 粒度细分：4 子场景 =====
