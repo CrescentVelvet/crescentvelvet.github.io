@@ -163,6 +163,7 @@ title: 字符演歌
   function CCanvas(w, h) {
     this.w = w; this.h = h;
     this.clip = null;   // 原作 c.clip=(top,bt)：场景段行裁剪
+    this.sx = 0; this.sy = 0; // 临时整屏位移（开幕柱锤冲击）
     this.cells = [];
     for (var y = 0; y < h; y++) {
       var row = [];
@@ -176,7 +177,7 @@ title: 字符演歌
   };
   // 与原作 player.py 一致：put 用 int() 截断（不是 round）；CJK 写双宽、次格置 ''
   CCanvas.prototype.put = function (x, y, s, st) {
-    x = Math.trunc(x); y = Math.trunc(y);
+    x = Math.trunc(x + (this.sx || 0)); y = Math.trunc(y + (this.sy || 0));
     if (y < 0 || y >= this.h) return;
     if (this.clip && !(this.clip[0] <= y && y <= this.clip[1])) return;
     for (var i = 0; i < s.length; i++) {
@@ -3239,7 +3240,7 @@ title: 字符演歌
     }
   }
 
-  // 0–3.8：大型 2D 落锤，两连击；锤头/铁砧全部是实体字符块。
+  // 0–3.8：打桩机式金柱压锤，两连击；柱体从上到下同宽，冲击驱动整屏震动。
   function lu_open_forge(c, t, top, bt, e) {
     var cx = (c.w - 1) / 2, anvilY = bt - 6, i, x, y;
     luOpenHall(c, t, top, bt, true);
@@ -3254,7 +3255,7 @@ title: 字符演歌
           luFlame(c, x, anvilY + 1, 2 + (x + y + (t * 5 | 0)) % 5, x + y, t);
     }
     c.put(3, anvilY + 2, '+================+', N);
-    // 右侧悬链与铆钉，给锤头运动提供明确参照。
+    // 右侧悬链与铆钉，给柱锤运动提供明确参照。
     for (var chain = 0; chain < 2; chain++) {
       x = c.w - 16 + chain * 7;
       for (y = top + 2; y < anvilY - 2; y += 2)
@@ -3270,116 +3271,183 @@ title: 字符演歌
       c.put(x, anvilY + 3, '=', N);
       if (x > cx - 16 && x < cx + 16) c.put(x, anvilY + 4, '#', G);
     }
-    // 1.05s / 2.95s 两次落锤：慢抬、急坠、停顿、回弹。
-    var q = mod(e, 1.9), raised = top + 3, impact = anvilY - 6, hy;
-    if (q < 0.85) hy = raised + Math.sin(q / 0.85 * Math.PI) * 0.6;
+    // 1.05s / 2.95s 两次压锤：慢抬、急坠、压停、回升。
+    var q = mod(e, 1.9), raised = anvilY - 12, impact = anvilY - 1, bottomY;
+    if (q < 0.85) bottomY = raised + Math.sin(q / 0.85 * Math.PI) * 0.6;
     else if (q < 1.05) {
       var fall = (q - 0.85) / 0.2;
-      hy = mix(raised, impact, fall * fall);
-    } else if (q < 1.28) hy = impact;
+      bottomY = mix(raised, impact, fall * fall);
+    } else if (q < 1.28) bottomY = impact;
     else {
       var back = clamp01((q - 1.28) / 0.62);
-      hy = mix(impact, raised, 1 - Math.pow(1 - back, 3));
+      bottomY = mix(impact, raised, 1 - Math.pow(1 - back, 3));
     }
-    // 下落时的两阶暗色残影，突出速度。
+    // 柱锤导轨：左右限位，突出这是垂直打桩机而非手持锤。
+    for (y = top + 1; y <= anvilY; y++) {
+      c.put(cx - 13, y, y % 4 ? '|' : '+', D);
+      c.put(cx + 13, y, y % 4 ? '|' : '+', D);
+      if (y % 5 === 0) {
+        c.put(cx - 15, y, '[', G); c.put(cx + 14, y, ']', G);
+      }
+    }
+    // 下落时同宽残影，确保读作整根柱体在高速下压。
     if (q >= 0.85 && q < 1.05)
       for (i = 1; i <= 2; i++)
-        for (x = cx - 14; x <= cx + 14; x++)
-          c.put(x, hy - i * 2, '=', D);
-    for (y = top + 1; y < hy; y++) {
-      c.put(cx - 2, y, '##', D); c.put(cx, y, '##', G); c.put(cx + 2, y, '##', D);
-    }
-    for (y = hy; y < hy + 5; y++)
-      for (x = cx - 14; x <= cx + 14; x++) {
-        var edge = x === cx - 14 || x === cx + 14 || y === hy || y === hy + 4;
-        var hch = edge ? (y === hy || y === hy + 4 ? '=' : '|') : '#';
-        var hst = edge ? (y === hy + 4 ? W : N) : (x < cx - 8 ? D : G);
-        c.put(x, y, hch, hst);
+        for (x = cx - 10; x <= cx + 10; x++)
+          c.put(x, bottomY - i * 3, '=', D);
+    // 金柱本体：20 格等宽，从顶部贯通到当前压点；中心亮金、边缘暗金。
+    for (y = top + 1; y <= bottomY; y++) {
+      for (x = cx - 10; x <= cx + 10; x++) {
+        var edge = x === cx - 10 || x === cx + 10;
+        var ch = edge ? '=' : '#';
+        var st = edge ? G : (x < cx - 5 ? N : (y + x) % 9 === 0 ? W : B);
+        c.put(x, y, ch, st);
       }
-    c.put(cx - 12, hy + 2, 'DROP // 08', N);
+      if (y % 6 === 2) {
+        c.put(cx - 7, y, '====', N);
+        c.put(cx + 4, y, '====', N);
+      }
+    }
+    c.put(cx - 8, Math.max(top + 2, bottomY - 4), ' 12T PILE RAM ', R);
     // 最近一次撞击的火花、地面冲击环和瞬时亮闪。
     var hit = e >= 2.95 ? 2.95 : e >= 1.05 ? 1.05 : -99, age = e - hit;
-    luOpenSparks(c, cx, anvilY - 1, age, hit > 2 ? 2 : 1, 150);
+    luOpenSparks(c, cx, anvilY - 1, age, hit > 2 ? 2 : 1, 170);
     if (age >= 0 && age < 0.65) {
-      var rr = 4 + age * 58;
-      for (i = 0; i < 70; i++) {
-        var a = i / 70 * TAU;
+      var rr = 4 + age * 62;
+      for (i = 0; i < 86; i++) {
+        var a = i / 86 * TAU;
         c.put(cx + Math.cos(a) * rr, anvilY + Math.sin(a) * rr * 0.16,
               age < 0.2 ? '*' : '.', age < 0.2 ? B : R);
       }
       if (age < 0.12) {
-        for (i = 0; i < 7; i++) {
-          y = anvilY - 4 + i;
-          c.line(cx - 38 + i * 3, y, cx + 38 - i * 3, y, i % 2 ? '=' : '-', i % 2 ? W : B);
+        for (i = 0; i < 8; i++) {
+          y = anvilY - 5 + i;
+          c.line(cx - 42 + i * 3, y, cx + 42 - i * 3, y, i % 2 ? '=' : '-', i % 2 ? W : B);
         }
       }
     }
-    c.put(3, top, 'FORGE 01 // DROP HAMMER', W);
-    c.put(c.w - 30, top, 'STRIKE ' + (e >= 2.95 ? '02' : e >= 1.05 ? '01' : '00') + ' / RED-HOT', R);
-    c.put(3, bt, 'ANVIL LOCKED  //  IMPACT ' + (age >= 0 && age < 0.5 ? 'DETECTED' : 'ARMED'), age >= 0 && age < 0.5 ? W : N);
+    c.put(3, top, 'FORGE 01 // PILE RAM', W);
+    c.put(c.w - 31, top, 'STRIKE ' + (e >= 2.95 ? '02' : e >= 1.05 ? '01' : '00') + ' / GOLD RAM', R);
+    c.put(3, bt, 'ANVIL LOCKED  //  SCREEN SHOCK ' + (age >= 0 && age < 0.5 ? 'ACTIVE' : 'READY'), age >= 0 && age < 0.5 ? W : N);
   }
 
-  // 32×28 像素肖像：金色双马尾、红瞳、白色领口、黑红礼服；每像素横向两格。
-  var LU_CLARE_MAP = [
-    '           R  CC  R',
-    '          HHhCCCCHH',
-    '         HHHhhhhhHHH',
-    '   H    HHhhhhhhhhhHH    H',
-    '  HHH  HHhhSSSSShhHH  HHH',
-    ' HhHHH HHhSSSSSSSSShHH HHHhH',
-    'HhhHHHHHhSSSSSSSSSSShHHHHHhhH',
-    'HhhHHHHhSSSESSSSSESSShHHHHhhH',
-    'HhhHHHHhSSEESSSEESSShHHHHhhH',
-    'HhhHHHHhSSSSSSSSSSSShHHHHhhH',
-    ' HhHHH HSSSSSFFSSSSSH HHHhH',
-    '  HhH  HSSSSSSSSSSSH  HHhH',
-    ' RHhH  HHSSSSFFFFSSHH  HhHR',
-    ' RRHH   HHDDFFFFFFDDHH   HHRR',
-    '  RR   HDDDDDDFFDDDDDDH   RR',
-    '      HDDDDDDDDDDDDDDDH',
-    '     HHHDDDDDDDDDDDDDDHHH',
-    '    HHHHDDDDDDDDDDDDDDHHHH',
-    '   HHHHDDDDDDDDDDDDDDDDHHHH',
-    '  HHHHDDDDDDDDDDDDDDDDDDHHHH',
-    ' HHHHDDDDDDDDDDDDDDDDDDDDHHHH',
-    ' HHH DDDDDDDDDDDDDDDDDDDD HHH',
-    '     DDDDDDDDDDDDDDDDDDDD',
-    '     DDDDDDDDDDDDDDDDDDDD',
-    '      DDDDDDDDDDDDDDDDDD',
-    '       SSSS        SSSS',
-    '       SSSS        SSSS',
-    '      DDDDDD      DDDDDD'
-  ];
+  // 46×30 全身像素立绘：金发双马尾、红瞳、黑白礼服、长靴；武器由下层像素单独构成。
   var LU_CLARE_INK = null;
   function luOpenClareInk() {
     if (LU_CLARE_INK) return LU_CLARE_INK;
-    var style = {
-      H: ['#', B], h: ['%', W], S: ['%', N], E: ['@', R], F: ['=', W],
-      D: ['#', G], R: ['#', R], C: ['^', B]
-    };
     var ink = [];
-    for (var y = 0; y < LU_CLARE_MAP.length; y++)
-      for (var x = 0; x < LU_CLARE_MAP[y].length; x++) {
-        var token = LU_CLARE_MAP[y].charAt(x), p = style[token];
-        if (p) ink.push([x, y, p[0], p[1], token]);
+    function add(x, y, ch, st, token) { ink.push([Math.round(x), Math.round(y), ch, st, token]); }
+    function rect(x0, y0, w, h, ch, st, token) {
+      for (var y = y0; y < y0 + h; y++) for (var x = x0; x < x0 + w; x++) add(x, y, ch, st, token);
+    }
+    function lineCells(x1, y1, x2, y2, ch, st, token) {
+      var steps = Math.max(Math.abs(x2 - x1), Math.abs(y2 - y1), 1) * 2;
+      for (var i = 0; i <= steps; i++) {
+        var u = i / steps;
+        add(mix(x1, x2, u), mix(y1, y2, u), ch, st, token);
       }
+    }
+    function ellipse(cx, cy, rx, ry, ch, st, token) {
+      for (var y = Math.floor(cy - ry); y <= Math.ceil(cy + ry); y++)
+        for (var x = Math.floor(cx - rx); x <= Math.ceil(cx + rx); x++) {
+          var dx = (x - cx) / rx, dy = (y - cy) / ry;
+          if (dx * dx + dy * dy <= 1) add(x, y, ch, st, token);
+        }
+    }
+
+    // 身后长剑：斜向双刃，靠近肩手处有白色十字护手。
+    lineCells(45, 0, 31, 12, '/', W, 'X');
+    lineCells(44, 0, 30, 12, '\\', G, 'X');
+    rect(29, 12, 5, 1, '=', W, 'W');
+    rect(31, 13, 2, 2, '#', K, 'K');
+
+    // 红色巨斧底层：左侧大月刃 + 斜向斧柄，右手握在柄端。
+    var axeProfile = [3, 5, 7, 8, 9, 10, 9, 8, 7, 6, 4, 3];
+    for (var ay = 17; ay <= 29; ay++) {
+      var ah = axeProfile[ay - 17];
+      var acx = 5 + (ay - 17) * 0.35;
+      var al = Math.max(0, Math.round(acx - ah));
+      var ar = Math.min(16, Math.round(acx + ah * 0.8));
+      for (var ax = al; ax <= ar; ax++) {
+        // 月刃内凹出暗色空洞，外缘留白，读作巨斧而不是红色矩形。
+        if (ay >= 20 && ay <= 26 && ax > acx + 2 && ax < ar - 2) continue;
+        var edge = ax === al || ax === ar || ay === 17 || ay === 29;
+        add(ax, ay, edge ? '=' : '#', edge ? W : R, 'R');
+      }
+    }
+    lineCells(13, 27, 23, 16, '#', K, 'K');
+    lineCells(14, 27, 24, 16, '=', G, 'K');
+
+    // 后发与双马尾：从头侧向两端分开，越长越细，避免和身体混成一整块。
+    for (var hy = 3; hy <= 25; hy++) {
+      var spread = (hy - 3) * 0.34;
+      var half = hy < 7 ? 1.6 : hy < 14 ? 1.4 : hy < 21 ? 1.0 : 0.7;
+      for (var side = -1; side <= 1; side += 2) {
+        var hcx = 23 + side * (4.8 + spread);
+        for (var hx = Math.floor(hcx - half); hx <= Math.ceil(hcx + half); hx++) {
+          var hi = hash16(hx * 19 + hy * 43);
+          add(hx, hy, hi % 5 === 0 ? '%' : '#', hi % 5 === 0 ? W : B, hi % 5 === 0 ? 'h' : 'H');
+        }
+      }
+    }
+    ellipse(23, 4.7, 4.0, 2.2, '#', B, 'H');
+    rect(20, 4, 7, 1, '#', B, 'H');
+    for (var bang = 20; bang <= 26; bang += 2)
+      lineCells(bang, 5, bang - 1, 7 + (bang % 2), '#', B, 'H');
+
+    // 头、红瞳、表情与白色高领；脸部用亮色镂空，和金色头发明确分层。
+    ellipse(23, 8, 3.5, 3.4, ':', W, 'S');
+    rect(20, 7, 2, 1, '@', R, 'E'); rect(25, 7, 2, 1, '@', R, 'E');
+    add(23, 10, '-', R, 'S');
+    rect(21, 11, 5, 1, '=', W, 'W');
+
+    // 手臂：左下接斧柄，右上接剑柄；黑白袖甲分离。
+    lineCells(20, 13, 16, 18, '#', K, 'K');
+    lineCells(21, 14, 17, 19, '=', W, 'W');
+    lineCells(26, 13, 31, 12, '#', K, 'K');
+    lineCells(27, 14, 31, 13, '=', W, 'W');
+
+    // 白上衣、黑束身、红腰带与下摆裙甲。
+    rect(19, 12, 9, 3, '=', W, 'W');
+    for (var ty = 14; ty <= 19; ty++) {
+      var tw = ty < 17 ? 8 : 9;
+      rect(23 - Math.floor(tw / 2), ty, tw, 1, '#', ty % 2 ? K : D, 'D');
+    }
+    rect(18, 19, 11, 1, '=', R, 'R');
+    for (var sy = 20; sy <= 23; sy++) {
+      var sw = 7 + (sy - 20) * 2;
+      rect(23 - Math.floor(sw / 2), sy, sw, 1, '#', sy % 2 ? D : K, 'D');
+      add(23 - Math.floor(sw / 2), sy, '=', R, 'R');
+      add(23 + Math.floor(sw / 2), sy, '=', R, 'R');
+    }
+
+    // 双腿、白色吊袜带与黑色长靴。
+    rect(20, 24, 3, 4, ':', W, 'S'); rect(26, 24, 3, 4, ':', W, 'S');
+    rect(20, 26, 3, 1, '=', W, 'W'); rect(26, 26, 3, 1, '=', W, 'W');
+    rect(19, 28, 5, 2, '#', K, 'K'); rect(25, 28, 5, 2, '#', K, 'K');
+    rect(18, 29, 7, 1, '=', G, 'K'); rect(24, 29, 7, 1, '=', G, 'K');
+
+    // 前景侧发与发丝高光，压住肩部形成层次。
+    lineCells(19, 6, 17, 15, '#', B, 'H'); lineCells(18, 7, 16, 14, '%', W, 'h');
+    lineCells(27, 6, 29, 15, '#', B, 'H'); lineCells(28, 7, 30, 14, '%', W, 'h');
     LU_CLARE_INK = ink;
     return ink;
   }
 
-  // 3.8–7.8：大幅像素肖像由火星组装，落定后双马尾轻摆、红瞳眨眼。
+  // 3.8–7.8：全身立绘由火星组装，落定后双马尾轻摆、红瞳眨眼。
   function lu_open_clare(c, t, top, bt, e) {
     luOpenHall(c, t, top, bt, false);
     luParticles(c, t, top, bt, 54, 137, true, true);
-    var ink = luOpenClareInk(), x0 = Math.floor((c.w - 64) / 2), y0 = top + 1;
+    var mapW = 46, mapH = 30;
+    var ink = luOpenClareInk(), x0 = Math.floor((c.w - mapW * 2) / 2), y0 = top + 1;
     var bob = e > 1.7 ? Math.round(Math.sin(t * 2.2) * 0.5) : 0;
     var blink = mod(t, 3.2) > 3.02;
     for (var i = 0; i < ink.length; i++) {
       var p = ink[i], hs = hash16(i * 43 + 19);
-      var delay = (hs % 100) / 100 * 0.8 + p[1] / 28 * 0.25;
+      var delay = (hs % 100) / 100 * 0.8 + p[1] / mapH * 0.25;
       var u = clamp01((e - delay) / 0.9), ease = 1 - Math.pow(1 - u, 3);
-      var sway = e > 1.7 && (p[4] === 'H' || p[4] === 'h') && (p[0] < 8 || p[0] > 23) && p[1] > 8
-        ? Math.round(Math.sin(t * 2.5 + p[1] * 0.35) * (p[0] < 8 ? -0.7 : 0.7)) : 0;
+      var sway = e > 1.7 && (p[4] === 'H' || p[4] === 'h') && (p[0] < 14 || p[0] > 31) && p[1] > 7
+        ? Math.round(Math.sin(t * 2.5 + p[1] * 0.35) * (p[0] < 14 ? -0.7 : 0.7)) : 0;
       var tx = x0 + p[0] * 2 + sway, ty = y0 + p[1] + bob;
       if (u < 1) {
         var ox = 3 + hash16(i * 17 + 2) % (c.w - 6), oy = top + hash16(i * 29 + 8) % (bt - top);
@@ -3392,10 +3460,10 @@ title: 字符演歌
     }
     var label = 'CLARE // BLOODBOUND HEIR';
     c.put(3, top, label.slice(0, Math.floor(clamp01(e / 0.8) * label.length)), W);
-    c.put(c.w - 28, top, 'MEMORY 02 // AWAKEN', N);
+    c.put(c.w - 31, top, 'FULL-BODY PIXEL // READY', N);
     if (e > 2.2) {
-      c.put(3, bt, 'GOLDEN HAIR / CRIMSON EYES', B);
-      c.put(c.w - 26, bt, 'PIXEL PORTRAIT // OK', R);
+      c.put(3, bt, 'TWIN TAILS / CRIMSON GREATAXE', B);
+      c.put(c.w - 25, bt, 'CLARE REF // OK', R);
     }
   }
 
@@ -3504,7 +3572,19 @@ title: 字符演歌
   }
 
   function lu_credits_void(c, t, top, bt, elapsed) {
-    if (elapsed < 3.8) return lu_open_forge(c, t, top, bt, elapsed);
+    if (elapsed < 3.8) {
+      // 柱锤 1.05/2.95s 触砧后，场景内全部元素一起位移，形成整屏震动。
+      var hit = elapsed >= 2.95 && elapsed < 3.5 ? 2.95 :
+                elapsed >= 1.05 && elapsed < 1.6 ? 1.05 : -1;
+      if (hit > 0) {
+        var age = elapsed - hit, amp = 2.8 * Math.exp(-age * 8);
+        c.sx = Math.round(Math.sin(age * 75) * amp);
+        c.sy = Math.round(Math.sin(age * 53 + 0.8) * amp * 0.65);
+      }
+      lu_open_forge(c, t, top, bt, elapsed);
+      c.sx = 0; c.sy = 0;
+      return;
+    }
     if (elapsed < 7.8) return lu_open_clare(c, t, top, bt, elapsed - 3.8);
     if (elapsed < 13.8) return lu_open_title(c, t, top, bt, elapsed - 7.8);
     return lu_open_handoff(c, t, top, bt, elapsed - 13.8);
@@ -5491,6 +5571,22 @@ title: 字符演歌
   var cvEl = document.getElementById('amv-cv');
   var g2d = cvEl.getContext('2d');
   var grid = new CCanvas(GW, GH);
+  // Link Up 开幕柱锤冲击：真正移动整块画布，连同 chrome/频谱一起震。
+  function updateOpeningShake(t) {
+    if (SONG_KEY !== 'link_up' || t >= 3.8) {
+      if (cvEl.style.transform) cvEl.style.transform = '';
+      return;
+    }
+    var hit = t >= 2.95 && t < 3.5 ? 2.95 : t >= 1.05 && t < 1.6 ? 1.05 : -1;
+    if (hit < 0) {
+      if (cvEl.style.transform) cvEl.style.transform = '';
+      return;
+    }
+    var age = t - hit, amp = 8 * Math.exp(-age * 8);
+    var sx = Math.round(Math.sin(age * 75) * amp);
+    var sy = Math.round(Math.sin(age * 53 + 0.8) * amp * 0.65);
+    cvEl.style.transform = 'translate3d(' + sx + 'px,' + sy + 'px,0)';
+  }
   function render() {
     g2d.fillStyle = '#000';
     g2d.fillRect(0, 0, GW * CW * SC, GH * CH * SC);
@@ -5602,6 +5698,7 @@ title: 字符演歌
       drawSpectrum(grid, t);
       updateSubs(t);
     }
+    updateOpeningShake(t);
     render();
     elFill.style.width = (t / DUR * 100).toFixed(2) + '%';
     elTime.textContent = fmtT(t) + ' / ' + SONG.durTxt;
