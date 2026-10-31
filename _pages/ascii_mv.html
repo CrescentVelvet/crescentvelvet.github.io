@@ -3477,14 +3477,17 @@ title: 字符演歌
   function luCoalFlight(e, side) {
     var weave = clamp01((e - 1.45) / 2.15);
     var arc = weave * Math.PI;
-    return [59.5 + side * (23 * Math.cos(arc)),
-            15 + side * Math.sin(arc) * 3.3 + Math.sin(e * 2.2) * 0.6];
+    var drift = Math.sin(e * 3.4 + side * 0.8) * 1.15 + Math.sin(e * 6.1 + side) * 0.25;
+    var bob = Math.sin(e * 4.1 + side * 0.9) * 0.65;
+    var roll = side * Math.sin(arc) * 0.35 + Math.sin(e * 3.4 + side * 0.8 + 0.6) * 0.075;
+    return [59.5 + side * (23 * Math.cos(arc)) + drift,
+            15 + side * Math.sin(arc) * 3.3 + Math.sin(e * 2.2) * 0.6 + bob, roll];
   }
 
   // 20.57–24.32：冲出炉门，双焰翼掠过炭床，再沿双弧交叉换位。
   function lu_s1_coals(c, t, top, bt, elapsed) {
     var e = elapsed, cx = (c.w - 1) / 2, horizon = 12;
-    var speed = e * 0.48, cross = clamp01((e - 1.45) / 2.15);
+    var speed = e * 0.48;
 
     // 从消失点向镜头推进的玄武岩炭床：面块稳定，只有观察位置向前移动。
     for (var y = horizon + 1; y < bt; y++) {
@@ -3525,8 +3528,8 @@ title: 字符演歌
     for (side = -1; side <= 1; side += 2) {
       for (var j = 28; j >= 1; j--) {
         var lag = j * 0.035, p = luCoalFlight(e - lag, side);
-        var tx = p[0] + side * Math.sin(lag * 4) * lag * 6;
-        var ty = p[1] + 3 + lag * 15;
+        var tx = p[0] - 6 * Math.sin(p[2]) + side * Math.sin(lag * 4) * lag * 6;
+        var ty = p[1] + 3 * Math.cos(p[2]) + lag * 15;
         var width = (1 - j / 32) * 2;
         c.line(tx - width, ty, tx + width, ty, j > 17 ? ':' : '▓', side < 0 ? R : N);
         if (j < 14) c.put(tx, ty, '█', side < 0 ? B : W);
@@ -3535,10 +3538,14 @@ title: 字符演歌
     // 飞行主体是宽翼的火焰纹章，不是几个字符组成的人形或单点跑者。
     for (side = -1; side <= 1; side += 2) {
       p = luCoalFlight(e, side);
-      var fx = p[0], fy = p[1], bank = side * Math.sin(cross * Math.PI) * 0.22;
-      var flare = Math.sin(e * 5 + side) * 0.7;
+      var fx = p[0], fy = p[1], bank = p[2], cs = Math.cos(bank), sn = Math.sin(bank);
+      var flare = Math.sin(e * 5 + side) * 0.85;
       function wing(points, st, ch) {
-        luCoalFacet(c, points.map(function(q) { return [fx + q[0], fy + q[1] + q[0] * bank]; }), st, ch);
+        luCoalFacet(c, points.map(function(q) {
+          var flex = Math.pow(Math.abs(q[0]) / 15, 2) * Math.sin(e * 5.4 + side + q[0] * 0.06) * 0.65;
+          return [fx + q[0] * cs - (q[1] + flex) * 2 * sn,
+                  fy + q[0] * sn / 2 + (q[1] + flex) * cs];
+        }), st, ch);
       }
       for (var w = -1; w <= 1; w += 2) {
         wing([[0,-2],[w*5,-1],[w*15,5+flare],[w*7,3],[w*2,4]], R);
@@ -3547,7 +3554,7 @@ title: 字符演歌
       }
       wing([[0,-5],[-3,0],[0,5],[3,0]], side < 0 ? B : W);
       wing([[0,-4],[-2,0],[0,3]], side < 0 ? W : B);
-      c.put(fx, fy - 5, '◆', W);
+      c.put(fx + 10 * sn, fy - 5 * cs, '◆', W);
     }
 
     // 稀疏的近景炭花从两侧掠过，运动方向与地面一致。
@@ -3579,32 +3586,109 @@ title: 字符演歌
     c.center(bt, e < 1.85 ? 'SIDE BY SIDE / INTO THE HEAT' : 'WE CROSS THE FIRE TOGETHER', B);
   }
 
-  // 24.32–27.98 "steel and iron / stay defiant"：交叉双剑+铁砧+垂链+双钢锭 3D
+  // 双刃以物理等比例坐标旋转；刃脊、双侧倒角、护手和缠柄各有实体面。
+  function luIronBlade(c, px, py, angle, hot, e, side) {
+    var cs = Math.cos(angle), sn = Math.sin(angle);
+    function face(points, st, ch) {
+      luCoalFacet(c, points.map(function(p) {
+        var v = p[1] < 0 ? p[1] * mix(0.75, 1, clamp01(e / 1.65)) : p[1];
+        return [px + p[0] * cs - v * sn, py + (p[0] * sn + v * cs) / 2];
+      }), st, ch);
+    }
+    face([[1,-43],[-3,-34],[-2,0],[4,0],[5,-34]], R, '▓');
+    face([[0,-43],[-3.5,-34],[-3,-2],[0,-3]], hot ? B : side < 0 ? N : R);
+    face([[0,-43],[3.5,-34],[3,-2],[0,-3]], side < 0 ? B : N);
+    face([[0,-43],[-0.7,-34],[-0.7,-3],[0.7,-3],[0.7,-34]], W);
+    // 刃根血槽与宽护手，与长刃构成可辨的剑形而非两根光棒。
+    face([[-2.5,-31],[-1.8,-31],[-1.8,-5],[-2.5,-5]], R);
+    face([[-11,-3],[-7,-1],[7,-1],[11,-3],[10,2],[4,3],[-4,3],[-10,2]], N);
+    face([[-10,-2],[-7,0],[7,0],[10,-2],[8,1],[-8,1]], B);
+    face([[-2,2],[2,2],[2,11],[-2,11]], R, '▓');
+    for (var v = 3; v <= 10; v += 2)
+      face([[-2,v],[2,v],[2,v+0.8],[-2,v+0.8]], B);
+    face([[0,15],[-4,11],[0,8],[4,11]], B);
+    face([[0,13],[-2,11],[0,9],[2,11]], W);
+    // 一次扫光沿剑刃行进，保持金属面的层次。
+    if (e > 2.15) {
+      var sweep = -39 + clamp01((e - 2.15) / 1.4) * 32;
+      face([[-3,sweep], [3,sweep], [3,sweep+1], [-3,sweep+1]], W);
+    }
+  }
+
+  // 24.32–27.98：火迹淬成双刃 → 交击、冲击火星 → 交叉誓约纹章。
   function lu_s1_iron(c, t, top, bt, elapsed) {
-    var e = elapsed, cx = (c.w - 1) / 2, cy = (top + bt) / 2;
-    var cross = clamp01(e / 0.9);                     // 双剑滑入交叉
-    for (var k = 0; k < 14 * cross; k++) {
-      c.put((cx - 12 + k) | 0, (cy - 6 + k * 0.75) | 0, '=', N);
-      c.put((cx + 12 - k) | 0, (cy - 6 + k * 0.75) | 0, '=', B);
+    var e = elapsed, cx = (c.w - 1) / 2;
+    var lock = clamp01((e - 0.35) / 1.3), ease = lock * lock * (3 - 2 * lock);
+    var strike = e - 1.65, recoil = strike >= 0 ? Math.sin(strike * 18) * Math.exp(-strike * 7) : 0;
+    luIntroRoom(c, t, top, bt);
+
+    // 后景为厚盾形砧座与垂落的红绶带，中央深色留白让白热刃脊可读。
+    var shield = [[cx,6],[cx+29,10],[cx+27,24],[cx,31],[cx-27,24],[cx-29,10]];
+    luCoalFacet(c, shield, R, '▓');
+    luCoalFacet(c, [[cx,7],[cx+26,11],[cx+24,23],[cx,29],[cx-24,23],[cx-26,11]], N, ':');
+    luCoalFacet(c, [[cx,8],[cx+24,12],[cx+22,22],[cx,28],[cx-22,22],[cx-24,12]], K, ' ');
+    for (var side = -1; side <= 1; side += 2) {
+      var bx = cx + side * 42;
+      for (var y = top + 3; y < bt - 4; y++) {
+        var wave = Math.sin((y-top) * 0.26 - e * 2.2 + side) * 1.5;
+        var width = y > bt - 9 ? 5 - (y - bt + 9) * 0.7 : 5;
+        for (var x = -width; x <= width; x++)
+          c.put(bx + x + wave, y, Math.abs(x) > width - 1 ? '▓' : '▒', Math.abs(x) < 1 ? B : R);
+      }
+      for (y = top + 2; y < bt - 3; y++) c.put(bx + side * 8, y, y % 3 ? '║' : '□', G);
+      c.line(bx - 7, top + 2, bx + 7, top + 2, '═', B);
+      c.put(bx, top + 2, '◆', W);
     }
-    c.put((cx - 13) | 0, (cy - 7) | 0, '>', B);
-    c.put((cx + 13) | 0, (cy - 7) | 0, '<', N);
-    c.put(cx - 1, cy + 3, '[==]', G);                 // 护手+柄
-    c.put(cx - 2, cy + 4, '[====]', G);
-    for (var ax = -6; ax <= 6; ax++) c.put(cx + ax, bt - 3, '#', N);   // 铁砧
-    for (var ax2 = -4; ax2 <= 4; ax2++) c.put(cx + ax2, bt - 2, '=', D);
-    c.put(cx, bt - 4, '#', B);
-    for (var ch = 0; ch < 2; ch++) {                  // 两侧垂链
-      var chx = ch ? c.w - 10 : 9;
-      for (var cy2 = top + 1; cy2 < top + 9 + ch * 3; cy2++)
-        c.put(chx, cy2, '<>[]{}()'.charAt(cy2 % 8), cy2 % 2 ? D : N);
+
+    // 两道弧形刃风先划过盾面，再由实体剑压住弧线。
+    if (lock > 0.1 && strike < 0.45) {
+      for (side = -1; side <= 1; side += 2) for (var i = 0; i < 38; i++) {
+        var a = -1.4 + i / 37 * 1.5 * ease;
+        var r = 23 + i / 38 * 9;
+        c.put(cx + side * Math.cos(a) * r, 18 + Math.sin(a) * r / 2, i > 29 ? '█' : '·', i > 29 ? B : R);
+      }
     }
-    luGear(c, 8, bt - 6, 3, t, D); luGear(c, c.w - 9, bt - 6, 3, -t, D);
-    var ing1 = luBox(1.1, 0.7, 0.7, -1.8, 0, 0);      // 3D 双钢锭对转
-    var ing2 = luBox(1.1, 0.7, 0.7, 1.8, 0, 0);
-    projected(c, ing1.concat(ing2), luEdges(0).concat(luEdges(8)),
-              cx - 16, top + 1, cx + 16, top + 10, t * 0.5, B, clamp01(e / 0.7));
-    luParticles(c, t, top, bt, 8, 23, true, false);
+    for (side = -1; side <= 1; side += 2) {
+      var px = cx + side * mix(23,13,ease);
+      var angle = -side * (mix(0.04,0.88,ease) + recoil * 0.09);
+      luIronBlade(c, px, 23 + recoil * 0.5, angle, e < 1.1, e, side);
+    }
+
+    // 在两条刃脊的实际交点爆出火星，短促释放后留下清晰的 X 形双刃。
+    if (strike >= 0 && strike < 1.0) {
+      var impactY = 23 - 13 / Math.tan(0.88) / 2;
+      for (i = 0; i < 36; i++) {
+        var seed = hash16(i * 97 + 41), a2 = seed / 65535 * TAU;
+        var dist = strike * (19 + seed % 29);
+        var sx = cx + Math.cos(a2) * dist, sy = impactY + Math.sin(a2) * dist / 2 + strike * strike * 4;
+        c.line(sx, sy, sx - Math.cos(a2) * 2.5, sy - Math.sin(a2), strike < 0.25 ? '+' : '.', strike < 0.18 ? W : strike < 0.5 ? B : R);
+      }
+      if (strike < 0.35) {
+        var radius = 3 + strike * 65;
+        luRing(c, cx, impactY, radius, '·', strike < 0.1 ? W : B, 2);
+      }
+    }
+    if (e > 2.2) {
+      c.center(29, 'S T A Y   D E F I A N T', W);
+      c.put(cx-30, 29, '◆', B); c.put(cx+30, 29, '◆', B);
+    }
+
+    // 炭床末帧从中央向两侧揭开：焰翼所在位置正好交给竖直双刃。
+    if (e < 0.65) {
+      var entry = new CCanvas(c.w,c.h); entry.clip = [top+1,bt-1];
+      lu_s1_coals(entry,24.32,top,bt,3.75);
+      var gap = Math.pow(clamp01(e/0.65),0.85) * c.w * 0.55;
+      for (y = top+1; y < bt; y++) for (x = 2; x < c.w-2; x++) {
+        if (e > 0 && Math.abs(x-cx) < gap) continue;
+        var cell = entry.cells[y][x];
+        c.put(x,y,cell[0],cell[1]);
+      }
+    }
+    clearRect(c,0,top,c.w,1);
+    c.put(3,top,e < 1.65 ? '11 / TEMPERED IN FLAME' : '12 / STEEL AND IRON',N);
+    c.put(c.w-23,top,e < 1.65 ? 'BLADES / CONVERGING' : 'OATH / UNBROKEN',R);
+    clearRect(c,0,bt,c.w,1);
+    c.center(bt,e < 1.65 ? 'TWO FLAMES / TWO BLADES' : 'FORGED TOGETHER / NEVER BOW',B);
   }
 
   // 27.98–32.35 "gold crown weighing me down / can you feel my pain"：
