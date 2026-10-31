@@ -3182,600 +3182,170 @@ title: 字符演歌
     }
   }
 
-  // ===== 0–16.42 开幕：MV 近景动作 → 教堂拱窗 → 乌鸦 → 高窗前角色 =====
-  // 工业殿堂背景：实体柱、尖拱长窗、地砖透视线；避免大画面只剩纯黑。
-  function luOpenHall(c, t, top, bt, heat) {
-    var l = 2, r = c.w - 3, cx = (l + r) / 2, y, x;
-    // 只保留三种可记忆的结构：两座拱门、中央横梁、向砧台汇聚的地砖。
-    for (y = top + 3; y < bt - 5; y += 5)
-      c.line(4, y, c.w - 5, y, y % 10 ? '-' : '=', D);
-    for (var side = 0; side < 2; side++) {
-      var wx = side ? c.w - 24 : 8;
-      c.line(wx, top + 10, wx + 7, top + 4, '/', heat ? N : G);
-      c.line(wx + 7, top + 4, wx + 14, top + 10, '\\', heat ? N : G);
-      c.line(wx, top + 10, wx, bt - 7, '|', G);
-      c.line(wx + 14, top + 10, wx + 14, bt - 7, '|', G);
-      c.line(wx + 3, top + 8, wx + 3, bt - 7, '|', heat ? R : D);
-      c.line(wx + 11, top + 8, wx + 11, bt - 7, '|', heat ? R : D);
-      c.put(wx + 1, bt - 7, '-------------', heat ? N : D);
-      c.put(wx + 2, top + 5, side ? 'GUIDE' : 'FURNACE', heat ? B : N);
+  // 开幕 0–16.42：玫瑰封印 → 开门 → 旋转回廊 → 羽片涡流 → 标题铸成。
+  // 从 MV 提取拱窗、红门、群鸦母题；全部几何直接写字符网格，不使用人物立绘。
+  function luIntroRoom(c, t, top, bt) {
+    var cx = c.w / 2, cy = (top + bt) / 2;
+    // 石壁只在两翼出现。纹理固定在空间里，不逐帧重掷噪点。
+    for (var y = top + 1; y < bt; y++) for (var x = 2; x < c.w - 2; x++) {
+      if (Math.abs(x - cx) < 39) continue;
+      var h = hash16(x * 41 + y * 173);
+      var rib = mod(x - (y % 4 < 2 ? 0 : 3), 8);
+      if (rib < 2) c.put(x, y, rib ? ':' : '│', G);
+      else if (y % 4 === 0) c.put(x, y, '─', K);
+      else if (h % 9 === 0) c.put(x, y, '.', K);
     }
-    for (x = l; x <= r; x++) {
-      c.put(x, bt - 2, x % 7 ? '-' : '+', x % 9 ? G : N);
-      if (x % 4 === 0) c.line(cx, bt - 8, x, bt - 2, heat && x % 8 === 0 ? R : K, K);
+    // 透视地面上流动的红色反光，边缘始终低于主体亮度。
+    for (var lane = -5; lane <= 5; lane++)
+      c.line(cx + lane * 2, cy + 7, cx + lane * 17, bt - 1, '·', G);
+    for (var row = 0; row < 4; row++) {
+      var d = mod(row / 4 + t * 0.1, 1);
+      var fy = cy + 7 + d * d * 6;
+      c.line(cx - 5 - d * 54, fy, cx + 5 + d * 54, fy, '.', K);
     }
-    if (heat) c.line(3, bt - 5, c.w - 4, bt - 5, '.', R);
   }
 
-  // 单次锻击的火花：确定性的双侧弹道 + 短拖尾，白→琥珀→红→暗。
-  function luOpenSparks(c, cx, cy, age, seed, amount) {
-    if (age < 0 || age > 0.9) return;
+  // 玫瑰窗用面而非几根线构成：八瓣玻璃、铅条、双环与外圈尖齿。
+  function luIntroRose(c, t, top, bt, radius, rotation, hot) {
+    var cx = (c.w - 1) / 2, cy = (top + bt) / 2;
+    for (var y = top + 1; y < bt; y++) for (var x = 2; x < c.w - 2; x++) {
+      var dx = x - cx, dy = (y - cy) * 2, r = Math.hypot(dx, dy) / radius;
+      var a = Math.atan2(dy, dx) + rotation;
+      var petal = Math.abs(Math.cos(a * 4));
+      var edge = 0.55 + 0.34 * petal;
+      var ch = '', st = G;
+      if (r > 1.03 && r < 1.15 && Math.abs(Math.sin(a * 16)) < 0.18) { ch = '+'; st = N; }
+      else if (Math.abs(r - 1) < 0.035) { ch = '█'; st = hot ? B : R; }
+      else if (Math.abs(r - 0.91) < 0.025) { ch = '·'; st = N; }
+      else if (r > 0.22 && r < edge) {
+        var lead = Math.abs(Math.sin(a * 8)) < 0.14 || Math.abs(r - edge) < 0.045;
+        ch = lead ? '█' : r > edge - 0.13 ? '▓' : r > 0.45 ? '▒' : ':';
+        st = lead ? (hot ? W : B) : (hot && petal > 0.8 ? B : R);
+      } else if (Math.abs(r - 0.19) < 0.04) { ch = '█'; st = W; }
+      else if (r < 0.13) { ch = '◆'; st = B; }
+      if (ch) c.put(x, y, ch, st);
+    }
+  }
+
+  // 将字符格的纵向乘 2 后旋转，避免门框变形为扁平菱形。
+  function luIntroGate(c, cx, cy, size, angle, st, fill, aspect) {
+    var cs = Math.cos(angle), sn = Math.sin(angle), hw = size * (aspect || 0.66), hh = size;
+    for (var y = 5; y < 32; y++) for (var x = 2; x < c.w - 2; x++) {
+      var dx = x - cx, dy = (y - cy) * 2;
+      var u = Math.abs(dx * cs + dy * sn), v = Math.abs(-dx * sn + dy * cs);
+      if (u > hw + 1 || v > hh + 1) continue;
+      var d = Math.min(hw - u, hh - v);
+      if (d < -0.1) c.put(x, y, '·', G);
+      else if (d < 0.9) c.put(x, y, '█', st);
+      else if (d < Math.max(1.8, size * 0.1)) c.put(x, y, '▓', R);
+      else if (d < Math.max(2.4, size * 0.13)) c.put(x, y, ':', B);
+      else if (fill) c.put(x, y, ' ', K);
+      if (d >= 0 && u > hw - 3 && v > hh - 3) c.put(x, y, '◆', W);
+    }
+  }
+
+  function luIntroFeathers(c, t, top, bt, amount, disperse) {
+    var cx = (c.w - 1) / 2, cy = (top + bt) / 2;
     for (var i = 0; i < amount; i++) {
-      var h1 = hash16(i * 137 + seed * 313), h2 = hash16(i * 71 + seed * 17);
-      var vx = ((h1 % 201) - 100) / 100 * (24 + h2 % 38);
-      var vy = 5 + (h2 % 100) / 100 * 20;
-      var drag = 1 + (i % 5) * 0.08;
-      var x = cx + vx * age / drag;
-      var y = cy - vy * age + 20 * age * age;
-      if (x < 2 || x > c.w - 3 || y < 3 || y > cy + 3) continue;
-      var ch = age < 0.12 ? '#' : age < 0.3 ? '*' : age < 0.55 ? '+' : '.';
-      var st = age < 0.1 ? W : age < 0.28 ? B : age < 0.58 ? R : G;
-      c.put(x, y, ch, st);
-      if (i % 3 === 0 && age > 0.07) {
-        var pa = Math.max(0, age - 0.055);
-        c.line(cx + vx * pa / drag, cy - vy * pa + 20 * pa * pa, x, y, '.', st);
+      var seed = hash16(i * 137 + 53), phase = mod(seed / 65535 + t * 0.19, 1);
+      var rr = 5 + phase * phase * (45 + disperse * 25);
+      var a = i * 2.39996 + t * 0.85 + phase * 1.7;
+      var x = cx + Math.cos(a) * rr, y = cy + Math.sin(a) * rr * 0.38;
+      var wing = Math.sin(t * 8 + i) * 1.6;
+      if (phase < 0.5) c.put(x, y, seed % 2 ? '/' : '\\', phase < 0.22 ? G : R);
+      else {
+        c.line(x - 3 - phase * 3, y - wing, x, y, '/', phase > 0.8 ? W : B);
+        c.line(x, y, x + 2 + phase * 3, y - wing * 0.7, '\\', R);
+        c.put(x, y, '◆', phase > 0.8 ? B : R);
       }
     }
   }
 
-  // 0–4.2：大型 2D 桩柱锤，三连击；整根柱体等粗，冲击驱动整屏震动。
-  function lu_open_forge(c, t, top, bt, e) {
-    var cx = (c.w - 1) / 2, anvilY = bt - 7, i, x, y;
-    luOpenHall(c, t, top, bt, true);
-    luParticles(c, t, top, bt, 18, 91, true, true);
-    // 左侧炉膛：厚砖拱与跳动火柱。
-    c.put(3, top + 6, '+=================+', N);
-    for (y = top + 7; y <= anvilY + 1; y++) {
-      c.put(3, y, '|', G); c.put(21, y, '|', G);
-      for (x = 5; x < 21; x++) if ((x + y) % 3 === 0)
-        c.put(x, y, y > anvilY - 2 ? '█' : '▓', y > anvilY - 2 ? R : G);
+  var LU_INTRO_TITLE = null;
+  function luIntroTitle(c, e, top, bt) {
+    if (!LU_INTRO_TITLE) {
+      var dots = [], text = 'LINK UP';
+      for (var k = 0; k < text.length; k++) for (var y = 0; y < 5; y++)
+        for (var x = 0; x < 5; x++) if (TITLE_FONT[text[k]][y][x] === '1')
+          for (var sy = 0; sy < 2; sy++) for (var sx = 0; sx < 2; sx++)
+            dots.push([19 + k * 12 + x * 2 + sx, 12 + y * 2 + sy]);
+      LU_INTRO_TITLE = dots;
     }
-    c.put(3, anvilY + 2, '+=================+', N);
-    for (x = 6; x < 20; x += 2) luFlame(c, x, anvilY + 1, 4 + (x % 5), x + 17, t);
-    // 右侧只留两条固定导轨和一个配重块，成为“桩机”的记忆点。
-    for (var rail = 0; rail < 2; rail++) {
-      x = c.w - 20 + rail * 7;
-      c.put(x - 2, top + 2, rail ? '[###]' : '[RAM]', N);
-      for (y = top + 5; y < anvilY - 1; y++) c.put(x, y, y % 4 ? '│' : '+', rail ? D : G);
-      c.put(x - 2, anvilY - 2, '===', R);
+    var cx = (c.w - 1) / 2, cy = (top + bt) / 2;
+    for (var i = 0; i < LU_INTRO_TITLE.length; i++) {
+      var p = LU_INTRO_TITLE[i], h = hash16(i * 37);
+      var u = clamp01((e - h / 65535 * 0.6) / 1.15), ease = 1 - Math.pow(1 - u, 3);
+      var a = i * 2.39996 + e * 0.3, rr = 23 + h % 30;
+      var x = mix(cx + Math.cos(a) * rr, p[0], ease), y = mix(cy + Math.sin(a) * rr / 2, p[1], ease);
+      var sheen = Math.abs(p[0] - (19 + mod(e * 24, 100))) < 3;
+      // 立体投影在主字下方/右侧，字面保留实心粗笔画。
+      if (u === 1) c.put(p[0] + 1, p[1] + 1, '▓', R);
+      c.put(x, y, u === 1 ? '█' : u > 0.7 ? '#' : '*', u === 1 ? (sheen ? W : B) : R);
     }
-    // 铁砧：白亮锻件 + 厚砧面 + 收腰 + 宽底座。
-    for (x = cx - 22; x <= cx + 22; x++) c.put(x, anvilY, x % 4 ? '═' : '╔', W);
-    for (x = cx - 12; x <= cx + 12; x++) c.put(x, anvilY - 1, x % 3 ? '█' : '▓', B);
-    for (y = anvilY + 1; y <= anvilY + 3; y++) {
-      var half = 13 - (y - anvilY - 1) * 3;
-      for (x = cx - half; x <= cx + half; x++) c.put(x, y, y === anvilY + 1 ? '▓' : '█', y === anvilY + 1 ? N : D);
+    // 上一轮循环的投影会覆盖邻近字面，最后统一重画完整字面。
+    if (e > 1.75) for (i = 0; i < LU_INTRO_TITLE.length; i++) {
+      p = LU_INTRO_TITLE[i];
+      c.put(p[0], p[1], '█', Math.abs(p[0] - (19 + mod(e * 24, 100))) < 3 ? W : B);
     }
-    for (x = cx - 25; x <= cx + 25; x++) c.put(x, anvilY + 4, x % 5 ? '═' : '╚', N);
-    for (x = cx - 8; x <= cx + 8; x++) c.put(x, anvilY - 2, '█', R);
-    // 三次压锤：0.90 / 2.05 / 3.20s；每次慢抬、急坠、压停、回升。
-    var hits = [0.90, 2.05, 3.20], raised = top + 2, impact = anvilY - 4, headY = raised;
-    var upcoming = -1, last = -1;
-    for (i = 0; i < hits.length; i++) {
-      if (e < hits[i] && upcoming < 0) upcoming = i;
-      if (e >= hits[i]) last = i;
-    }
-    if (upcoming >= 0) {
-      var until = hits[upcoming] - e;
-      headY = until > 0.28 ? raised : mix(raised, impact, Math.pow(1 - until / 0.28, 2.8));
-    } else if (last >= 0) {
-      var since = e - hits[last];
-      headY = since < 0.18 ? impact : mix(impact, raised, 1 - Math.pow(1 - clamp01((since - 0.18) / 0.72), 3));
-    }
-    // 柱锤导轨：左右限位，突出这是垂直打桩机而非手持锤。
-    for (y = top + 1; y <= anvilY; y++) {
-      c.put(cx - 17, y, y % 4 ? '│' : '+', D);
-      c.put(cx + 17, y, y % 4 ? '│' : '+', D);
-      if (y % 5 === 0) {
-        c.put(cx - 19, y, '[', G); c.put(cx + 18, y, ']', G);
-      }
-    }
-    // 下落时同宽残影，确保读作整根柱体在高速下压。
-    var activeHit = last >= 0 ? hits[last] : -99, activeAge = e - activeHit;
-    if (upcoming >= 0 && hits[upcoming] - e < 0.28) for (i = 1; i <= 4; i++) {
-      var ghostY = headY - i * 2;
-      for (x = cx - 10; x <= cx + 10; x++) c.put(x, ghostY, i < 3 ? '▓' : '░', i < 2 ? N : D);
-    }
-    // 整根 20 格宽金色桩柱：从顶部到底端不变粗细，没有独立锤头。
-    var pillarBottom = Math.min(anvilY, headY + 4);
-    for (y = top + 1; y <= pillarBottom; y++) {
-      for (x = cx - 10; x <= cx + 10; x++) {
-        var edge = x === cx - 10 || x === cx + 10;
-        var stripe = x < cx - 5 ? N : (x > cx + 5 ? G : (y + x) % 7 === 0 ? W : B);
-        c.put(x, y, edge ? '║' : (y % 3 ? '▓' : '█'), stripe);
-      }
-      if (y % 6 === 2) c.put(cx - 5, y, '12T', R);
-    }
-    // 最近一次撞击的火花、地面冲击环和瞬时亮闪。
-    var hit = activeHit, age = activeAge;
-    luOpenSparks(c, cx, anvilY - 1, age, hit >= 3 ? 3 : hit >= 2 ? 2 : 1, 220);
-    if (age >= 0 && age < 0.72) {
-      var rr = 5 + age * 68;
-      for (i = 0; i < 120; i++) {
-        var a = i / 120 * TAU;
-        c.put(cx + Math.cos(a) * rr, anvilY + Math.sin(a) * rr * 0.16,
-              age < 0.16 ? (i % 3 ? '█' : '*') : (i % 2 ? '+' : '.'), age < 0.16 ? W : (age < 0.42 ? R : G));
-      }
-      if (age < 0.14) {
-        for (i = 0; i < 9; i++) {
-          y = anvilY - 5 + i;
-          c.line(cx - 48 + i * 4, y, cx + 48 - i * 4, y, i % 2 ? '═' : '─', i % 2 ? W : B);
-        }
-      }
-      // 第三击把两侧结构和旧画面打出裂纹，下一段标题从碎片里接管。
-      if (hit === 3.20 && age > 0.12) {
-        for (i = 0; i < 7; i++) {
-          c.line(cx, anvilY - 1, 4 + i * 2, top + 5 + (i % 3), i % 2 ? '/' : '\\', age < 0.35 ? W : R);
-          c.line(cx, anvilY - 1, c.w - 5 - i * 2, top + 6 + (i % 2), i % 2 ? '\\' : '/', age < 0.35 ? W : R);
-        }
-      }
-    }
-    c.put(3, top, 'FORGE 01 // PILE RAM', W);
-    c.put(c.w - 31, top, 'STRIKE ' + (last + 1) + ' / 03 // 12T GOLD', R);
-    c.put(3, bt, 'ANVIL LOCKED  //  IMPACT ' + (age >= 0 && age < 0.5 ? 'DETECTED' : 'ARMED'), age >= 0 && age < 0.5 ? W : N);
+    if (e > 1.0) c.center(25, 'B L O O D   &   F L A M E', W);
+    if (e > 1.7) c.center(27, '3Z-STUDIO  /  HOYO-MIX', N);
   }
 
-  // 46×30 全身像素立绘：金发双马尾、红瞳、黑白礼服、长靴；武器由下层像素单独构成。
-  var LU_CLARE_INK = null;
-  function luOpenClareInk() {
-    if (LU_CLARE_INK) return LU_CLARE_INK;
-    var ink = [];
-    function add(x, y, ch, st, token) { ink.push([Math.round(x), Math.round(y), ch, st, token]); }
-    function rect(x0, y0, w, h, ch, st, token) {
-      for (var y = y0; y < y0 + h; y++) for (var x = x0; x < x0 + w; x++) add(x, y, ch, st, token);
-    }
-    function lineCells(x1, y1, x2, y2, ch, st, token) {
-      var steps = Math.max(Math.abs(x2 - x1), Math.abs(y2 - y1), 1) * 2;
-      for (var i = 0; i <= steps; i++) {
-        var u = i / steps;
-        add(mix(x1, x2, u), mix(y1, y2, u), ch, st, token);
+  function lu_credits_void(c, t, top, bt, e) {
+    var cx = (c.w - 1) / 2, cy = (top + bt) / 2;
+    luIntroRoom(c, t, top, bt);
+    var label, i;
+    if (e < 2.6) {
+      var u = e / 2.6;
+      luIntroRose(c, t, top, bt, 19 + u * 5, u * 0.23, e > 2.28);
+      // 八向锁销退开，玫瑰窗从完整实体变为可开启的封印。
+      for (i = 0; i < 8; i++) {
+        var a = i * TAU / 8, r = 27 + u * u * 7;
+        c.line(cx + Math.cos(a) * r, cy + Math.sin(a) * r / 2,
+          cx + Math.cos(a) * (r + 5), cy + Math.sin(a) * (r + 5) / 2, '=', N);
+      }
+      label = '01 / THE SEAL AWAKENS';
+    } else if (e < 5.2) {
+      u = (e - 2.6) / 2.6;
+      luIntroRose(c, t, top, bt, 24 * (1 - u * 0.75), u * 0.8, false);
+      // 两扇厚门向两侧退开，后景小窗留在消失点。
+      luIntroGate(c, cx - u * 23, cy, 24, -u * 0.16, R, false);
+      luIntroGate(c, cx + u * 23, cy, 24, u * 0.16, B, false);
+      label = '02 / OPEN THE CRIMSON GATE';
+    } else if (e < 7.8) {
+      u = (e - 5.2) / 2.6;
+      // 一扇扇门沿指数深度后退，转角随深度递增，形成旋转缩小的红门回廊。
+      for (i = 0; i < 7; i++) {
+        var z = mod(i / 7 + u * 0.55, 1);
+        var size = 4 + Math.pow(1 - z, 2) * 48;
+        luIntroGate(c, cx, cy, size, u * 0.7 + z * 1.7, z < 0.25 ? B : R, false);
+      }
+      label = '03 / THROUGH THE LOOKING GLASS';
+    } else if (e < 10.4) {
+      u = (e - 7.8) / 2.6;
+      luIntroRose(c, t, top, bt, 10 + u * 13, t * 0.12, false);
+      luIntroFeathers(c, t, top, bt, 48, u);
+      label = '04 / WINGS BECOME A SIGNAL';
+    } else {
+      u = e - 10.4;
+      // 标题保持约四秒可读，外圈红门继续缓转，避免长时间静帧。
+      luIntroGate(c, cx, cy, 23, 0.025 * Math.sin(t * 0.8), R, false, 2.25);
+      luIntroGate(c, cx, cy, 26, -0.025 * Math.sin(t * 0.7), G, false, 2.12);
+      luIntroTitle(c, u, top, bt);
+      label = e < 13.4 ? '05 / FRAGMENTS FIND THEIR NAME' : '06 / LINK ESTABLISHED';
+      if (e > 15.2) {
+        // 标题下方点燃炉火；承接 16.42s 已有熔炉，不遮蔽标题。
+        var heat = clamp01((e - 15.2) / 1.22);
+        for (i = -4; i <= 4; i++) luFlame(c, cx + i * 2, bt - 1, heat * (5 - Math.abs(i) * 0.5), i + 10, t);
       }
     }
-    function ellipse(cx, cy, rx, ry, ch, st, token) {
-      for (var y = Math.floor(cy - ry); y <= Math.ceil(cy + ry); y++)
-        for (var x = Math.floor(cx - rx); x <= Math.ceil(cx + rx); x++) {
-          var dx = (x - cx) / rx, dy = (y - cy) / ry;
-          if (dx * dx + dy * dy <= 1) add(x, y, ch, st, token);
-        }
-    }
-
-    // 身后长剑：斜向双刃，靠近肩手处有白色十字护手。
-    lineCells(45, 0, 31, 12, '/', W, 'X');
-    lineCells(44, 0, 30, 12, '\\', G, 'X');
-    rect(29, 12, 5, 1, '=', W, 'W');
-    rect(31, 13, 2, 2, '#', K, 'K');
-
-    // 红色巨斧底层：左侧大月刃 + 斜向斧柄，右手握在柄端。
-    var axeProfile = [3, 5, 7, 8, 9, 10, 9, 8, 7, 6, 4, 3];
-    for (var ay = 17; ay <= 29; ay++) {
-      var ah = axeProfile[ay - 17];
-      var acx = 5 + (ay - 17) * 0.35;
-      var al = Math.max(0, Math.round(acx - ah));
-      var ar = Math.min(16, Math.round(acx + ah * 0.8));
-      for (var ax = al; ax <= ar; ax++) {
-        // 月刃内凹出暗色空洞，外缘留白，读作巨斧而不是红色矩形。
-        if (ay >= 20 && ay <= 26 && ax > acx + 2 && ax < ar - 2) continue;
-        var edge = ax === al || ax === ar || ay === 17 || ay === 29;
-        add(ax, ay, edge ? '=' : '#', edge ? W : R, 'R');
-      }
-    }
-    lineCells(13, 27, 23, 16, '#', K, 'K');
-    lineCells(14, 27, 24, 16, '=', G, 'K');
-
-    // 后发与双马尾：从头侧向两端分开，越长越细，避免和身体混成一整块。
-    for (var hy = 3; hy <= 25; hy++) {
-      var spread = (hy - 3) * 0.34;
-      var half = hy < 7 ? 1.6 : hy < 14 ? 1.4 : hy < 21 ? 1.0 : 0.7;
-      for (var side = -1; side <= 1; side += 2) {
-        var hcx = 23 + side * (4.8 + spread);
-        for (var hx = Math.floor(hcx - half); hx <= Math.ceil(hcx + half); hx++) {
-          var hi = hash16(hx * 19 + hy * 43);
-          add(hx, hy, hi % 5 === 0 ? '%' : '#', hi % 5 === 0 ? W : B, hi % 5 === 0 ? 'h' : 'H');
-        }
-      }
-    }
-    ellipse(23, 4.7, 4.0, 2.2, '#', B, 'H');
-    rect(20, 4, 7, 1, '#', B, 'H');
-    for (var bang = 20; bang <= 26; bang += 2)
-      lineCells(bang, 5, bang - 1, 7 + (bang % 2), '#', B, 'H');
-
-    // 头、红瞳、表情与白色高领；脸部用亮色镂空，和金色头发明确分层。
-    ellipse(23, 8, 3.5, 3.4, ':', W, 'S');
-    rect(20, 7, 2, 1, '@', R, 'E'); rect(25, 7, 2, 1, '@', R, 'E');
-    add(23, 10, '-', R, 'S');
-    rect(21, 11, 5, 1, '=', W, 'W');
-
-    // 手臂：左下接斧柄，右上接剑柄；黑白袖甲分离。
-    lineCells(20, 13, 16, 18, '#', K, 'K');
-    lineCells(21, 14, 17, 19, '=', W, 'W');
-    lineCells(26, 13, 31, 12, '#', K, 'K');
-    lineCells(27, 14, 31, 13, '=', W, 'W');
-
-    // 白上衣、黑束身、红腰带与下摆裙甲。
-    rect(19, 12, 9, 3, '=', W, 'W');
-    for (var ty = 14; ty <= 19; ty++) {
-      var tw = ty < 17 ? 8 : 9;
-      rect(23 - Math.floor(tw / 2), ty, tw, 1, '#', ty % 2 ? K : D, 'D');
-    }
-    rect(18, 19, 11, 1, '=', R, 'R');
-    for (var sy = 20; sy <= 23; sy++) {
-      var sw = 7 + (sy - 20) * 2;
-      rect(23 - Math.floor(sw / 2), sy, sw, 1, '#', sy % 2 ? D : K, 'D');
-      add(23 - Math.floor(sw / 2), sy, '=', R, 'R');
-      add(23 + Math.floor(sw / 2), sy, '=', R, 'R');
-    }
-
-    // 双腿、白色吊袜带与黑色长靴。
-    rect(20, 24, 3, 4, ':', W, 'S'); rect(26, 24, 3, 4, ':', W, 'S');
-    rect(20, 26, 3, 1, '=', W, 'W'); rect(26, 26, 3, 1, '=', W, 'W');
-    rect(19, 28, 5, 2, '#', K, 'K'); rect(25, 28, 5, 2, '#', K, 'K');
-    rect(18, 29, 7, 1, '=', G, 'K'); rect(24, 29, 7, 1, '=', G, 'K');
-
-    // 前景侧发与发丝高光，压住肩部形成层次。
-    lineCells(19, 6, 17, 15, '#', B, 'H'); lineCells(18, 7, 16, 14, '%', W, 'h');
-    lineCells(27, 6, 29, 15, '#', B, 'H'); lineCells(28, 7, 30, 14, '%', W, 'h');
-    LU_CLARE_INK = ink;
-    return ink;
+    clearRect(c, 0, top, c.w, 1);
+    c.put(3, top, label, N);
+    c.put(c.w - 22, top, 'IGNITION / ' + ('0' + Math.floor(e / 16.42 * 100)).slice(-2) + '%', R);
+    clearRect(c, 0, bt, c.w, 1);
+    c.center(bt, e < 10.4 ? 'BLOODBOUND   :   THE GATE REMEMBERS' : 'LINK UP   /   BLOOD & FLAME', e < 10.4 ? G : B);
   }
 
-  // 3.8–7.8：全身立绘由火星组装，落定后双马尾轻摆、红瞳眨眼。
-  function lu_open_clare(c, t, top, bt, e) {
-    luOpenHall(c, t, top, bt, false);
-    luParticles(c, t, top, bt, 54, 137, true, true);
-    var figureCx = (c.w - 1) / 2, figureCy = top + 15;
-    // 红月轮廓先于人物出现，给金发与黑礼服一个清楚的剪影边界。
-    luRing(c, figureCx, figureCy, 28 + Math.sin(t * 1.4) * 1.5, '.', R, 3, t * 0.08);
-    luRing(c, figureCx, figureCy, 32 + Math.sin(t * 1.1 + 1) * 1.2, ':', G, 4, -t * 0.05);
-    var mapW = 46, mapH = 30;
-    var ink = luOpenClareInk(), x0 = Math.floor((c.w - mapW * 2) / 2), y0 = top + 1;
-    var bob = e > 1.7 ? Math.round(Math.sin(t * 2.2) * 0.5) : 0;
-    var blink = mod(t, 3.2) > 3.02;
-    for (var i = 0; i < ink.length; i++) {
-      var p = ink[i], hs = hash16(i * 43 + 19);
-      var delay = (hs % 100) / 100 * 0.8 + p[1] / mapH * 0.25;
-      var u = clamp01((e - delay) / 0.9), ease = 1 - Math.pow(1 - u, 3);
-      var sway = e > 1.7 && (p[4] === 'H' || p[4] === 'h') && (p[0] < 14 || p[0] > 31) && p[1] > 7
-        ? Math.round(Math.sin(t * 2.5 + p[1] * 0.35) * (p[0] < 14 ? -0.7 : 0.7)) : 0;
-      var tx = x0 + p[0] * 2 + sway, ty = y0 + p[1] + bob;
-      if (u < 1) {
-        var ox = 3 + hash16(i * 17 + 2) % (c.w - 6), oy = top + hash16(i * 29 + 8) % (bt - top);
-        var ix = mix(ox, tx, ease), iy = mix(oy, ty, ease);
-        c.put(ix, iy, u > 0.75 ? p[2] : hs % 3 ? '+' : '*', u > 0.75 ? p[3] : hs % 2 ? R : B);
-        if (u < 0.8) c.put(ix - 1, iy, '.', G);
-      } else {
-        c.put(tx, ty, p[4] === 'E' && blink ? '==' : p[2] + p[2], p[3]);
-      }
-    }
-    // 面部焦点：两枚红瞳和金发高光在远景缩放时仍保持可读。
-    if (e > 0.72) {
-      c.put(x0 + 40, y0 + 8, '██', R);
-      c.put(x0 + 50, y0 + 8, '██', R);
-      c.put(x0 + 42, y0 + 5, '▓▓▓▓', W);
-      c.put(x0 + 52, y0 + 5, '▓▓▓▓', W);
-    }
-    var label = 'CLARE // BLOODBOUND HEIR';
-    c.put(3, top, label.slice(0, Math.floor(clamp01(e / 0.8) * label.length)), W);
-    c.put(c.w - 31, top, 'FULL-BODY PIXEL // READY', N);
-    if (e > 2.2) {
-      c.put(3, bt, 'TWIN TAILS / CRIMSON GREATAXE', B);
-      c.put(c.w - 25, bt, 'CLARE REF // OK', R);
-    }
-    for (var foot = figureCx - 13; foot <= figureCx + 13; foot++)
-      c.put(foot, bt - 2, foot % 3 ? '.' : '=', foot % 3 ? K : R);
-  }
-
-  // LINK UP 巨型点阵标题；机制与 world.execute(me) 标题接管一致：散点→飞行→锁存→扫光。
-  var LU_OPEN_TITLE_INK = null, LU_OPEN_TITLE_WH = '';
-  function luOpenTitleInk(w, top, bt) {
-    var key = w + ':' + top + ':' + bt;
-    if (LU_OPEN_TITLE_INK && LU_OPEN_TITLE_WH === key) return LU_OPEN_TITLE_INK;
-    var text = 'LINK UP', bitmap = [];
-    for (var row = 0; row < 5; row++) {
-      var parts = [];
-      for (var ci = 0; ci < text.length; ci++) parts.push(TITLE_FONT[text.charAt(ci)][row]);
-      bitmap.push(parts.join('0'));
-    }
-    var span = Math.min(104, w - 10), lineH = Math.min(15, bt - top - 8);
-    var left = Math.floor((w - span) / 2), y0 = top + Math.floor((bt - top - lineH) / 2);
-    var ink = [];
-    for (var yy = 0; yy < lineH; yy++) {
-      var brow = bitmap[Math.min(4, Math.trunc(yy * 5 / lineH))];
-      for (var xx = 0; xx < span; xx++)
-        if (brow.charAt(Math.min(brow.length - 1, Math.trunc(xx * brow.length / span))) === '1')
-          ink.push([left + xx, y0 + yy]);
-    }
-    LU_OPEN_TITLE_INK = ink; LU_OPEN_TITLE_WH = key;
-    return ink;
-  }
-
-  function lu_open_title(c, t, top, bt, e) {
-    var ink = luOpenTitleInk(c.w, top, bt), cx = (c.w - 1) / 2, cy = (top + bt) / 2;
-    var frame = Math.trunc(e * 24), alphabet = '01ABCDEF#*+';
-    // 红热光晕先亮起，再收束成标题；背景始终保留工业空间。
-    var density = mix(0.16, 0.035, clamp01(e / 3.5));
-    for (var y = top; y <= bt; y++)
-      for (var x = 2; x < c.w - 2; x++) {
-        var h = hash16(x * 37 + y * 911 + Math.trunc(e * 6) * 13);
-        if (h / 65535 < density)
-          c.put(x, y, h % 5 ? '.' : ':', h % 11 === 0 ? R : (h % 3 ? K : G));
-      }
-    for (var glow = 0; glow < 3; glow++)
-      luRing(c, cx, cy, 42 + glow * 12 + Math.sin(t * 1.7 + glow) * 2,
-        glow === 0 ? '*' : (glow === 1 ? ':' : '.'), glow === 0 ? R : (glow === 1 ? B : G), 2 + glow, t * (glow ? -0.08 : 0.12));
-    for (x = 4; x < c.w - 4; x += 2) {
-      var scan = cy + Math.sin(x * 0.24 + t * 2.2) * 4;
-      c.put(x, scan, x % 4 ? '─' : '═', x % 5 ? G : R);
-    }
-    luParticles(c, t, top, bt, 24, 211, true, true);
-    for (var i = 0; i < ink.length; i++) {
-      var tx = ink[i][0], ty = ink[i][1], hs = hash16(i * 17 + 51);
-      var delay = (hs % 1000) / 1000 * 0.9;
-      var u = clamp01((e - 0.35 - delay) / 2.3), ease = 1 - Math.pow(1 - u, 3);
-      var ox = hs % 2 ? 2 + hs % (c.w - 4) : (hs % 3 ? 2 : c.w - 3);
-      var oy = top + hash16(i * 29 + 10) % (bt - top);
-      var swirl = Math.sin(u * Math.PI) * (1 - u);
-      var ix = mix(ox, tx, ease) + Math.sin(e * 2 + i * 0.7) * swirl * 18;
-      var iy = mix(oy, ty, ease) + Math.cos(e * 2 + i * 0.7) * swirl * 5;
-      if (u >= 0.995) {
-        var sweep = mod(Math.trunc(e * 30), c.w + 24) - 12;
-        c.put(tx, ty, Math.abs(tx - sweep) < 4 ? '█' : (i % 5 ? '▓' : '█'), Math.abs(tx - sweep) < 4 ? W : B);
-      } else {
-        c.put(ix, iy, alphabet.charAt((hs + frame) % alphabet.length), hs % 3 ? N : B);
-        if (i % 2 === 0) c.put(ix - 1, iy, '.', hs % 5 ? G : R);
-      }
-    }
-    c.put(2, top + 1, '+', N); c.put(c.w - 3, top + 1, '+', N);
-    c.line(3, top + 1, c.w - 4, top + 1, '-', G);
-    c.line(3, bt - 1, c.w - 4, bt - 1, '-', G);
-    if (e > 2.7) {
-      c.center(top + 2, '3Z-STUDIO / HOYO-MIX', W);
-      c.center(bt - 2, 'BLOOD & FLAME // CHARACTER EP', B);
-    }
-    if (e > 3.6) c.center(top, '[ TITLE LOCKED // LINK UP ]', R);
-  }
-
-  // 13.8–16.42：标题字形本身向外碎裂成余烬，最后聚成下一段的炉火。
-  function lu_open_handoff(c, t, top, bt, e) {
-    var ink = luOpenTitleInk(c.w, top, bt), cx = (c.w - 1) / 2, cy = (top + bt) / 2;
-    luOpenHall(c, t, top, bt, true);
-    luParticles(c, t, top, bt, 64, 251, true, true);
-    // 碎裂不是散场变黑：中央炉火在标题余烬里升起，形成结尾视觉锚点并桥接主歌。
-    var ignite = clamp01((e - 0.65) / 1.35);
-    if (ignite > 0) {
-      for (var fx = cx - 13; fx <= cx + 13; fx++) {
-        var fh = 3 + ignite * (7 + hash16(fx * 37 + 411) % 17);
-        luFlame(c, fx, bt - 2, fh, fx + 17, t);
-      }
-      if (ignite > 0.35)
-        for (var fy = bt - 2; fy > bt - 2 - ignite * 19; fy--) {
-          c.put(cx, fy, fy % 3 ? '█' : '═', ignite > 0.75 ? W : B);
-          if (fy % 2 === 0) { c.put(cx - 3, fy, ':', R); c.put(cx + 3, fy, ':', R); }
-        }
-    }
-    for (var i = 0; i < ink.length; i++) {
-      var tx = ink[i][0], ty = ink[i][1], hs = hash16(i * 17 + 51);
-      var delay = (hs % 100) / 100 * 0.3, u = clamp01((e - delay) / 1.65);
-      if (hs % 1000 / 1000 < u * 0.82) continue;
-      var a = Math.atan2((ty - cy) * 2, tx - cx) + u * 0.35;
-      var dist = Math.hypot(tx - cx, (ty - cy) * 2) + u * u * (25 + hs % 35);
-      var x = cx + Math.cos(a) * dist, y = cy + Math.sin(a) * dist / 2;
-      c.put(x, y, u < 0.35 ? '█' : u < 0.7 ? '*' : '.', u < 0.25 ? B : u < 0.65 ? R : G);
-      if (i % 4 === 0) c.put(x - 1, y, '.', R);
-    }
-    var flash = clamp01(e / 0.25) * clamp01((2.62 - e) / 0.5);
-    if (flash > 0)
-      for (i = 0; i < 90; i++) {
-        var aa = hash16(i * 71) % 628 / 100, rr = 2 + e * 17 * (0.4 + hash16(i * 13) % 100 / 100);
-        c.put(cx + Math.cos(aa) * rr * 2, cy + Math.sin(aa) * rr,
-              i % 3 ? '*' : '+', e > 1.8 ? W : R);
-      }
-    if (e < 1.15) c.center(top, '[ SIGNAL RELEASED // IGNITION ]', W);
-    c.center(bt, e > 1.8 ? 'STRIKE WHEN IT IS RED-HOT' : 'LINK UP // BLOOD & FLAME', e > 1.8 ? W : R);
-  }
-
-  // ===== 开幕参考帧重制：近景动作 → 拱窗 → 乌鸦 → 高窗前角色 =====
-  // 这些结构取自 B 站 MV 开幕截帧；红门、齿轮和锻炉留给后段场景。
-  function luOpenRefBase(c, t, top, bt, windowP) {
-    var cx = (c.w - 1) / 2, floor = bt - 3, y, x;
-    for (y = top; y <= bt; y++) for (x = 2; x < c.w - 2; x++) {
-      var h = hash16(x * 29 + y * 173 + Math.floor(t * 3) * 97);
-      if (h % 19 === 0) c.put(x, y, h % 3 ? '.' : ':', h % 5 ? G : K);
-    }
-    // 两侧高柱和向中央汇聚的暗色梁，保持截图里的纵深。
-    for (var side = 0; side < 2; side++) {
-      var px = side ? c.w - 13 : 12;
-      c.line(px, top, px - (side ? -5 : 5), floor, '|', G);
-      c.line(px + (side ? -5 : 5), top + 1, px, floor, '/', K);
-      c.line(px + (side ? -2 : 2), top + 2, px + (side ? -2 : 2), floor, '|', D);
-    }
-    // 哥特拱窗：近景阶段只留侧梁，第二镜头起才让拱窗进入画面。
-    var base = floor - 1, half = 25 + Math.round((1 - windowP) * 8), archTop = top + 2;
-    if (windowP > 0.16) {
-      c.line(cx - half, base, cx - half + half, archTop, '/', windowP > 0.35 ? N : G);
-      c.line(cx + half, base, cx + half - half, archTop, '\\', windowP > 0.35 ? N : G);
-      c.line(cx - half, base, cx - half, floor, '|', G);
-      c.line(cx + half, base, cx + half, floor, '|', G);
-      for (var wy = archTop + 3; wy < base - 2; wy++) {
-        var rise = (wy - archTop) / Math.max(1, base - archTop), span = Math.max(3, Math.floor(half * rise));
-        for (var wx2 = cx - span + 2; wx2 <= cx + span - 2; wx2++)
-          if ((wx2 + wy) % 4 === 0) c.put(wx2, wy, rise < 0.4 ? ':' : '.', windowP > 0.7 ? W : B);
-      }
-      for (var wi = -4; wi <= 4; wi++) {
-        var wx = cx + wi * 5, glow = windowP * (1 - Math.abs(wi) * 0.07);
-        var ws = glow > 0.72 ? W : glow > 0.35 ? B : N;
-        c.line(wx, archTop + 4, wx, base - 2, glow > 0.18 ? '|' : '.', ws);
-        if (wi % 2 === 0) c.put(wx - 1, base - 3, '++', ws);
-      }
-      c.line(cx, archTop, cx, base, windowP > 0.55 ? W : N);
-    }
-    for (x = 5; x < c.w - 5; x += 9) {
-      c.line(cx, floor, x, bt, '/', x % 18 ? K : G);
-      c.put(x, bt - 1, x % 18 ? '.' : '+', x % 18 ? D : N);
-    }
-    c.put(3, top, 'CAM 01 // CATHEDRAL MEMORY', windowP > 0.55 ? W : N);
-    c.put(c.w - 34, top, 'LUX GATE // ' + Math.round(windowP * 100) + '%', R);
-  }
-
-  function lu_open_ref_close(c, t, top, bt, e) {
-    luOpenRefBase(c, t, top, bt, 0.08);
-    var cx = 58 + Math.sin(t * 0.7) * 2, bodyTop = top + 7;
-    // 截图前两秒是人物和武器的裁切近景：用大面积黑衣、白发和红边建立轮廓。
-    for (var i = 0; i < 18; i++) {
-      var y = bodyTop + i, left = cx - 10 - Math.floor(i * 0.4), right = cx + 9 + Math.floor(i * 0.55);
-      for (var bx = left; bx <= right; bx++)
-        if (hash16(bx * 17 + y * 31) % 5 !== 0)
-          c.put(bx, y, i % 4 ? '#' : '%', i % 5 ? K : D);
-      if (i < 14) {
-        c.put(left - 3 - (i % 4), y - 1, i % 3 ? '/' : '\\', i % 4 ? W : B);
-        c.put(right + 4 + (i % 3), y - 1, i % 3 ? '\\' : '/', i % 4 ? W : B);
-      }
-    }
-    c.line(cx - 18, bodyTop + 3, cx - 34, bodyTop + 14, '/', R);
-    c.line(cx + 15, bodyTop + 2, cx + 28, bodyTop + 16, '\\', R);
-    c.put(cx - 8, bodyTop + 3, '::', W);
-    c.put(cx - 1, bodyTop + 5, '@', R);
-    c.put(cx + 8, bodyTop + 5, '@', R);
-    luLog(c, top + 2, e, [
-      ['FOCUS.LOCK / HAIR TRACE', 0.15, W],
-      ['STEEL EDGE ... BREATHING', 0.55, N]
-    ]);
-    for (i = 0; i < 26; i++) {
-      var sx = 8 + hash16(i * 31 + 5) % (c.w - 16), sy = top + 4 + hash16(i * 47 + 8) % 20;
-      c.put(sx + Math.sin(t * 2 + i) * 2, sy, i % 4 ? '.' : '*', i % 5 ? G : B);
-    }
-    c.put(3, bt, 'CLOSE // HAIR / STEEL / RED EYE', B);
-  }
-
-  function lu_open_ref_window(c, t, top, bt, e) {
-    var p = clamp01(e / 2.0);
-    luOpenRefBase(c, t, top, bt, p);
-    var cx = (c.w - 1) / 2, floor = bt - 3;
-    for (var i = 0; i < 16; i++) {
-      var y = top + 5 + i;
-      c.put(cx - 24 + (i % 3), y, i % 4 ? '|' : '+', p > i / 20 ? (i % 3 ? B : W) : G);
-      c.put(cx + 24 - (i % 3), y, i % 4 ? '|' : '+', p > i / 20 ? (i % 3 ? B : W) : G);
-    }
-    if (p > 0.35) {
-      for (i = 0; i < 18; i++) {
-        var sx = cx + (hash16(i * 71) % 45) - 22;
-        var sy = floor - 1 - hash16(i * 113) % 9;
-        c.put(sx, sy, i % 3 ? '.' : '*', i % 4 ? B : W);
-      }
-    }
-    var sweep = Math.floor(mod(t * 14, c.w - 12)) + 6;
-    c.line(sweep, top + 4, sweep - 8, bt - 4, '/', p > 0.7 ? W : B);
-    c.line(sweep + 2, top + 4, sweep - 6, bt - 4, '/', p > 0.7 ? B : G);
-    luLog(c, top + 2, e, [
-      ['LIGHT.GATE / OPENING', 0.1, W],
-      ['WINDOWS = 09 / SIGNAL IN', 0.65, N]
-    ]);
-    c.put(3, bt, 'WINDOW OPEN // LIGHT ENTERS', p > 0.7 ? W : N);
-  }
-
-  function lu_open_ref_crows(c, t, top, bt, e) {
-    var p = clamp01(e / 2.0);
-    luOpenRefBase(c, t, top, bt, 0.7);
-    var floor = bt - 3;
-    // 乌鸦群从两侧向镜头中心掠过；近处较亮、远处只留小点。
-    for (var i = 0; i < 34; i++) {
-      var z = 1 + hash16(i * 37) % 6;
-      var start = i % 2 ? c.w + 8 : -8;
-      var speed = 6 + z * 1.7;
-      var x = start + (i % 2 ? -1 : 1) * (t * speed * 3 + hash16(i * 17) % 90);
-      x = mod(x, c.w + 20) - 10;
-      var y = floor - 2 - hash16(i * 89) % Math.max(3, Math.floor((floor - top) * 0.7));
-      var wing = Math.sin(t * (4 + z * 0.2) + i) > 0 ? '^' : 'v';
-      var st = z > 4 ? D : z > 2 ? G : B;
-      c.put(x, y, wing, st);
-      if (z < 3) c.put(x - (i % 2 ? 1 : -1), y, i % 2 ? '/' : '\\', st);
-      if (z <= 2 && i < 12) {
-        c.put(x - 2, y, '<', W); c.put(x + 1, y, '>', W);
-        c.put(x - 1, y - 1, 'v', B);
-      }
-    }
-    for (var j = 0; j < 14; j++) {
-      var gx = 15 + hash16(j * 41) % 90;
-      c.put(gx, floor - 1 - hash16(j * 53) % 4, j % 3 ? '-' : '_', j % 4 ? G : B);
-    }
-    // 近地面的乌鸦剪影：截图里最容易丢失的细节用亮边补足。
-    for (var bird = 0; bird < 10; bird++) {
-      var bx2 = 8 + bird * 11 + Math.round(Math.sin(t * 1.8 + bird) * 2);
-      var by2 = floor - 3 - (bird % 3);
-      c.put(bx2 - 2, by2, '<', bird % 3 ? B : W);
-      c.put(bx2, by2 - 1, 'v', bird % 2 ? G : B);
-      c.put(bx2 + 2, by2, '>', bird % 3 ? B : W);
-      c.put(bx2, by2 + 1, '|', K);
-    }
-    luLog(c, top + 2, e, [
-      ['FLOCK.SYS / VECTOR FIELD', 0.05, W],
-      ['WINGS = 034 / AISLE LOCK', 0.65, R]
-    ]);
-    c.put(3, bt, 'FLOCK // WINGS CROSS THE AISLE', p > 0.5 ? W : N);
-  }
-
-  function lu_open_ref_figure(c, t, top, bt, e) {
-    var p = clamp01(e / 10.62), windowP = 1, cx = (c.w - 1) / 2;
-    luOpenRefBase(c, t, top, bt, windowP);
-    var headY = top + 12 - Math.round(p * 2), floor = bt - 2;
-    var wind = Math.round(Math.sin(t * 2.3) * 2), hairL = 20 + Math.round(p * 7), hairR = 21 + Math.round(p * 6);
-    // 长发先于身体落定，模拟截帧里从远景向人物推进的镜头。
-    for (var i = 0; i < 18; i++) {
-      var hy = headY - 5 + i;
-      c.put(cx - hairL - Math.floor(i * 0.42) + wind, hy, i % 3 ? '#' : '%', i % 4 ? W : B);
-      c.put(cx + hairR + Math.floor(i * 0.32) + wind, hy, i % 3 ? '#' : '%', i % 4 ? W : B);
-      if (i > 3 && i % 2 === 0) {
-        c.line(cx - hairL - Math.floor(i * 0.42) + wind, hy,
-          cx - hairL - 7 - Math.floor(i * 0.3) + wind, hy + 1, '\\', B);
-        c.line(cx + hairR + Math.floor(i * 0.32) + wind, hy,
-          cx + hairR + 7 + Math.floor(i * 0.25) + wind, hy + 1, '/', B);
-      }
-    }
-    c.put(cx - 4, headY - 3, '###', W); c.put(cx + 2, headY - 3, '###', W);
-    c.put(cx - 5, headY, ':::', W); c.put(cx + 3, headY, ':::', W);
-    c.put(cx - 2, headY + 1, '@', R); c.put(cx + 3, headY + 1, '@', R);
-    c.put(cx, headY + 3, '-', R);
-    // 黑色礼服和两条向下的腿，红色只做衣摆边缘与眼睛的强调。
-    for (i = 0; i < 13; i++) {
-      var yy = headY + 5 + i, half = 5 + Math.floor(i * 0.82);
-      c.line(cx - half, yy, cx + half, yy, i % 3 ? '#' : '%', i % 4 ? K : D);
-      if (i % 3 === 0) { c.put(cx - half, yy, '=', R); c.put(cx + half, yy, '=', R); }
-    }
-    c.put(cx - 3, headY + 5, '=====', W);
-    c.put(cx - 5, headY + 8, '==#==', B);
-    c.line(cx - 2, headY + 17, cx - 4, floor, '|', W);
-    c.line(cx + 3, headY + 17, cx + 6, floor, '|', W);
-    c.line(cx - 7, headY + 7, cx - 16 - Math.round(p * 4), headY + 13, '\\', W);
-    c.line(cx + 7, headY + 7, cx + 15 + Math.round(p * 3), headY + 14, '/', W);
-    for (i = 0; i < 30; i++) {
-      var dx = 7 + hash16(i * 97) % 106, dy = top + 4 + hash16(i * 131) % 24;
-      c.put(dx, dy, i % 5 ? '.' : '*', i % 6 ? G : B);
-    }
-    luRing(c, cx, headY + 1, 17 + Math.round(p * 4), '.', p > 0.55 ? R : G, 2, t * 0.08);
-    luLog(c, top + 2, e, [
-      ['FIGURE.SYS / HIGH WINDOW', 0.15, W],
-      ['EYES = CRIMSON / LINK UP', 1.25, R],
-      ['CAMERA PUSH / DEPTH +03', 4.2, B]
-    ]);
-    if (p > 0.64) c.center(top + 1, 'LINK UP // BLOODBOUND', R);
-    c.put(3, bt, p > 0.7 ? 'PUSH IN // CRIMSON EYES LOCKED' : 'FIGURE ENTERS THE HIGH WINDOW', p > 0.7 ? W : N);
-  }
-
-  function lu_credits_void(c, t, top, bt, elapsed) {
-    if (elapsed < 1.8) return lu_open_ref_close(c, t, top, bt, elapsed);
-    if (elapsed < 3.8) return lu_open_ref_window(c, t, top, bt, elapsed - 1.8);
-    if (elapsed < 5.8) return lu_open_ref_crows(c, t, top, bt, elapsed - 3.8);
-    return lu_open_ref_figure(c, t, top, bt, elapsed - 5.8);
-  }
   // ===== 主歌一 16.42–32.35 粒度细分：4 子场景，按歌词行切 =====
 
   // 16.42–20.57 "Fire burnin' up / new salvation"：锻炉口+双齿轮，跑者奔向炉火
@@ -5444,7 +5014,7 @@ title: 字符演歌
       dir: "{{ '/assets/data/ascii_mv/link_up' | relative_url }}",
       chrome: 'LINK UP / BLOOD & FLAME',
       fileHint: 'Link Up 血火相连.mp3（时长 03:08）',
-      noteTail: '场景按 B 站官方 MV 逐段移植构图与镜头节奏，再以状态日志、线框光门和确定性粒子重绘。',
+      noteTail: '从官方 MV 的拱窗、红门与群鸦提取意象，以原创字符分镜、旋转回廊和粒子标题重新编排。',
       // 场景表对照官方 MV（BV1C9b76cEks，MV 时间 ≈ 歌曲 + 11s）按歌词时间轴落位
       scenes: [
         { a: 0,      b: 16.42,  f: lu_credits_void },
