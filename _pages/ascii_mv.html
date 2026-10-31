@@ -3456,35 +3456,127 @@ title: 字符演歌
     c.center(bt, e < 2.05 ? 'ASHES BECOME FIRE' : 'FROM FIRE, WE RISE', B);
   }
 
-  // 20.57–24.32 "Runnin' through the hot coals"：热炭海 + 双跑者并肩（we both）
+  // 热炭段的实体翼片：扫描线填充多边形，保留面与面的明暗关系。
+  function luCoalFacet(c, points, st, ch) {
+    var minY = Math.ceil(Math.min.apply(null, points.map(function(p) { return p[1]; })));
+    var maxY = Math.floor(Math.max.apply(null, points.map(function(p) { return p[1]; })));
+    for (var y = minY; y <= maxY; y++) {
+      var cuts = [];
+      for (var i = 0; i < points.length; i++) {
+        var a = points[i], b = points[(i + 1) % points.length];
+        if ((a[1] <= y && b[1] > y) || (b[1] <= y && a[1] > y))
+          cuts.push(a[0] + (y - a[1]) * (b[0] - a[0]) / (b[1] - a[1]));
+      }
+      cuts.sort(function(a, b) { return a - b; });
+      for (i = 0; i + 1 < cuts.length; i += 2)
+        for (var x = Math.ceil(cuts[i]); x <= Math.floor(cuts[i + 1]); x++) c.put(x, y, ch || '█', st);
+    }
+  }
+
+  // 同一条解析轨迹同时驱动焰翼与尾迹，任意跳播都能得到同一画面。
+  function luCoalFlight(e, side) {
+    var weave = clamp01((e - 1.45) / 2.15);
+    var arc = weave * Math.PI;
+    return [59.5 + side * (23 * Math.cos(arc)),
+            15 + side * Math.sin(arc) * 3.3 + Math.sin(e * 2.2) * 0.6];
+  }
+
+  // 20.57–24.32：冲出炉门，双焰翼掠过炭床，再沿双弧交叉换位。
   function lu_s1_coals(c, t, top, bt, elapsed) {
-    var e = elapsed, cx = (c.w - 1) / 2, cy = (top + bt) / 2;
-    var beat = mod(t * 1.65, 1), env = Math.exp(-beat * 5);
-    for (var row = 0; row < 3; row++) {               // 三层热炭，亮度随节拍
-      var y = bt - 2 - row * 2;
-      for (var x = 3 + (row % 2); x < c.w - 3; x += 2) {
-        var hs = hash16(x * 31 + row * 77);
-        var glow = (hs % 100) / 100 * (0.5 + env * 0.6);
-        c.put(x, y, hs % 5 ? 'o' : '.',
-              glow > 0.62 ? (hs % 7 ? R : W) : glow > 0.4 ? B : glow > 0.22 ? N : D);
+    var e = elapsed, cx = (c.w - 1) / 2, horizon = 12;
+    var speed = e * 0.48, cross = clamp01((e - 1.45) / 2.15);
+
+    // 从消失点向镜头推进的玄武岩炭床：面块稳定，只有观察位置向前移动。
+    for (var y = horizon + 1; y < bt; y++) {
+      var depth = (y - horizon) / (bt - horizon), z = 1 / depth;
+      for (var x = 2; x < c.w - 2; x++) {
+        var worldX = (x - cx) / (depth * 16), worldZ = z + speed * 5;
+        var row = Math.floor(worldZ), col = Math.floor(worldX + (row % 2) * 0.5);
+        var edgeX = mod(worldX + (row % 2) * 0.5, 1);
+        var edgeZ = mod(worldZ + Math.sin(worldX * 3.1) * 0.09, 1), h = hash16(col * 313 + row * 71);
+        var crack = edgeX < 0.045 || edgeZ < 0.06;
+        if (crack) c.put(x, y, depth > 0.5 ? '▓' : ':', h % 5 ? R : B);
+        else if (edgeZ < 0.15) c.put(x, y, '▄', h % 4 ? G : R);
+        else if (h % 6 === 0 && edgeX > 0.3 && edgeX < 0.7) c.put(x, y, '▒', G);
+        else if (depth > 0.55 && h % 3 === 0) c.put(x, y, '·', K);
       }
     }
-    for (var rn = 0; rn < 2; rn++) {                  // 双跑者 + 火星拖尾
-      var ru = mod(t * 0.62 + rn * 0.5, 1);
-      var rx = mix(c.w - 8, 6, ru), ry = cy - 3 + rn * 4 + Math.sin(ru * 9 + rn) * 1.6;
-      c.put(rx | 0, ry | 0, '@', rn ? B : W);
-      for (var tr = 1; tr <= 7; tr++)
-        c.put((rx + tr * 1.7) | 0, (ry + Math.sin(tr) * 0.8) | 0,
-              tr < 2 ? '*' : '.', tr < 3 ? R : tr < 5 ? B : D);
+
+    // 炭峡两岸的尖岩轮廓随深度展开，中央留出通道；红热边缘勾出纵深。
+    for (var k = 0; k < 7; k++) {
+      var z0 = mod(k / 7 + speed * 0.22, 1), d = z0 * z0;
+      var span = 9 + d * 72, foot = horizon + d * 18, height = 2 + d * 12;
+      for (var side = -1; side <= 1; side += 2) {
+        var sx = cx + side * span;
+        var points = [[sx - 5 * d, foot], [sx - side * 2, foot - height],
+                      [sx + side * (4 + d * 8), foot - height * 0.65], [sx + side * 9, foot]];
+        luCoalFacet(c, points, G, '▓');
+        c.line(sx - side * 2, foot - height, sx - side * 5 * d, foot, '/', R);
+      }
     }
-    for (var sp = 0; sp < 8; sp++) {                  // 炭花爆裂上弹
-      var hs2 = hash16(sp * 91 + 7);
-      var su = mod(t * (0.6 + hs2 % 40 / 50) + hs2 % 89 / 89, 1);
-      c.put((4 + hs2 % (c.w - 10)) | 0, (bt - 2 - su * (5 + hs2 % 4)) | 0,
-            su < 0.3 ? '*' : '.', su < 0.25 ? W : su < 0.5 ? R : D);
+    // 远处低矮的红日与水平热浪，避免延续上一镜的正面圆环构图。
+    for (x = cx - 17; x <= cx + 17; x++) {
+      var rim = horizon - 1 - Math.sqrt(Math.max(0, 17 * 17 - (x - cx) * (x - cx))) * 0.22;
+      c.put(x, rim, '▄', R);
     }
-    for (var x3 = 4; x3 < c.w - 4; x3 += 3)           // 顶部热浪微光
-      if (hash16(x3 * 13 + (t * 2 | 0)) % 100 < 12) c.put(x3, top, '.', R);
+    c.line(12, horizon, c.w - 13, horizon, '·', G);
+
+    // 先画历史轨迹，再画翼身。双层丝带有宽度，尖端始终接在实体尾部。
+    for (side = -1; side <= 1; side += 2) {
+      for (var j = 28; j >= 1; j--) {
+        var lag = j * 0.035, p = luCoalFlight(e - lag, side);
+        var tx = p[0] + side * Math.sin(lag * 4) * lag * 6;
+        var ty = p[1] + 3 + lag * 15;
+        var width = (1 - j / 32) * 2;
+        c.line(tx - width, ty, tx + width, ty, j > 17 ? ':' : '▓', side < 0 ? R : N);
+        if (j < 14) c.put(tx, ty, '█', side < 0 ? B : W);
+      }
+    }
+    // 飞行主体是宽翼的火焰纹章，不是几个字符组成的人形或单点跑者。
+    for (side = -1; side <= 1; side += 2) {
+      p = luCoalFlight(e, side);
+      var fx = p[0], fy = p[1], bank = side * Math.sin(cross * Math.PI) * 0.22;
+      var flare = Math.sin(e * 5 + side) * 0.7;
+      function wing(points, st, ch) {
+        luCoalFacet(c, points.map(function(q) { return [fx + q[0], fy + q[1] + q[0] * bank]; }), st, ch);
+      }
+      for (var w = -1; w <= 1; w += 2) {
+        wing([[0,-2],[w*5,-1],[w*15,5+flare],[w*7,3],[w*2,4]], R);
+        wing([[w*2,-1],[w*5,0],[w*12,4+flare],[w*5,2]], side < 0 ? B : N);
+        wing([[w*3,0],[w*6,2],[w*8,6],[w*3,3]], side < 0 ? N : B, '▓');
+      }
+      wing([[0,-5],[-3,0],[0,5],[3,0]], side < 0 ? B : W);
+      wing([[0,-4],[-2,0],[0,3]], side < 0 ? W : B);
+      c.put(fx, fy - 5, '◆', W);
+    }
+
+    // 稀疏的近景炭花从两侧掠过，运动方向与地面一致。
+    for (k = 0; k < 18; k++) {
+      var seed = hash16(k * 89 + 13), age = mod(e * 0.8 + seed / 65535, 1);
+      side = k % 2 ? 1 : -1;
+      sx = cx + side * (10 + age * age * 48);
+      var sy = horizon + age * 17;
+      c.line(sx, sy, sx + side * age * 3, sy + age * 1.5, '.', age > 0.65 ? B : R);
+    }
+
+    // 入口用上一镜末帧向外放大，模拟穿过炉门；0 秒与上一镜逐格衔接。
+    if (e < 0.55) {
+      var entry = new CCanvas(c.w, c.h); entry.clip = [top + 1, bt - 1];
+      lu_s1_forge(entry, 20.57, top, bt, 4.15);
+      var zoom = 1 + Math.pow(e / 0.55, 2) * 7;
+      var reveal = clamp01((e - 0.14) / 0.41);
+      for (y = top + 1; y < bt; y++) for (x = 2; x < c.w - 2; x++) {
+        if (Math.abs(x - cx) < reveal * c.w * 0.55 + Math.sin(y * 0.7) * reveal * 2) continue;
+        var ox = Math.round(cx + (x - cx) / zoom), oy = Math.round(19 + (y - 19) / zoom);
+        var cell = entry.cells[oy][ox];
+        if (e < 0.08 || cell[0] !== ' ') c.put(x, y, cell[0], cell[1]);
+      }
+    }
+    clearRect(c, 0, top, c.w, 1);
+    c.put(3, top, e < 1.85 ? '09 / THROUGH THE HOT COALS' : '10 / TWO FLAMES, ONE PATH', N);
+    c.put(c.w - 23, top, 'LINK / SYNCHRONIZED', R);
+    clearRect(c, 0, bt, c.w, 1);
+    c.center(bt, e < 1.85 ? 'SIDE BY SIDE / INTO THE HEAT' : 'WE CROSS THE FIRE TOGETHER', B);
   }
 
   // 24.32–27.98 "steel and iron / stay defiant"：交叉双剑+铁砧+垂链+双钢锭 3D
