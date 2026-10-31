@@ -3615,13 +3615,8 @@ title: 字符演歌
     }
   }
 
-  // 24.32–27.98：火迹淬成双刃 → 交击、冲击火星 → 交叉誓约纹章。
-  function lu_s1_iron(c, t, top, bt, elapsed) {
-    var e = elapsed, cx = (c.w - 1) / 2;
-    var lock = clamp01((e - 0.35) / 1.3), ease = lock * lock * (3 - 2 * lock);
-    var strike = e - 1.65, recoil = strike >= 0 ? Math.sin(strike * 18) * Math.exp(-strike * 7) : 0;
-    luIntroRoom(c, t, top, bt);
-
+  function luIronBackdrop(c,t,top,bt,e) {
+    var cx=(c.w-1)/2;
     // 后景为厚盾形砧座与垂落的红绶带，中央深色留白让白热刃脊可读。
     var shield = [[cx,6],[cx+29,10],[cx+27,24],[cx,31],[cx-27,24],[cx-29,10]];
     luCoalFacet(c, shield, R, '▓');
@@ -3639,6 +3634,18 @@ title: 字符演歌
       c.line(bx - 7, top + 2, bx + 7, top + 2, '═', B);
       c.put(bx, top + 2, '◆', W);
     }
+
+  }
+
+  // 24.32–27.98：火迹淬成双刃 → 交击、冲击火星 → 交叉誓约纹章。
+  function lu_s1_iron(c, t, top, bt, elapsed) {
+    var e = elapsed, cx = (c.w - 1) / 2;
+    var lock = clamp01((e - 0.35) / 1.3), ease = lock * lock * (3 - 2 * lock);
+    var strike = e - 1.65, recoil = strike >= 0 ? Math.sin(strike * 18) * Math.exp(-strike * 7) : 0;
+    luIntroRoom(c, t, top, bt);
+
+    luIronBackdrop(c,t,top,bt,e);
+    var side, x, y;
 
     // 两道弧形刃风先划过盾面，再由实体剑压住弧线。
     if (lock > 0.1 && strike < 0.45) {
@@ -3727,6 +3734,19 @@ title: 字符演歌
       fade:1-age/life,angle:age*(2.5+link*0.12)*side};
   }
 
+  // 两剑绕握柄向外倾倒：保持长度与色面，触地后短促反弹再平放。
+  function luFallenSwordPose(e,side) {
+    var delay=side<0?0:0.09,u=clamp01((e-delay)/1.05),turn=u*u;
+    var angle=side*mix(-0.88,Math.PI/2,turn);
+    var y=23+3.5*Math.sqrt(turn)+2.5*Math.sin(Math.PI*turn);
+    var hit=e-delay-1.05;
+    if(hit>0 && hit<0.25) {
+      var bounce=Math.sin(hit/0.25*Math.PI)*(1-hit/0.25);
+      y-=bounce*0.65;angle-=side*bounce*0.045;
+    }
+    return {x:side*13,y:y,angle:angle};
+  }
+
   // 27.98–32.35：锁链金冠压下 → 红晶受压、冠身开裂 → 双心脉动。
   function lu_s1_crown(c, t, top, bt, elapsed) {
     var e=elapsed,cx=(c.w-1)/2;
@@ -3742,18 +3762,8 @@ title: 字符演歌
       c.sy+=Math.round(Math.cos(impact*62)*1.7*Math.exp(-impact*10));
     }
     luIntroRoom(c,t,top,bt);
-    // 双剑与盾座沿同一空间轨迹缩到石台上，王冠随后落到它们上方。
-    var settle=clamp01(e/0.95),settleEase=settle*settle*(3-2*settle);
-    var crestScale=mix(1,0.46,settleEase),crestY=mix(18,25.5,settleEase);
-    var crest=new CCanvas(c.w,c.h);crest.clip=[top+1,bt-1];
-    lu_s1_iron(crest,27.98,top,bt,3.66);
-    for(var yy=top+1;yy<bt;yy++)for(var xx=2;xx<c.w-2;xx++) {
-      var ox=Math.round(cx+(xx-cx)/crestScale),oy=Math.round(18+(yy-crestY)/crestScale);
-      if(ox<2||ox>=c.w-2||oy<=top||oy>=bt)continue;
-      var crestCell=crest.cells[oy][ox];
-      c.put(xx,yy,crestCell[0],settle>0.85?G:crestCell[1]);
-    }
-
+    // 保留盾座和绶带的尺度；两把实体长剑独立倾倒，不再缩景或降低刃面亮度。
+    luIronBackdrop(c,t,top,bt,3.66);
 
     // 厚重的三层石台在受力处断开；红色裂缝从中心向两侧蔓延。
     for(var tier=0;tier<3;tier++) {
@@ -3763,6 +3773,16 @@ title: 字符演歌
     if(crack>0) for(var side=-1;side<=1;side+=2) {
       c.line(cx,bt-3,cx+side*12*crack,bt-2,'/',R);
       c.line(cx+side*12*crack,bt-2,cx+side*30*crack,bt-1,'─',R);
+    }
+
+    for(var swordSide=-1;swordSide<=1;swordSide+=2) {
+      var sword=luFallenSwordPose(e,swordSide);
+      luIronBlade(c,cx+sword.x,sword.y,sword.angle,false,3.66,swordSide);
+      var hit=e-(swordSide<0?1.05:1.14);
+      if(hit>=0 && hit<0.28) for(var chip=0;chip<8;chip++) {
+        var hs=hash16(chip*73+9),reach=hit*(14+hs%20);
+        c.put(cx+swordSide*(20+reach),bt-3-Math.sin(hit/0.28*Math.PI)*(hs%3),'.',hit<0.1?B:G);
+      }
     }
 
     // 心核先被冠冕压扁；断裂后两个完整心核向下一镜的双心位置展开。
@@ -3851,9 +3871,13 @@ title: 字符演歌
       }
       luRing(c,cx,26,4+shock*42,'─',shock<0.25?W:R,2);
     }
-    // 入场零帧保留完整双剑画面，随后由缩景自然让出冠冕空间。
-    if(e===0) for(var y=top+1;y<bt;y++)for(var x=2;x<c.w-2;x++) {
-      var cell=crest.cells[y][x];c.put(x,y,cell[0],cell[1]);
+    // 入场零帧与前镜完全一致；下一帧开始由实体剑的旋转接续。
+    if(e===0) {
+      var entry=new CCanvas(c.w,c.h);entry.clip=[top+1,bt-1];
+      lu_s1_iron(entry,27.98,top,bt,3.66);
+      for(var y=top+1;y<bt;y++)for(var x=2;x<c.w-2;x++) {
+        var cell=entry.cells[y][x];c.put(x,y,cell[0],cell[1]);
+      }
     }
     c.sx=savedX;c.sy=savedY;
     clearRect(c,0,top,c.w,1);
@@ -3924,10 +3948,11 @@ title: 字符演歌
   }
 
   // 36.25–40.35：双心沿血管合流 → 角冠与翼膜展开 → 同一颗魔性心核共振。
-  function lu_s2_demonic(c,t,top,bt,elapsed) {
+  function lu_s2_demonic(c,t,top,bt,elapsed,fold) {
     var e=elapsed,cx=(c.w-1)/2,cy=18;
     var merge=clamp01(e/1.55),pull=merge*merge*(3-2*merge);
     var open=clamp01((e-1.35)/1.1),unfurl=1-Math.pow(1-open,3);
+    unfurl*=1-clamp01(fold||0);
     var power=luHeartBeat(t,0),breath=1+power*0.045;
     luIntroRoom(c,t,top,bt);
 
@@ -4010,39 +4035,91 @@ title: 字符演歌
     c.center(bt,e<1.55?'ONE RHYTHM / ONE CORE':'OUR BLOOD / OUR POWER',B);
   }
 
-  // 40.35–44.17 "they worship me...never see it / broke hearts deep scars"：
-  // 膜拜之眼阵列（半数闭合）+ 中央 3D 偶像球 + 疤痕裂纹
-  function lu_s2_worship(c, t, top, bt, elapsed) {
-    var e = elapsed, l = 2, r = c.w - 3, cx = (l + r) / 2, cy = (top + bt) / 2;
-    for (var px = -8; px <= 8; px += 2) c.put(cx + px, bt - 6, '=', D);   // 基座
-    for (var px2 = -5; px2 <= 5; px2 += 2) c.put(cx + px2, bt - 7, '#', N);
-    var sphW = luSphere(1.8);                         // 3D 偶像球
-    projected(c, sphW[0], sphW[1], cx - 7, bt - 22, cx + 7, bt - 9,
-              t * 0.25, e > 2 ? R : B, 1);
-    for (var row = 0; row < 3; row++) {               // 膜拜之眼三排
-      var y = bt - 4 - row * 3;
-      for (var x = l + 3 + (row % 2) * 3; x < r - 2; x += 6) {
-        var hs = hash16(x * 13 + row * 71);
-        if (hs % 100 < 46) { c.put(x, y, '-', D); continue; }  // 闭合=never see
-        c.put(x, y, 'o', N);
-        var look = x < cx ? 1 : -1;
-        if (hs % 3) c.put(x + look, y, '*', hs % 5 ? B : R);
+  // 杏仁形实体眼：厚眼睑、金色虹膜，闭眼时上下轮廓连续合拢。
+  function luWitnessEye(c,cx,cy,width,open,look) {
+    for(var y=Math.floor(cy-4);y<=Math.ceil(cy+4);y++)for(var x=Math.floor(cx-width);x<=Math.ceil(cx+width);x++) {
+      var nx=(x-cx)/width,dy=Math.abs(y-cy);
+      var lid=(1-nx*nx)*3*open;
+      if(Math.abs(nx)>1||dy>lid+0.6)continue;
+      if(dy>Math.max(0,lid-0.65))c.put(x,y,'▄',N);
+      else if(Math.abs(x-cx-look)<1.2)c.put(x,y,'█',K);
+      else if(Math.abs(x-cx-look)<3)c.put(x,y,'█',B);
+      else c.put(x,y,'▒',R);
+    }
+  }
+
+  // 40.35–44.17：魔翼收束成圣像面具 → 注视之眼闭合 → 裂面显露真实伤口。
+  function lu_s2_worship(c,t,top,bt,elapsed) {
+    var e=elapsed,cx=(c.w-1)/2,cy=18;
+    var fold=clamp01(e/1.0),rise=clamp01((e-0.2)/0.9);
+    var crack=clamp01((e-1.85)/0.65),split=clamp01((e-2.5)/0.85);
+    // 同一副魔翼逐渐收拢，保留心核位置与绝对时间心跳。
+    lu_s2_demonic(c,t,top,bt,4.1,fold);
+
+    if(fold>0) {
+      // 放射圣环只作为面具背后的轮廓，光芒有明确间距。
+      for(var ray=0;ray<24;ray++) {
+        var a=ray/24*TAU,rr=25+Math.sin(e*1.2)*0.6;
+        c.line(cx+Math.cos(a)*rr,cy+Math.sin(a)*rr/2,
+          cx+Math.cos(a)*(rr+3*fold),cy+Math.sin(a)*(rr+3*fold)/2,'·',G);
+      }
+      // 只保留六只较大的眼，避免密集小字符形成杂乱背景。
+      for(var side=-1;side<=1;side+=2)for(var row=0;row<3;row++) {
+        var delay=row*0.13+(side>0?0.1:0),shut=clamp01((e-1.8-delay)/0.9);
+        var eyeY=9+row*9,eyeX=cx+side*(row===1?43:38);
+        luWitnessEye(c,eyeX,eyeY,10*fold,fold*(1-shut),-side*2);
+        if(shut<1)c.put(eyeX,eyeY+4,'·',R);
       }
     }
-    for (var sc2 = 0; sc2 < 5; sc2++) {               // 顶部蔓延的疤痕裂纹
-      var hs2 = hash16(sc2 * 331 + 5);
-      var sx2 = 6 + hs2 % (c.w - 14), sy2 = top + 1;
-      for (var seg = 0; seg < 4 + hs2 % 5; seg++) {
-        c.put(sx2, sy2, 'x', seg % 2 ? R : D);
-        sx2 += (hs2 >> (seg % 8)) % 3 - 1; sy2++;
-        if (sy2 > cy - 8) break;
+
+    // 面具从心核两瓣长出；开裂后两半侧移并下沉，露出脉动的伤口。
+    if(rise>0) {
+      for(side=-1;side<=1;side+=2) {
+        var shift=split*14,tilt=side*split*0.24,cs=Math.cos(tilt),sn=Math.sin(tilt);
+        function face(points,st,ch) {
+          luCoalFacet(c,points.map(function(p) {
+            var x=p[0]*side,y=p[1];
+            return [cx+side*shift+(x*cs-y*2*sn)*rise,
+              cy+(x*sn/2+y*cs)*rise+split*split*3];
+          }),st,ch);
+        }
+        face([[0,-11],[11,-10],[17,-5],[15,4],[9,9],[0,12]],N);
+        face([[0,-11],[10,-9],[14,-4],[12,4],[7,8],[0,11]],B);
+        face([[0,-10],[3,-8],[3,7],[0,10]],W);
+        face([[10,-8],[14,-4],[12,4],[7,8],[9,1]],N,'▓');
+        // 深眼窝与窄唇，脸面保持雕像的几何感。
+        face([[3,-3],[12,-4],[10,-1],[5,0]],K,' ');
+        face([[4,-2],[10,-3],[8,-1],[5,-1]],R);
+        face([[2,1],[5,4],[1,5],[0,4]],N);
+        face([[0,7],[6,6],[4,8],[0,9]],R,'▓');
+        if(crack>0) {
+          var previous=[0,-10];
+          for(var seg=1;seg<=10*crack;seg++) {
+            var next=[seg%2?2:0.5,-10+seg*2];
+            face([[previous[0],previous[1]],[next[0],next[1]], [next[0]+1.2,next[1]],[previous[0]+1.2,previous[1]]],R);
+            previous=next;
+          }
+        }
       }
     }
-    luLog(c, top + 1, e, [
-      ['WORSHIP.SYS -- IDOL ONLINE', 0.4, N],
-      ['> followers ........... 1048576', 1.4, B],
-      ['> true sight .......... 0.00%', 2.6, R]
-    ]);
+    // 裂口中的心核与白热疤痕放在两半面具之间，轮廓随双拍收缩扩张。
+    if(split>0) {
+      luBeatingHeart(c,cx,cy,t,0,mix(0.65,1.35,split));
+      var scarY=cy-6,scarX=cx-3;
+      for(var k=0;k<7;k++) {
+        var xx=cx+(k%2?2:-2),yy=cy-6+k*1.8;
+        c.line(scarX,scarY,xx,yy,'/',k%2?W:R);scarX=xx;scarY=yy;
+      }
+      for(var i=0;i<12;i++) {
+        var seed=hash16(i*157),dir=i%2?1:-1;
+        c.put(cx+dir*(6+split*(7+seed%12)),cy+split*split*11-(seed%9),'◆',split<0.5?B:R);
+      }
+    }
+    clearRect(c,0,top,c.w,1);
+    c.put(3,top,e<1.85?'20 / THEY WORSHIP THE MASK':'21 / THEY NEVER SEE THE SCARS',N);
+    c.put(c.w-22,top,e<1.85?'GAZE / FIXATED':'TRUE SIGHT / NONE',R);
+    clearRect(c,0,bt,c.w,1);
+    c.center(bt,e<1.85?'GOLD ON THE OUTSIDE':'BROKEN HEART / HIDDEN SCARS',B);
   }
 
   // 44.17–48.17 "shared pain gold chains / you are my lifeline"：
