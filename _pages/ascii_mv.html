@@ -4349,45 +4349,131 @@ title: 字符演歌
     clearRect(c,0,bt,c.w,1);c.center(bt,e<2.15?'YOUR LIGHT THROUGH EVERY PANE':e<4.55?'EVERY ARCH LEADS BACK TO YOU':'BEYOND THE GOLDEN DOOR',B);
   }
 
-  // 55.13–64.40 "It's just you & me in the end"：双信子相遇爆亮 → 血色侵蚀 → 底部点燃
-  function lu_s3_meet(c, t, top, bt, elapsed) {
-    var cy = (top + bt) / 2, e = elapsed, l = 2, r = c.w - 3, cx = (l + r) / 2;
-    var meet = clamp01(e / 2.6);                      // 相向滑行
-    var tint = clamp01((e - 4.2) / 3.0);              // 血色侵蚀
-    var ignite = clamp01((e - 6.8) / 1.5);            // 底部点燃
-    var breathe = (0.8 + 0.2 * Math.sin(t * (0.5 + tint * 0.7))) * (1 - ignite * 0.35);
-    var sphD = luSphere(1.6);
-    projected(c, sphD[0], sphD[1], cx - 8, top + 1, cx + 8, top + 9,
-              t * 0.2, tint > 0.5 ? R : N, 1);
-    luParticles(c, t, top, bt, 14 + (tint * 20) | 0, 55, true, tint > 0.6);
-    for (var i = 0; i < 5; i++) {
-      var ph2 = t * (0.55 + tint * 0.3) + i * 1.7;
-      if (tint > 0 && hash16((t * 8 | 0) * 7 + i) % 100 < 14 * tint) ph2 += 3.1;
-      luRibbon(c, cy + (i - 2) * 4.5, (3.0 + i * 0.7) * breathe, 0.055, ph2,
-               tint > 0.45 ? R : i === 2 ? R : i % 2 ? B : N);
+  // 厚实的火焰纹章：外层红焰、内层金焰、白热焰心分别成面，尖端轻摆。
+  function luMeetFlame(c,x,y,size,angle,t,side) {
+    var cs=Math.cos(angle),sn=Math.sin(angle);
+    function face(points,st,ch) {
+      luCoalFacet(c,points.map(function(p){
+        var flicker=Math.max(0,-p[1]-3)/12*Math.sin(t*5.5+side+p[1]*0.18)*1.15;
+        var u=(p[0]+flicker)*size,v=p[1]*size;
+        return [x+u*cs-v*sn,y+(u*sn+v*cs)/2];
+      }),st,ch);
     }
-    var mA = l + meet * (cx - l), mB = r - meet * (r - cx);
-    var yA = cy - 4.5 + Math.sin(mA * 0.055 + t * 0.55 + 1.7) * 3.7 * breathe;
-    var yB = cy + 4.5 + Math.sin(mB * 0.055 + t * 0.55 + 3 * 1.7) * 5.1 * breathe;
-    c.put(mA | 0, yA | 0, '@', W);
-    c.put(mB | 0, yB | 0, '@', W);
-    if (meet >= 1) {                                  // 相遇爆亮 + 扩散环
-      var mu2 = mod(t * 1.2, 1);
-      luRing(c, cx, cy, (2 + mu2 * 7) | 0, '.', mu2 < 0.4 ? W : R, 2);
-      c.put(cx | 0, cy | 0, '*', W);
+    face([[0,7],[-6,4],[-8,-1],[-5,-7],[0,-15],[1,-6],[6,-10],[8,-3],[7,3],[3,6]],R,'▓');
+    face([[0,6],[-4,3],[-4,-2],[-1,-8],[0,-3],[3,-6],[5,-1],[3,4]],B,'▓');
+    face([[0,5],[-2,2],[0,-4],[2,1],[1,4]],W,'█');
+    face([[-5,2],[-7,-1],[-4,-6],[-4,0]],N,'▒');
+  }
+
+  // 两颗火种共用解析轨迹，尾焰取过去的位置，直接跳播也不会断尾。
+  function luMeetPose(e,side) {
+    var u=clamp01(e/2.15),lift=u*u*(3-2*u);
+    if(e<=2.15)return {x:side*mix(11,25,lift),y:mix(22,17,lift),size:mix(0.25,1.22,lift),angle:side*0.24*lift};
+    var orbit=clamp01((e-2.15)/2.4),ease=orbit*orbit*(3-2*orbit),r=25*(1-ease),a=ease*3.7;
+    return {x:side*Math.cos(a)*r,y:17+side*Math.sin(a)*r*0.24,size:mix(1.22,0.64,ease),angle:side*0.24+a*0.48};
+  }
+
+  // 红玻璃由原地裂成有厚度的三角切面，末段被冲击推开并下坠。
+  function luMeetGlass(c,cx,cy,e) {
+    var reveal=clamp01((e-2.0)/1.8),breakAge=Math.max(0,e-6.75);
+    if(reveal<0.1)return;
+    for(var i=0;i<12;i++) {
+      var seed=hash16(i*419+23),a=i/12*TAU-0.15;
+      var r=(31+seed%8)*reveal+breakAge*(8+seed%5)+breakAge*breakAge*3;
+      var x=cx+Math.cos(a)*r,y=cy+Math.sin(a)*r/2+breakAge*breakAge*2.3;
+      var rot=a+breakAge*(i%2?0.7:-0.65),cs=Math.cos(rot),sn=Math.sin(rot),sz=reveal*(0.6+reveal*0.4);
+      function point(u,v){return [x+(u*cs-v*sn)*sz,y+(u*sn+v*cs)*sz/2];}
+      luCoalFacet(c,[point(-5,-7),point(6,-3),point(2,8)],R,'▓');
+      luCoalFacet(c,[point(-5,-7),point(-1,-2),point(2,8)],G,'▒');
+      var p=point(-5,-7),q=point(6,-3);
+      c.line(p[0],p[1],q[0],q[1],i%2?'/':'\\',e>6.75&&breakAge<0.2?W:N);
     }
-    if (ignite > 0)                                   // 火舌烧上丝带末端
-      for (var fx = 4; fx < c.w - 4; fx += 2) {
-        var fh = hash16(fx * 977 + 7);
-        if (fh % 100 < ignite * 85)
-          luFlame(c, fx, bt, Math.max(1, (1 + ignite * 5 * (0.6 + 0.4 * Math.sin(t * 7 + fx))) | 0), fx, t);
+  }
+
+  // 55.13–64.40：穿出金门、双焰绕行 → 合焰冲击 → 红玻璃崩裂，火势升起。
+  function lu_s3_meet(c,t,top,bt,elapsed) {
+    var e=elapsed,cx=(c.w-1)/2,cy=17,impact=e-4.55,ignite=clamp01((e-6.75)/2.52);
+    // 金门后的暗色镜面，横向反光随双焰位置变化，保持双主体的留白。
+    for(var row=0;row<6;row++) {
+      var y=26+row,w=16+row*7;
+      c.line(cx-w,y,cx+w,y,row%2?'·':'─',G);
+    }
+    for(var side=-1;side<=1;side+=2) {
+      luCoalFacet(c,[[cx+side*53,8],[cx+side*45,13],[cx+side*49,28],[cx+side*58,31]],G,'░');
+      c.line(cx+side*53,8,cx+side*49,28,'│',R);
+    }
+    luMeetGlass(c,cx,cy,e);
+    // 二次点火先沿地面裂缝行进，再烧起五道有实体色面的火舌。
+    if(ignite>0) {
+      for(var side=-1;side<=1;side+=2) {
+        c.line(cx,29,cx+side*ignite*53,28,'─',R);
+        c.line(cx+side*ignite*27,28,cx+side*ignite*44,31,'/',B);
       }
-    luLog(c, bt - 11, e, [
-      ['approach ..... MEET', 0.3, B],
-      ['union ........ BURST', 2.6, W],
-      ['tint shift ... BLOOD', 4.4, R],
-      ['ignition ..... SOON', 6.9, R]
-    ]);
+      for(var n=-2;n<=2;n++) {
+        var grow=clamp01((ignite-Math.abs(n)*0.1)/0.65);
+        if(grow>0)luMeetFlame(c,cx+n*23,30-grow*1.5,grow*(n===0?1.3:1.05),n*0.13,t+n,n<0?-1:1);
+      }
+    }
+    if(e<4.55) {
+      // 先绘两条过去轨迹，再绘当前火焰；环绕交叉时不出现脱离主体的尾迹。
+      for(var side=-1;side<=1;side+=2) {
+        for(var j=30;j>=1;j--) {
+          var back=e-j*0.025;if(back<0)continue;
+          var p=luMeetPose(back,side),width=(1-j/31)*1.5;
+          if(e>1.0)c.line(cx+p.x,p.y-width,cx+p.x,p.y+width,'▒',j>22?G:R);
+        }
+      }
+      // 按纵深排序，靠下的一焰覆盖靠上的一焰。
+      var pair=[{side:-1,p:luMeetPose(e,-1)},{side:1,p:luMeetPose(e,1)}];
+      pair.sort(function(a,b){return a.p.y-b.p.y;});
+      for(var k=0;k<pair.length;k++) {
+        var p=pair[k].p,side=pair[k].side;
+        luMeetFlame(c,cx+p.x,p.y,p.size,p.angle,t,side);
+        for(var row=0;row<3;row++) {
+          var rx=cx+p.x+Math.sin(t*2+row)*1.1,ww=p.size*(4-row);
+          c.line(rx-ww,27+row,rx+ww,27+row,row%2?'·':'─',row===0?N:G);
+        }
+      }
+    } else {
+      // 合焰先爆出一圈白热边，再舒展开为唯一的火焰纹章。
+      var bloom=clamp01(impact/0.75),size=mix(0.64,1.75,bloom)*(1+0.025*Math.sin(t*5));
+      luMeetFlame(c,cx,mix(17,19,bloom),size,mix(1.776,0,bloom)+Math.sin(t*1.8)*0.035*bloom,t,0);
+      if(impact<0.48) {
+        var radius=4+impact*79;
+        luRing(c,cx,cy,radius,'·',impact<0.14?W:B,2);
+        for(var i=0;i<20;i++) {
+          var a=i/20*TAU,rr=impact*(27+hash16(i*73)%20);
+          c.line(cx+Math.cos(a)*rr,cy+Math.sin(a)*rr/2,cx+Math.cos(a)*(rr-2.5),cy+Math.sin(a)*(rr-2.5)/2,'─',impact<0.18?W:B);
+        }
+      }
+      // 两股火种汇成的环抱弧保留一段，再在升温时向外裂开。
+      for(var side=-1;side<=1;side+=2)for(var i=0;i<36;i++) {
+        var a=-1.05+i/35*2.1,r=20+ignite*24;
+        var x=cx+side*Math.cos(a)*r,y=19+Math.sin(a)*r/2;
+        if(ignite>0.2 && i%5===0)continue;
+        c.put(x,y,i%3?'▓':'█',i%3?R:B);
+      }
+    }
+    // 金尘与玻璃碎屑采用固定种子和弹道，黑色区域保持干净。
+    if(e>4.55)for(var i=0;i<22;i++) {
+      var seed=hash16(i*223+31),age=mod(impact*0.45+seed/65535,1),side=seed%2?1:-1;
+      c.put(cx+side*(9+age*(18+seed%18)),25-age*17+age*age*5,age<0.35?'+':'.',age<0.35?N:G);
+    }
+    // 从金门中穿出：上一镜以门口为中心向外放大，中央通道先显露新双焰。
+    if(e<0.95) {
+      var entry=new CCanvas(c.w,c.h);entry.clip=[top+1,bt-1];lu_s3_dreamt(entry,t,top,bt,6.96);
+      var zoom=1+e*1.25,gap=clamp01(e/0.95)*65;
+      for(var y=top+1;y<bt;y++)for(var x=2;x<c.w-2;x++) {
+        if(e>0 && Math.abs(x-cx)<gap)continue;
+        var sx=Math.round(cx+(x-cx)/zoom),sy=Math.round(22+(y-22)/zoom);
+        if(sx<0||sx>=c.w||sy<top+1||sy>=bt)continue;
+        var cell=entry.cells[sy][sx];c.put(x,y,cell[0],cell[1]);
+      }
+    }
+    clearRect(c,0,top,c.w,1);
+    c.put(3,top,e<2.15?'27 / ONLY YOU AND ME':e<4.55?'28 / TWO FLAMES CONVERGE':e<6.75?'29 / ONE FIRE REMAINS':'30 / THROUGH BLOOD AND FIRE',N);
+    c.put(c.w-23,top,e<4.55?'ORBIT / DRAWING CLOSER':e<6.75?'UNION / WHITE HEAT':'IGNITION / RISING',R);
+    clearRect(c,0,bt,c.w,1);c.center(bt,e<4.55?'AT THE END / WE FIND EACH OTHER':e<6.75?'TWO SPARKS / ONE UNBROKEN FLAME':'LET THE GLASS BREAK / LET THE FIRE RISE',B);
   }
 
   // ===== 血与火预热 64.40–72.01 粒度细分：2 子场景 =====
