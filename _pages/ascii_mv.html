@@ -4610,115 +4610,149 @@ title: 字符演歌
     clearRect(c,0,bt,c.w,1);c.center(bt,elapsed<1.7?'YOUR NAME / THROUGH THE FLAMES':'ALL FIRE / ONE HEART / ONE STRIKE',B);
   }
 
-  // ===== 副歌一锻造 72.01–80.00 粒度细分：2 子场景 =====
+  // ===== 副歌一锻造 72.01–80.00：三次柱锤重击，熔金锻成相扣双环 =====
 
-  // 72.01–76.12 "We link link link link up"：3D 锻锤砸砧 + 锻件升温（1-2 锤）
-  function lu_s5_strike(c, t, top, bt, elapsed) {
-    var l = 2, r = c.w - 3, cx = (l + r) / 2, cy = (top + bt) / 2, e = elapsed;
-    var beat = 1.86, ph = mod(e / beat, 1), cyc = Math.floor(e / beat);
-    for (var by = top + 1; by < bt; by += 2)          // 锻炉砖墙底纹（暗）
-      for (var bx = l + (by & 1); bx < r; bx += 4)
-        if (hash16(bx * 17 + by * 31) % 100 < 50)
-          c.put(bx, by, '.', hash16(bx * 7 + by * 3) % 4 ? G : K);
-    luGear(c, 9, top + 10, 5, t * 0.8, B);
-    luGear(c, c.w - 10, top + 11, 4, -t * 1.1, N);
-    luGear(c, 16, bt - 5, 3, -t * 1.4, D);
-    luGear(c, c.w - 17, bt - 6, 3, t * 1.2, D);
-    var ay = bt - 6;                                   // 铁砧
-    for (var a2 = 0; a2 < 4; a2++) {
-      var aw = 24 - a2 * 6;
-      for (var ax = -aw; ax <= aw; ax += 2)
-        c.put(cx + ax, ay + a2, a2 === 0 ? '#' : a2 < 2 ? '=' : '-',
-              a2 === 0 ? B : a2 < 2 ? N : D);
+  // 同一连续时间轴跨越两句副歌：慢提、短暂停顿、加速砸落、受阻回弹。
+  function luForgePose(age) {
+    var hits=[1.65,3.65,5.45],bottom=8,last=-1,dt=99;
+    for(var i=0;i<hits.length;i++) {
+      if(age>=hits[i]) {last=i;dt=age-hits[i];}
+      var start=hits[i]-0.54;
+      if(age>=start&&age<hits[i])bottom=mix(8,24,Math.pow((age-start)/0.54,2.7));
     }
-    var heat2 = [D, D, N, N, B][Math.min(4, cyc)];     // 锻件升温（本段 0-2 锤）
-    c.put(cx, ay - 1, cyc >= 3 ? 'o' : '#', heat2);
-    if (cyc >= 2) { c.put(cx - 2, ay - 1, '(', heat2); c.put(cx + 2, ay - 1, ')', heat2); }
-    var drop = ph < 0.42 ? Math.pow(ph / 0.42, 2.2) : 1;
-    var slamY = mix(2.2, -0.9, drop);
-    var vs3 = luBox(2.4, 1.0, 1.0, 0, slamY + 1.3, 0)
-      .concat(luBox(0.4, 1.3, 0.4, 0, slamY - 1.2, 0));
-    projected(c, vs3, luEdges(0).concat(luEdges(8)), l, top + 1, r, bt - 4, t * 0.1, B, 1);
-    if (ph >= 0.42 && ph <= 0.8) {                     // 砸击白闪横线 + 径向火星
-      var su = (ph - 0.42) / 0.38;
-      for (var fx = l + 2; fx < r; fx += 6) c.put(fx, ay - 2, '*', W);
-      for (var s2 = 0; s2 < 30; s2++) {
-        var hs2 = hash16(s2 * 131 + cyc * 7);
-        var sa = -Math.PI / 2 + (hs2 % 100 / 100 - 0.5) * 2.8;
-        var sd = su * (8 + hs2 % 12);
-        c.put((cx + Math.cos(sa) * sd * 2.4) | 0,
-              (ay - 1 - Math.abs(Math.sin(sa)) * sd * 0.5 - su * su * 2) | 0,
-              su < 0.3 ? '*' : su < 0.6 ? '+' : '.',
-              su < 0.25 ? W : su < 0.55 ? B : su < 0.8 ? N : D);
-      }
+    if(last>=0) {
+      if(dt<0.14)bottom=24-Math.sin(dt/0.14*Math.PI)*1.2;
+      else if(dt<0.84)bottom=mix(24,8,1-Math.pow(1-(dt-0.14)/0.7,2));
+      if(last===2&&dt>=0.14)bottom=mix(24,-7,1-Math.pow(1-clamp01((dt-0.14)/0.95),2));
     }
-    if (e < 1.6) c.big(cy - 6, 'LINK UP', e < 0.5 ? W : R);
-    luParticles(c, t, top, bt, 14, 77, true, true);
-    luLog(c, top + 1, e, [
-      ['FORGE.SYS v3.1 -- LINK PROTOCOL', 0.1, W],
-      ['> billet heated ......... 1200C', 0.8, G],
-      ['> strike 1/5 ................ OK', 1.9, N],
-      ['> strike 2/5 ................ OK', 3.7, N]
-    ]);
+    return {bottom:bottom,hit:last,dt:dt};
   }
 
-  // 76.12–80.00 "Link link link link up now"：锤加速 + 锻件成环升空 + 轨道曳光
-  function lu_s5_ring(c, t, top, bt, elapsed) {
-    var l = 2, r = c.w - 3, cx = (l + r) / 2, cy = (top + bt) / 2, e = elapsed;
-    var beat = 1.35, ph = mod(e / beat, 1), cyc = Math.floor(e / beat);
-    for (var by = top + 1; by < bt; by += 2)
-      for (var bx = l + (by & 1); bx < r; bx += 4)
-        if (hash16(bx * 17 + by * 31) % 100 < 50)
-          c.put(bx, by, '.', hash16(bx * 7 + by * 3) % 4 ? G : K);
-    luGear(c, 9, top + 10, 5, t * 1.2, B);
-    luGear(c, c.w - 10, top + 11, 4, -t * 1.6, N);
-    luGear(c, 16, bt - 5, 3, -t * 2.0, D);
-    luGear(c, c.w - 17, bt - 6, 3, t * 1.7, D);
-    var ay = bt - 6;
-    for (var a2 = 0; a2 < 4; a2++) {
-      var aw = 24 - a2 * 6;
-      for (var ax = -aw; ax <= aw; ax += 2)
-        c.put(cx + ax, ay + a2, a2 === 0 ? '#' : a2 < 2 ? '=' : '-',
-              a2 === 0 ? B : a2 < 2 ? N : D);
+  // 柱身从上到下等宽，无锤柄/锤头；明暗金色纵切面给出实体重量。
+  function luForgePillar(c,cx,bottom,t) {
+    for(var y=5;y<=Math.floor(bottom);y++)for(var x=-10;x<=10;x++) {
+      var st=x<-7?N:x>6?N:B,ch=x>7?'▓':'█';
+      if(x===-6||x===-5)st=W;
+      c.put(cx+x,y,ch,st);
+      // 铭纹附着柱体一起运动，轮廓不随纹样变粗变细。
+      var v=mod(Math.floor(bottom-y),8);
+      if(Math.abs(x)<=3&&(v===3||v===5)&&Math.abs(x)===Math.abs(v-4)+1)c.put(cx+x,y,'◆',N);
     }
-    var forged = cyc >= 1;                             // 本段 3 锤内锻件成环
-    var lift = clamp01((e - 2.2) / 1.6);               // 链环升空
-    if (forged) {
-      var ry2 = (ay - 1 - lift * 9) | 0;
-      luChainRing(c, cx, ry2, 4 + lift * 2, t * (0.5 + lift), R);
-      c.put(cx, ry2, '*', W);
-      if (lift >= 1) luTracerOrbit(c, cx, ry2, 9, t * 0.4, B);
-    } else {
-      var heat3 = [N, B, R][Math.min(2, cyc)];
-      c.put(cx, ay - 1, 'o', heat3);
-      c.put(cx - 2, ay - 1, '(', heat3); c.put(cx + 2, ay - 1, ')', heat3);
-    }
-    var drop = ph < 0.42 ? Math.pow(ph / 0.42, 2.2) : 1;
-    var slamY = mix(2.2, -0.9, drop);
-    var vs3 = luBox(2.4, 1.0, 1.0, 0, slamY + 1.3, 0)
-      .concat(luBox(0.4, 1.3, 0.4, 0, slamY - 1.2, 0));
-    projected(c, vs3, luEdges(0).concat(luEdges(8)), l, top + 1, r, bt - 4, t * 0.1, B, 1);
-    if (ph >= 0.42 && ph <= 0.8) {
-      var su = (ph - 0.42) / 0.38;
-      for (var fx = l + 2; fx < r; fx += 6) c.put(fx, ay - 2, '*', W);
-      for (var s2 = 0; s2 < 30; s2++) {
-        var hs2 = hash16(s2 * 131 + cyc * 7);
-        var sa = -Math.PI / 2 + (hs2 % 100 / 100 - 0.5) * 2.8;
-        var sd = su * (8 + hs2 % 12);
-        c.put((cx + Math.cos(sa) * sd * 2.4) | 0,
-              (ay - 1 - Math.abs(Math.sin(sa)) * sd * 0.5 - su * su * 2) | 0,
-              su < 0.3 ? '*' : su < 0.6 ? '+' : '.',
-              su < 0.25 ? W : su < 0.55 ? B : su < 0.8 ? N : D);
+    if(bottom>=5)c.line(cx-10,bottom,cx+10,bottom,'▄',W);
+  }
+
+  function luForgeLinks(c,cx,cy,grow,t) {
+    // 两只倾斜椭圆在中央交叉：上/下半圈分层绘制，遮挡次序交替形成穿扣。
+    var rx=mix(5,13,grow),ry=mix(1.5,6,grow),sep=mix(4,9,grow);
+    function arc(side,front) {
+      for(var i=0;i<=100;i++) {
+        var a=i/100*Math.PI+(front?0:Math.PI),u=Math.cos(a)*rx,v=Math.sin(a)*ry;
+        var x=cx+side*sep+u,y=cy+v+side*u*0.14;
+        c.line(x,y-0.6,x,y+0.65,'█',front?B:N);
+        c.put(x,y-0.6,'▄',front?W:B);
+        if(i%10===0)c.put(x,y+0.5,'·',R);
       }
     }
-    luParticles(c, t, top, bt, 14, 77, true, true);
-    luLog(c, top + 1, e, [
-      ['> strike 3/5 ................ OK', 0.2, N],
-      ['> strike 4/5 ................ OK', 1.6, N],
-      ['> strike 5/5 ................ OK', 2.8, N],
-      ['> chain forged ......... LIFT OFF', 3.6, R]
-    ]);
+    arc(-1,false);arc(1,true);arc(-1,true);arc(1,false);
+    var shine=mod(t*0.45,1)*TAU;
+    c.put(cx-sep+Math.cos(shine)*rx,cy+Math.sin(shine)*ry-Math.cos(shine)*rx*0.14,'+',W);
   }
+
+  function luForgeSequence(c,t,top,bt,age) {
+    var cx=(c.w-1)/2,p=luForgePose(age),hits=[1.65,3.65,5.45];
+    var release=clamp01((age-5.55)/1.75),lift=release*release*(3-2*release);
+    var shake=p.dt<0.32?Math.exp(-p.dt*9)*(1+p.hit*0.5):0;
+    c.sx=Math.round(Math.sin(p.dt*75)*shake*1.4);
+    c.sy=Math.round(Math.cos(p.dt*53)*shake);
+    // 建筑只在两岸，中央黑底衬出整根柱锤；导轨一直连接到画面上缘。
+    for(var side=-1;side<=1;side+=2) {
+      for(var bay=0;bay<3;bay++) {
+        var x=cx+side*(29+bay*13),roof=9+bay*1.5;
+        luCoalFacet(c,[[x-3,roof+3],[x+3,roof+3],[x+4,30],[x-4,30]],G,'▓');
+        c.line(x-side*2,roof+3,x-side*2,29,'│',N);
+        c.line(x-4,30,x+4,30,'▄',N);
+        c.line(x-6,roof+3,x,roof,'╱',R);c.line(x,roof,x+6,roof+3,'╲',R);
+        for(var inset=0;inset<3;inset++)c.put(x,roof+5+inset*4,'◆',N);
+      }
+      c.line(cx+side*14,5,cx+side*14,23,'║',G);
+      c.line(cx+side*17,5,cx+side*17,23,'│',N);
+      for(var i=0;i<3;i++) {
+        var x=cx+side*(32+i*11);
+        luMeetFlame(c,x,30,0.6+i*0.13,0,t+i+side,side);
+      }
+      c.line(cx+side*17,28,cx+side*56,31,'─',R);
+    }
+    // 连续承接誓约盾下方砧座，三层实体倒角，下沿留出岩缝。
+    luCoalFacet(c,[[cx-25,27],[cx+25,27],[cx+32,29],[cx-32,29]],N,'▓');
+    luCoalFacet(c,[[cx-32,29],[cx+32,29],[cx+23,32],[cx-23,32]],G,'█');
+    c.line(cx-25,27,cx+25,27,'▄',B);
+    c.line(cx-30,29,cx+30,29,'─',N);
+    // 锻件每击变薄变宽，第三击才成环，不用单个字符代替主体。
+    if(age<5.55) {
+      var width=14+Math.max(0,p.hit)*3,height=p.hit<0?2:p.hit===0?1.6:1.2;
+      luCoalFacet(c,[[cx-width,25-height],[cx+width,25-height],[cx+width+2,27],[cx-width-2,27]],R,'▓');
+      c.line(cx-width,25-height,cx+width,25-height,'▄',p.dt<0.4?W:B);
+      c.line(cx-width+2,26,cx+width-2,26,'█',B);
+    } else luForgeLinks(c,cx,25-lift*10,clamp01((age-5.55)/0.9),t);
+    luForgePillar(c,cx,p.bottom,t);
+    // 每击冲量由接触点发出：低扁冲击环、贴地火浪、带重力的灼热碎屑。
+    for(var hit=0;hit<3;hit++) {
+      var dt=age-hits[hit];if(dt<0||dt>1.25)continue;
+      var power=1+hit*0.22,r=8+dt*58*power;
+      if(dt<0.5) {
+        for(var a=0;a<TAU;a+=0.035)c.put(cx+Math.cos(a)*r,26+Math.sin(a)*r*0.065,'─',dt<0.12?W:B);
+        if(dt<0.09)c.line(cx-28,25,cx+28,25,'█',W);
+      }
+      for(var i=0;i<42;i++) {
+        var seed=hash16(i*197+hit*941),side=i%2?1:-1;
+        var vx=side*(17+seed%33)*power,vy=-(5+(seed>>5)%18)*power;
+        var x=cx+side*7+vx*dt,y=25+vy*dt+12*dt*dt;
+        if(y>30||x<3||x>c.w-4)continue;
+        c.line(x-vx*0.055,y-(vy+24*dt)*0.055,x,y,dt<0.45?'─':'.',dt<0.18?W:dt<0.7?B:R);
+        c.put(x,y,i%6===0?'◆':'+',dt<0.3?W:B);
+      }
+      for(var side=-1;side<=1;side+=2)for(var n=0;n<5;n++) {
+        var u=dt-n*0.055;if(u<0||u>0.55)continue;
+        var x=cx+side*(17+u*65),height=(1-u/0.55)*(2+hit);
+        c.line(x,28,x,28-height,'▒',R);c.put(x,28-height,'*',B);
+      }
+    }
+    if(age>6.2) {
+      // 火托双环升起，背景红框提前预示后续殿堂，不抢双环的金色轮廓。
+      var g=clamp01((age-6.2)/1.3);
+      luIntroGate(c,cx,17,23*g,0,R,false,1.7);
+      for(var side=-1;side<=1;side+=2)for(var i=0;i<9;i++) {
+        var u=mod(t*0.65+i/9,1),x=cx+side*(6+u*15),y=27-u*12;
+        c.put(x,y,u<0.5?'*':'.',u<0.5?B:N);
+      }
+      // 画框位于双环后面，重新绘制前景以保持实体遮挡。
+      luForgeLinks(c,cx,25-lift*10,clamp01((age-5.55)/0.9),t);
+    }
+    c.sx=0;c.sy=0;
+    // 白热柱逐列退去露出实体锤和砧台；入口与呼名段逐格相同。
+    if(age<0.65) {
+      var entry=new CCanvas(c.w,c.h);entry.clip=[top+1,bt-1];luOathSequence(entry,t,top,bt,7.61);
+      for(var y=top+1;y<bt;y++)for(var x=2;x<c.w-2;x++) {
+        if(age>0&&Math.abs(x-cx)>58*(1-age/0.65))continue;
+        var cell=entry.cells[y][x];c.put(x,y,cell[0],cell[1]);
+      }
+    }
+  }
+
+  function luForgeCaption(c,top,bt,age) {
+    var p=luForgePose(age);
+    clearRect(c,0,top,c.w,1);clearRect(c,0,bt,c.w,1);
+    c.put(3,top,age<5.55?'35 / STRIKE THE SAME HEART':'36 / TWO SOULS, ONE LINK',N);
+    c.put(c.w-24,top,age<5.55?'FORGE / '+(p.hit+1)+' OF 3':'LINK / UNBREAKABLE',R);
+    c.center(bt,age<5.55?'BLOOD + FIRE   /   FORGED TOGETHER':'WHAT ONCE BOUND US / NOW BINDS US TOGETHER',B);
+  }
+  function lu_s5_strike(c,t,top,bt,elapsed) {
+    luForgeSequence(c,t,top,bt,elapsed);luForgeCaption(c,top,bt,elapsed);
+  }
+  function lu_s5_ring(c,t,top,bt,elapsed) {
+    luForgeSequence(c,t,top,bt,4.11+elapsed);luForgeCaption(c,top,bt,4.11+elapsed);
+  }
+
   // ===== 殿堂段 80.00–96.03 粒度细分：4 子场景 =====
 
   // 80.00–84.09 "I was left for dead but you salvaged me"：立柱自底升起+神座显形+女王现身
