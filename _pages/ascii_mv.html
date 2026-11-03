@@ -4215,16 +4215,21 @@ title: 字符演歌
   // ② 分级阈值连续（同一档内部是完全一样的灰度），等值线被渐变抹匀，读成灰度过渡；
   // ③ 只有最外一档做概率抽样，中心与中区是连续墨面 ⇒ 不会整屏都是噪点。
   // R 控制光晕直径，bright 控制亮度包络：R 涨=光扩到画外，bright 降=整屏均匀变淡。
-  function luWhiteFlood(c,cx,cy,R,bright,top,bt,t) {
+  // hard=true 用于淡出：整屏已经同亮度，再抽样就成了一屏雪花，此时只降档不抽样。
+  function luWhiteFlood(c,cx,cy,R,bright,top,bt,t,hard) {
     if(R<=0.02||bright<=0.02)return;
     var save=c.clip;c.clip=null;
-    var hw=59.5,hh=Math.max(6,(bt-top)*0.425),my=(top+bt)/2;
+    // hh 决定光的形状。字符格是 1 列×2 行，所以视觉半径相等要求 hh = hw/2；
+    // 原来取的 0.425*(bt-top)≈11.9 行，横向却铺到 59.5 列，等于把圆压扁了 2.5 倍——
+    // 那才是"一直是个扁椭圆"的真正原因。取 hw/2 后 R=1 的光斑正好横到左右边、
+    // 纵向溢出上下边 ⇒ 读成圆，圆的上下被画幅裁掉，符合"光扩到全屏"。
+    var hw=59.5,hh=Math.max(6,hw*0.5),my=(top+bt)/2;
     for(var y=top;y<=bt;y++) {
-      // 上下各留两行的软边：光不硬切在场景带边界上，也不糊掉页眉页脚。
+      // 软边只留一行、且不压到零：光的边界就是画面边界。原来上下各 4 行渐变到黑，
+      // 峰值时上下各留两道暗带，整团读成"悬在中间的扁椭圆"而不是铺满全屏。
       var edge=1;
-      if(y<top+4)edge=(y-top)/4;
-      else if(y>bt-4)edge=(bt-y)/4;
-      if(edge<=0)continue;
+      if(y<top+2)edge=mix(0.90,1,(y-top)/2);
+      else if(y>bt-2)edge=mix(0.90,1,(bt-y)/2);
       for(var x=0;x<c.w;x++) {
         var ax=(x-cx)/hw,ay=(y-my)/hh,r=Math.hypot(ax,ay);
         var ang=Math.atan2(ay,ax);
@@ -4236,9 +4241,18 @@ title: 字符演歌
         // 覆盖率跟亮度走，淡出时才会一点点露出后面的画面，而不是罩一层灰纱。
         var cov=clamp01(u*1.5),v=cov*bright*edge;
         if(v<=0.04)continue;
-        var den=clamp01(v*1.9);
-        if(den<1&&hash16(x*37+y*71)/65535>den)continue;
-        c.put(x,y,v>0.82?'█':v>0.62?'▓':v>0.42?'▒':v>0.22?'░':'·',W);
+        var ch;
+        if(hard) {
+          // 淡出：整屏亮度相同，随机漏格只会得到一屏雪花，所以改成整屏同步降档；
+          // 最后一档 ░ 再用覆盖率收到 0，避免从满屏灰"啪"地跳黑。
+          if(v<0.22) { if(hash16(x*37+y*71)/65535>Math.pow(v/0.22,1.6))continue; ch='░'; }
+          else ch=v>0.82?'█':v>0.62?'▓':v>0.42?'▒':'░';
+        } else {
+          var den=clamp01(v*1.9);
+          if(den<1&&hash16(x*37+y*71)/65535>den)continue;
+          ch=v>0.82?'█':v>0.62?'▓':v>0.42?'▒':v>0.22?'░':'·';
+        }
+        c.put(x,y,ch,W);
       }
     }
     c.clip=save;
@@ -4257,6 +4271,15 @@ title: 字符演歌
     var springY=floor-11*s;                      // 起拱线：下面直腿、上面半圆拱
     cx+=Math.sin(t*1.7+index*2.1)*0.8*(1-p);     // 极慢视差漂移，不做高频抖动
     var near=p>0.62,fade=p>0.34;
+    // 门扇：两片对开红门，关门时铺满整个券洞，靠近过程中从中缝向两侧裂开，全开时宽度归零。
+    // 用全场唯一的红——石框是暖黄橙，红门板一眼就和框分开，"门正在开"这件事才看得见。
+    // 开合跟 p 走而不是跟时间走：每一扇都是"远处关着 → 走近时打开 → 贴脸时已全开"。
+    // 开门窗口刻意压在 p 的后半段：p<0.30 才算"关着"。因为三层错相 1/3，最近一层的 p
+    // 恒 ≥2/3，所以它永远已经开走——画面里始终有一扇正在被穿过，门板可见的永远是"正要开
+    // 的那一扇"。窗口再往前提，最近层就会一直半开着，红门板只剩两根竖条，反而看不见开门。
+    var open=clamp01((p-0.30)/0.32),gap=open*HW;
+    var gHW=Math.max(0.8,HW-gap),fBase=Math.round(floor),syBase=Math.round(springY);
+    var fanA=clamp01((1-open)/0.34);              // 门扇剩余强度：开过 2/3 后开始褪、散
     // 券厚按视觉单位算（1 列 = 1、1 行 = 2），所以纵向看着和横向一样厚。
     var Tv=Math.max(2,Math.min(8,HW*0.52));
     var x0=Math.max(1,Math.floor(cx-HW-Tv-1)),x1=Math.min(c.w-2,Math.ceil(cx+HW+Tv+1));
@@ -4267,9 +4290,28 @@ title: 字符演歌
         var vx=x-cx;
         // 到门洞内侧边缘的距离：直腿段按水平算，拱顶段按到拱心的距离算。
         var o=vy<=0?Math.abs(vx)-HW:Math.hypot(vx,vy)-HW;
-        if(o<0||o>Tv)continue;                   // 洞内留空；圈外不画
+        if(o<0) {
+          // 券洞内部＝两扇对开的门。整扇一起裂到拱尖，才是双开拱门；缝里就是空的，
+          // 能直接看见里面那一扇，不另画光——缝里压一道白线在大尺寸时会读成两根光柱。
+          var ax=Math.abs(vx),pol,dc,ds;
+          if(gap<0.55&&ax<0.55) { c.put(x,y,'█',K); continue; }   // 闭合时的一道暗合缝
+          if(ax<gap)continue;                     // 门缝：留空，透出里面的下一扇
+          pol=clamp01((ax-gap)/gHW);
+          dc='▓'; ds=R;                           // 整片门板同一个红，只靠两条边分体积
+          if(pol<0.18)      { dc='█'; ds=R; }     // 中缝一侧受光
+          else if(pol>0.84) { dc='▒'; ds=R; }     // 靠门柱一侧进暗
+          // 横向铁箍：每四行一道暗棕，把门板分成几段，读成"木板拼起来的门"而不是一块红布。
+          if(HW>5&&y>=syBase&&((y-fBase)%4+4)%4<1) { dc='▓'; ds=G; }
+          // 全开前门扇只剩窄条，一条竖红在画面里就是"光柱"。收尾阶段让它先褪成暗影、
+          // 再逐步漏格散掉，门是"开走了"而不是"被劈成两根柱子留在原地"。
+          if(fanA<0.90&&hash16(x*29+y*97)/65535>fanA*1.05)continue;
+          if(fanA<0.60)ds=G;
+          c.put(x,y,dc,ds);
+          continue;
+        }
+        if(o>Tv)continue;                        // 圈外不画
         var u=o/Tv,ch,st;
-        if(u<0.34)      { ch=near?'█':fade?'▓':'▒'; st=near?B:fade?N:K; }   // 内缘受光
+        if(u<0.26)      { ch=near?'█':fade?'▓':'▒'; st=near?B:fade?N:K; }   // 内缘受光
         else if(u<0.76) { ch=near?'▓':fade?'▒':'░'; st=near?N:fade?G:K; }   // 石身
         else            { ch=near?'▒':fade?'░':'·'; st=near?G:fade?K:K; }   // 外缘进暗
         // 拱顶每 45° 一道石缝，把券圈切成八块大方石。缝用暗棕不用墨绿，免得起苔藓味。
@@ -4303,13 +4345,8 @@ title: 字符演歌
       for(var sx2=Math.max(1,Math.floor(cx-HW-Tv*0.6));sx2<=Math.min(c.w-2,Math.ceil(cx+HW+Tv*0.6));sx2++)
         c.put(sx2,sy2,st2===1?'█':'▓',st2===1?(near?B:G):(near?G:K));
     }
-    // 贴脸那一扇：门洞里再压一层横竖棂（六格窗）。洞已经比画面还宽时就撤掉，
-    // 否则两根横线横穿一个大黑洞，会读成"拦了一道铁丝"。
-    if(p<0.42||HW>22)return;
-    if(springY-HW*0.5<8)return;
-    var ms=near?G:N;
-    for(var r=1;r<=2;r++)c.line(cx-HW+1,springY+(floor-springY)*r/3,cx+HW-1,springY+(floor-springY)*r/3,'─',ms);
-    c.line(cx,springY,cx,floor-1,'│',ms);
+    // 门洞里原来还压过一层"六格窗棂"。自从有了红门板，那两道横线是横穿门板画上去的，
+    // 读成"门板前拦了一道铁栅"，已删——门是门，不该同时是窗。
   }
 
   function luDreamShake(e,amount) {
@@ -4359,7 +4396,7 @@ title: 字符演歌
   // 长成满幅，交给下一镜从满幅白里淡出。两侧不再堆柱子/拱眉/红带，只留地面缝做参照。
   function lu_s3_dreamt(c,t,top,bt,elapsed) {
     var e=elapsed,cx=(c.w-1)/2,cy=17;
-    var flood=clamp01((e-5.25)/1.45),soft=flood*Math.sqrt(flood);
+    var flood=clamp01((e-4.70)/1.40),soft=flood*Math.sqrt(flood);
     var shake=luDreamShake(e,0.9*(1-flood*0.85));
     c.sx=shake.x;c.sy=shake.y;
     luDreamWall(c,cx,top,bt,clamp01((e-0.30)/1.1)*0.9);
@@ -4372,10 +4409,10 @@ title: 字符演歌
         var cell=entry.cells[yy][xx];c.put(xx,yy,cell[0],cell[1]);
       }
     }
-    // 白光从门洞里长出来：R 0.10→3.20，越过四角对角半径（1.54）后仍在长 ⇒ 峰值时整幅
-    // 都被光填满（四角也到 ▓），画面四边就是光的边界，不会留下一个悬在中间的扁椭圆。
+    // 白光从门洞里长出来：R 0.10→3.00。改成圆之后四角 r 只有 1.105，R=3.00 时四角
+    // q≈0.37、覆盖率早已饱和 ⇒ 峰值是整幅实白，四边就是光的边界。
     c.sx=0;c.sy=0;
-    if(flood>0)luWhiteFlood(c,cx,18,mix(0.10,3.20,soft),mix(0.72,1.00,flood),top,bt,t);
+    if(flood>0)luWhiteFlood(c,cx,18,mix(0.10,3.00,soft),mix(0.80,1.00,flood),top,bt,t);
     clearRect(c,0,top,c.w,1);c.put(3,top,e<2.30?'24 / THE STAINED GLASS DREAM':e<4.95?'25 / THROUGH TIME AND HALLS':'26 / THE WHITE DOOR',N);
     c.put(c.w-25,top,e<4.95?'HALLS / MOVING FORWARD':flood<0.9?'LIGHT / FILLING EVERY GAP':'LIGHT / NO DISTANCE LEFT',R);
     clearRect(c,0,bt,c.w,1);c.center(bt,e<4.95?'EVERY DOOR OPENS / KEEP WALKING':'WHITE LIGHT / NO DISTANCE LEFT',B);
@@ -4498,10 +4535,13 @@ title: 字符演歌
     }
     // 穿出去：白光本来就是满幅的，这里只让整幅均匀变淡（不是缩成一团），
     // 双焰在这层薄光后面显影 —— 全屏铺开 → 整屏变稀 → 黑，没有"大团跳成小点"的断层。
-    if(e<1.05) {
-      var k=clamp01(e/1.05),fade=Math.pow(1-k,1.30);
+    // 淡出只给 0.62s，且指数取 0.7（<1）：字符画里"很暗的整屏"只能靠 ░ 和稀疏点近似，
+    // 铺满多留一帧就是一屏雪花/纱窗，所以让亮度在末尾陡降、低亮度区只占最后半帧。
+    // 只降亮度、不让 R 收缩——收缩会变成"大团跳成小点"的断层。
+    if(e<0.62) {
+      var k=clamp01(e/0.62),fade=Math.pow(1-k,0.70);
       c.sx=0;c.sy=0;
-      luWhiteFlood(c,cx,18,3.20,fade,top,bt,t);
+      luWhiteFlood(c,cx,18,3.00,fade,top,bt,t,true);
     }
     c.sx=0;c.sy=0;
     clearRect(c,0,top,c.w,1);
