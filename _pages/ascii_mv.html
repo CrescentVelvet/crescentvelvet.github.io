@@ -4232,51 +4232,46 @@ title: 字符演歌
         var q=r/(R*wob);
         if(q>=1)continue;
         var u=1-q;
-        // 衰减刻意做得陡：光的主体是一大片实白，只有最后一圈才转灰→稀疏点。
-        // 中间留一大片"均匀灰"会读成雾/纱窗，那不是光。
+        // 亮度 v 同时决定「墨量档位」和「覆盖率」：亮到一定程度整格必画，暗下去则随机漏格。
+        // 覆盖率跟亮度走，淡出时才会一点点露出后面的画面，而不是罩一层灰纱。
         var cov=clamp01(u*1.5),v=cov*bright*edge;
-        if(v<=0.05)continue;
-        if(v<0.22) {
-          if(hash16(x*37+y*71)/65535>v/0.22)continue;
-          c.put(x,y,'·',W);
-        } else if(v<0.42)c.put(x,y,'░',W);
-        else if(v<0.62)c.put(x,y,'▒',W);
-        else if(v<0.82)c.put(x,y,'▓',W);
-        else c.put(x,y,'█',W);
+        if(v<=0.04)continue;
+        var den=clamp01(v*1.9);
+        if(den<1&&hash16(x*37+y*71)/65535>den)continue;
+        c.put(x,y,v>0.82?'█':v>0.62?'▓':v>0.42?'▒':v>0.22?'░':'·',W);
       }
     }
     c.clip=save;
   }
 
-  // 一扇门：门槛 + 两根门柱 + 尖拱。所有门共用同一条地平线，靠"越长越高"表达远近，
-  // 所以读起来是一排门立在走廊里、你正一扇扇走过去，而不是几扇飘着的拱。
-  // 门板关闭时铺满门洞，随深度推进从中缝裂开到两侧消失——裂开后才看得见里面的下一扇。
+  // 一扇窗：门槛 + 两根立柱 + 尖拱 + 一竖两横窗棂。所有窗共用同一条地平线，
+  // 靠"越贴越长大"表达远近 ⇒ 读成一排在走廊里、主体正一扇扇走过去。
+  // 远处只留一圈轮廓（不画窗棂）：三层窗棂叠在一起会糊成一排铁栅，那是之前"乱"的主因。
   function luDreamPortal(c,cx,cy,p,t,index) {
-    var s=0.18*Math.pow(11,p);
-    if(s>4.2)return;                             // 已经贴脸，交给下一层
-    var floor=cy+13,H=26*s,halfW=13*s;
-    var topY=floor-H,shoulderY=floor-H*0.60;
-    cx+=Math.sin(t*1.7+index*2.1)*0.9*(1-p);     // 极慢视差漂移，不做高频抖动
-    var st=p>0.85?G:p>0.62?N:p>0.30?G:K, ch=p>0.70?'█':p>0.30?'│':'·';
-    c.line(cx-halfW,shoulderY,cx-halfW,floor,ch,st);   // 左门柱
-    c.line(cx+halfW,shoulderY,cx+halfW,floor,ch,st);   // 右门柱
-    c.line(cx-halfW,shoulderY,cx,topY,'╱',st);         // 尖拱左撇
-    c.line(cx,topY,cx+halfW,shoulderY,'╲',st);         // 尖拱右撇
+    var s=0.22*Math.pow(13,p);                   // 0.22→2.86，三层级差 2.35 倍 ⇒ 匀速透视
+    if(s>3.0)return;
+    // 地平线随贴近而下沉（门槛从脚下扫出画外），近处那一扇才不会"啪"地消失。
+    var floor=cy+13+8*p*p,H=22*s,halfW=17*s;
+    var springY=floor-H*0.62,archRy=H*0.38;      // 拱顶只占上 38%，下面是直的门腿
+    cx+=Math.sin(t*1.7+index*2.1)*0.8*(1-p);     // 极慢视差漂移，不做高频抖动
+    var near=p>0.68;
+    var st=near?G:p>0.42?N:K, ch=near?'█':p>0.42?'│':'·';
+    c.line(cx-halfW,springY,cx-halfW,floor,ch,st);     // 左门腿
+    c.line(cx+halfW,springY,cx+halfW,floor,ch,st);     // 右门腿
     c.line(cx-halfW,floor,cx+halfW,floor,ch,st);       // 门槛
-    var open=clamp01((p-0.60)/0.25),gap=open*halfW*1.02;
-    if(gap<halfW-0.5) {
-      // 门板：暗金竖木纹。顶边跟着拱形走，不在尖拱里留一块突兀的方角。
-      var pc='│',ps=p>0.45?G:K;
-      for(var col=Math.ceil(cx-halfW+1);col<=Math.floor(cx+halfW-1);col+=2) {
-        if(Math.abs(col-cx)<gap)continue;
-        var tt=Math.abs(col-cx)/Math.max(1,halfW);
-        c.line(col,shoulderY+(topY-shoulderY)*tt+1,col,floor-1,pc,ps);
-      }
-      // 中缝两侧各压一条亮线，开合时能看清"门在裂开"。
-      c.line(cx-gap,shoulderY+1,cx-gap,floor-1,'│',open>0.05?N:G);
-      c.line(cx+gap,shoulderY+1,cx+gap,floor-1,'│',open>0.05?N:G);
+    // 拱顶画成半圆：逐列取椭圆上的点，用半格高的 ▄ 连成一条弧。
+    // 直边三角形（原来的尖拱）在字符网格上会读成"尖顶小房子"，弧线才读成门洞。
+    for(var x=Math.ceil(cx-halfW);x<=Math.floor(cx+halfW);x++) {
+      var tx=(x-cx)/halfW;
+      c.put(x,springY-archRy*Math.sqrt(Math.max(0,1-tx*tx)),ch,st);
     }
-    if(s>1.2)c.put(cx,topY-0.6*s,'◆',B);         // 门楣金饰，近处才有，标出"实体建筑"
+    if(p<0.42)return;
+    // 走到贴脸（拱顶已顶出画外）就撤掉窗棂：这时人已经在门洞里，只该看见门框扫过去。
+    if(springY-archRy<5)return;
+    // 窗棂：中间一条竖棂、上下两条横档，把窗分成六格。有棂才读成"窗"。
+    var ms=near?G:N;
+    for(var r=1;r<=2;r++)c.line(cx-halfW+1,springY+(floor-springY)*r/3,cx+halfW-1,springY+(floor-springY)*r/3,'─',ms);
+    c.line(cx,springY,cx,floor-1,'│',ms);
   }
 
   function luDreamShake(e,amount) {
@@ -4287,34 +4282,18 @@ title: 字符演歌
     };
   }
 
-  // 隧道尽头的小光点：最近一层门刚穿过去时最亮、下一层逼近时变暗。
-  // 只做一个小核，不做金色外环——环会让整团读成"圆盘"。
-  function luTunnelGlow(c,cx,cy,amp,t) {
-    if(amp<=0.05)return;
-    var R=(1.5+0.5*Math.sin(t*3.1))*(0.6+0.4*amp);
-    for(var y=Math.floor(cy-R*1.6);y<=Math.ceil(cy+R*1.6);y++)
-      for(var x=Math.floor(cx-R*2.1);x<=Math.ceil(cx+R*2.1);x++) {
-        var r=Math.hypot((x-cx)/2.1,y-cy);
-        if(r>R*1.5)continue;
-        var k=1-r/(R*1.5);
-        if(k>0.52)c.put(x,y,'◆',W);
-        else if(k>0.2)c.put(x,y,'·',B);
-      }
-  }
-
-  // 三扇同款门错相 1/3 周期：任何时刻都有远/中/近三层同框，尺寸成 2 倍级差 ⇒
+  // 三扇同款窗错相 1/3 周期：任何时刻都有远/中/近三层同框，尺寸成 3 倍级差 ⇒
   // 套娃式纵深；穿过一扇的同时最远处补上新的一扇，主体的"向前"由尺寸增长本身表达。
-  // 两侧不再堆柱子/拱眉/红带；地面只留五条透视缝 + 两条向外滑动的横档做速度参照。
+  // 两侧不再堆柱子/拱眉/红带；地面只留几条透视缝 + 一条向外滑动的横档做速度参照。
   function luDreamTunnel(c,cx,cy,e,t) {
-    var PER=2.00,LAYER=3,list=[];
+    var PER=2.40,LAYER=3,list=[];
     for(var k=0;k<LAYER;k++) {
       var p=mod(e/PER+k/LAYER,1);
-      list.push({p:p,s:0.18*Math.pow(11,p)});
+      list.push({p:p,s:0.22*Math.pow(13,p)});
     }
-    for(k=-1;k<=1;k++)c.line(cx,22,cx+k*24,31,'·',G);
-    var gu=mod(e*0.55,1),gy=24+gu*gu*7;
-    c.line(cx-(3+gu*24),gy,cx+(3+gu*24),gy,'·',gu>0.66?G:N);
-    luTunnelGlow(c,cx,cy,0.55+0.45*Math.cos(mod(e/PER,1)*TAU),t);
+    for(k=-2;k<=2;k++)c.line(cx,30,cx+k*26,33,'·',G);
+    var gu=mod(e*0.5,1);
+    c.line(cx-(2+gu*40),31,cx+(2+gu*40),31,'·',gu>0.7?G:N);
     list.sort(function(a,b){return a.s-b.s;});   // 由远及近覆盖
     for(k=0;k<list.length;k++)luDreamPortal(c,cx,cy,list[k].p,t,k);
   }
@@ -4323,7 +4302,7 @@ title: 字符演歌
   // 长成满幅，交给下一镜从满幅白里淡出。两侧不再堆柱子/拱眉/红带，只留地面缝做参照。
   function lu_s3_dreamt(c,t,top,bt,elapsed) {
     var e=elapsed,cx=(c.w-1)/2,cy=17;
-    var flood=clamp01((e-4.95)/1.95),soft=flood*Math.sqrt(flood);
+    var flood=clamp01((e-5.25)/1.45),soft=flood*Math.sqrt(flood);
     var shake=luDreamShake(e,0.9*(1-flood*0.85));
     c.sx=shake.x;c.sy=shake.y;
     if(e>0.50)luDreamTunnel(c,cx,cy,e,t);
@@ -4335,10 +4314,10 @@ title: 字符演歌
         var cell=entry.cells[yy][xx];c.put(xx,yy,cell[0],cell[1]);
       }
     }
-    // 白光从门洞里长出来：R 0.10→1.90 铺到四角，亮度同步抬到过曝。
-    // 画光之前先把整屏位移归零——光层跟着抖动会在边缘漏黑缝。
+    // 白光从门洞里长出来：R 0.10→3.20，越过四角对角半径（1.54）后仍在长 ⇒ 峰值时整幅
+    // 都被光填满（四角也到 ▓），画面四边就是光的边界，不会留下一个悬在中间的扁椭圆。
     c.sx=0;c.sy=0;
-    if(flood>0)luWhiteFlood(c,cx,18,mix(0.10,1.45,soft),mix(0.85,1.00,flood),top,bt,t);
+    if(flood>0)luWhiteFlood(c,cx,18,mix(0.10,3.20,soft),mix(0.72,1.00,flood),top,bt,t);
     clearRect(c,0,top,c.w,1);c.put(3,top,e<2.30?'24 / THE STAINED GLASS DREAM':e<4.95?'25 / THROUGH TIME AND HALLS':'26 / THE WHITE DOOR',N);
     c.put(c.w-25,top,e<4.95?'HALLS / MOVING FORWARD':flood<0.9?'LIGHT / FILLING EVERY GAP':'LIGHT / NO DISTANCE LEFT',R);
     clearRect(c,0,bt,c.w,1);c.center(bt,e<4.95?'EVERY DOOR OPENS / KEEP WALKING':'WHITE LIGHT / NO DISTANCE LEFT',B);
@@ -4461,10 +4440,10 @@ title: 字符演歌
     }
     // 穿出去：白光本来就是满幅的，这里只让整幅均匀变淡（不是缩成一团），
     // 双焰在这层薄光后面显影 —— 全屏铺开 → 整屏变稀 → 黑，没有"大团跳成小点"的断层。
-    if(e<1.20) {
-      var k=clamp01(e/1.20),fade=1-k*k;
+    if(e<1.05) {
+      var k=clamp01(e/1.05),fade=Math.pow(1-k,1.30);
       c.sx=0;c.sy=0;
-      luWhiteFlood(c,cx,18,1.45,fade,top,bt,t);
+      luWhiteFlood(c,cx,18,3.20,fade,top,bt,t);
     }
     c.sx=0;c.sy=0;
     clearRect(c,0,top,c.w,1);
