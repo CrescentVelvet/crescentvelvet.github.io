@@ -4645,7 +4645,9 @@ title: 字符演歌
     // 高度不能等到 close>0.22 才开始长：那段时间宽度已经有十几格，整块被压成一条横线，
     // 画面读作"中间空了一片黑"。宽高同时起步，宽度先满、高度后满。
     var gw=Math.pow(clamp01(close/0.55),0.70),gh=Math.pow(clamp01(close/0.72),0.85);
-    var sx=mix(1,0.62,compress)*mix(0.07,1,gw),sy=mix(1,0.155,compress)*mix(0.20,1,gh);
+    // 压缩终点留 0.42（原来 0.155）：压成 4 行薄片时整面盾会溶进台基那条暗带里，
+    // 画面中央从 70.3 到 71.0 没有任何主体。留成 11 行高的厚锻件才接得住光柱。
+    var sx=mix(1,0.70,compress)*mix(0.07,1,gw),sy=mix(1,0.42,compress)*mix(0.20,1,gh);
     var vTop=-12.6,vBot=13.6;
     var halfW=luOathHalfW;
     for(var v=vTop;v<=vBot;v+=1) {
@@ -4663,9 +4665,13 @@ title: 字符演歌
             // 分界随一次慢呼吸轻微摆动，整面盾的明暗就有起伏，不会像一块上了漆的木板
             // 分界再叠一层高频扰动：直线分档会在盾面拉出一条笔直的暗带，看着像贴了块补丁
             var diag=v+side*d*0.55+Math.sin(t*1.5)*2.2+Math.sin(v*1.7+side*d*0.9)*1.3;
-            var tune=diag<-8?0:diag<2?1:diag<12?2:3;
-            // 最暗一档改用暗棕而不是稀疏红点：纯黑底上的稀红点会整块消失，盾右下角像被啃掉
-            ch=tune>=3?'▓':tune===2?'▒':tune===1?'▓':'█'; st=tune>=3?G:R;
+            var tune=diag<-10?0:diag<-1?1:diag<8?2:3;
+            // 红三档（█受光 / ▓过渡 / ▒背光）+ 最深一档换暗棕。全用红的话缩略图里三档同色，
+            // 整面盾摊成一块平红布；整片换棕又会读成生锈的另一半。
+            ch=tune>=3?'▓':tune===2?'▒':tune===1?'▓':'█';
+            st=tune>=3?G:R;
+            // 明暗交界上压一条橙色倒角：金属的转折最有说服力的就是这条高光棱
+            if(tune>=2&&Math.abs(diag-8)<0.8) { ch='▓'; st=N; }
           }
           c.put(cx+side*d*sx,Y,ch,st);
         }
@@ -4681,25 +4687,26 @@ title: 字符演歌
       var u2=(rv-vTop)/(vBot-vTop),w2=Math.max(1,halfW(u2)-1.6);
       for(var s=-1;s<=1;s+=2)c.put(cx+s*w2*sx,cy+rv*sy,'◆',B);
     }
-    // 中轴金脊：三列，左缘亮黄、右缘压成暗橙，凹槽里一条白热火种随呼吸变宽变窄。
+    // 中轴金脊：只留两列，且白热只在一条上下滑动的短段里。
+    // 原来三列从顶亮到底、常亮，在 26 行高的盾上读成一根拉链/竹节；
+    // 金属的合缝是"暗金夹一线火"，不是一根荧光棒。
     if(compress<0.88) {
-      var breath=0.72+0.28*Math.sin(t*2.6);
+      var hv=vTop+mod(t*0.26,1)*(vBot-vTop);
       for(var v2=-12;v2<=11;v2+=1) {
         var Y2=cy+v2*sy;
-        c.put(cx-1,Y2,'▓',N);                            // 左缘暗橙，收进阴影
-        c.put(cx,Y2,breath>0.86?'█':'▓',breath>0.86?W:B); // 火种缝只在呼吸峰值白热，平时是亮金
-        c.put(cx+1,Y2,'█',B);                            // 右缘实心亮黄
+        var near=Math.abs(v2-hv)<2.6?1-Math.abs(v2-hv)/2.6:0;
+        c.put(cx-1,Y2,near>0.4?'▓':'▒',near>0.4?B:N);       // 左缘：平时暗橙，热段转金
+        c.put(cx,Y2,near>0.5?'█':'▓',near>0.5?W:B);         // 缝心：只有热段是白热
       }
-      // 加强筋：两道短横棱从金脊向两侧伸出，只到大半宽就收住，像盾面的骨架而不是缠带
+      // 甲片接缝：压一条暗槽 + 一颗沿线滑走的铆钉。
+      // 原来整条 `─` 亮线横贯盾面，叠上竖的金脊就成了编织篮。
       for(var sd=-1;sd<=1;sd+=2)for(var rb=0;rb<2;rb++) {
         var ry=cy-6+rb*11,rw=Math.min(9,sx*11)-rb*2;
         if(rw<3)continue;
-        // 光沿横筋往外跑：铁皮下还有火在走，静帧之间就不会完全一样
-        for(var rn=2;rn<=rw;rn++) {
-          var ph=mod(rn*0.26-t*1.1+rb*0.5,1);
-          c.put(cx+sd*rn,ry,'─',ph<0.16?W:ph<0.40?B:N);
-        }
-        c.put(cx+sd*rw,ry,'◆',B);
+        // 接缝只留一颗会滑动的铆钉。之前那排暗棕点（`·`）在 6px 的格子上就是一道黑杠，
+        // 读成盾面裂了——细节要有，但不能是"洞"。
+        var rp=mod(t*0.9+rb*0.5,1);
+        c.put(cx+sd*(2+rp*(rw-2)),ry,'◆',rp>0.55?W:B);
       }
     }
     if(compress>=0.88)c.line(cx-9,cy,cx+9,cy,'▄',W);
@@ -4749,11 +4756,14 @@ title: 字符演歌
   var HITS=[1.45,2.15,2.85],HIT_SIDE=[1,-1,1],HIT_Y=[11,17.5,23.5];
 
   // 共享连续时间轴，68.09s 只切换标题而不重置盾徽、火势或波纹。
-  function luOathSequence(c,t,top,bt,age) {
+  // pressOv：外部给的压缩量。呼唤镜要按自己的节拍把盾压成锻件，
+  // 不能沿用 focus 的默认曲线（那条曲线把压缩全堆在最后 1 秒）。
+  function luOathSequence(c,t,top,bt,age,pressOv) {
     var cx=(c.w-1)/2;
     // 0.10–1.05s：盾在火里成型。之前的 0.28s 起手会让中间有半秒空白，火焰已退、盾还没长出来。
     var close=clamp01((age-0.10)/0.95),lock=close*close*(3-2*close);
-    var call=Math.max(0,age-3.69),focus=clamp01((call-1.7)/2.22),press=focus*focus*(3-2*focus);
+    var call=Math.max(0,age-3.69),focus=clamp01((call-1.7)/2.22);
+    var press=pressOv===undefined?focus*focus*(3-2*focus):pressOv;
     var yLo=top+1,yHi=bt-1;
     // 受击：整屏顿一下 + 盾体往后仰半格再弹回来。抖幅 2 格以内，再大就成了画面故障。
     var shake=0,recoil=0;
@@ -4844,7 +4854,9 @@ title: 字符演歌
           var x=cx+sd*(21-n*Math.cos(ang)),y=hy+n*Math.sin(ang)*1.1;
           if(Math.abs(x-cx)>22||y<yLo||y>yHi)continue;
           if(n<=11*cr)c.put(x,y,sd>0?'╲':'╱',K);
-          else if(heat>0&&heat<1.5&&n<=11*Math.min(1,heat*1.7))c.put(x,y,'·',heat<0.55?N:G);
+          // 焊痕留 4 格就够：原来整条 11 格的暗棕点铺下来，在 6px 的格子上就是一道黑杠，
+          // 读成"盾面裂了"而不是"焊回去了"。金色短痕才像愈合。
+          else if(heat>0&&heat<1.5&&n<=4)c.put(x,y,'·',N);
         }
       }
     }
@@ -4859,41 +4871,181 @@ title: 字符演歌
         for(var s4=-1;s4<=1;s4+=2)c.put(cx+s4*w4,shieldY+rv2,fq>0.6?'◆':'+',fq>0.6?W:B);
       }
     }
-    if(call>0) {
-      // 三次呼唤由盾心向外传播，最后一圈收束到光柱。
-      for(var ring=0;ring<3;ring++) {
-        var a=call-ring*0.58;if(a<0||a>1.7)continue;
-        var r=10+a*28;
-        for(var i=0;i<120;i++) {
-          var theta=i/120*TAU;
-          var x=cx+Math.cos(theta)*r,y=shieldY+Math.sin(theta)*r/2;
-          if(Math.abs(x-cx)<24 && Math.abs(y-shieldY)<10*(1-press))continue;
-          var next=theta+TAU/120;
-          c.line(x,y,cx+Math.cos(next)*r,shieldY+Math.sin(next)*r/2,Math.abs(Math.sin(theta))>0.7?'─':'│',a<0.3?W:a<0.9?B:N);
-          if(i%20===0)c.put(x,y,'◆',B);
-        }
+    c.sx=0;c.sy=0;
+  }
+
+  // ===== 呼唤段的三件套：波纹 / 熔流 / 白热柱 =====
+  // 呼唤的三拍。分散到 0.34/0.86/1.38，前 1.5 秒才有连续的动静；
+  // 旧版三圈波在 1.7 秒里同一条式子算出来，前两圈早跑出画面，只剩最后一圈一闪。
+  var CALLS=[0.34,0.86,1.38];
+
+  // 呼唤波：从盾心外扩的椭圆。落在盾面上时压暗（板内的应力波），
+  // 冲出轮廓之后转亮，读作"声音从金属里炸出来"。
+  // 旧版用 c.line 连相邻采样点，每步 0.32 弧度 ⇒ 12fps 下退化成断裂的 `─│` 虚线。
+  function luCallWave(c,cx,cy,r,life) {
+    if(r<1)return;
+    var steps=Math.max(60,Math.round(r*10));
+    for(var i=0;i<steps;i++) {
+      var a=i/steps*TAU,x=cx+Math.cos(a)*r,y=cy+Math.sin(a)*r*0.42;
+      if(y<0||y>=c.h||x<1||x>c.w-2)continue;
+      // 只在盾体之外画：波是"从金属里炸出来的"，落在盾面上的部分会变成一条横贯盾心的
+      // 虚线（`·` 的笔画只有一两个像素，成排就是黑杠），比不画还糟。
+      var inside=Math.abs(x-cx)<19.5&&Math.abs(y-cy)<13.2;
+      if(inside)continue;
+      var cardinal=Math.abs(Math.sin(a*2))<0.34;
+      c.put(x,y,cardinal?'+':'·',life<0.30?W:life<0.62?B:N);
+    }
+  }
+
+  // 受热重染：直接改已经画好的像素，暗红→橙→金。
+  // 比重算一遍分档稳，也不用往 luOathShield 里塞一堆 heat 分支。
+  function luHeatWash(c,x0,x1,y0,y1,k) {
+    if(k<=0)return;
+    x0=Math.max(0,x0);x1=Math.min(c.w-1,x1);
+    // 上下也要夹：盾体下沿在 y≈42，越界会让 c.cells[y] 直接是 undefined
+    y0=Math.max(0,y0);y1=Math.min(c.h-1,y1);
+    for(var y=y0;y<=y1;y++)for(var x=x0;x<=x1;x++) {
+      var cell=c.cells[y][x],st=cell[1];
+      if(!cell[0]||cell[0]===' ')continue;
+      if(st===4)cell[1]=k>0.72?B:k>0.30?N:4;        // 红：先转橙、再转金
+      else if(st===5&&k>0.32)cell[1]=N;             // 暗棕阴影要早点转橙：0.70 才转的话
+                                                    // 锻件会是"金 + 橄榄绿"的杂色，读成发霉
+    }
+  }
+
+  // 熔流：两岸贴地的熔金河，从石壁根一路渗到中轴再立起来。
+  // 旧版是 40 个点按 1.15 格步长铺的 ▒R 短虚线，缩略图里读成"中间横着几块砖"。
+  function luCallStream(c,cx,side,head,t) {
+    if(head<=0)return;
+    // ⚠️ 采样数不能叫 N：N 是全局橙色色号（1），局部 var N 会把 c.put(...,N) 全部污染成 54。
+    var NSEG=54,baseY=29.6;
+    for(var n=0;n<=NSEG;n++) {
+      var u=n/NSEG;
+      if(u>head)break;
+      var x=cx+side*(56-50*u);
+      var rise=clamp01((u-0.78)/0.22);
+      var y=baseY-rise*1.6;
+      var ph=mod(u*2.4-t*2.2+(side>0?0:0.4),1);
+      var hot=ph<0.17;
+      // 两层差一档就有厚度：底行实心、上一行半亮；亮带经过时整条跳成白热
+      // 底行用 █ 而不是 ▄：▄ 和台基那条线同形，整条熔流会溶进地面读不出来
+      c.put(x,y,hot?'█':'█',hot?W:B);
+      c.put(x,y-1,hot?'▓':'▓',hot?B:N);
+      c.put(x,y-2,'·',hot?B:R);
+      var sd=hash16(n*37+11);
+      if(sd%6===0&&mod(t*1.5+sd/65535,1)<0.35)c.put(x,y-2-(sd%2),'·',B);
+    }
+    // 头部：一团白热熔球顶着走，后面拖两格金尾
+    var hx=cx+side*(56-50*head),hy=baseY-clamp01((head-0.78)/0.22)*1.6;
+    c.put(hx,hy,'█',W);
+    c.put(hx-side,hy,'█',B);
+    c.put(hx,hy-1,'▓',W);
+    c.put(hx-side*2,hy,'▓',B);
+    c.put(hx-side,hy-1,'▓',B);
+    c.put(hx-side*3,hy,'▒',N);
+  }
+
+  // 白热柱：底宽顶窄，每一行的宽度各自抖动，顶上接三束高低不同的火舌。
+  // 旧版是等宽直筒 + 两档描边 + 整行同相位正弦平移，缩略图读成"白色棋子/瓶子"。
+  function luCallPillar(c,cx,baseY,grow,t) {
+    var h=Math.max(1,21*grow),ty=baseY-h;
+    // 柱身只画到离顶 6 行，上面交给三束火舌。整根柱子一口气画到顶、再往顶上叠几个小尖，
+    // 结果永远是"烟囱口 + 装饰尖顶"——直轮廓本身就是建筑的语言，火没有直轮廓。
+    // 每一列各有各的顶：柱顶因此是一条撕裂的边，而不是一条平整横线。
+    // 之前用"整根画到顶 + 顶上叠三束火舌"，火舌的宽度大于间距，三束并成一条宽横杠，
+    // 叠出来是婚礼蛋糕式的阶梯金字塔——比原来的烟囱更糟。
+    for(var y=Math.floor(ty);y<=baseY;y++) {
+      var u=clamp01((baseY-y)/h);
+      // 整根缓慢偏摆 1 格：完全竖直的对称体量会读成建筑
+      var lean=Math.round(cx+Math.sin(t*0.8+y*0.06)*1.1);
+      var w=(12.4-6.4*Math.pow(u,1.35))*(0.92+0.08*Math.sin(t*9+y*1.7));
+      var wob=Math.sin(t*7.4-y*0.52)*1.5+Math.sin(t*2.9+y*0.23)*0.9;
+      var m=Math.max(1,w*0.66),k=Math.max(1,w*0.34*(0.86+0.16*Math.sin(t*12+y*0.85)));
+      var kb=Math.round(k);
+      for(var xo=-Math.round(m);xo<=Math.round(m);xo++) {
+        // 高位列要随时间迁移：只按 xo 取哈希会让"最高的两根"永远钉在同一处，顶部就成了
+        // 两根固定的尖角。混进 1.4s 一档的时间桶，长尖会沿着柱顶游走。
+        var stop=ty+(hash16(((xo+40)*29+5+Math.floor(t*1.4)*37)&65535)%10)+Math.sin(t*1.9+xo*0.6)*1.5;
+        if(y<stop)continue;
+        // 白芯用整块 █：▓ 的网点在 1.6 倍放大后会连成黑点，芯里像被凿了几个洞
+        if(Math.abs(xo)<=kb)c.put(lean+xo,y,u<0.86?'█':'▓',W);
+        else c.put(lean+xo,y,'▓',B);
       }
-      // 熔流从两侧向中心奔涌，轨迹上的亮点和其拖尾共用坐标。
-      if(focus>0)for(var side=-1;side<=1;side+=2)for(var stream=0;stream<3;stream++) {
-        for(var n=0;n<40;n++) {
-          var u=n/39,x=cx+side*(45*(1-u)),y=27-Math.sin(u*Math.PI)*(4+stream*2)*(1-focus*0.2);
-          c.put(x,y,n%3?'▒':'▓',R);
-          if(mod(u-t*0.8+stream*0.24,1)<0.12)c.put(x,y,'█',B);
+      // 外焰逐格掷骰、左右相位不同：边缘永远是毛的，不会留下一圈描边
+      for(var side=-1;side<=1;side+=2) {
+        var edge=Math.round(w+wob*0.7*(side>0?1:-1));
+        for(var d=Math.round(m)+1;d<=edge;d++) {
+          var g8=hash16((y*97+side*31+d*13+7)&65535)&255;
+          if(g8<52)continue;
+          c.put(lean+side*d,y,g8<120?'.':g8<190?'·':'+',g8<150?R:N);
         }
-      }
-      // 白热柱有外焰、金色中层与白芯；向上生长，不冒充实体锻锤。
-      if(focus>0.12) {
-        var grow=clamp01((focus-0.12)/0.88),height=23*grow;
-        for(var dy=0;dy<height;dy++) {
-          var y=26-dy,width=(4+grow*3)*(1-dy/Math.max(1,height)*0.45);
-          var sway=Math.sin(t*6-dy*0.48)*0.65;
-          c.line(cx-width+sway,y,cx+width+sway,y,'▒',R);
-          c.line(cx-width*0.7+sway,y,cx+width*0.7+sway,y,'▓',B);
-          c.line(cx-width*0.28+sway,y,cx+width*0.28+sway,y,'█',W);
-        }
-        c.line(cx-16,27,cx+16,27,'▄',B);
       }
     }
+    // 侧向只留一束、高度随拍子变：左右对称各挂一束会读成"烛台把手"
+    var lick=2.6+1.4*Math.sin(t*1.7),ly=baseY-h*0.30;
+    for(var lx=0;lx<lick;lx++) {
+      c.put(cx-9-lx,ly-lx*0.6,lx<1.4?'▓':'·',lx<1.4?B:N);
+      c.put(cx-9-lx,ly-lx*0.6-1,lx<1?'·':'.',R);
+    }
+    // ⚠️ 火星必须落在柱身之外：`·`/`+` 的笔画极细，撒在白芯上就是一个黑洞
+    for(var i=0;i<20;i++) {
+      var sd=hash16(i*173+37),uu=mod(t*0.5+sd/65535,1);
+      var off=(sd%41)-20,y=baseY-uu*(h+3);
+      if(Math.abs(off)<14)off+=(off<0?-1:1)*14;
+      c.put(cx+off*(0.6+uu*0.7),y,uu<0.3?'+':'·',uu<0.22?W:uu<0.6?B:N);
+    }
+    // 柱脚：熔金在台基上摊开，正好接住从两岸流过来的熔流
+    var pw=13+grow*13;
+    for(var bx=-pw;bx<=pw;bx++) {
+      var py=baseY+1+Math.abs(bx)/pw*1.1;
+      c.put(cx+bx,py,'▄',Math.abs(bx)>pw*0.55?N:B);
+    }
+    for(var bi=0;bi<10;bi++) {
+      var bs=hash16(bi*211+53),bu=mod(t*0.42+bs/65535,1);
+      c.put(cx+((bs%31)-15)*1.6,baseY+2-bu*1.6,bu<0.5?'.':'·',B);
+    }
+  }
+
+  // 68.09–72.01 的连续时间轴：呼唤（0–1.55）→ 熔流聚拢 + 压成锻件（1.40–2.90）→ 白热柱（2.55–3.92）。
+  // 旧版这段时间轴由 focus 一条曲线驱动，压缩和立柱都挤在最后 1 秒，前面 1.7 秒几乎是静止的盾。
+  function luCallSeq(c,t,top,bt,e) {
+    var cx=(c.w-1)/2;
+    // 压缩 1.50–2.55、立柱 2.05–3.20：两段重叠 0.5s。
+    // 旧版压缩到 2.90 才到位、光柱 2.55 才起手，中间 70.3–71.0 盾已压成薄片、柱子还没长，
+    // 画面中央空出整整 0.7 秒，读成"主体消失了"。
+    var cp=clamp01((e-1.50)/1.05),press=cp*cp*(3-2*cp);
+    luOathSequence(c,t,top,bt,3.69+e,press);
+    var shy=mix(18,26,press),shw=mix(1,0.62,press);
+    // 1) 三拍呼唤：每拍一圈波 + 一圈沿轮廓下跑的亮光（盾在应和）
+    for(var i=0;i<CALLS.length;i++) {
+      var a=e-CALLS[i];
+      if(a<0||a>0.86)continue;
+      var life=a/0.86;
+      // 从盾沿起跑、向画外扩：起点 r=17 正好贴着盾的半宽，波一出现就在轮廓上，
+      // 之后整段都在盾外，不会被盾面挡住。
+      luCallWave(c,cx,shy,17+18*Math.pow(life,0.80),life);
+      // 金框应和：一段亮光沿轮廓从上往下跑，跑完就暗回去
+      var fy=-12.6+(a/0.62)*26.2;
+      if(a<0.62)for(var dv=-3;dv<=3;dv++) {
+        var v4=fy+dv;
+        if(v4<-12.6||v4>13.6)continue;
+        var w4=luOathHalfW((v4+12.6)/26.2)*shw,ff=1-Math.abs(dv)/3.4;
+        if(w4<1.5)continue;
+        for(var s4=-1;s4<=1;s4+=2)c.put(cx+s4*w4,shy+v4,ff>0.6?'◆':'+',ff>0.6?W:B);
+      }
+    }
+    // 2) 熔流：左岸先动 0.1 拍，右岸追上来，最后在台基上合流
+    var g=clamp01((e-1.40)/1.30);
+    if(g>0) {
+      luCallStream(c,cx,1,clamp01(g*1.12),t);
+      luCallStream(c,cx,-1,clamp01((g-0.09)*1.12),t);
+    }
+    // 3) 受热重染：压到一半就开始泛白热，锻件是"被烤亮的"而不是"被涂亮的"
+    var heat=clamp01((e-1.95)/1.05);
+    if(heat>0)luHeatWash(c,Math.round(cx-25),Math.round(cx+25),Math.round(shy-15),Math.round(shy+16),heat);
+    // 4) 白热柱：从锻件上长出，2.55 起手、3.85 到位
+    var pg=clamp01((e-1.95)/1.15);
+    if(pg>0)luCallPillar(c,cx,28.6,pg,t);
     c.sx=0;c.sy=0;
   }
 
@@ -4910,10 +5062,13 @@ title: 字符演歌
 
   // 68.09–72.01：盾心发出呼唤波纹 → 两岸熔流聚拢 → 誓约化锻件、白热柱升起。
   function lu_s4_call(c,t,top,bt,elapsed) {
-    luOathSequence(c,t,top,bt,3.69+elapsed);
-    clearRect(c,0,top,c.w,1);c.put(3,top,elapsed<1.7?'33 / I CALL OUT YOUR NAME':'34 / THE FIRE ANSWERS',N);
-    c.put(c.w-24,top,elapsed<1.7?'ECHO / RESONATING':'HEAT / CONVERGING',R);
-    clearRect(c,0,bt,c.w,1);c.center(bt,elapsed<1.7?'YOUR NAME / THROUGH THE FLAMES':'ALL FIRE / ONE HEART / ONE STRIKE',B);
+    luCallSeq(c,t,top,bt,elapsed);
+    var seg=elapsed<1.55?0:elapsed<2.70?1:2;
+    clearRect(c,0,top,c.w,1);
+    c.put(3,top,['33 / I CALL OUT YOUR NAME','33 / AND THE FIRE ANSWERS','34 / ONE HEART / ONE STRIKE'][seg],N);
+    c.put(c.w-24,top,['ECHO / RESONATING','MOLTEN / COMING HOME','FORGE / RISING'][seg],R);
+    clearRect(c,0,bt,c.w,1);
+    c.center(bt,['YOUR NAME / THROUGH THE FLAMES','EVERY FLAME / REMEMBERS YOU','ALL FIRE / ONE HEART'][seg],B);
   }
 
   // ===== 副歌一锻造 72.01–80.00：三次柱锤重击，熔金锻成相扣双环 =====
