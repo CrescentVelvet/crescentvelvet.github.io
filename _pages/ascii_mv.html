@@ -4210,33 +4210,26 @@ title: 字符演歌
   }
   // ===== 导歌一 48.17–64.40 粒度细分：2 子场景 =====
 
-  // 白光不用几何边缘：以门心为原点的径向概率场 + 抖动网点，亮度按 (1-q)^0.55 衰减。
-  // R 以"画幅归一化半径"计（1.0 = 刚好贴住左右上下四边，1.35 = 连四角也吃掉），
-  // 这样涨落过程始终是对称椭圆光团，不会出现"填满整条场景带、四角发黑"的方块观感。
+  // 白光是圆形渐变的炫光层，不是填充矩形：中心小而亮，边缘只剩稀薄光粒。
+  // R 增长时整幅画面会被“照亮”，R 回落时外围先消失、中心最后熄灭。
   function luWhiteFlood(c,cx,cy,R,t) {
     if(R<=0.04)return;
     var save=c.clip;c.clip=null;
-    // 饱和档：R>=1.0 直接整帧过曝。低于 1.0 时椭圆完整落在画幅内，边界始终是柔和云团，
-    // 不会出现"左右填满、四角发黑"的矩形观感；两镜接缝也必须是干净满白。
-    if(R>=1.0) {
-      for(var sy=0;sy<c.h;sy++)for(var sx=0;sx<c.w;sx++)c.put(sx,sy,'█',W);
-      c.clip=save;return;
-    }
     for(var y=0;y<c.h;y++)for(var x=0;x<c.w;x++) {
-      var ax=(x-cx)/59.5,ay=(y-19)/19.5,r=Math.hypot(ax,ay);
-      if(r>R*1.6)continue;
-      var ang=Math.atan2(y-19,(x-cx)/2.05);
-      // 边缘用低频扰动而不是逐格随机：逐格随机在大面积上会读成雪花噪点，不是光。
-      var wob=1+0.09*Math.sin(ang*3.1+t*0.8)+0.06*Math.sin(ang*7.3-t*1.3)
-              +0.05*Math.sin(x*0.21+y*0.37+t*0.6)+0.03*Math.sin(ang*11.7-y*0.29);
+      var ax=(x-cx)/59.5,ay=(y-cy)/22.5,r=Math.hypot(ax,ay)*0.86;
+      var ang=Math.atan2(y-cy,x-cx);
+      var wob=1+0.08*Math.sin(ang*3.1+t*0.8)+0.045*Math.sin(ang*7.3-t*1.3)
+              +0.035*Math.sin(x*0.21+y*0.37+t*0.6);
       var q=r/(R*wob);
+      if(q>1.20)continue;
       // 核心只占小面积，外围用低密度光粒过渡；这样吞没时像镜头炫光，
       // 而不是一块边界清楚的白色几何体。
-      if(q<0.28)c.put(x,y,'█',W);
-      else if(q<0.49)c.put(x,y,'▓',W);
-      else if(q<0.69)c.put(x,y,'▒',B);
-      else if(q<0.88)c.put(x,y,'░',N);
-      else if(q<1.08&&hash16(x*37+y*71+Math.floor(t*7))%4===0)c.put(x,y,'·',G);
+      if(q<0.16)c.put(x,y,'█',W);
+      else if(q<0.30)c.put(x,y,'▓',W);
+      else if(q<0.49)c.put(x,y,'▒',W);
+      else if(q<0.70)c.put(x,y,'▒',B);
+      else if(q<0.94)c.put(x,y,'░',N);
+      else if(hash16(x*37+y*71+Math.floor(t*7))%3===0)c.put(x,y,'·',G);
     }
     c.clip=save;
   }
@@ -4262,6 +4255,44 @@ title: 字符演歌
       var span=3+open*31;
       c.line(cx+side*slit,28,cx+side*span,31,'╱',open<0.35?B:N);
       c.line(cx+side*(slit+1),28,cx+side*(span+4),31,'·',G);
+    }
+  }
+
+  // 一扇扇门按深度依次打开。远门只是一圈细拱，近门会分成左右门扉并掠过镜头；
+  // 中央的微小光点随门一起放大，作为“主体穿过门”的视觉锚点。
+  function luDreamPortal(c,cx,cy,depth,t,index) {
+    var s=0.18+depth*2.25,open=clamp01((depth-0.10)/0.38),
+        jx=Math.sin(t*18+index*1.9)*0.55*(0.5+depth),
+        jy=Math.cos(t*15+index)*0.25*(0.5+depth);
+    cx+=jx;cy+=jy;
+    var left=cx-12*s,right=cx+12*s,topY=cy-9*s,bottom=cy+10*s;
+    function edge(x1,y1,x2,y2,ch,st){c.line(x1,y1,x2,y2,ch,st);}
+    // 向外张开的尖拱与门柱。
+    edge(left,bottom,left,cy-1*s,'║',depth>0.45?B:G);
+    edge(right,bottom,right,cy-1*s,'║',depth>0.45?B:G);
+    edge(left,cy-1*s,cx,topY,'╱',depth>0.55?R:N);
+    edge(cx,topY,right,cy-1*s,'╲',depth>0.55?R:N);
+    edge(left-1.5*s,bottom+1,right+1.5*s,bottom+1,'▄',depth>0.5?G:N);
+    if(s>0.42) {
+      edge(left-2*s,cy-1.5*s,cx,topY-1.2*s,'╱',R);
+      edge(cx,topY-1.2*s,right+2*s,cy-1.5*s,'╲',B);
+    }
+    // 门扉开合：关闭时只留一条金缝，打开后两扇向左右退去。
+    var half=(1-open)*8*s;
+    if(open<0.92) {
+      for(var yy=Math.ceil(topY+2*s);yy<=Math.floor(bottom-1);yy++) {
+        var k=(yy-topY)/Math.max(1,bottom-topY),w=half*(0.65+0.35*k);
+        edge(cx-w,yy,cx-w,yy+0.7,'│',open<0.35?R:N);
+        edge(cx+w,yy,cx+w,yy+0.7,'│',open<0.35?R:N);
+      }
+      c.put(cx,cy,'█',open<0.35?N:B);
+    }
+    // 通过门洞看见的主体与光核，越近越抖、越亮。
+    var core=0.7+depth*2.0;
+    c.put(cx,cy-1.2*s,'◆',depth>0.7?W:B);
+    if(core>1.0) {
+      c.put(cx-core,cy,'·',G);c.put(cx+core,cy,'·',G);
+      c.put(cx,cy-core*0.5,'·',W);
     }
   }
 
@@ -4316,15 +4347,20 @@ title: 字符演歌
   // 连续穿过同一扇梦窗：尺度按指数增长（= 透视匀速），窗从远端浮现、放大、掠过相机，
   // 出画后从远端重生；相邻两层错开 1/3 周期，画面里始终有 3 个不同深度的窗。
   function luDreamTunnel(c,cx,cy,e,t) {
-    var PER=1.55,LAYER=3,span=Math.log(42),list=[];
+    var PER=1.34,LAYER=4,list=[];
     for(var k=0;k<LAYER;k++) {
       var p=mod(e/PER+k/LAYER,1);
-      list.push({p:p,s:0.055*Math.exp(p*span),
-        dx:Math.sin(p*3.4+k*2.1)*2.6*(1-p*0.45),dy:Math.cos(p*2.7+k*1.7)*1.3*(1-p*0.3)});
+      list.push({p:p,depth:p,dx:Math.sin(p*4.2+k*2.1)*2.2*(1-p*0.4),dy:Math.cos(p*3.1+k*1.7)*1.0});
     }
     luTunnelGlow(c,cx,cy,0.55+0.45*Math.cos(mod(e/PER,1)*TAU),t);
-    list.sort(function(a,b){return a.s-b.s;});   // 由远及近覆盖
-    for(k=0;k<list.length;k++)luDreamGate(c,cx+list[k].dx,cy+list[k].dy,list[k].s,t);
+    list.sort(function(a,b){return a.depth-b.depth;});
+    for(k=0;k<list.length;k++)luDreamPortal(c,cx+list[k].dx,cy+list[k].dy,list[k].depth,t,k);
+    // 地板的辐射线随最近一扇门向两侧拉开，给出明显的前进速度。
+    var near=mod(e/PER,1);
+    for(k=-7;k<=7;k++) {
+      var spread=4+near*62,xx=cx+k*spread/7;
+      c.line(cx+k*1.5,28,xx,31,'─',k%2?G:N);
+    }
   }
 
   // 梦窗有独立的尖拱石框、上部玫瑰花窗与下部三扇彩玻璃；按深度分三档：
