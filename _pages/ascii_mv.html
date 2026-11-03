@@ -4210,20 +4210,39 @@ title: 字符演歌
   }
   // ===== 导歌一 48.17–64.40 粒度细分：2 子场景 =====
 
+  // 块状值噪声：块大小 cs×cy，块间双线性平滑。白光消散用它决定哪一块先漏空——
+  // 纯 hash 分块的边界是直角，整屏读成"打马赛克"；平滑之后碎块有弧度，才像光被撕开。
+  function luBlockNoise(x,y,cs,cy,seed) {
+    var gx=x/cs,gy=y/cy,ix=Math.floor(gx),iy=Math.floor(gy);
+    var fx=gx-ix,fy=gy-iy;
+    fx=fx*fx*(3-2*fx);fy=fy*fy*(3-2*fy);
+    var a=hash16(ix*37+iy*71+seed),b=hash16((ix+1)*37+iy*71+seed),
+        c2=hash16(ix*37+(iy+1)*71+seed),d=hash16((ix+1)*37+(iy+1)*71+seed);
+    var t=a+(b-a)*fx,u=c2+(d-c2)*fx;
+    return (t+(u-t)*fy)/65535;
+  }
+
   // 白光＝圆形灰度渐变。三件事让它像"光"而不像"面团"或"雪花"：
   // ① 全部只用白色（W），靠字符自身的墨量分级 █>▓>▒>░>·，不掺金/暗色 ⇒ 不会出现色环；
   // ② 分级阈值连续（同一档内部是完全一样的灰度），等值线被渐变抹匀，读成灰度过渡；
   // ③ 只有最外一档做概率抽样，中心与中区是连续墨面 ⇒ 不会整屏都是噪点。
-  // R 控制光晕直径，bright 控制亮度包络：R 涨=光扩到画外，bright 降=整屏均匀变淡。
-  // hard=true 用于淡出：整屏已经同亮度，再抽样就成了一屏雪花，此时只降档不抽样。
-  function luWhiteFlood(c,cx,cy,R,bright,top,bt,t,hard) {
+  // R=光晕直径，bright=亮度包络，narrow=横向压缩（起点是一条竖缝而不是一个小圆点），
+  // dissolve=块状溶解进度（淡出用）。cy 是光心，必须由调用方给成门洞中缝的高度。
+  function luWhiteFlood(c,cx,cy,R,bright,top,bt,t,narrow,dissolve) {
     if(R<=0.02||bright<=0.02)return;
+    if(narrow===undefined)narrow=1;
+    if(dissolve===undefined)dissolve=0;
     var save=c.clip;c.clip=null;
     // hh 决定光的形状。字符格是 1 列×2 行，所以视觉半径相等要求 hh = hw/2；
-    // 原来取的 0.425*(bt-top)≈11.9 行，横向却铺到 59.5 列，等于把圆压扁了 2.5 倍——
+    // 取 0.425*(bt-top)≈11.9 行而横向铺到 59.5 列，等于把圆压扁 2.5 倍——
     // 那才是"一直是个扁椭圆"的真正原因。取 hw/2 后 R=1 的光斑正好横到左右边、
     // 纵向溢出上下边 ⇒ 读成圆，圆的上下被画幅裁掉，符合"光扩到全屏"。
-    var hw=59.5,hh=Math.max(6,hw*0.5),my=(top+bt)/2;
+    var hw=59.5,hh=Math.max(6,hw*0.5),my=cy;
+    // 光缝阶段把上半压扁 1.4 倍：否则竖缝会一直顶到画幅上沿，像一根从天上垂下来的灯管；
+    // 压扁后上端收在拱券以内，才读成"光是从这道门里透出来的"。张开成圆时自动放开。
+    var sq=mix(1.30,1,clamp01((1-narrow)/0.88));
+    // 淡出不走"整屏一起降亮"，走块状抽样：大块决定塌陷范围、小块啃边缘，亮度越高越耐
+    // ⇒ 光从边缘开始成片碎掉、亮核最后散。逐格独立抽样会得到均匀雪花，成块才像"光在蒸发"。
     for(var y=top;y<=bt;y++) {
       // 软边只留一行、且不压到零：光的边界就是画面边界。原来上下各 4 行渐变到黑，
       // 峰值时上下各留两道暗带，整团读成"悬在中间的扁椭圆"而不是铺满全屏。
@@ -4231,27 +4250,29 @@ title: 字符演歌
       if(y<top+2)edge=mix(0.90,1,(y-top)/2);
       else if(y>bt-2)edge=mix(0.90,1,(bt-y)/2);
       for(var x=0;x<c.w;x++) {
-        var ax=(x-cx)/hw,ay=(y-my)/hh,r=Math.hypot(ax,ay);
-        var ang=Math.atan2(ay,ax);
+        var ax=(x-cx)/(hw*narrow),ay=(y-my)/hh;
+        if(ay<0)ay*=sq;
+        var r=Math.hypot(ax,ay);
+        var ang=Math.atan2(ay,ax*narrow);
         var wob=1+0.05*Math.sin(ang*3.0+t*0.7)+0.03*Math.sin(ang*5.0-t*1.1);
         var q=r/(R*wob);
         if(q>=1)continue;
         var u=1-q;
-        // 亮度 v 同时决定「墨量档位」和「覆盖率」：亮到一定程度整格必画，暗下去则随机漏格。
-        // 覆盖率跟亮度走，淡出时才会一点点露出后面的画面，而不是罩一层灰纱。
         var cov=clamp01(u*1.5),v=cov*bright*edge;
         if(v<=0.04)continue;
-        var ch;
-        if(hard) {
-          // 淡出：整屏亮度相同，随机漏格只会得到一屏雪花，所以改成整屏同步降档；
-          // 最后一档 ░ 再用覆盖率收到 0，避免从满屏灰"啪"地跳黑。
-          if(v<0.22) { if(hash16(x*37+y*71)/65535>Math.pow(v/0.22,1.6))continue; ch='░'; }
-          else ch=v>0.82?'█':v>0.62?'▓':v>0.42?'▒':'░';
-        } else {
-          var den=clamp01(v*1.9);
-          if(den<1&&hash16(x*37+y*71)/65535>den)continue;
-          ch=v>0.82?'█':v>0.62?'▓':v>0.42?'▒':v>0.22?'░':'·';
+        if(dissolve>0) {
+          // 两级平滑噪声：大块 9×6 决定塌陷范围，小块 4×3 在块边缘啃碎屑。
+          // 光滑之后碎块边界有弧度，不再是直角马赛克。系数取到 1.05，dissolve=1 时整屏漏空，
+          // 不会在淡出末尾留一层"没散干净的残白"。
+          var h=luBlockNoise(x,y,9,6,0)*0.62+luBlockNoise(x,y,4,3,977)*0.38;
+          if(h<dissolve*1.55*(1.0-0.32*v))continue;
         }
+        var ch;
+        if(v<0.22) {
+          // 最外一档才抽样，让边缘是碎点而不是一条硬边
+          if(hash16(x*37+y*71)/65535>clamp01(v/0.22))continue;
+          ch='░';
+        } else ch=v>0.82?'█':v>0.62?'▓':v>0.42?'▒':'░';
         c.put(x,y,ch,W);
       }
     }
@@ -4396,7 +4417,7 @@ title: 字符演歌
   // 长成满幅，交给下一镜从满幅白里淡出。两侧不再堆柱子/拱眉/红带，只留地面缝做参照。
   function lu_s3_dreamt(c,t,top,bt,elapsed) {
     var e=elapsed,cx=(c.w-1)/2,cy=17;
-    var flood=clamp01((e-4.70)/1.40),soft=flood*Math.sqrt(flood);
+    var flood=clamp01((e-4.70)/1.40);
     var shake=luDreamShake(e,0.9*(1-flood*0.85));
     c.sx=shake.x;c.sy=shake.y;
     luDreamWall(c,cx,top,bt,clamp01((e-0.30)/1.1)*0.9);
@@ -4409,10 +4430,18 @@ title: 字符演歌
         var cell=entry.cells[yy][xx];c.put(xx,yy,cell[0],cell[1]);
       }
     }
-    // 白光从门洞里长出来：R 0.10→3.00。改成圆之后四角 r 只有 1.105，R=3.00 时四角
-    // q≈0.37、覆盖率早已饱和 ⇒ 峰值是整幅实白，四边就是光的边界。
+    // 白光从门缝里涌出来：细线 → 竖缝 → 横向张开成圆 → 淹没全屏。光心压在门洞中缝上。
     c.sx=0;c.sy=0;
-    if(flood>0)luWhiteFlood(c,cx,18,mix(0.10,3.00,soft),mix(0.80,1.00,flood),top,bt,t);
+    if(flood>0) {
+      // 三段：① grow 从一道细线长成竖缝（0.39s）；② 竖缝停住不涨；③ bloom 横向张开成圆并淹没全屏。
+      // 一开始就给全高的竖缝会"啪"地出现，从细线长出来才像光在往外渗。
+      var grow=clamp01(flood/0.28),bloom=clamp01((flood-0.26)/0.74);
+      // 缝高 R=0.50 ⇒ 纵向半高约 15 行，上端压在拱券以内、下端落在门槛，才读成"从门里透出来"；
+      // 再大就会戳穿拱券，像一根从天上垂下来的灯管。
+      var Rw=mix(0.14,0.50,Math.pow(grow,0.60))+2.50*bloom*bloom;   // 0.14 → 0.50 → 3.00
+      var nw=mix(0.11,1,Math.pow(bloom,1.6));                       // 0.11（光缝）→ 1（圆）
+      luWhiteFlood(c,cx,20,Rw,mix(0.95,1.00,flood),top,bt,t,nw,0);
+    }
     clearRect(c,0,top,c.w,1);c.put(3,top,e<2.30?'24 / THE STAINED GLASS DREAM':e<4.95?'25 / THROUGH TIME AND HALLS':'26 / THE WHITE DOOR',N);
     c.put(c.w-25,top,e<4.95?'HALLS / MOVING FORWARD':flood<0.9?'LIGHT / FILLING EVERY GAP':'LIGHT / NO DISTANCE LEFT',R);
     clearRect(c,0,bt,c.w,1);c.center(bt,e<4.95?'EVERY DOOR OPENS / KEEP WALKING':'WHITE LIGHT / NO DISTANCE LEFT',B);
@@ -4533,15 +4562,13 @@ title: 字符演歌
       var seed=hash16(i*223+31),age=mod(impact*0.45+seed/65535,1),side=seed%2?1:-1;
       c.put(cx+side*(9+age*(18+seed%18)),25-age*17+age*age*5,age<0.35?'+':'.',age<0.35?N:G);
     }
-    // 穿出去：白光本来就是满幅的，这里只让整幅均匀变淡（不是缩成一团），
-    // 双焰在这层薄光后面显影 —— 全屏铺开 → 整屏变稀 → 黑，没有"大团跳成小点"的断层。
-    // 淡出只给 0.62s，且指数取 0.7（<1）：字符画里"很暗的整屏"只能靠 ░ 和稀疏点近似，
-    // 铺满多留一帧就是一屏雪花/纱窗，所以让亮度在末尾陡降、低亮度区只占最后半帧。
-    // 只降亮度、不让 R 收缩——收缩会变成"大团跳成小点"的断层。
-    if(e<0.62) {
-      var k=clamp01(e/0.62),fade=Math.pow(1-k,0.70);
+    // 穿出去：满幅白光用"块状抽样"碎掉，不再整屏一起降亮。屏幕被切成 7×4 与 3×2
+    // 两级方块，每块一个固定随机数，亮度高的块耐力更强，所以光从边缘成片碎裂、亮核最后散。
+    // 整屏同步变淡看起来像一张白纸被均匀调暗；成块漏空才有"光在蒸发"的随机感。
+    if(e<1.05) {
+      var k=clamp01(e/1.05);
       c.sx=0;c.sy=0;
-      luWhiteFlood(c,cx,18,3.00,fade,top,bt,t,true);
+      luWhiteFlood(c,cx,20,3.00,1.00,top,bt,t,1,k);
     }
     c.sx=0;c.sy=0;
     clearRect(c,0,top,c.w,1);
