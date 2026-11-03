@@ -4454,12 +4454,15 @@ title: 字符演歌
   }
 
   // 金红火焰：外焰红、内焰金、焰心白；只做水平摆动，焰尾始终朝上。
-  function luMeetFlame(c,x,y,size,angle,t,side) {
+  // spread 控制横向张度：0.8 是细长的炬火，1.2 是张开的火翼。形状随叙事变化，
+  // 否则一朵火苗保持同一轮廓四秒，再厚的涂也读成一张贴图。
+  function luMeetFlame(c,x,y,size,angle,t,side,spread) {
     var pulse=0.94+0.1*Math.sin(t*13+side*1.7),s=size*pulse;
+    if(spread===undefined)spread=1;
     function face(points,st,ch) {
       luCoalFacet(c,points.map(function(p){
         var flick=Math.max(0,-p[1]-2)/14*Math.sin(t*15+side*2+p[1]*0.35)*1.4;
-        return [x+(p[0]+flick)*s,y+p[1]*s/2];
+        return [x+(p[0]+flick)*s*spread,y+p[1]*s/2];
       }),st,ch);
     }
     face([[0,8],[-7,5],[-9,0],[-6,-6],[-2,-11],[0,-17],[2,-10],[7,-13],[9,-5],[7,2],[3,7]],R,'▓');
@@ -4480,20 +4483,33 @@ title: 字符演歌
     return {x:side*Math.cos(a)*r+side*bounce,y:17+side*Math.sin(a)*r*0.24+Math.sin(orbit*TAU*2+side)*0.7,size:mix(1.22,0.64,ease)*(0.95+0.08*Math.sin(e*15+side)),angle:0};
   }
 
-  // 红玻璃由原地裂成有厚度的三角切面，末段被冲击推开并下坠。
+  // 红玻璃由原地裂成有厚度的三角切面：先被冲击推开，再一边缩小一边烧尽。
+  // 旧写法在 4.55–6.75 之间让碎片静止悬在外圈，12 块三角在画面边缘排成一圈暗红，
+  // 读成"杂乱的血块"并抢中心火焰的戏——碎片必须一直在走，才像被炸开而不是摆件。
   function luMeetGlass(c,cx,cy,e) {
-    var reveal=clamp01((e-2.0)/1.8),breakAge=Math.max(0,e-6.75);
+    var reveal=clamp01((e-2.0)/1.8);
     if(reveal<0.1)return;
+    var push=Math.max(0,e-4.55),age=push*push*0.85;   // 冲击后位移加速
+    // 燃尽窗口压到 4.55–6.20：碎片本该是"被冲击波打散的瞬间"，飞太久就变成画面两侧的杂物。
+    var burn=clamp01((e-4.55)/1.65);                  // 燃尽进度
+    if(burn>=1)return;
     for(var i=0;i<12;i++) {
       var seed=hash16(i*419+23),a=i/12*TAU-0.15;
-      var r=(31+seed%8)*reveal+breakAge*(8+seed%5)+breakAge*breakAge*3;
-      var x=cx+Math.cos(a)*r,y=cy+Math.sin(a)*r/2+breakAge*breakAge*2.3;
-      var rot=a+breakAge*(i%2?0.7:-0.65),cs=Math.cos(rot),sn=Math.sin(rot),sz=reveal*(0.6+reveal*0.4);
+      var r=(31+seed%8)*reveal+age*(7+seed%6);
+      var x=cx+Math.cos(a)*r,y=cy+Math.sin(a)*r/2+age*1.8;
+      // 碎片按不同速度缩掉：燃尽时先变成小片、再散成点，不是整块消失。
+      var gone=clamp01((burn-(i%4)*0.13)/0.55);
+      var sz=reveal*(0.6+reveal*0.4)*(1-gone);
+      if(sz<0.12)continue;
+      var rot=a+age*(i%2?0.55:-0.5),cs=Math.cos(rot),sn=Math.sin(rot);
       function point(u,v){return [x+(u*cs-v*sn)*sz,y+(u*sn+v*cs)*sz/2];}
-      luCoalFacet(c,[point(-5,-7),point(6,-3),point(2,8)],R,'▓');
+      var hot=gone>0.62;                              // 快烧完时回光返照成金
+      luCoalFacet(c,[point(-5,-7),point(6,-3),point(2,8)],hot?B:R,'▓');
       luCoalFacet(c,[point(-5,-7),point(-1,-2),point(2,8)],G,'▒');
-      var p=point(-5,-7),q=point(6,-3);
-      c.line(p[0],p[1],q[0],q[1],i%2?'/':'\\',e>6.75&&breakAge<0.2?W:N);
+      if(sz>0.35) {
+        var p=point(-5,-7),q=point(6,-3);
+        c.line(p[0],p[1],q[0],q[1],i%2?'/':'\\',hot?W:N);
+      }
     }
   }
 
@@ -4507,20 +4523,30 @@ title: 字符演歌
       var y=26+row,w=16+row*7;
       c.line(cx-w,y,cx+w,y,row%2?'·':'─',G);
     }
+    // 两侧的暗色火墙跟着 ignite 从地面长起来：前期整幅只有中心一团火和底下的熔金带，
+    // 不需要两根竖到头顶的暗碑陪衬；等火势蔓延时它们才作为背景压住画幅两端。
     for(var side=-1;side<=1;side+=2) {
-      luCoalFacet(c,[[cx+side*53,8],[cx+side*45,13],[cx+side*49,28],[cx+side*58,31]],G,'░');
-      c.line(cx+side*53,8,cx+side*49,28,'│',R);
+      var fh=clamp01((ignite-0.12)/0.72);
+      if(fh<=0)continue;
+      var bot=31,top=bot-14*fh;
+      luCoalFacet(c,[[cx+side*51,top+3],[cx+side*44,top+7],[cx+side*46,bot-2],[cx+side*58,bot]],G,'▒');
+      c.line(cx+side*51,top+3,cx+side*46,bot-2,'│',fh>0.6?R:N);
     }
     luMeetGlass(c,cx,cy,e);
-    // 二次点火先沿地面裂缝行进，再烧起五道有实体色面的火舌。
+    // 二次点火：裂缝先向两侧推进，再沿裂缝燃起四团余烬——中轴留给主焰，不再叠一团；
+    // 高度、间距、点燃时刻都按固定 seed 错开，否则五个等距等高的小火排成一排，像蜡烛。
     if(ignite>0) {
       for(var side=-1;side<=1;side+=2) {
         c.line(cx,29,cx+side*ignite*53,28,'─',R);
         c.line(cx+side*ignite*27,28,cx+side*ignite*44,31,'/',B);
       }
       for(var n=-2;n<=2;n++) {
-        var grow=clamp01((ignite-Math.abs(n)*0.1)/0.65);
-        if(grow>0)luMeetFlame(c,cx+n*23,30-grow*1.5,grow*(n===0?1.3:1.05),n*0.13,t+n,n<0?-1:1);
+        if(n===0)continue;
+        var sd=hash16(n*311+1741)/65535;
+        var grow=clamp01((ignite-Math.abs(n)*0.12-sd*0.08)/0.58);
+        if(grow<=0)continue;
+        luMeetFlame(c,cx+n*(21+sd*9),30.4-grow*(1.1+sd*1.1),grow*(0.45+sd*0.60),
+                    n*0.10,t+n,n<0?-1:1,1.05+sd*0.25);
       }
     }
     if(e<4.55) {
@@ -4544,9 +4570,14 @@ title: 字符演歌
         }
       }
     } else {
-      // 合焰先爆出一圈白热边，再舒展开为唯一的火焰纹章。
-      var bloom=clamp01(impact/0.75),size=mix(0.64,1.75,bloom)*(1+0.025*Math.sin(t*5));
-      luMeetFlame(c,cx,mix(17,19,bloom),size,mix(1.776,0,bloom)+Math.sin(t*1.8)*0.035*bloom,t,0);
+      // 合焰先爆出一圈白热边，再舒展开为唯一的火焰纹章。size 不一次长到位：
+      // 0.75s 内到 1.62，之后 3.2s 继续缓慢拔高、横向张开 —— 一朵火保持同一轮廓四秒，
+      // 再厚的涂也会读成一张贴图。
+      var bloom=clamp01(impact/0.75),swell=clamp01((impact-0.6)/3.2);
+      var size=mix(0.64,1.62,bloom)*(1+0.16*swell)*(1+0.025*Math.sin(t*5));
+      var spread=mix(0.86,1.18,bloom*0.7+swell*0.3)+0.03*Math.sin(t*3.1);
+      luMeetFlame(c,cx,mix(17,19,bloom),size,
+                  mix(1.776,0,bloom)+Math.sin(t*1.8)*0.035*bloom,t,0,spread);
       if(impact<0.48) {
         var radius=4+impact*79;
         luRing(c,cx,cy,radius,'·',impact<0.14?W:B,2);
@@ -4555,12 +4586,24 @@ title: 字符演歌
           c.line(cx+Math.cos(a)*rr,cy+Math.sin(a)*rr/2,cx+Math.cos(a)*(rr-2.5),cy+Math.sin(a)*(rr-2.5)/2,'─',impact<0.18?W:B);
         }
       }
-      // 两股火种汇成的环抱弧保留一段，再在升温时向外裂开。
-      for(var side=-1;side<=1;side+=2)for(var i=0;i<36;i++) {
-        var a=-1.05+i/35*2.1,r=20+ignite*24;
-        var x=cx+side*Math.cos(a)*r,y=19+Math.sin(a)*r/2;
-        if(ignite>0.2 && i%5===0)continue;
-        c.put(x,y,i%3?'▓':'█',i%3?R:B);
+      // 火焰底座：一团熔金贴在地缝上，宽度随升温铺开，边缘按 hash 打毛。
+      // 这里原本还有两条"环抱弧"，半径收进画幅后只剩火焰腰侧两小块黄斑，
+      // 既不像手也不像光带，反而把重心从中心拆开——直接删掉，让火自己站住。
+      // 带子必须有 3 行厚、并且顶到火焰根部，否则读成一串散落的小方块。
+      var bw=6+bloom*9+ignite*26;
+      for(var bx=Math.ceil(cx-bw);bx<=Math.floor(cx+bw);bx++) {
+        var bu=Math.abs(bx-cx)/bw,jag=hash16(bx*29+13)/65535;
+        if(bu>0.86&&jag>hash16(bx*11+7)/65535*1.15)continue;
+        // 带子贴地向上长、两端收薄：等高 3 行的长方形带子在 ±40 处突然截断，
+        // 一眼就是"画了个矩形"。高度用低频正弦微起 1 行——逐列 hash 跳变会变成城墙垛口。
+        var th=Math.round((1-bu*bu)*2.6+Math.sin(bx*0.55)*0.45);
+        if(th<1)th=1;if(th>4)th=4;
+        for(var dy=0;dy<th;dy++) {
+          var ly=29-dy;
+          // 每 5 列压一道暗纹，整片纯金会读成一根金条。
+          var band=dy===1&&(bx%5===0)?'▓':'█';
+          c.put(bx,ly,bu<0.44?band:bu<0.80?'▓':'▒',bu<0.44?B:R);
+        }
       }
     }
     // 金尘与玻璃碎屑采用固定种子和弹道，黑色区域保持干净。
