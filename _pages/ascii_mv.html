@@ -5071,141 +5071,322 @@ title: 字符演歌
     c.center(bt,['YOUR NAME / THROUGH THE FLAMES','EVERY FLAME / REMEMBERS YOU','ALL FIRE / ONE HEART'][seg],B);
   }
 
-  // ===== 副歌一锻造 72.01–80.00：三次柱锤重击，熔金锻成相扣双环 =====
+  // ===== 副歌一锻造 72.01–80.00：柱锤三击，把熔金锻成相扣双环 =====
 
-  // 同一连续时间轴跨越两句副歌：慢提、短暂停顿、加速砸落、受阻回弹。
+  // 三击落在 1.40 / 2.85 / 4.10：第三击正好压住第二句副歌的换句点（76.12s），
+  // 之后柱锤整根收回画外，把画面中央让给双环。
+  // FORGE_HIGH=1 时锤头整个躲到画面上方，两次落锤之间半秒画面中央空无一物；
+  // 停在 14：锤头占 8–14，锤颈还留 3 行在画内。停在 11 时锤颈整根在画外，
+  // 锤头就变成一个凭空悬着的盒子。
+  var FORGE_HITS=[1.40,2.85,4.10],FORGE_HIGH=14,FORGE_LOW=21;
+  // 锤底高度的关键帧。分段线性 + 段内缓动，相邻段严格首尾相接。
+  // ⚠️ 不能按 hits 反推每段的起止：抬起还没走完下一记下落就开始，一帧要跳十来格。
+  // 首记从画外砸进来（-18），之后都在 10 与 21 之间往复，第三记后整根收回画外。
+  // 首记从 -6 起（锤头顶在 -12，刚好在画外）：从 -18 起的话，线性下落到看得见要 0.35s，
+  // 那段正好是上一镜白热柱塌完、锤子还没进来的空档。
+  var FORGE_KEY=[[0,-6],[0.55,-6],[1.40,FORGE_LOW],[1.54,FORGE_LOW],[2.16,FORGE_HIGH],
+                 [2.30,FORGE_HIGH],[2.85,FORGE_LOW],[2.99,FORGE_LOW],[3.52,FORGE_HIGH],
+                 [3.62,FORGE_HIGH],[4.10,FORGE_LOW],[4.28,FORGE_LOW],[5.20,-18]];
+
   function luForgePose(age) {
-    var hits=[1.65,3.65,5.45],bottom=8,last=-1,dt=99;
-    for(var i=0;i<hits.length;i++) {
-      if(age>=hits[i]) {last=i;dt=age-hits[i];}
-      var start=hits[i]-0.54;
-      if(age>=start&&age<hits[i])bottom=mix(8,24,Math.pow((age-start)/0.54,2.7));
+    var bottom=-18;
+    for(var i=0;i+1<FORGE_KEY.length;i++) {
+      if(age<=FORGE_KEY[i+1][0]) {
+        var a=FORGE_KEY[i][1],b=FORGE_KEY[i+1][1];
+        var u=clamp01((age-FORGE_KEY[i][0])/Math.max(1e-4,FORGE_KEY[i+1][0]-FORGE_KEY[i][0]));
+        // 大落差（首记从画外进来）用线性：三次方缓动会让锤子在前 0.6s 一直停在画外，
+        // 等到看得见时只剩两帧就砸到砧面，读成"凭空出现"。
+        var big=(b-a)>24;
+        bottom=mix(a,b,b>a?(big?u:u*u*u):1-Math.pow(1-u,2.2));   // 落：加速；抬：减速
+        break;
+      }
     }
-    if(last>=0) {
-      if(dt<0.14)bottom=24-Math.sin(dt/0.14*Math.PI)*1.2;
-      else if(dt<0.84)bottom=mix(24,8,1-Math.pow(1-(dt-0.14)/0.7,2));
-      if(last===2&&dt>=0.14)bottom=mix(24,-7,1-Math.pow(1-clamp01((dt-0.14)/0.95),2));
-    }
+    var last=-1,dt=99;
+    for(var k2=0;k2<FORGE_HITS.length;k2++)if(age>=FORGE_HITS[k2]){last=k2;dt=age-FORGE_HITS[k2];}
     return {bottom:bottom,hit:last,dt:dt};
   }
 
-  // 柱身从上到下等宽，无锤柄/锤头；明暗金色纵切面给出实体重量。
-  function luForgePillar(c,cx,bottom,t) {
-    for(var y=5;y<=Math.floor(bottom);y++)for(var x=-10;x<=10;x++) {
-      var st=x<-7?N:x>6?N:B,ch=x>7?'▓':'█';
-      if(x===-6||x===-5)st=W;
-      c.put(cx+x,y,ch,st);
-      // 铭纹附着柱体一起运动，轮廓不随纹样变粗变细。
-      var v=mod(Math.floor(bottom-y),8);
-      if(Math.abs(x)<=3&&(v===3||v===5)&&Math.abs(x)===Math.abs(v-4)+1)c.put(cx+x,y,'◆',N);
-    }
-    if(bottom>=5)c.line(cx-10,bottom,cx+10,bottom,'▄',W);
-  }
-
-  function luForgeLinks(c,cx,cy,grow,t) {
-    // 两只倾斜椭圆在中央交叉：上/下半圈分层绘制，遮挡次序交替形成穿扣。
-    var rx=mix(5,13,grow),ry=mix(1.5,6,grow),sep=mix(4,9,grow);
-    function arc(side,front) {
-      for(var i=0;i<=100;i++) {
-        var a=i/100*Math.PI+(front?0:Math.PI),u=Math.cos(a)*rx,v=Math.sin(a)*ry;
-        var x=cx+side*sep+u,y=cy+v+side*u*0.14;
-        c.line(x,y-0.6,x,y+0.65,'█',front?B:N);
-        c.put(x,y-0.6,'▄',front?W:B);
-        if(i%10===0)c.put(x,y+0.5,'·',R);
+  // 岸边：一整片厚石壁 + 壁柱上两盆火。
+  // 旧版是六根各自独立的柱子（柱身上还竖着一列 ◆），缩略图里读成"带按钮的货架"。
+  function luForgeBrazier(c,x,y,t,seed) {
+    c.line(x-4,y,x+4,y,'▄',N);                     // 盆口
+    c.line(x-3,y-1,x+3,y-1,'█',G);
+    var h=4.2+1.0*Math.sin(t*3.1+seed);
+    for(var i=0;i<h;i++) {
+      var u=i/h,w=Math.max(0,2.2-u*2.0)*(0.86+0.14*Math.sin(t*9+i*1.7+seed));
+      var xx=x+Math.round(Math.sin(t*2.2+i*0.7+seed)*0.9);
+      // 每一行逐格掷骰：整行实心会在盆上堆成一摞"奶油块"，火没有齐边
+      for(var d=-Math.ceil(w);d<=Math.ceil(w);d++) {
+        if(Math.abs(d)>w)continue;
+        if(Math.abs(d)>w-1&&hash16(((i+1)*73+(d+9)*29+Math.floor(t*11))&65535)%100<42)continue;
+        // 白热只留焰尖一点点：整朵给白色会读成一撮灰烟
+        c.put(xx+d,y-2-i,u<0.55?'█':(u<0.85?'▓':'·'),u<0.16?W:(u<0.70?B:N));
       }
     }
-    arc(-1,false);arc(1,true);arc(-1,true);arc(1,false);
-    var shine=mod(t*0.45,1)*TAU;
-    c.put(cx-sep+Math.cos(shine)*rx,cy+Math.sin(shine)*ry-Math.cos(shine)*rx*0.14,'+',W);
+  }
+
+  function luForgeWall(c,cx,t) {
+    for(var side=-1;side<=1;side+=2) {
+      var xi=cx+side*33,xo=side>0?c.w-2:1;
+      for(var y=13;y<=30;y++) {
+        for(var x=xi;side>0?x<=xo:x>=xo;x+=side) {
+          var nd=Math.abs(x-xi)/Math.max(1,Math.abs(xo-xi)),ch,st;
+          if(y===13){ch='▄';st=G;}                 // 压顶石：用暗棕，亮一带会变成隔板
+          else if(nd<0.03){ch='│';st=N;}           // 朝内的受光亮棱
+          else if(nd<0.14){ch='█';st=G;}
+          else if(nd>0.72){ch='▒';st=K;}           // 靠画框一侧沉下去
+          else {ch='▓';st=G;}
+          c.put(x,y,ch,st);
+        }
+        // 断砖缝：整条横贯会把石壁读成货架隔板
+        if(y>14&&(y-13)%5===0)for(var bx=xi+side*4;side>0?bx<xo-3:bx>xo+3;bx+=side*9)
+          c.line(bx,y,bx+side*5,y,'─',K);
+      }
+      // 壁柱：两道竖棱压出进深，柱头一盆火
+      for(var col=0;col<2;col++) {
+        var px=cx+side*(39+col*13);
+        for(var y2=12;y2<=30;y2++)for(var d=-2;d<=2;d++)
+          c.put(px+d,y2,d===-2?'│':(d===2?'▒':'▓'),d===-2?N:(d===2?K:G));
+        c.line(px-4,11,px+4,11,'▄',N);
+        luForgeBrazier(c,px,12,t,col*2.1+side);
+      }
+      c.line(cx+side*20,31,cx+side*56,31,'·',N);
+    }
+  }
+
+  // 砧座：上砧面宽、腰部收窄、底座外张。铁砧的剪影就是这三段，
+  // 旧版做成三根等宽的彩条，缩略图里读成"地上叠着几块板"。
+  function luForgeAnvil(c,cx,hot) {
+    var rows=[[24,26,'▄',B],[25,26,'█',N],[26,22,'▓',G],[27,14,'█',G],
+              [28,20,'▓',G],[29,31,'█',G],[30,31,'▄',K]];
+    for(var i=0;i<rows.length;i++)c.line(cx-rows[i][1],rows[i][0],cx+rows[i][1],rows[i][0],rows[i][2],rows[i][3]);
+    // 砧面上的热斑：每落一锤亮一度，锤头抬起后慢慢暗回去
+    var w=Math.round(9+hot*15);
+    for(var x=-w;x<=w;x++) {
+      var nd=Math.abs(x)/w;
+      c.put(cx+x,24,nd>0.80?'▄':'█',hot>0.42?W:(nd>0.62?N:B));
+    }
+  }
+
+  // 柱锤：宽厚的锤头 + 一路伸出画外的锤颈。
+  // 旧版是一根等宽通高、内部塞满 ◆ 铭纹的方柱，外面还套着两道细竖线，
+  // 缩略图里读成"悬着的电梯 / 发光的牌子"，完全没有重量感。
+  function luForgeRam(c,cx,bottom,t,faster) {
+    if(bottom<-5)return;
+    var b=Math.round(bottom);
+    // 锤颈：从锤头顶面一路伸到画面上缘之外，读作"从天花板压下来的锻机"
+    for(var y=Math.min(b-6,5);y<=b-6;y++) {
+      c.put(cx-3,y,'│',N);c.put(cx-2,y,'▓',G);
+      c.put(cx-1,y,'█',B);c.put(cx,y,'█',B);c.put(cx+1,y,'▓',G);
+      c.put(cx+2,y,'▒',K);c.put(cx+3,y,'│',N);
+      if(mod(y-b,8)===0){c.put(cx-2,y,'◆',B);c.put(cx+2,y,'◆',B);}
+    }
+    // 锤头：7 行高、24 格宽。旧版 6 行 × 28 宽（1:4.7）太扁，再从中间横一道暗箍，
+    // 缩略图里就是"悬空的长条板凳"。竖的两条铸件分缝把正面分成三块，才像一块铸钢。
+    var hw=[9,12,12,12,12,12,12];
+    for(var k=0;k<7;k++) {
+      var yy=b-6+k,w=hw[k];
+      for(var x2=-w;x2<=w;x2++) {
+        var nd2=Math.abs(x2)/w,ch2,st2;
+        if(k===6){ch2='█';st2=nd2<0.36?W:(nd2<0.80?N:B);}      // 打击面：中心白热
+        else if(k===0){ch2='▄';st2=x2<0?W:(x2<w*0.5?B:N);}     // 顶面：窄一档，受天光
+        else if(k===5){ch2='▓';st2=nd2>0.70?G:N;}              // 底面阴影带，压出厚度
+        else {
+          ch2=nd2>0.90?'▒':'█';
+          st2=nd2>0.90?G:B;
+          // 高光只给左上角两三行：整条通高白带会让锤头读成"一本书的书脊"
+          if(k<=3&&x2>=-w*0.92&&x2<=-w*0.70)st2=W;
+          else if(x2>w*0.34)st2=N;                             // 右侧压暗
+          if(Math.abs(x2+7.5)<0.6||Math.abs(x2-7.5)<0.6){ch2='│';st2=G;}
+        }
+        c.put(cx+x2,yy,ch2,st2);
+      }
+    }
+    // 高速下坠时的速度线：只在锤头两侧、锤颈之外，不遮主体
+    if(faster>0.55)for(var i2=0;i2<8;i2++) {
+      var sd2=hash16(i2*271+b)&65535,ox=(sd2%19)-9;
+      if(Math.abs(ox)<6)continue;
+      c.put(cx+ox,b-8-((sd2>>6)%5),'│',i2%2?G:N);
+    }
+  }
+
+  // 相扣双环：两个椭圆环带，**上交叉点让右环连续、下交叉点让左环连续**，
+  // 交替断开才读得出穿扣。旧版把四段弧按上/下半圈排序重绘，
+  // 结果中间糊成一坨，缩略图读成一副眼镜。
+  function luForgeLinks(c,cx,cy,rx,ry,sep,t) {
+    // 两个环不等高：右环高、左环低。等高并排时两个环的上下弧会在同一行对齐，
+    // 缩略图里挤成一只"蝴蝶酥"；错开两行立刻有了"一环穿过另一环"的纵深。
+    function ring(ccx,ccy,skipZone) {
+      var steps=132;
+      for(var i=0;i<steps;i++) {
+        var a=i/steps*TAU,ca=Math.cos(a),sa=Math.sin(a);
+        var ox=ccx+ca*rx,oy=ccy+sa*ry;
+        if(Math.abs(ox-cx)<3.4) {
+          if(skipZone==='top'&&oy<ccy)continue;             // 上交叉：右环压过左环
+          if(skipZone==='bottom'&&oy>ccy)continue;          // 下交叉：左环压过右环
+        }
+        var ix=ccx+ca*(rx-1.8),iy=ccy+sa*(ry-0.9);
+        // 光来自左上：受光面白热、正面金、背光面橙。整环只用金白两色，
+        // 掺暗棕会读成"生锈的铁圈"，不是新锻出来的。
+        // 这是整段的落点，要比前后都亮：受光面白、正面实金、背光面也用金（只是网点稀），
+        // 背光一档给橙会整块发暗，缩略图里读成"锈了的铁圈"。
+        var lit=-ca*0.60-sa*0.80;
+        var ch,st;
+        if(lit>0.56){ch='█';st=W;}
+        else if(lit>0.02){ch='█';st=B;}
+        else if(lit>-0.60){ch='▓';st=B;}
+        else {ch='▓';st=N;}
+        // 最暗一档不能掉到 ▒：25% 网点在缩略图里几乎看不见，右半个环像断了
+        c.line(ix,iy,ox,oy,ch,st);
+      }
+    }
+    var yl=cy+1.0,yr=cy-1.0;
+    ring(cx-sep,yl,'top');
+    ring(cx+sep,yr,'bottom');
+    // 两段流光沿环滑走：静帧之间不完全一样，也让"金属"有反光在动
+    var sh=mod(t*0.42,1)*TAU;
+    for(var q=0;q<3;q++) {
+      var aq=sh+q*0.16;
+      c.put(cx-sep+Math.cos(aq)*rx,yl+Math.sin(aq)*ry,'◆',q?B:W);
+      c.put(cx+sep+Math.cos(aq+2.3)*(rx-1),yr+Math.sin(aq+2.3)*(ry-0.9),'◆',q?B:W);
+    }
   }
 
   function luForgeSequence(c,t,top,bt,age) {
-    var cx=(c.w-1)/2,p=luForgePose(age),hits=[1.65,3.65,5.45];
-    var release=clamp01((age-5.55)/1.75),lift=release*release*(3-2*release);
-    var shake=p.dt<0.32?Math.exp(-p.dt*9)*(1+p.hit*0.5):0;
-    c.sx=Math.round(Math.sin(p.dt*75)*shake*1.4);
+    var cx=(c.w-1)/2,p=luForgePose(age);
+    // 12fps 下 dt≈0.08 时 exp(-0.8)=0.45，抖幅只剩不到 1 格，读者根本看不到"震"。
+    // 衰减放到 7，落锤那一帧能到 2 格。
+    var shake=p.dt<0.34?Math.exp(-p.dt*7)*(2.6+p.hit*0.7):0;
+    c.sx=Math.round(Math.sin(p.dt*77)*shake*1.5);
     c.sy=Math.round(Math.cos(p.dt*53)*shake);
-    // 建筑只在两岸，中央黑底衬出整根柱锤；导轨一直连接到画面上缘。
-    for(var side=-1;side<=1;side+=2) {
-      for(var bay=0;bay<3;bay++) {
-        var x=cx+side*(29+bay*13),roof=9+bay*1.5;
-        luCoalFacet(c,[[x-3,roof+3],[x+3,roof+3],[x+4,30],[x-4,30]],G,'▓');
-        c.line(x-side*2,roof+3,x-side*2,29,'│',N);
-        c.line(x-4,30,x+4,30,'▄',N);
-        c.line(x-6,roof+3,x,roof,'╱',R);c.line(x,roof,x+6,roof+3,'╲',R);
-        for(var inset=0;inset<3;inset++)c.put(x,roof+5+inset*4,'◆',N);
-      }
-      c.line(cx+side*14,5,cx+side*14,23,'║',G);
-      c.line(cx+side*17,5,cx+side*17,23,'│',N);
-      for(var i=0;i<3;i++) {
-        var x=cx+side*(32+i*11);
-        luMeetFlame(c,x,30,0.6+i*0.13,0,t+i+side,side);
-      }
-      c.line(cx+side*17,28,cx+side*56,31,'─',R);
-    }
-    // 连续承接誓约盾下方砧座，三层实体倒角，下沿留出岩缝。
-    luCoalFacet(c,[[cx-25,27],[cx+25,27],[cx+32,29],[cx-32,29]],N,'▓');
-    luCoalFacet(c,[[cx-32,29],[cx+32,29],[cx+23,32],[cx-23,32]],G,'█');
-    c.line(cx-25,27,cx+25,27,'▄',B);
-    c.line(cx-30,29,cx+30,29,'─',N);
-    // 锻件每击变薄变宽，第三击才成环，不用单个字符代替主体。
-    if(age<5.55) {
-      var width=14+Math.max(0,p.hit)*3,height=p.hit<0?2:p.hit===0?1.6:1.2;
-      luCoalFacet(c,[[cx-width,25-height],[cx+width,25-height],[cx+width+2,27],[cx-width-2,27]],R,'▓');
-      c.line(cx-width,25-height,cx+width,25-height,'▄',p.dt<0.4?W:B);
-      c.line(cx-width+2,26,cx+width-2,26,'█',B);
-    } else luForgeLinks(c,cx,25-lift*10,clamp01((age-5.55)/0.9),t);
-    luForgePillar(c,cx,p.bottom,t);
-    // 每击冲量由接触点发出：低扁冲击环、贴地火浪、带重力的灼热碎屑。
-    for(var hit=0;hit<3;hit++) {
-      var dt=age-hits[hit];if(dt<0||dt>1.25)continue;
-      var power=1+hit*0.22,r=8+dt*58*power;
-      if(dt<0.5) {
-        for(var a=0;a<TAU;a+=0.035)c.put(cx+Math.cos(a)*r,26+Math.sin(a)*r*0.065,'─',dt<0.12?W:B);
-        if(dt<0.09)c.line(cx-28,25,cx+28,25,'█',W);
-      }
-      for(var i=0;i<42;i++) {
-        var seed=hash16(i*197+hit*941),side=i%2?1:-1;
-        var vx=side*(17+seed%33)*power,vy=-(5+(seed>>5)%18)*power;
-        var x=cx+side*7+vx*dt,y=25+vy*dt+12*dt*dt;
-        if(y>30||x<3||x>c.w-4)continue;
-        c.line(x-vx*0.055,y-(vy+24*dt)*0.055,x,y,dt<0.45?'─':'.',dt<0.18?W:dt<0.7?B:R);
-        c.put(x,y,i%6===0?'◆':'+',dt<0.3?W:B);
-      }
-      for(var side=-1;side<=1;side+=2)for(var n=0;n<5;n++) {
-        var u=dt-n*0.055;if(u<0||u>0.55)continue;
-        var x=cx+side*(17+u*65),height=(1-u/0.55)*(2+hit);
-        c.line(x,28,x,28-height,'▒',R);c.put(x,28-height,'*',B);
+
+    luForgeWall(c,cx,t);
+
+    // 每次落锤把砧面烤亮一度
+    var hot=p.dt<0.34?Math.exp(-p.dt*7):0;
+    luForgeAnvil(c,cx,hot);
+
+    // 入场：上一镜的白热柱在上方塌缩、凝成砧面上的这块料。
+    // 旧版是复制上一镜的盾（还带一条横贯画心的亮条），和这里的砧座对不上。
+    if(age<0.80) {
+      var k=clamp01(age/0.80),yb=21,yt=yb-(19-2*k);
+      for(var y=Math.ceil(yt);y<=yb;y++) {
+        var u=clamp01((yb-y)/Math.max(1,yb-yt));
+        var w=Math.max(0.8,9.5*(1-k*0.60)*(1-u*0.30));
+        c.line(cx-w,y,cx+w,y,u<0.34?'█':u<0.72?'▓':'▒',u<0.34?W:u<0.72?B:N);
       }
     }
-    if(age>6.2) {
-      // 火托双环升起，背景红框提前预示后续殿堂，不抢双环的金色轮廓。
-      var g=clamp01((age-6.2)/1.3);
-      luIntroGate(c,cx,17,23*g,0,R,false,1.7);
-      for(var side=-1;side<=1;side+=2)for(var i=0;i<9;i++) {
-        var u=mod(t*0.65+i/9,1),x=cx+side*(6+u*15),y=27-u*12;
-        c.put(x,y,u<0.5?'*':'.',u<0.5?B:N);
+
+    // 双环几何提到这里：锻件要靠同一个 ge 决定"被抽走多少"。
+    // 第三击（4.10）就起手，pow(gr,0.62) 让前段长得快，砧面上不会出现"料没了、环还没长"的空档。
+    var gr=clamp01((age-4.12)/2.00),ge=Math.pow(gr,0.62);
+    // 两环重叠别超过 30%：sep 8 / rx 11 只重叠 6 格，两条底弧才分得开。
+    var rx=mix(3.0,11.0,ge)*(1+0.016*Math.sin(t*1.9)),ry=Math.max(0.9,rx*0.50),sep=mix(0.4,8.0,ge);
+    // 底边钉在砧面上方：环是往上长出来的。原来 cy 从 22.5 走到 19.6，
+    // 两个环的下弧一直压在砧面那条亮带上，糊成一条厚底，缩略图读成"托盘里放着两个圈"。
+    var cy=22.6-ry-clamp01((age-5.90)/2.10)*4.2;
+
+    // 锻件：三次落锤把厚料砸成一条宽而薄的金带；第三击后这条带子被"抽"上去长成双环。
+    // ⚠️ 不能用 hash 逐格溶解：散成一片碎点，看着像砧面上撒了一把沙子。
+    var hitN=p.hit+1;
+    var iw=(12+hitN*4.4)*(1-clamp01((age-4.12)/1.15)),ih=hitN===0?3:(hitN<=2?2:1);
+    if(iw>1.6) {
+      for(var yy=24-ih;yy<=23;yy++) {
+        for(var xx=-Math.round(iw);xx<=Math.round(iw);xx++) {
+          // 整块纯白的矩形会读成一根灯管：按 nd 分三档颜色，再用 hash 打散成颗粒，
+          // 才像"被烧到发白的金属"而不是发光条。
+          var nd3=Math.abs(xx)/iw,g3=hash16((xx*131+yy*71+13)&65535)%100;
+          var ch3=nd3>0.86?'▒':(nd3>0.52?'▓':'█');
+          var st3=nd3>0.86?N:(nd3>0.52?B:(g3<26?B:W));
+          if(yy===24-ih)st3=nd3<0.6?W:B;
+          c.put(cx+xx,yy,ch3,st3);
+        }
       }
-      // 画框位于双环后面，重新绘制前景以保持实体遮挡。
-      luForgeLinks(c,cx,25-lift*10,clamp01((age-5.55)/0.9),t);
+    }
+
+    luForgeRam(c,cx,p.bottom,t,clamp01((p.bottom-FORGE_HIGH)/(FORGE_LOW-FORGE_HIGH)));
+
+    // 每击的冲量：白热横闪 + 低扁冲击环 + 带重力的灼热碎屑 + 砧座两端的火舌
+    for(var h4=0;h4<3;h4++) {
+      var d4=age-FORGE_HITS[h4];
+      // 碎屑 0.95s 就清干净：拖到 1.3s 会在两次落锤之间积成一片"沙尘"，读成噪点
+      if(d4<0||d4>0.95)continue;
+      var power=1+h4*0.20;
+      // 接触瞬间：砧面横贯一道白热，再从触点炸开一圈星芒。
+      // 原来只有 0.07s 的一行细线，12fps 下连一帧都抓不到，落锤读不出"砸到了"。
+      if(d4<0.14) {
+        c.line(cx-32,22,cx+32,22,'█',W);
+        c.line(cx-26,21,cx+26,21,'▓',d4<0.07?W:B);
+        for(var sw=0;sw<26;sw++) {
+          var aw=sw/26*TAU,rw2=3+d4*240;
+          c.put(cx+Math.cos(aw)*rw2,22+Math.sin(aw)*rw2*0.34,'*',d4<0.07?W:B);
+        }
+      }
+      // 沿砧面向外推的冲击波：两道对称的横线边跑边抬。
+      // 原来画的是完整椭圆，r 到 44 时上下两个极点变成两条横贯全屏的点线，像扫描线。
+      if(d4<0.48) {
+        var r4=6+d4*150*power;
+        for(var i4=1;i4<=22;i4++) {
+          var u4=i4/22,px4=cx+(i4%2?1:-1)*u4*r4;
+          if(px4<2||px4>c.w-3)continue;
+          var py4=24-Math.pow(u4,2)*5.0;
+          c.put(px4,py4,d4<0.20?'─':'.',d4<0.10?W:(d4<0.26?B:N));
+          if(d4<0.16)c.put(px4,py4-1,'·',B);
+        }
+      }
+      // 第三击的碎屑减半：它和正在成型的两只环抢同一块画面，太多白点会把环读散
+      var nSpark=h4<2?54:30;
+      for(var i5=0;i5<nSpark;i5++) {
+        var sd4=hash16(i5*197+h4*941+7),side4=i5%2?1:-1;
+        var vx4=side4*(10+(sd4%31))*power,vy4=-(6+((sd4>>5)%20))*power;
+        var px5=cx+side4*6+vx4*d4,py5=22+vy4*d4+13*d4*d4;
+        if(py5>30||px5<3||px5>c.w-4)continue;
+        var tl4=d4<0.5?0.07:0.04;
+        c.line(px5-vx4*tl4,py5-(vy4+26*d4)*tl4,px5,py5,d4<0.40?'─':'.',d4<0.16?W:d4<0.60?B:N);
+        c.put(px5,py5,i5%7===0?'◆':'+',d4<0.34?W:B);
+      }
+      if(d4<0.60)for(var s5=-1;s5<=1;s5+=2) {
+        var x5=cx+s5*(26+d4*32),hb5=(1-d4/0.60)*(2.6+h4*0.8);
+        c.line(x5,30,x5,30-hb5,'▒',d4<0.20?N:R);
+        c.put(x5,30-hb5,'*',d4<0.20?B:N);
+      }
+    }
+
+    // 双环：从那根金带里立起来，先长成小环、再抬头、最后扣合
+    if(age>4.12) {
+      // 环后的暖光晕。不放红框：矩形边框在缩略图里读成"给画面贴了张红标签"。
+      var halo=clamp01((age-5.50)/1.50);
+      if(halo>0)for(var i6=0;i6<64;i6++) {
+        var sd6=hash16(i6*317+5),ang6=sd6/65535*TAU,rad6=0.85+((sd6>>7)%100)/100*0.7;
+        var hx6=cx+Math.cos(ang6)*rx*1.85*rad6,hy6=cy+Math.sin(ang6)*ry*3.2*rad6;
+        if(hy6<5||hy6>31)continue;
+        c.put(hx6,hy6,i6%2?'·':'.',i6%3?N:G);
+      }
+      // 环区持续有火星上飘。双环基本静止 2.5 秒，没有这一层整段读起来像卡住了。
+      for(var e9=0;e9<16;e9++) {
+        var sd9=hash16(e9*457+29),uu9=mod(t*0.30+sd9/65535,1);
+        var ex9=cx+((sd9%41)-20)*1.5,ey9=27-uu9*23;
+        c.put(ex9,ey9,uu9<0.25?'+':'·',uu9<0.20?W:(uu9<0.60?B:N));
+      }
+      luForgeLinks(c,cx,cy,rx,ry,sep,t);
+      var clk=age-6.55;
+      if(clk>0&&clk<0.55) {
+        var q5=clk/0.55;
+        for(var i7=0;i7<80;i7++) {
+          var aa5=i7/80*TAU;
+          c.put(cx+Math.cos(aa5)*rx*(1+q5*1.5),cy+Math.sin(aa5)*ry*(1+q5*1.5),'·',clk<0.18?W:B);
+        }
+      }
     }
     c.sx=0;c.sy=0;
-    // 白热柱逐列退去露出实体锤和砧台；入口与呼名段逐格相同。
-    if(age<0.65) {
-      var entry=new CCanvas(c.w,c.h);entry.clip=[top+1,bt-1];luOathSequence(entry,t,top,bt,7.61);
-      for(var y=top+1;y<bt;y++)for(var x=2;x<c.w-2;x++) {
-        if(age>0&&Math.abs(x-cx)>58*(1-age/0.65))continue;
-        var cell=entry.cells[y][x];c.put(x,y,cell[0],cell[1]);
-      }
-    }
   }
 
   function luForgeCaption(c,top,bt,age) {
     var p=luForgePose(age);
     clearRect(c,0,top,c.w,1);clearRect(c,0,bt,c.w,1);
-    c.put(3,top,age<5.55?'35 / STRIKE THE SAME HEART':'36 / TWO SOULS, ONE LINK',N);
-    c.put(c.w-24,top,age<5.55?'FORGE / '+(p.hit+1)+' OF 3':'LINK / UNBREAKABLE',R);
-    c.center(bt,age<5.55?'BLOOD + FIRE   /   FORGED TOGETHER':'WHAT ONCE BOUND US / NOW BINDS US TOGETHER',B);
+    c.put(3,top,age<4.10?'35 / STRIKE THE SAME HEART':'36 / TWO SOULS, ONE LINK',N);
+    c.put(c.w-24,top,age<4.10?('FORGE / '+Math.min(3,p.hit+2)+' OF 3'):'LINK / UNBREAKABLE',R);
+    c.center(bt,age<4.10?'BLOOD + FIRE   /   FORGED TOGETHER':'WHAT ONCE BOUND US / NOW BINDS US TOGETHER',B);
   }
   function lu_s5_strike(c,t,top,bt,elapsed) {
     luForgeSequence(c,t,top,bt,elapsed);luForgeCaption(c,top,bt,elapsed);
