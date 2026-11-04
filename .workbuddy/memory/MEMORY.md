@@ -57,7 +57,10 @@
   （有官方 pyz 参考 → 全帧 0.0% 对拍流程）+ `_design/ascii_mv_authoring_guide.md`
   （无参考自己写 → lyrics.js/spectrum.js 构建、分段、场景美学公式）。
 - 工具链入库 `tools/ascii_mv/`（node_extract.js / diff_generic.py / dump_ref_template.py，
-  均支持 AMV_* 环境变量换歌）；设计规格 `_design/ascii_mv_design.md`（版面契约必读）。
+  均支持 AMV_* 环境变量换歌；import_ansi_actor.py 导入真彩 ANSI 立绘，
+  patch_queen_legs.py 给女王后腿镜像奶白高光）；设计规格 `_design/ascii_mv_design.md`（版面契约必读）。
+- ⚠️ 殿堂段录制**必须带** `START/END/FPS/PXW/OUTDIR`（79.5–96.03 / 24 / 864），
+  不带参数默认全曲 0–188s；立绘调色板统计看不出左右腿差异时，改用渲染帧亮度热图定位。
 - 核心定案：参考帧必须 WSL/glibc 导出（UCRT 与 V8 浮点行为不同）；提取用 Node+DOM 桩
   （headless Edge 已废）；逐行移植禁「理解后重写」；随机全走 hash16 确定性伪随机。
 - **多曲架构（2026-10-30 定案，作废旧指南「每歌一页」）**：单页 `?song=key`，SONGS
