@@ -1,14 +1,19 @@
-"""Mirror the lit highlight of the queen's front leg onto the back leg.
+"""Fill the hollow between the queen's back-leg highlights so both legs read white.
 
-The source ANSI actor (assets/data/ascii_mv/link_up/queen_ansi.js) paints a pale
-cream highlight down her front (image-left) leg only; the back leg is left flat
-black, which reads as "one white leg, one black leg" at gameplay scale. This
-patch copies the cream/grey pixels of the front leg onto the mirrored position
-of the back leg, overwriting only near-black interior pixels, so both legs carry
-the same highlight without touching silhouette, outline or red accents.
+The source ANSI actor (assets/data/ascii_mv/link_up/queen_ansi.js) draws her front
+(image-left) leg as one solid cream band, while the back leg is a black leg edged by
+two pale lines. At gameplay scale the edged leg reads as "one white leg, one black
+leg", and mirroring a single edge onto the other side (the previous approach) put the
+cream in the wrong place and made that leg look thicker.
+
+The leg is what sits *between* the two pale edges, so this patch fills only the dark
+pixels inside that pair and leaves both edges intact: the back leg becomes a single
+continuous cream band of the same width and slope as the front one, with no internal
+seam. Nothing outside the pair is touched, so the silhouette, the red accents and the
+front leg stay exactly as drawn.
 
 Usage: python patch_queen_legs.py [FILE]   (default: the actor asset)
-Idempotent: the applied marker "legHighlight" is stored next to the data.
+Idempotent: the applied marker "legFill" is stored next to the data.
 """
 import json
 import re
@@ -17,13 +22,13 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 TARGET = ROOT / 'assets/data/ascii_mv/link_up/queen_ansi.js'
-MARK = 'mirror-v1'
+MARK = 'fill-gap-v1'
 
-AXIS = 61          # mirror axis between the two legs
-SRC_X = (49, 59)   # columns holding the front leg's highlight
-YRANGE = (69, 93)  # highlight span, stops above the shin/boot
-LIT = range(2, 13)  # cream + grey ramp; index 1 is the near-black interior
-DARK = (1, 18, 19, 20)
+Y_RANGE = (70, 82)    # back-leg band, stops above the boot highlight
+X_RANGE = (66, 79)    # columns that can hold the back leg
+LIT = 110             # brightness above this is a highlight edge, not the hollow
+CREAM = 3             # #fdf3c2, the same tone as the front leg
+GAP = (2, 4)          # edge spacing that identifies one leg's two outlines
 
 
 def load(path):
@@ -35,28 +40,40 @@ def load(path):
 def main():
     path = Path(sys.argv[1]) if len(sys.argv) > 1 else TARGET
     head, data, tail = load(path)
-    if data.get('legHighlight') == MARK:
+    if data.get('legFill') == MARK:
         print('already patched')
         return
+
     alpha = data['alphabet']
+    palette = [tuple(int(p.lstrip('#')[i:i + 2], 16) for i in (0, 2, 4))
+               for p in data['palette']]
     grid = [[alpha.index(c) for c in row] for row in data['rows']]
+    bright = lambda v: v > 0 and max(palette[v]) > LIT
+
     written = 0
-    for y in range(*YRANGE):
-        for x in range(*SRC_X):
-            v = grid[y][x]
-            if v not in LIT:
-                continue
-            tx = 2 * AXIS - x
-            for t in (tx, tx + 1):  # widen by 1px: the canvas downsamples ~0.4x
-                if 0 <= t < data['width'] and grid[y][t] in DARK:
-                    grid[y][t] = v
-                    written += 1
+    rows = 0
+    for y in range(*Y_RANGE):
+        edges = [x for x in range(*X_RANGE) if bright(grid[y][x])]
+        pair = next(((edges[i], edges[i + 1]) for i in range(len(edges) - 1)
+                     if GAP[0] <= edges[i + 1] - edges[i] <= GAP[1]), None)
+        if pair is None:
+            continue
+        lo, hi = pair
+        filled = 0
+        for x in range(lo + 1, hi):          # keep both edges, fill the hollow
+            if not bright(grid[y][x]) and grid[y][x] != CREAM:
+                grid[y][x] = CREAM
+                filled += 1
+        if filled:
+            rows += 1
+            written += filled
+
     data['rows'] = [''.join(alpha[v] for v in row) for row in grid]
-    data['legHighlight'] = MARK
+    data['legFill'] = MARK
     path.write_text(head + 'window.__LU_QUEEN_ANSI='
                     + json.dumps(data, separators=(',', ':')) + ';' + tail,
                     encoding='utf-8', newline='\n')
-    print('patched pixels:', written)
+    print('patched pixels: %d across %d rows' % (written, rows))
 
 
 if __name__ == '__main__':
