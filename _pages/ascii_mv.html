@@ -5517,16 +5517,37 @@ title: 字符演歌
   // 同一解析时间轴保证 84.09 / 88.26 / 92.04s 不会重置人物姿态。
   function luRoyalSequence(c,t,top,bt,age) {
     function ease(v){v=clamp01(v);return v*v*(3-2*v);}
-    var entry=ease(age/1.1),wheelIn=ease((age-4.09)/0.65),wheelOut=ease((age-7.5)/0.76);
-    var close=ease((age-8.26)/1.45)*(1-ease((age-11.65)/1.3));
+    var wheelIn=ease((age-4.09)/0.65),wheelOut=ease((age-7.5)/0.76);
+    // 88.26s 起 0.5s 推入近景（≈12 帧），随后保持到本章结束；92.04s 血蔷薇换镜头
+    // 时直接切回全景。早期版本是 1.45s 推近 + 1.3s 缩回，近景停 2s 又被拉回去，
+    // 24fps 下像"变焦呼吸"；实拍/MV 里景别变化是切镜，不是来回拉。
+    var close=age>=12.04?0:ease((age-8.26)/0.5);
     luRoyalHall(c,t,close,clamp01((age-12.04)/2));
-    // 80–82s：层层红门撑开进入殿堂，最后一道门保留在人物身后。
-    if(age<2.5)for(var gate=2;gate>=0;gate--) {
-      var travel=age*0.75+gate*0.6,w=8+travel*travel*11,h=w*0.55;
-      var x=60,y=18;
-      c.line(x-w,y-h,x-w,y+h,'█',gate===0?R:G);
-      c.line(x+w,y-h,x+w,y+h,'█',gate===0?R:G);
-      c.line(x-w,y-h,x+w,y-h,'▄',R);
+    // 80–82.4s：红门向两侧滑开 —— 只留两道光墙（门缝透出的血色光），不画横梁。
+    // 早期版本用 █ 实心柱 + ▄ 横梁拼成一个闭合矩形，人物显影前那半秒画面里
+    // 就是一个静止的空心方框，24fps 下会被直接读成 UI 选择框。
+    // 门中心对齐人物中线 65（actor.x=38 是左边缘，宽 53），两侧留 6 格余量。
+    if(age<2.45) {
+      var open=ease(clamp01(age/1.15)),rush=Math.max(0,age-1.15);
+      var zoom=open*4+rush*rush*40;
+      // 光墙随 80.65s 的双环淡入一起"点亮"：░→▒→▓，避免整条光带突然拍在画面边缘。
+      var appear=clamp01((age-0.35)/0.5),lit=appear<0.34?'░':appear<0.7?'▒':'▓';
+      for(var gate=2;gate>=0;gate--) {
+        var gw=31+zoom+gate*4,gl=Math.round(65-gw),gr=Math.round(65+gw),gy;
+        if(gate!==0) {   // 更远的门缝只留一条暗金细线，交代替深
+          for(gy=3;gy<34;gy++){c.put(gl,gy,'│',G);c.put(gr,gy,'│',G);}
+          continue;
+        }
+        // 擦过镜头时 红→橙→暗金 递减，代替整道光墙突然消失。
+        var fade=clamp01((zoom-16)/18),core=fade>0.75?G:fade>0.4?N:R,mid=fade>0.4?G:N;
+        for(gy=3;gy<34;gy++) {
+          c.put(gl,gy,lit,core);c.put(gr,gy,lit,core);      // 光核
+          c.put(gl-1,gy,'▒',mid);c.put(gr+1,gy,'▒',mid);    // 内晕
+          c.put(gl-2,gy,'░',G);c.put(gr+2,gy,'░',G);        // 外晕
+        }
+        // 门钉：沿光墙每 6 行一枚，只在光还亮时出现
+        if(fade<0.45)for(var ky=10;ky<32;ky+=6){c.put(gl,ky,'◆',N);c.put(gr,ky,'◆',N);}
+      }
     }
     // 台阶和瘦长王座外缘，不在人物背后铺纹理。
     for(var tier=0;tier<3;tier++)c.line(72-16-tier*6,29+tier,72+16+tier*6,29+tier,tier===0?'▄':'─',G);
@@ -5543,8 +5564,9 @@ title: 字符演歌
         if(u>0.15)c.put(x,y,u<0.45?'░':'·',u<0.25?W:G);
       }
     }
-    if(age>1.0) {
-      var reveal=ease((age-1.0)/1.1);
+    // 人物显影紧跟光墙出现（0.55s 起，0.95s 完成）——晚于门缝就会出现"空框等人"。
+    if(age>0.55) {
+      var reveal=ease((age-0.55)/0.95);
       // 全景保留刀尖到双靴；近景放大脸与双马尾，脚离开构图是有意的推镜。
       // 峰值 68 格：再大就会把冠冕和靴子同时切掉。纵向补偿只抬 0.5 行 ——
       // 抬多了先切头冠（身份特征），宁可让裙摆下缘被近景裁掉。
