@@ -1,19 +1,20 @@
-"""Fill the hollow between the queen's back-leg highlights so both legs read white.
+"""Make the queen's back leg exactly match her front leg.
 
 The source ANSI actor (assets/data/ascii_mv/link_up/queen_ansi.js) draws her front
-(image-left) leg as one solid cream band, while the back leg is a black leg edged by
-two pale lines. At gameplay scale the edged leg reads as "one white leg, one black
-leg", and mirroring a single edge onto the other side (the previous approach) put the
-cream in the wrong place and made that leg look thicker.
+(image-left) leg as one clean cream band, while the back leg is a black leg edged by
+two pale outlines. At gameplay scale that pair of outlines reads as one thick white
+leg, so the back leg looks heavier than the front one no matter how the hollow is
+filled.
 
-The leg is what sits *between* the two pale edges, so this patch fills only the dark
-pixels inside that pair and leaves both edges intact: the back leg becomes a single
-continuous cream band of the same width and slope as the front one, with no internal
-seam. Nothing outside the pair is touched, so the silhouette, the red accents and the
-front leg stay exactly as drawn.
+The front leg is the reference: this patch takes the cream band of the front leg
+(the largest cream blob on the left half), mirrors it across the body axis to the
+back leg, and copies the one pixel of shading on each side so the two legs share the
+same width, slope and outline colour. Everything the back leg had there is cleared
+first, which also removes leftovers from earlier patches. Hair, skirt trim, the red
+accents and the front leg are never touched.
 
 Usage: python patch_queen_legs.py [FILE]   (default: the actor asset)
-Idempotent: the applied marker "legFill" is stored next to the data.
+Idempotent: the applied marker "legMirror" is stored next to the data.
 """
 import json
 import re
@@ -22,58 +23,98 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 TARGET = ROOT / 'assets/data/ascii_mv/link_up/queen_ansi.js'
-MARK = 'fill-gap-v1'
+MARK = 'mirror-front-leg-axis62'
 
-Y_RANGE = (70, 82)    # back-leg band, stops above the boot highlight
-X_RANGE = (66, 79)    # columns that can hold the back leg
-LIT = 110             # brightness above this is a highlight edge, not the hollow
-CREAM = 3             # #fdf3c2, the same tone as the front leg
-GAP = (2, 4)          # edge spacing that identifies one leg's two outlines
+AXIS = 62                  # body centre line: back leg = 2*AXIS - x
+FRONT_X = (44, AXIS)       # columns that can hold the front leg's cream band
+FRONT_Y = (66, 88)
+BACK_X = (65, 77)          # columns that can hold the back leg
+BACK_Y = (69, 84)
+LIT = 90                   # above this the back leg counts as highlight (not body)
+CREAM = (2, 3)             # #ffffbf / #fdf3c2, the front leg's band
+FILL = 1                   # #09090b, leg body
 
 
 def load(path):
     text = path.read_text(encoding='utf-8')
     body = re.search(r'window\.__LU_QUEEN_ANSI=(\{.*\});', text, re.S).group(1)
-    return text[:text.index(body)], json.loads(body), text[text.index(body) + len(body):]
+    at = text.index(body)
+    return text[:at], json.loads(body), text[at + len(body):]
 
 
 def main():
     path = Path(sys.argv[1]) if len(sys.argv) > 1 else TARGET
     head, data, tail = load(path)
-    if data.get('legFill') == MARK:
-        print('already patched')
-        return
 
     alpha = data['alphabet']
     palette = [tuple(int(p.lstrip('#')[i:i + 2], 16) for i in (0, 2, 4))
                for p in data['palette']]
     grid = [[alpha.index(c) for c in row] for row in data['rows']]
-    bright = lambda v: v > 0 and max(palette[v]) > LIT
+    width = data['width']
 
-    written = 0
-    rows = 0
-    for y in range(*Y_RANGE):
-        edges = [x for x in range(*X_RANGE) if bright(grid[y][x])]
-        pair = next(((edges[i], edges[i + 1]) for i in range(len(edges) - 1)
-                     if GAP[0] <= edges[i + 1] - edges[i] <= GAP[1]), None)
-        if pair is None:
+    def lum(v):
+        return max(palette[v]) if v else 0
+
+    def is_red(v):
+        r, g, _ = palette[v]
+        return r > 110 and g < r * 0.62
+
+    # 1) the front leg = largest cream blob on the left half
+    blob = {(x, y) for y in range(*FRONT_Y) for x in range(*FRONT_X)
+            if grid[y][x] in CREAM}
+    seen, comps = set(), []
+    for p in sorted(blob):
+        if p in seen:
             continue
-        lo, hi = pair
-        filled = 0
-        for x in range(lo + 1, hi):          # keep both edges, fill the hollow
-            if not bright(grid[y][x]) and grid[y][x] != CREAM:
-                grid[y][x] = CREAM
-                filled += 1
-        if filled:
-            rows += 1
-            written += filled
+        stack, comp = [p], []
+        seen.add(p)
+        while stack:
+            cx, cy = stack.pop()
+            comp.append((cx, cy))
+            for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1),
+                           (1, 1), (1, -1), (-1, 1), (-1, -1)):
+                q = (cx + dx, cy + dy)
+                if q in blob and q not in seen:
+                    seen.add(q)
+                    stack.append(q)
+        comps.append(comp)
+    if not comps:
+        print('no front-leg cream band found')
+        return
+    leg = max(comps, key=len)
+    rows = sorted({p[1] for p in leg})
+
+    # 2) mirror source = the band plus one pixel of shading on each side
+    legs = set(leg)
+    source = {p: grid[p[1]][p[0]] for p in leg}
+    for x, y in leg:
+        for nx in (x - 1, x + 1):
+            if 0 <= nx < AXIS and (nx, y) not in legs:
+                v = grid[y][nx]
+                if v not in CREAM and v != 0:
+                    source[(nx, y)] = v
+
+    # 3) clear the back leg: highlights and leftover cream go back to leg body
+    cleared = 0
+    for y in range(*BACK_Y):
+        for x in range(*BACK_X):
+            v = grid[y][x]
+            if v and not is_red(v) and (v in CREAM or lum(v) > LIT):
+                grid[y][x] = FILL
+                cleared += 1
+
+    # 4) paint the mirrored band
+    for (x, y), v in source.items():
+        tx = 2 * AXIS - x
+        if 0 <= tx < width:
+            grid[y][tx] = v
 
     data['rows'] = [''.join(alpha[v] for v in row) for row in grid]
-    data['legFill'] = MARK
-    path.write_text(head + 'window.__LU_QUEEN_ANSI='
-                    + json.dumps(data, separators=(',', ':')) + ';' + tail,
+    data['legMirror'] = MARK
+    path.write_text(head + json.dumps(data, separators=(',', ':')) + tail,
                     encoding='utf-8', newline='\n')
-    print('patched pixels: %d across %d rows' % (written, rows))
+    print('front leg: %d px, rows %d-%d; mirrored %d px, cleared %d'
+          % (len(leg), rows[0], rows[-1], len(source), cleared))
 
 
 if __name__ == '__main__':
