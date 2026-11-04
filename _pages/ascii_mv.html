@@ -166,6 +166,7 @@ title: 字符演歌
     this.w = w; this.h = h;
     this.clip = null;   // 原作 c.clip=(top,bt)：场景段行裁剪
     this.queen = null;
+    this.roxy = null;   // 洛克茜·女仆装（第二张 ANSI 角色）
     this.sx = 0; this.sy = 0; // 临时整屏位移（开幕柱锤冲击）
     this.cells = [];
     for (var y = 0; y < h; y++) {
@@ -176,6 +177,7 @@ title: 字符演歌
   }
   CCanvas.prototype.clear = function () {
     this.queen = null;
+    this.roxy = null;
     for (var y = 0; y < this.h; y++)
       for (var x = 0; x < this.w; x++) { this.cells[y][x][0] = ' '; this.cells[y][x][1] = D; }
   };
@@ -5456,6 +5458,69 @@ title: 字符演歌
     g.restore();
   }
 
+  // 用户提供的第二张 ANSI 角色（洛克茜·女仆装，84×70 半块 = 84×140 像素）。
+  // 与女王不同，这张是单人无长柄的对称站姿，拆发束/披风的收益很低：
+  // 层一拆，边缘就会出现\"头发与披风错位\"的缝。整身单层 + 1% 呼吸 + 脚底锚点足够。
+  // 缓存按 vis 分档：全身入画时 vis=1（脚要留住）；裁腿时 vis<1，裙摆从
+  // (vis-0.22) 处开始化开、到 vis 正好归零——裁断线落在完全透明的位置才看不出来。
+  var LU_ROXY_CACHE = {};
+  function luRoxyLayers(vis) {
+    var data = window.__LU_ROXY_ANSI;
+    if (!data) return null;
+    var key = vis ? vis.toFixed(3) : '1';
+    if (LU_ROXY_CACHE[key] && LU_ROXY_CACHE[key].data === data) return LU_ROXY_CACHE[key].layers;
+    var unit = 8, cv = document.createElement('canvas');
+    cv.width = data.width * unit; cv.height = data.height * unit;
+    var ctx = cv.getContext('2d');
+    for (var y = 0; y < data.height; y++) for (var x = 0; x < data.width; x++) {
+      var index = data.alphabet.indexOf(data.rows[y].charAt(x));
+      if (index <= 0) continue;
+      ctx.fillStyle = data.palette[index];
+      ctx.fillRect(x * unit, y * unit, unit, unit);
+    }
+    // 下缘渐隐：27 行的窗口装不下 140 像素全身像，稍大就必须裁脚，硬切的下摆
+    // 会读成"被剪刀剪掉"。vis = 实际可见到的贴图比例（0..1）：
+    // 从 vis-0.22 开始化开、到 vis 处正好归零，裁断线落在全透明处就看不出来。
+    if (vis && vis < 1) {
+      var img = ctx.getImageData(0, 0, cv.width, cv.height);
+      var fadeFrom = Math.max(0, vis - 0.13);
+      for (var yy = 0; yy < cv.height; yy++) {
+        var u2 = (yy / cv.height - fadeFrom) / (vis - fadeFrom);
+        var k = u2 <= 0 ? 1 : (u2 >= 1 ? 0 : Math.pow(1 - u2, 2.2));   // 上缓下急，像雾
+        if (k >= 1) continue;
+        for (var xx = 0; xx < cv.width; xx++) {
+          var o = (yy * cv.width + xx) * 4;
+          img.data[o + 3] = Math.round(img.data[o + 3] * k);
+        }
+      }
+      ctx.putImageData(img, 0, 0);
+    }
+    LU_ROXY_CACHE[key] = { data: data, layers: [cv] };
+    return LU_ROXY_CACHE[key].layers;
+  }
+  // actor = {x(格), y(格), width(格), t, reveal, anchor('head'|'foot')}
+  // anchor 决定缩放锚点：呼吸时头不动、脚微起伏，还是反过来。
+  function luRenderRoxy(g, actor) {
+    var layers = luRoxyLayers(actor.vis == null ? 1 : actor.vis); if (!layers) return;
+    var data = window.__LU_ROXY_ANSI, t = actor.t, cell = CW * SC;
+    var unit = actor.width * cell / data.width;
+    var width = data.width * unit, height = data.height * unit;
+    var x = actor.x * cell, y = actor.y * CH * SC;
+    g.save();
+    g.beginPath(); g.rect(2 * cell, 2 * CH * SC, (GW - 4) * cell, 31 * CH * SC); g.clip();
+    g.globalAlpha = actor.reveal;
+    g.imageSmoothingEnabled = true;          // ⚠️ 这张是**缩小**贴图（84→约 50 格），
+    g.imageSmoothingQuality = 'high';        // nearest 会丢行，脸和围裙边缘断成虚线
+    var br = 1 + Math.sin(t * 1.6) * 0.006 + Math.sin(t * 3.7 + 1.2) * 0.003;
+    var ax = actor.x * cell + width / 2;
+    var ay = actor.anchor === 'head' ? y : y + height;
+    g.translate(ax, ay);
+    g.scale(br, br);
+    g.translate(-ax, -ay);
+    g.drawImage(layers[0], x, y, width, height);
+    g.restore();
+  }
+
   function luRoyalHall(c,t,depth,moon) {
     var cx=60;
     // 月/玫瑰窗只有外缘，中央保留暗场，红镰与金发无需同背景争抢。
@@ -6408,31 +6473,67 @@ title: 字符演歌
 
   // ===== 导歌二回闪 135.87–152.18 粒度细分：2 子场景 =====
 
-  // 135.87–143.12 "You're there in my dreams that I've dreamt"：亮丝带+水晶簇+碎片慢漂
+  // 135.87–143.12 "You're there in my dreams that I've dreamt"：
+  // 二回闪第一幕。参考 MV 149–156s ＝ 暗场里出现的另一个身影，镜头几乎不动，
+  // 只有光在飘——"梦里见到的那个人"本来就该是静的。
+  // 这里放用户给的第二张 ANSI 角色（洛克茜·女仆装）：与女王持镰的剪影作对照，
+  // 读成同一个人被梦照出来的另一面。
+  // 尺寸账：贴图 84×140，可用 27 行 ⇒ 全身最多约 32 格宽（6.9px/格）。
+  // 再大就必须裁腿；本镜要"完整的人"，所以取全身，靠魔法阵托住脚下。
   function lu_s10_dreamt(c, t, top, bt, elapsed) {
-    var cy = (top + bt) / 2, e = elapsed;
-    var vsC = luBox(0.18, 1.3, 0.18, 0, 0.1, 0)       // 右上 3D 水晶簇
-      .concat(luBox(0.18, 0.9, 0.18, 0.5, -0.2, 0))
-      .concat(luBox(0.18, 0.7, 0.18, -0.45, -0.3, 0));
-    projected(c, vsC, luEdges(0).concat(luEdges(8), luEdges(16)),
-              c.w - 26, top + 2, c.w - 6, top + 13, t * 0.18, B, 1);
-    var breathe = 0.85 + 0.15 * Math.sin(t * 0.7);
-    for (var i = 0; i < 6; i++)
-      luRibbon(c, cy + (i - 2.5) * 3.6, (2 + i * 0.5) * breathe, 0.06,
-               t * 0.8 + i * 1.31, i % 3 === 0 ? R : i % 3 === 1 ? B : N);
-    var fragCh = '@~-=o()#*';                         // 旧场景符号碎片
-    for (var f2 = 0; f2 < 14; f2++) {
-      var hs3 = hash16(f2 * 389 + 3);
-      var fx = 6 + mod(hs3 % 100 / 100 * (c.w - 12) + t * (0.6 + hs3 % 30 / 40), c.w - 12);
-      var fy = top + 2 + (hs3 >> 7) % (bt - top - 4) + Math.sin(t + f2) * 1.5;
-      c.put(fx | 0, fy | 0, fragCh.charAt((hs3 >> 3) % fragCh.length),
-            f2 % 4 === 0 ? R : f2 % 4 === 1 ? B : f2 % 4 === 2 ? N : D);
+    var e = elapsed, x, y, i;
+    var cx = 60, gy = bt - 1.2;
+    // 7.25 秒只靠人物"静立"会闷：后 3 秒把雾从暗金推成暗红（"梦里见到的人"开始不对劲），
+    // 光尘也上冲得快一点。立绘本身不推镜——vis 一变就要重建贴图缓存，逐帧重建会掉帧。
+    var mood = clamp01((e - 4.2) / 2.4);
+    for (i = 0; i < 3; i++) {
+      var my = top + 5 + i * 8;
+      var off = mod(e * (1.0 + i * 0.65), 1) * 70 * (i % 2 ? -1 : 1);
+      for (x = 3; x < c.w - 3; x++) {
+        var mm = Math.sin((x + off) * 0.055 + i * 2.3) * 0.5 + 0.5;
+        if (mm > 0.58 - mood * 0.12 && hash16(x * 17 + i * 43 + (e * 3 | 0) * 5) % 100 < 32)
+          c.put(x, my + Math.sin(x * 0.09 + i * 1.7) * 1.4, '·',
+                (i % 2 === 0 && mood > 0.35) ? R : (i === 1 ? K : G));
+      }
     }
-    luLog(c, top + 1, e, [
-      ['FLASH.SYS  v0.8', 0.3, W],
-      ['recall ....... ON', 1.6, B],
-      ['fragments .... DRIFT', 3.4, N]
-    ]);
+    // 后段：人物背后的暗红光晕，越到后面越实（画在字符层，立绘会压在上面）
+    if (mood > 0) {
+      for (i = 0; i < 46; i++) {
+        var hs3 = hash16(i * 271 + 13);
+        var a5 = (hs3 % 628) / 100, r5 = 12 + ((hs3 >> 5) % 40) / 40 * 16;
+        if (hash16(i * 7 + (e * 4 | 0)) % 100 < 70 * mood)
+          c.put(cx + Math.cos(a5) * r5, 19 + Math.sin(a5) * r5 * 0.55, '·', R);
+      }
+    }
+    // 上升的光尘（少量、极淡：这镜里唯一的高光应该是人，不是背景）
+    for (i = 0; i < 30; i++) {
+      var hs = hash16(i * 197 + 11);
+      var rise = mod(e * (0.18 + (hs >> 5) % 40 / 40 * 0.42) + hs / 65535, 1);
+      c.put(60 + ((hs % 116) - 58) * (0.55 + rise * 0.7), gy - 2 - rise * (gy - top - 3),
+            i % 9 === 0 ? '+' : '·', i % 9 === 0 ? N : G);
+    }
+    // 地面一律不画：立绘裁在膝盖以下、下缘还在渐隐，任何"脚下的圈"都会变成
+    // 一堆悬空的散点（前两版都是这么废的）。地面感交给渐隐本身。
+    // 唯一的地面暗示：光尘越靠下越密，暗示有地面在那里把光反射上来。
+    for (i = 0; i < 26; i++) {
+      var hs2 = hash16(i * 313 + 29);
+      var lv = (hs2 % 100) / 100;
+      c.put(cx + ((hs2 >> 7) % 96 - 48) * (0.4 + lv * 0.8),
+            gy - 0.5 - lv * lv * (gy - top - 2), '·', i % 4 ? K : G);
+    }
+    // 不给"地面反光"：立绘裁到膝盖以下，脚下没有实体，一片散点只会读成噪点。
+    // 地面感交给脚下那圈光圈和渐隐本身。
+    // 人物：宽到一定程度就必须裁腿，否则头会顶出画面 —— 那时把头顶钉在 top 上
+    var RW = window.__ROXY_W || 36;
+    var rh = 140 * (RW * 18 / 84) / 36;               // 换算成字符行数
+    var avail = gy - top - 0.8;
+    var vis = Math.min(1, avail / rh);                // 贴图能看到多少
+    var yHead = vis < 0.999 ? top + 1.3 : gy - rh + 0.5;
+    c.roxy = { x: cx - RW / 2, y: yHead, width: RW, t: t, anchor: 'foot',
+               vis: vis, reveal: clamp01(e / 1.3) };
+    clearRect(c, 0, top, c.w, 1);
+    c.put(3, top, '52 / IN MY DREAMS', N);
+    c.put(c.w - 20, top, 'SHE IS THERE', R);
   }
 
   // 143.12–152.18 "It's just you & me in the end"：双信子相遇 → 血色侵蚀 → 底部点燃
@@ -7288,13 +7389,15 @@ title: 字符演歌
     }
     var tasks=[one(LYRIC_URL),one(SPEC_URL)];
     if(SONG_KEY==='link_up')tasks.push(one("{{ '/assets/data/ascii_mv/link_up/queen_ansi.js' | relative_url }}"));
+    if(SONG_KEY==='link_up')tasks.push(one("{{ '/assets/data/ascii_mv/link_up/roxy_ansi.js' | relative_url }}"));
     Promise.all(tasks).then(function (codes) {
       done = true;
       runGlobal(codes[0]);                 // window.__LYRICS
       LYRICS = window.__LYRICS || [];
       lastLy = -2;                         // 强制下一帧重取字幕
       runGlobal(codes[1]);                 // window.__SPECTRUM（drawSpectrum 每帧现取）
-      if(codes[2])runGlobal(codes[2]);      // Link Up 的 ANSI 角色素材
+      if(codes[2])runGlobal(codes[2]);      // Link Up 的 ANSI 角色素材（女王）
+      if(codes[3])runGlobal(codes[3]);      // 洛克茜·女仆装
       elLoad.hidden = true;
     }).catch(function (e) {
       failed = true;
@@ -7330,6 +7433,7 @@ title: 字符演歌
           x * CW * SC, y * CH * SC, CW * SC, CH * SC);
       }
     if(grid.queen)luRenderQueen(g2d,grid.queen);
+    if(grid.roxy)luRenderRoxy(g2d,grid.roxy);
   }
 
   /* ---------------- 音频时钟 ---------------- */

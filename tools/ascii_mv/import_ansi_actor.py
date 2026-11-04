@@ -67,6 +67,9 @@ def main():
     ap.add_argument('output', type=Path)
     ap.add_argument('--preview', type=Path)
     ap.add_argument('--exposure', type=float, default=1.0, help='Foreground brightness multiplier')
+    ap.add_argument('--drop-cool', type=float, default=0.0, metavar='RATIO',
+                    help='Treat dark pixels whose blue exceeds red*RATIO as backdrop '
+                         '(strips a baked-in cold ground glow); 0 disables')
     args = ap.parse_args()
     raw = args.input.read_bytes()
     im = decode_ansi(raw.decode('utf-8-sig'))
@@ -83,11 +86,17 @@ def main():
     outside = outside.crop((1, 1, w + 1, h + 1))
     opaque = [ink.getpixel((x, y)) > 0 or outside.getpixel((x, y)) != 128
               for y in range(h) for x in range(w)]
+    # 有些 ANSI 立绘自带一块冷色地面/环境光（B 明显高于 R）。直接搬进暖色场景，
+    # 人物脚下会多出一块蓝灰板子。--drop-cool 把这类暗冷色并回背景。
+    if args.drop_cool > 0:
+        for i, p in enumerate(im.getdata()):
+            if opaque[i] and max(p) < 120 and p[2] > p[0] * args.drop_cool:
+                opaque[i] = False
     im.putdata([tuple(min(255, round(v * args.exposure)) for v in p) if max(p) >= 48 else p
                 for p in im.getdata()])
     # Quantize foreground only, so the near-black source backdrop does not
     # consume the palette. Index 0 is transparent; index 1 is dark interior.
-    colors = [p for p in im.getdata() if max(p) >= 48]
+    colors = [p for p, ok in zip(im.getdata(), opaque) if ok]
     strip = Image.new('RGB', (len(colors), 1)); strip.putdata(colors)
     quant = strip.quantize(colors=22, method=Image.Quantize.MEDIANCUT)
     palette = [(0, 0, 0), (9, 9, 11)]
