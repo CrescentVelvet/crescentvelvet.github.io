@@ -163,6 +163,7 @@ title: 字符演歌
   function CCanvas(w, h) {
     this.w = w; this.h = h;
     this.clip = null;   // 原作 c.clip=(top,bt)：场景段行裁剪
+    this.queen = null;
     this.sx = 0; this.sy = 0; // 临时整屏位移（开幕柱锤冲击）
     this.cells = [];
     for (var y = 0; y < h; y++) {
@@ -172,6 +173,7 @@ title: 字符演歌
     }
   }
   CCanvas.prototype.clear = function () {
+    this.queen = null;
     for (var y = 0; y < this.h; y++)
       for (var x = 0; x < this.w; x++) { this.cells[y][x][0] = ' '; this.cells[y][x][1] = D; }
   };
@@ -5395,433 +5397,182 @@ title: 字符演歌
     luForgeSequence(c,t,top,bt,4.11+elapsed);luForgeCaption(c,top,bt,4.11+elapsed);
   }
 
-  // ===== 殿堂段 80.00–96.03：同一座殿堂的四个镜头 =====
-  // 旧版四段各自为政（立柱 / 3D 坩埚 / 悬空双锤 / 拉远），每段只有十几根细线，
-  // 缩略图里几乎是全黑的，"殿堂"根本读不出来。现在四段共用一套殿堂几何
-  // （三道连拱 + 三对透视柱 + 熔岩地面 + 中央王座），差异只在镜头与事件：
-  // 升起 → 淬火 → 三击 → 拉远。
-  // ⚠️ cx 取整数 60：王座/女王全是奇数宽度，用 59.5 会导致左右差半格（红瞳只有一只对得上）。
-  var HALL_CX = 60, HALL_COLTOP = 10, HALL_FLOOR = 31;
-  var HALL_P = [[50, 5], [34, 3], [20, 3]];     // [柱心距, 柱宽] 近 → 远
-  // 拱端点必须落在柱顶上：中拱跨内柱（40..80），侧拱跨外柱到内柱（10..40 / 80..110）。
-  var HALL_ARC = [[0, 20, 3.6], [-35, 15, 2.2], [35, 15, 2.2]];   // [心偏移, 半跨, 起拱高]
-
-  // 连拱：三条弧线是"殿堂"最强的读法。旧版横贯全屏的那一条读成了天花板裂缝。
-  // 字符高宽比 2:1，纵向只有 29 行，拱必然是"扁拱"——靠起拱段换成 ╱╲ 才立得住。
-  function luHallArch(c, t, k) {
-    if (k <= 0) return;
-    for (var i = 0; i < HALL_ARC.length; i++) {
-      var ac = HALL_CX + HALL_ARC[i][0], half = HALL_ARC[i][1], rise = HALL_ARC[i][2];
-      for (var x = Math.round(ac - half); x <= Math.round(ac + half); x++) {
-        var u = (x - ac) / half;
-        var au = Math.abs(u);
-        // 拱券从起拱点向拱顶「合龙」。原来用整体下移做显现，k 小的时候拱线会扫到
-        // y=4 的 log 区，把开机自检文字整行吃掉。
-        var seg = clamp01((k - (1 - au) * 0.62) / 0.38);
-        if (seg <= 0) continue;
-        c.put(x, HALL_COLTOP - rise * (1 - Math.pow(au, 0.8)),
-              au > 0.88 ? (u < 0 ? '╲' : '╱') : '─', seg < 0.55 ? G : N);
-      }
+  // ===== 殿堂段 80.00–96.03：红门 / 淬火轮盘 / 持镰近景 / 血蔷薇 =====
+  // 用户提供的 110×55 ANSI 半块角色：保留原始上下半格，不压成 120×40 场景格。
+  // 角色数据与歌词/频谱一同加载；画布帧只存姿态描述，因此直接跳播和导出一致。
+  var LU_QUEEN_CACHE = null;
+  function luQueenLayers() {
+    var data=window.__LU_QUEEN_ANSI;
+    if(!data)return null;
+    if(LU_QUEEN_CACHE&&LU_QUEEN_CACHE.data===data)return LU_QUEEN_CACHE.layers;
+    var layers=[],unit=8;
+    for(var i=0;i<5;i++) {
+      var cv=document.createElement('canvas');cv.width=data.width*unit;cv.height=data.height*unit;
+      layers.push(cv);
     }
-    // 拱下的暗墙肌理：极稀疏的砖点，只为去掉"全黑"
-    if (k > 0.75) for (var x2 = 4; x2 < c.w - 4; x2++)
-      if (hash16((x2 * 61 + 13) & 65535) % 100 < 9)
-        c.put(x2, 8 + (hash16((x2 * 7) & 65535) % 2), '·', K);
+    var ctx=layers.map(function(cv){return cv.getContext('2d');});
+    var rgb=data.palette.map(function(p){return [parseInt(p.slice(1,3),16),parseInt(p.slice(3,5),16),parseInt(p.slice(5,7),16)];});
+    for(var y=0;y<data.height;y++)for(var x=0;x<data.width;x++) {
+      var index=data.alphabet.indexOf(data.rows[y].charAt(x));if(index<=0)continue;
+      // 原图底部的装饰地平线交给殿堂，靴子和披风尖端完整保留。
+      if(y>103&&(x<38||x>88))continue;
+      var p=rgb[index],gold=p[0]>p[2]*1.35&&p[1]>p[2]*1.25&&p[1]>p[0]*0.55;
+      var red=p[0]>p[1]*1.6&&p[0]>p[2]*1.15,layer=0;
+      // 只分离发束色面，头饰、脸和持镰手保留在主体层，发根不会断开。
+      if((gold||red)&&x>24&&x<49&&y>22&&y<66)layer=1;
+      if((gold||red)&&x>72&&y>23&&y<66)layer=2;
+      if(y>66&&y<103&&(x<46||x>76)&&p[0]>p[1]*1.3)layer=3;
+      if(y<20&&x>45&&x<64)layer=4;
+      ctx[layer].fillStyle=data.palette[index];
+      // 半块单元的实心上下半面；两面颜色独立，正是 ANSI 的 fg/bg 语义。
+      ctx[layer].fillRect(x*unit,y*unit,unit,unit);
+    }
+    LU_QUEEN_CACHE={data:data,layers:layers};return layers;
+  }
+  function luRenderQueen(g,actor) {
+    var layers=luQueenLayers();if(!layers)return;
+    var data=window.__LU_QUEEN_ANSI,t=actor.t,cell=CW*SC;
+    var unit=actor.width*cell/data.width,x=actor.x*cell,y=actor.y*CH*SC;
+    var width=data.width*unit,height=data.height*unit;
+    g.save();g.beginPath();g.rect(2*cell,5*CH*SC,(GW-4)*cell,27*CH*SC);g.clip();
+    // 全身一起从暗处显影，保留完整头身，避免上下扫描时出现截断的人形。
+    g.globalAlpha=actor.reveal;
+    g.imageSmoothingEnabled=false;
+    function part(layer,px,py,angle,dx,dy) {
+      g.save();g.translate(x+px*unit+dx,y+py*unit+dy);g.rotate(angle);
+      g.drawImage(layers[layer],-px*unit,-py*unit,width,height);g.restore();
+    }
+    // 披风与发梢各自绕根部摆动；身躯、手和长柄共用同一个稳定主体。
+    part(3,61,67,Math.sin(t*2.1)*0.012,0,0);
+    part(0,0,0,0,0,0);
+    part(1,46,27,Math.sin(t*2.7)*0.012,0,0);
+    part(2,75,27,Math.sin(t*2.4+0.8)*-0.015,0,0);
+    part(4,0,0,0,0,Math.sin(t*2)*unit*0.5);
+    g.restore();
   }
 
-  // 柱列：柱身朝向殿心的一侧被火光烤亮，外侧沉进黑暗 —— 竖排一块块纯色会读成"栅栏"。
-  // rp 是每对柱的升起进度（近 → 远各自错开）。
-  function luHallCols(c, t, lit, rp) {
-    for (var i = 0; i < 3; i++) {
-      var p = rp[i];
-      if (p <= 0) continue;
-      var off = HALL_P[i][0], wc = HALL_P[i][1];
-      var ybot = HALL_FLOOR - 1;
-      var ytop = ybot - Math.round((ybot - HALL_COLTOP) * p);
-      for (var s2 = -1; s2 <= 1; s2 += 2) {
-        var bx = Math.round(HALL_CX + s2 * off);
-        for (var y = ytop; y <= ybot; y++) {
-          for (var kk = 0; kk < wc; kk++) {
-            var x = bx - (wc >> 1) + kk;
-            var u = wc > 1 ? kk / (wc - 1) : 0.5;
-            var inner = s2 < 0 ? u : 1 - u;         // 1 = 朝向画面中央
-            // 内缘两列亮边，其余沉进黑暗：整根都亮会变成"橙色栅栏"，把王座压死
-            var ch = inner > 0.55 ? '█' : inner > 0.28 ? '▓' : '░';
-            var st = inner > 0.55 ? (lit > 0.45 ? N : G) : inner > 0.28 ? G : K;
-            if ((y - HALL_COLTOP) % 6 === 5) {      // 横向石缝
-              ch = inner > 0.5 ? '▒' : '░'; st = inner > 0.5 ? G : K;
-            }
-            if (hash16((x * 17 + y * 31) & 65535) % 100 < 14) st = K;
-            c.put(x, y, ch, st);
-          }
-        }
-        // 柱头 / 柱础：各宽出一格、横向一刀
-        for (var kc = -1; kc <= wc; kc++) {
-          var xc = bx - (wc >> 1) + kc;
-          if (p > 0.965) {
-            c.put(xc, HALL_COLTOP - 1, '▄', lit > 0.45 ? B : N);
-            c.put(xc, ybot, '▄', K);
-          } else {
-            c.put(xc, ytop - 1, '▄', G);
-          }
-        }
-      }
+  function luRoyalHall(c,t,depth,moon) {
+    var cx=60;
+    // 月/玫瑰窗只有外缘，中央保留暗场，红镰与金发无需同背景争抢。
+    if(moon>0)for(var i=0;i<160;i++) {
+      var a=i/160*TAU,r=24+moon*5;
+      c.put(72+Math.cos(a)*r,17+Math.sin(a)*r/2,'·',G);
     }
-  }
-
-  // 熔岩地面：地平线 + 透视砖缝 + 一条蜿蜒的岩浆线 + glowX 处的照地光
-  function luHallFloor(c, t, heat, glowX) {
-    var l = 2, r = c.w - 3;
-    for (var x = l; x <= r; x++) {
-      var d = Math.abs(x - HALL_CX) / 58;
-      c.put(x, HALL_FLOOR, '─', heat > 0.28 ? (d > 0.62 ? K : d > 0.32 ? G : N) : K);
+    for(var side=-1;side<=1;side+=2)for(var bay=0;bay<3;bay++) {
+      var off=27+bay*14+depth*bay*3,x=cx+side*off,roof=7+bay*1.1;
+      luCoalFacet(c,[[x-2,roof+4],[x+2,roof+4],[x+3,30],[x-3,30]],K,'░');
+      c.line(x-side,roof+4,x-side,29,'│',G);
+      c.line(x-4,30,x+4,30,'▄',G);
+      c.line(x-7,roof+4,x,roof,'╱',bay===2?N:G);
+      c.line(x,roof,x+7,roof+4,'╲',G);
+      // 侧窗窄红玻璃只留在画面外缘。
+      if(bay>0)for(var y=roof+5;y<24;y++)c.put(x+side*4,y,'▒',R);
     }
-    for (var x2 = l + 2; x2 <= r - 1; x2 += 4) {
-      var u = Math.abs(x2 - HALL_CX) / 58;
-      var hh = 1 + Math.round(u * u * 2);
-      for (var k = 0; k < hh; k++) c.put(x2, HALL_FLOOR - 1 - k, '│', K);
-    }
-    if (heat > 0.05) {
-      var tb = Math.floor(t * 5) * 13;
-      for (var x3 = l + 1; x3 <= r - 1; x3++) {
-        var w = Math.sin(x3 * 0.13 + t * 0.9) * 1.1 + Math.sin(x3 * 0.47 - t * 1.7) * 0.5;
-        var h3 = hash16((x3 * 37 + tb) & 65535) % 100;
-        if (h3 < 12 + heat * 44)
-          c.put(x3, HALL_FLOOR - 1 + w * 0.35, h3 < 30 ? '·' : '─',
-                heat > 0.62 ? B : heat > 0.34 ? N : R);
-      }
-    }
-    if (glowX !== null && heat > 0.1) {
-      for (var x4 = Math.round(glowX - 26); x4 <= Math.round(glowX + 26); x4++) {
-        var u4 = Math.abs(x4 - glowX) / 26;
-        if (u4 > 1) continue;
-        if (hash16((x4 * 91 + 7) & 65535) % 100 < 32 * (1 - u4) * heat)
-          c.put(x4, HALL_FLOOR - 1, '.', u4 < 0.4 ? B : N);
-      }
+    for(var rail=-3;rail<=3;rail++)c.line(60+rail*5,27,60+rail*20,31,'·',G);
+    c.line(3,31,116,31,'─',G);
+    // 侧向栏杆借自参考帧 88s，斜线把视线送入人物，不穿过人物面部。
+    for(var side=-1;side<=1;side+=2) {
+      c.line(cx+side*30,25,cx+side*57,29,'─',N);
+      for(var n=0;n<5;n++)c.line(cx+side*(31+n*6),25+n*0.8,cx+side*(31+n*6),30,'│',G);
     }
   }
 
-  // 王座：三级石台 + 暗色靠背板 + 女王。背板必须压到近黑，女王才立得出来。
-  // 旧版女王只有「* @ o o o」五个字符，缩略图里就是几个点。
-  function luHallThrone(c, t, thr, qb, eye) {
-    var cx = HALL_CX;
-    if (thr > 0) {
-      // 台阶：大地台（19→17）+ 收进 + 座台（12→10）+ 座面（8）。
-      // 四行等宽递减读成"四条横带"，收进一次才看得出是台阶。
-      var STEPS = [[19, 31, '░', K], [17, 30, '▒', K],
-                   [12, 29, '▓', G], [10, 28, '█', N]];
-      for (var i = 0; i < STEPS.length; i++) {
-        var k = clamp01((thr - i * 0.22) / 0.30);
-        if (k <= 0) continue;
-        var tw = Math.round(STEPS[i][0] * k), ty = STEPS[i][1];
-        for (var x = Math.round(cx - tw); x <= Math.round(cx + tw); x++) {
-          var u = Math.abs(x - cx) / Math.max(1, tw);
-          c.put(x, ty, u > 0.92 ? '░' : STEPS[i][2], u > 0.9 ? K : STEPS[i][3]);
-        }
-      }
-      // 座面
-      var sw = Math.round(8 * clamp01((thr - 0.86) / 0.14));
-      for (var x2 = Math.round(cx - sw); x2 <= Math.round(cx + sw); x2++)
-        c.put(x2, 27, Math.abs(x2 - cx) > sw - 2 ? '▓' : '█', N);
+  // 源视频 84–87s 的旋转纹章轮盘，轮辐、齿圈与三重环均有实体厚度。
+  function luRoyalWheel(c,t,cx,cy,r,heat) {
+    for(var y=Math.max(5,Math.floor(cy-r/2));y<Math.min(32,cy+r/2+1);y++)for(var x=Math.floor(cx-r);x<=cx+r;x++) {
+      var dx=x-cx,dy=(y-cy)*2,rad=Math.hypot(dx,dy),a=Math.atan2(dy,dx)+t*0.65;
+      var tooth=Math.cos(a*14)>0.1;
+      if(rad>r||(rad>r-2&&!tooth))continue;
+      if(rad>r-4)c.put(x,y,'▓',N);
+      else if(rad>r-6)c.put(x,y,'█',heat>0.5?B:N);
+      else if(rad<4)c.put(x,y,'█',B);
+      else if(Math.abs(Math.sin(a*3))<0.14)c.put(x,y,'▓',N);
+      else if(Math.abs(rad-r*0.53)<1)c.put(x,y,'·',G);
+      else if(rad<r-7)c.put(x,y,' ',K);
     }
-    if (thr > 0.45) {
-      // 靠背板：由下往上长出，主体近黑（K），只留两侧一条亮边
-      var bk = clamp01((thr - 0.45) / 0.55);
-      for (var y = 15; y <= 26; y++) {
-        if ((26 - y) / 11 > bk) continue;
-        for (var x3 = Math.round(cx - 8); x3 <= Math.round(cx + 8); x3++) {
-          var u3 = Math.abs(x3 - cx) / 8;
-          var st3 = u3 > 0.86 ? N : K;
-          if (u3 < 0.86 && hash16((x3 * 53 + y * 29) & 65535) % 100 < 10) st3 = G;
-          c.put(x3, y, u3 > 0.86 ? '█' : u3 > 0.55 ? '▒' : '░', st3);
-        }
-      }
-    }
-    if (qb <= 0) return;
-    var vis = 16 + 13 * qb;
-    // 头后光环先画，再被头部盖住 —— 字符画没有图层，环会横穿脸
-    if (qb > 0.35) luRing(c, cx, 19, 9, '·', qb > 0.75 ? R : D, 2, 0.4);
-    if (vis >= 16) c.put(cx, 16, '◆', B);
-    if (vis >= 17) for (var x4 = cx - 2; x4 <= cx + 2; x4++) c.put(x4, 17, '▄', B);
-    // 头 5 宽 3 行：7 宽 4 行在字符高宽比 2:1 下会变成正方形色块，读不出"脸"
-    for (var y2 = 18; y2 <= 20; y2++) {
-      if (y2 > vis) break;
-      for (var x5 = cx - 2; x5 <= cx + 2; x5++) c.put(x5, y2, y2 === 20 ? '▓' : '█', N);
-    }
-    if (vis >= 19) {                                  // 红瞳：瞳距 4 格，居中对称
-      var ew = eye > 0.3 ? R : D;
-      c.put(cx - 1, 19, 'o', ew); c.put(cx + 1, 19, 'o', ew);
-      c.put(cx, 19, '█', N);
-    }
-    // 披风：肩到裙摆逐行展开的 A 形，边缘一条亮线 + 竖向褶皱 —— 唯一能读出"坐着一个人"的轮廓
-    for (var y3 = 21; y3 <= 29; y3++) {
-      if (y3 > vis) break;
-      var u4 = (y3 - 21) / 8;
-      var hw = Math.round(4 + u4 * 7);
-      for (var x6 = cx - hw; x6 <= cx + hw; x6++) {
-        var e4 = Math.abs(x6 - cx) / hw;
-        var fold = mod(x6 - cx + 40, 4) === 0;
-        c.put(x6, y3, e4 > 0.88 ? '█' : fold ? '▒' : '▓',
-              e4 > 0.88 ? (y3 < 25 ? B : N) : fold ? K : (y3 < 24 ? N : G));
-      }
+    for(var j=0;j<6;j++) {
+      var a=j/6*TAU-t*0.65;
+      c.put(cx+Math.cos(a)*r*0.72,cy+Math.sin(a)*r*0.36,'◆',B);
     }
   }
 
-  // 80.00–84.09：被弃之将死 → 殿堂重新立起 → 她重新坐上王座
-  function lu_s6_rise(c, t, top, bt, elapsed) {
-    var e = elapsed, cx = HALL_CX;
-    var lit = clamp01((e - 2.55) / 1.25);
-    var colR = [clamp01((e - 0.30) / 1.60), clamp01((e - 0.42) / 1.60), clamp01((e - 0.54) / 1.60)];
-    var arch = clamp01((e - 1.60) / 1.30);
-    var thr = clamp01((e - 1.02) / 1.35);
-    var qb = clamp01((e - 2.40) / 1.05);
-    // 入场：上一镜的白热柱塌成一条残光，殿宇从暗里长回来
-    if (e < 0.55) {
-      var fd = 1 - e / 0.55;
-      for (var yy = 4; yy < 30; yy++) {
-        var hh = hash16((yy * 97 + 5) & 65535) % 100;
-        if (hh < 46 * fd) c.put(cx + (hh % 3 - 1), yy, '│', fd > 0.5 ? W : N);
-      }
+  // 血蔷薇采用层叠折面花瓣；末段花瓣沿弧线离开，不用随机雪花替代轮廓。
+  function luRoyalRose(c,t,cx,cy,open,scatter) {
+    for(var petal=8;petal>=0;petal--) {
+      var a=petal*2.4+t*0.04,r=(4+petal*0.9)*open+scatter*petal*2;
+      var x=cx+Math.cos(a)*r,y=cy+Math.sin(a)*r/2-scatter*petal*0.35;
+      var w=(5+petal*0.35)*open;
+      luCoalFacet(c,[[x-w,y],[x-w*0.3,y-2.2*open],[x+w,y-0.6*open],[x+w*0.5,y+2*open],[x-w*0.4,y+1.5*open]],R,'▓');
+      c.line(x-w,y,x-w*0.3,y-2.2*open,'╱',N);
+      c.line(x-w*0.3,y-2.2*open,x+w,y-0.6*open,'▄',R);
     }
-    luHallFloor(c, t, 0.06 + 0.64 * lit, cx);
-    luHallArch(c, t, arch);
-    luHallCols(c, t, lit, colR);
-    luHallThrone(c, t, thr, qb, clamp01((e - 3.24) / 0.55));
-    // 每对柱升到位时，殿面荡开一圈尘环
-    for (var i = 0; i < 3; i++) {
-      var d = e - (1.90 + i * 0.21);
-      if (d <= 0 || d > 0.62) continue;
-      for (var s2 = -1; s2 <= 1; s2 += 2) {
-        var bx = cx + s2 * HALL_P[i][0];
-        for (var j = 0; j < 18; j++) {
-          var u = j / 18, xr = bx + (j % 2 ? 1 : -1) * u * 15 * d / 0.62;
-          c.put(xr, 30 - u * 1.6, d < 0.2 ? '·' : '.', d < 0.22 ? W : N);
-        }
-      }
-    }
-    luParticles(c, t, top, bt, 12, 37, true, true);
-    luLog(c, top, e, [
-      ['THRONE.SYS / SALVAGE', 0.2, W],
-      ['> left for dead ....... 0 HP', 1.0, G],
-      ['> domain restore ...... RISING', 2.1, B]
-    ]);
-  }
-
-  // 84.09–88.26：熔铅自画外倾下、注入殿前淬池，蒸汽轰起后整池冷却
-  function lu_s6_quench(c, t, top, bt, elapsed) {
-    var e = elapsed, cx = HALL_CX, PX = cx - 5;
-    var pour = clamp01(e / 0.42);
-    var boil = clamp01((e - 0.44) / 0.85);
-    var cool = clamp01((e - 2.55) / 1.55);
-    var lit = 1 - 0.42 * cool;                        // 冷却把整殿压暗
-    luHallFloor(c, t, 0.92 - 0.55 * cool, PX);
-    luHallArch(c, t, 1);
-    luHallCols(c, t, lit, [1, 1, 1]);
-    luHallThrone(c, t, 1, 1, (1 - cool) * 0.85);
-    // 熔流：从画面上缘斜向下，落点池心。白热芯 + 两层橙边 + 外缘暗壳
-    if (pour > 0) {
-      var yEnd = 4 + (27 - 4) * pour;
-      for (var y = 4; y <= yEnd; y++) {
-        var u = (y - 4) / 23;
-        var xx = cx - 15 + u * u * 12 + Math.sin(y * 0.5 + t * 6) * 0.6;
-        var core = u < 0.55 ? W : B;
-        c.put(xx, y, '█', core);
-        c.put(xx - 1, y, '▓', core === W ? B : N);
-        c.put(xx + 1, y, '▓', core === W ? B : N);
-        if (u > 0.25) { c.put(xx - 2, y, '▒', N); c.put(xx + 2, y, '▒', N); }
-      }
-      if (pour >= 1) for (var sp0 = 0; sp0 < 14; sp0++) {   // 落点白热溅射
-        var hs0 = hash16(sp0 * 211 + 5), a0 = -Math.PI / 2 + (hs0 % 100 / 100 - 0.5) * 2.6;
-        var r0 = 3 + (hs0 >> 6) % 8;
-        c.put(PX + Math.cos(a0) * r0 * 1.6, 25 + Math.sin(a0) * r0 * 0.5, '*', sp0 % 3 ? W : B);
-      }
-    }
-    // 淬池：池沿 → 池面（白热转暗红）→ 石壁
-    for (var x = Math.round(PX - 24); x <= Math.round(PX + 24); x++) {
-      var u2 = Math.abs(x - PX) / 24;
-      c.put(x, 25, u2 > 0.82 ? '╱' : '▄', u2 > 0.7 ? G : K);
-    }
-    for (var x2 = Math.round(PX - 22); x2 <= Math.round(PX + 22); x2++) {
-      var u3 = Math.abs(x2 - PX) / 22;
-      var w2 = Math.sin(x2 * 0.7 + t * 3.4) * 0.55 + Math.sin(x2 * 0.23 - t * 2.1) * 0.45;
-      var st2 = cool > 0.72 ? G : cool > 0.44 ? R : cool > 0.18 ? N : B;
-      if (cool < 0.34 && Math.abs(x2 - PX) < 11) st2 = W;
-      c.put(x2, 26 + w2 * 0.5, u3 > 0.86 ? '~' : '═', st2);
-    }
-    for (var y3 = 27; y3 <= 30; y3++) {
-      var hw = 22 + (y3 - 27) * 1.1;
-      for (var x3 = Math.round(PX - hw); x3 <= Math.round(PX + hw); x3++) {
-        if (x3 < 2 || x3 > c.w - 3) continue;
-        var e3 = Math.abs(x3 - PX) / hw;
-        if (e3 < 0.95) {
-          if (hash16((x3 * 41 + y3 * 7) & 65535) % 100 < 26)
-            c.put(x3, y3, '.', cool > 0.55 ? K : R);
-          continue;
-        }
-        c.put(x3, y3, e3 > 0.985 ? '█' : '▓', G);
-      }
-    }
-    // 蒸汽：从池面往上轰，越往上越稀；冷却后自行塌下去
-    if (boil > 0) {
-      var hmax = 19 * boil * (1 - cool * 0.62);
-      for (var x4 = Math.round(PX - 15); x4 <= Math.round(PX + 15); x4++) {
-        var u4 = (x4 - PX) / 15;
-        var h4 = (1 - u4 * u4) * hmax * (0.72 + (hash16((x4 * 71 + 3) & 65535) % 100) / 210);
-        for (var y4 = 25; y4 >= 26 - h4; y4--) {
-          var v = (25 - y4) / Math.max(1, h4);
-          if (hash16((x4 * 97 + y4 * 131 + Math.floor(t * 7) * 17) & 65535) % 100 < 30 + v * 46) continue;
-          c.put(x4 + Math.sin(y4 * 0.6 + t * 2.2) * v * 1.6, y4,
-                v < 0.2 ? '▒' : v < 0.55 ? '░' : '·',
-                v < 0.1 ? W : v < 0.42 ? B : N);
-        }
-      }
-    }
-    for (var sp = 0; sp < 18; sp++) {                 // 溅出的液滴
-      var hs = hash16(sp * 173 + 11), su = mod(t * 0.85 + hs / 65535, 1);
-      var sx = PX + (hs % 90 - 45) * (0.4 + su * 0.85);
-      var sy = 26 - Math.sin(su * Math.PI) * (4 + hs % 7);
-      c.put(sx, sy, su < 0.3 ? '*' : '·', su < 0.2 ? W : su < 0.5 ? B : N);
-    }
-    luLog(c, top, e, [
-      ['QUENCH.SYS / COOLANT', 0.2, W],
-      ['> molten lead ....... 1400C', 0.9, G],
-      ['> vent .............. ' + (cool > 0.6 ? 'SEALED' : 'OPEN'), 2.6, cool > 0.6 ? G : R]
-    ]);
-  }
-
-  // 88.26–92.04：殿中三击。双锤交替砸向铁砧上的链节，第三击双锤齐落。
-  // 锤头 8 行 × 19 格斜置金属块 + 锤颈探出画外：旧版那个 13 格方块读成"悬空小盒"。
-  function luHallRam(c, t, hx, hy, side) {
-    var HW = 9, HH = 8;
-    for (var r = 0; r < HH; r++) {
-      var v = r / (HH - 1);
-      var off = side * v * 2.4;                       // 斜置：越往下越往外
-      var y = Math.round(hy) - (HH - 1) + r;
-      for (var k = -HW; k <= HW; k++) {
-        var u = (k + HW) / (2 * HW);
-        var ch = u < 0.08 ? '█' : u < 0.76 ? '▓' : '▒';
-        var st = (u < 0.34 && v < 0.42) ? W : u < 0.5 ? B : u < 0.84 ? K : G;
-        if (u > 0.94) ch = '░';
-        c.put(Math.round(hx) + k + off, y, ch, st);
-      }
-    }
-    for (var s = 0; s < 26; s++) {                    // 锤颈探到画外
-      var nx = hx + side * (HW + 1 + s * 0.62);
-      var ny = hy - HH + 1.6 - s * 0.66;
-      if (ny < 3.4) break;
-      for (var w2 = 0; w2 < 3; w2++)
-        c.put(nx + side * w2 * 0.34, ny, w2 === 0 ? '█' : '▓', w2 === 0 ? B : K);
+    if(scatter<0.5) {
+      c.line(cx,cy+3,cx-2,30,'│',G);
+      luCoalFacet(c,[[cx-1,cy+8],[cx-10,cy+5],[cx-7,cy+9],[cx-2,cy+10]],G,'▓');
+      luCoalFacet(c,[[cx-2,cy+12],[cx+7,cy+8],[cx+5,cy+12]],N,'░');
     }
   }
 
-  function lu_s6_hammer(c, t, top, bt, elapsed) {
-    var e = elapsed, cx = HALL_CX;
-    var HITS = [0.46, 1.66, 2.82];
-    var shake = 0, hitN = 0;
-    for (var i = 0; i < 3; i++) {
-      var d = e - HITS[i];
-      if (d >= 0) hitN = i + 1;
-      if (d >= 0 && d < 0.32) shake += Math.exp(-d * 8) * (i === 2 ? 3.6 : 2.3);
+  // 同一解析时间轴保证 84.09 / 88.26 / 92.04s 不会重置人物姿态。
+  function luRoyalSequence(c,t,top,bt,age) {
+    function ease(v){v=clamp01(v);return v*v*(3-2*v);}
+    var entry=ease(age/1.1),wheelIn=ease((age-4.09)/0.65),wheelOut=ease((age-7.5)/0.76);
+    var close=ease((age-8.26)/1.45)*(1-ease((age-11.65)/1.3));
+    luRoyalHall(c,t,close,clamp01((age-12.04)/2));
+    // 80–82s：层层红门撑开进入殿堂，最后一道门保留在人物身后。
+    if(age<2.5)for(var gate=2;gate>=0;gate--) {
+      var travel=age*0.75+gate*0.6,w=8+travel*travel*11,h=w*0.55;
+      var x=60,y=18;
+      c.line(x-w,y-h,x-w,y+h,'█',gate===0?R:G);
+      c.line(x+w,y-h,x+w,y+h,'█',gate===0?R:G);
+      c.line(x-w,y-h,x+w,y-h,'▄',R);
     }
-    c.sx = Math.round(Math.sin(e * 91) * shake);
-    c.sy = Math.round(Math.cos(e * 63) * shake * 0.55);
-    luHallFloor(c, t, 0.5 + hitN * 0.12, cx);
-    luHallArch(c, t, 1);
-    luHallCols(c, t, 0.55 + hitN * 0.1, [1, 1, 1]);
-    // 铁砧：宽面 → 细腰 → 宽座
-    var AV = [[15, 24, '█', B], [14, 25, '▓', N], [9, 26, '█', N],
-              [7, 27, '▓', G], [12, 28, '█', G], [14, 29, '▓', K]];
-    for (var a = 0; a < AV.length; a++) {
-      var hw = AV[a][0], ay = AV[a][1];
-      for (var x = Math.round(cx - hw); x <= Math.round(cx + hw); x++) {
-        var u = Math.abs(x - cx) / hw;
-        c.put(x, ay, u > 0.93 ? '░' : AV[a][2], u > 0.9 ? K : AV[a][3]);
-      }
-    }
-    // 砧上链节：三击逐档变亮（G → N → B → W）
-    var LCH = ['▓', '▓', '█', '█'], LST = [G, N, B, W];
-    for (var j = 0; j < 44; j++) {
-      var ang = j / 44 * TAU;
-      c.put(cx + Math.cos(ang) * 6, 21.5 + Math.sin(ang) * 2.2, LCH[hitN], LST[hitN]);
-    }
-    // 双锤：0/1 单侧交替，第三击齐落
-    var SWING = 0.44;
-    for (var h = 0; h < 3; h++) {
-      var sd = h === 2 ? [-1, 1] : [h === 0 ? -1 : 1];
-      for (var si = 0; si < sd.length; si++) {
-        var side = sd[si], dt2 = e - HITS[h];
-        if (dt2 < -SWING || dt2 > 0.58) continue;
-        var dr = dt2 < 0 ? Math.pow(clamp01((dt2 + SWING) / SWING), 2.4) : 1 - clamp01(dt2 / 0.58);
-        luHallRam(c, t, cx + side * mix(46, 5, dr), mix(-9, 24, dr), side);
+    // 台阶和瘦长王座外缘，不在人物背后铺纹理。
+    for(var tier=0;tier<3;tier++)c.line(72-16-tier*6,29+tier,72+16+tier*6,29+tier,tier===0?'▄':'─',G);
+    c.line(51,27,51,10,'│',G);c.line(94,27,94,10,'│',G);
+    c.line(51,10,72,5,'╱',G);c.line(72,5,94,10,'╲',G);
+    if(wheelIn>0&&wheelOut<1) {
+      luRoyalWheel(c,t,27,17,22*wheelIn,1-wheelOut);
+      // 轮盘下沿的淬池，蒸汽只在左侧，保留脸、金发和握镰手。
+      c.line(7,29,47,29,'▄',N);
+      var cool=ease((age-6.25)/1.9);
+      for(var i=0;i<28;i++) {
+        var seed=hash16(i*317+5),u=mod(t*0.7+seed/65535,1);
+        var x=27+(seed%29-14)*(0.4+u*0.6),y=28-u*9*(1-cool*0.75);
+        if(u>0.15)c.put(x,y,u<0.45?'░':'·',u<0.25?W:G);
       }
     }
-    for (var h2 = 0; h2 < 3; h2++) {                  // 冲击
-      var d3 = e - HITS[h2];
-      if (d3 < 0 || d3 > 0.5) continue;
-      var px = cx + (h2 === 2 ? 0 : (h2 === 0 ? -5 : 5));
-      if (d3 < 0.11) {
-        c.line(cx - 31, 24, cx + 31, 24, '█', W);
-        c.line(cx - 23, 23, cx + 23, 23, '▓', W);
-      }
-      if (d3 < 0.17) for (var sw = 0; sw < 22; sw++) {
-        var aw = sw / 22 * TAU, rw = 3 + d3 * 190;
-        c.put(px + Math.cos(aw) * rw, 24 + Math.sin(aw) * rw * 0.30, '*', W);
-      }
-      if (d3 < 0.42) for (var j2 = 1; j2 <= 18; j2++) {
-        var u2 = j2 / 18;
-        c.put(cx + (j2 % 2 ? 1 : -1) * u2 * (8 + d3 * 120), 25 - u2 * u2 * 3.4,
-              d3 < 0.18 ? '─' : '.', d3 < 0.1 ? W : d3 < 0.24 ? B : N);
-      }
-      for (var s3 = 0; s3 < 26; s3++) {
-        var hs3 = hash16(s3 * 197 + h2 * 941 + 7), sg3 = s3 % 2 ? 1 : -1;
-        var vx = sg3 * (8 + (hs3 % 27)), vy = -(5 + ((hs3 >> 5) % 18));
-        var px3 = px + vx * d3, py3 = 24 + vy * d3 + 14 * d3 * d3;
-        if (py3 > 30) continue;
-        c.put(px3, py3, d3 < 0.4 ? '─' : '.', d3 < 0.15 ? W : d3 < 0.5 ? B : N);
+    if(age>1.0) {
+      var reveal=ease((age-1.0)/1.1);
+      // 全景保留刀尖到双靴；近景放大脸与双马尾，脚离开构图是有意的推镜。
+      var width=53+close*24;
+      c.queen={x:38-close*17,y:5-close*3.2,width:width,t:t,reveal:reveal};
+    }
+    if(age>12.04) {
+      var bloom=ease((age-12.04)/0.9),scatter=ease((age-14.7)/1.33);
+      luRoyalRose(c,t,25,17,bloom,scatter);
+    }
+    // 近景左侧的几条红色斜切光带呼应 MV 红眼特写；头部周围保持空。
+    if(close>0.1)for(var n=0;n<3;n++) {
+      var x=9+n*9+Math.sin(t*0.5+n)*2;
+      c.line(x,6,x-5,27,'╲',n===1?R:G);
+    }
+    // 80s 接受上镜完整双环，从外向内揭出殿堂，不闪空屏。
+    if(age<0.65) {
+      var old=new CCanvas(c.w,c.h);old.clip=[top+1,bt-1];lu_s5_ring(old,t,top,bt,3.88);
+      for(var y=top+1;y<bt;y++)for(var x=0;x<c.w;x++) {
+        if(age>0&&Math.abs(x-60)>58*(1-age/0.65))continue;
+        var cell=old.cells[y][x];c.put(x,y,cell[0],cell[1]);
       }
     }
-    luParticles(c, t, top, bt, 14, 61, true, true);
-    luLog(c, top, e, [
-      ['FORGE.SYS / LINK', 0.2, W],
-      ['> strike ............ ' + hitN + '/3', 0.6, hitN > 2 ? B : G],
-      ['> chain ............. ' + (hitN > 2 ? 'BOUND' : 'FORMING'), 2.9, hitN > 2 ? B : G]
-    ]);
-    c.sx = 0; c.sy = 0;
+    clearRect(c,0,top,c.w,1);clearRect(c,0,bt,c.w,1);
+    c.put(3,top,age<4.09?'37 / A THRONE RECLAIMED':age<8.26?'38 / TEMPERED BY FIRE':age<12.04?'39 / THE CRIMSON REAPER':'40 / A ROSE THAT WILL NOT WITHER',N);
+    c.center(bt,age<4.09?'FROM THE DARK / SHE RETURNS':age<8.26?'COOL THE STEEL / KEEP THE FLAME':age<12.04?'ONE HEART / AN UNBROKEN VOW':'BLOOD IN BLOOM / THE THRONE IS HERS',B);
   }
-
-  // 92.04–96.03：镜头拉远 —— 殿后血红巨月升起，王座全景，红瞳锁定
-  function lu_s6_pull(c, t, top, bt, elapsed) {
-    var e = elapsed, cx = HALL_CX;
-    var pb = clamp01(e / 3.99);
-    luHallFloor(c, t, 0.55 + 0.35 * pb, cx);
-    // 殿后圆窗：先摆月，再让殿宇压上去 —— 只露两侧月牙
-    var mr = 9 + pb * 6.2, mry = mr * 0.86, mcy = 19.5;
-    for (var y = Math.round(mcy - mry); y <= Math.round(mcy + mry); y++) {
-      for (var x = Math.round(cx - mr); x <= Math.round(cx + mr); x++) {
-        var dx = (x - cx) / mr, dy = (y - mcy) / mry, dd = dx * dx + dy * dy;
-        if (dd > 1) continue;
-        var d2 = Math.sqrt(dd);
-        c.put(x, y, d2 > 0.93 ? '█' : d2 > 0.72 ? '▓' : d2 > 0.45 ? '▒' : '░',
-              d2 > 0.68 ? R : (hash16((x * 53 + y * 31) & 65535) % 100 < 24 ? N : D));
-      }
-    }
-    luHallArch(c, t, 1);
-    luHallCols(c, t, 0.62 + 0.3 * pb, [1, 1, 1]);
-    luHallThrone(c, t, 1, 1, 1);
-    // 曳光绕王座，把"她在看你"这件事说得更死
-    for (var to2 = 0; to2 < 2; to2++)
-      luTracerOrbit(c, cx, 20, 16 + to2 * 6, t * (0.2 + to2 * 0.07) + to2 * 2, to2 ? N : B);
-    // 收尾：一圈光从她脚下荡开，接下一段隧道
-    var coda = clamp01((e - 3.55) / 0.44);
-    if (coda > 0) for (var ri = 0; ri < 3; ri++)
-      luRing(c, cx, 20, Math.round(4 + coda * (17 + ri * 6)), '·', coda > 0.55 ? W : R, 2, t * 0.4);
-    luParticles(c, t, top, bt, 12, 55, true, true);
-    luLog(c, top, e, [
-      ['> chamber widening ... PULLBACK', 0.3, G],
-      ['> red moon .......... REVEALED', 1.6, R],
-      ['> queen gaze ........ LOCKED', 3.0, W]
-    ]);
-  }
+  function lu_s6_rise(c,t,top,bt,elapsed){luRoyalSequence(c,t,top,bt,elapsed);}
+  function lu_s6_quench(c,t,top,bt,elapsed){luRoyalSequence(c,t,top,bt,4.09+elapsed);}
+  function lu_s6_hammer(c,t,top,bt,elapsed){luRoyalSequence(c,t,top,bt,8.26+elapsed);}
+  function lu_s6_pull(c,t,top,bt,elapsed){luRoyalSequence(c,t,top,bt,12.04+elapsed);}
 
   // ===== 长音 Link 96.03–103.51 粒度细分：2 子场景 =====
 
@@ -7067,12 +6818,15 @@ title: 字符演歌
         prog[path] = { got: g, total: t }; paint();
       });
     }
-    Promise.all([one(LYRIC_URL), one(SPEC_URL)]).then(function (codes) {
+    var tasks=[one(LYRIC_URL),one(SPEC_URL)];
+    if(SONG_KEY==='link_up')tasks.push(one("{{ '/assets/data/ascii_mv/link_up/queen_ansi.js' | relative_url }}"));
+    Promise.all(tasks).then(function (codes) {
       done = true;
       runGlobal(codes[0]);                 // window.__LYRICS
       LYRICS = window.__LYRICS || [];
       lastLy = -2;                         // 强制下一帧重取字幕
       runGlobal(codes[1]);                 // window.__SPECTRUM（drawSpectrum 每帧现取）
+      if(codes[2])runGlobal(codes[2]);      // Link Up 的 ANSI 角色素材
       elLoad.hidden = true;
     }).catch(function (e) {
       failed = true;
@@ -7107,6 +6861,7 @@ title: 字符演歌
         g2d.drawImage(ATLAS.per[cell[1]], gi * CW * SC, 0, CW * SC, CH * SC,
           x * CW * SC, y * CH * SC, CW * SC, CH * SC);
       }
+    if(grid.queen)luRenderQueen(g2d,grid.queen);
   }
 
   /* ---------------- 音频时钟 ---------------- */
