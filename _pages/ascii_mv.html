@@ -202,16 +202,18 @@ title: 字符演歌
     this.put(Math.floor((this.w - dw(s)) / 2), y, s, st);
   };
   // 与原作 player.py big() 一致：TITLE_FONT 5x5 位图大字，每字 6 列；超宽降级 center(y+2)
-  CCanvas.prototype.big = function (y, text, st) {
+  CCanvas.prototype.big = function (y, text, st, ink) {
     text = text.toUpperCase();
     var total = text.length * 6 - 1;
     if (total > this.w - 6) { this.center(y + 2, text, st); return; }
     var left = Math.floor((this.w - total) / 2);
+    // ink 缺省仍是 '#'（world 曲的终端质感）；血火这篇要压得住红场，用 '█' 实心。
+    var ch = ink || '#';
     for (var i = 0; i < text.length; i++) {
       var glyph = TITLE_FONT[text.charAt(i)] || TITLE_FONT[' '];
       for (var dy = 0; dy < glyph.length; dy++)
         for (var dx = 0; dx < glyph[dy].length; dx++)
-          if (glyph[dy].charAt(dx) === '1') this.put(left + i * 6 + dx, y + dy, '#', st);
+          if (glyph[dy].charAt(dx) === '1') this.put(left + i * 6 + dx, y + dy, ch, st);
     }
   };
   // 与原作 scenes.py clear() 一致：空格以 K 色号填充区域（走 put 的 clip/截断语义）
@@ -5599,99 +5601,262 @@ title: 字符演歌
   function lu_s6_hammer(c,t,top,bt,elapsed){luRoyalSequence(c,t,top,bt,8.26+elapsed);}
   function lu_s6_pull(c,t,top,bt,elapsed){luRoyalSequence(c,t,top,bt,12.04+elapsed);}
 
-  // ===== 长音 Link 96.03–103.51 粒度细分：2 子场景 =====
+  // ===== 长音 Link 96.03–103.51：赤日点亮 → 虹膜收束白爆 → LINK UP 定格 =====
+  // 官方 MV 106.4–114.1s 的对应段是三镜：巨大赤日光轮前的小小人形剪影、
+  // 轮辐状虹膜白闪、白字标题。旧版这里是 9 层同心矩形线框 + 3D 立方体，
+  // 缩略图里读成"扫描线测试图"，整段推倒重做。
+  // 三个子件共用一条解析时间轴，跨 100.00 的子场景边界不会重置姿态。
 
-  // 96.03–100.00 "Link"：红隧道同心矩形扑面加速
-  function lu_s7_tunnel(c, t, top, bt, elapsed) {
-    var l = 2, r = c.w - 3, cx = (l + r) / 2, cy = (top + bt) / 2;
-    var e = elapsed;
-    var travel = Math.pow(clamp01(e / 3.9), 0.8);
-    for (var i = 0; i < 9; i++) {
-      var depth = mod(i / 9 + travel * 1.2, 1);
-      var rx = 2 + depth * depth * 52;
-      var ry = 1 + depth * depth * 13;
-      var st = depth > 0.85 ? W : depth > 0.6 ? R : depth > 0.35 ? N : D;
-      var ch = depth > 0.8 ? '#' : depth > 0.5 ? '+' : '-';
-      for (var x = cx - rx; x <= cx + rx; x += 2) {
-        c.put(x | 0, (cy - ry) | 0, ch, st);
-        c.put(x | 0, (cy + ry) | 0, ch, st);
-      }
-      for (var y = cy - ry; y <= cy + ry; y++) {
-        c.put((cx - rx) | 0, y | 0, ch, st);
-        c.put((cx + rx) | 0, y | 0, ch, st);
-      }
-    }
-    var vsL = luBox(1, 1, 1, 0, 0, 0);                // 3D 核扑面
-    var gl = clamp01(e / 3.9);
-    var ex = 3 + gl * 12, ey = 2 + gl * 5;
-    projected(c, vsL, luEdges(0), cx - ex, cy - ey, cx + ex, cy + ey,
-              t * 0.6, gl > 0.75 ? W : R, 1);
-    c.put(cx | 0, cy | 0, 'o', gl > 0.6 ? W : R);
-    luLog(c, top + 1, e, [
-      ['CORE.SYS  v5.0', 0.2, W],
-      ['link signal .. LOCK', 1.0, B],
-      ['approach ..... NEAR', 2.2, N]
-    ]);
+  var LU_LINK_CX = 60, LU_LINK_CY = 17.5;
+
+  // 方向字形：给一条斜线挑字符，横段用 '-'、竖段用 '│'、斜段用 '╱╲'。
+  // 赤日的光线全部用 '-' 画过，结果整颗太阳变成一张编织席——方向错了，
+  // 线条就只剩纹理，读不出"射出去"的意思。
+  function luDirChar(dx, dy) {
+    var ax = Math.abs(dx), ay = Math.abs(dy);
+    if (ay < ax * 0.42) return '-';
+    if (ax < ay * 0.42) return '│';
+    return (dx * dy > 0) ? '╲' : '╱';
   }
 
-  // 100.00–103.51 "Link"（收束）：白爆 + 巨型 LINK 定格
-  function lu_s7_link(c, t, top, bt, elapsed) {
-    var l = 2, r = c.w - 3, cx = (l + r) / 2, cy = (top + bt) / 2;
-    var e = elapsed;
-    var burst = clamp01(e / 0.7);                     // 白爆
-    if (burst < 1) {
-      for (var w2 = 0; w2 < 60 * burst; w2++) {
-        var hs = hash16(w2 * 71);
-        var a2 = hs % 628 / 100, d2 = 2 + burst * 26 * (hs % 100) / 100;
-        c.put((cx + Math.cos(a2) * d2 * 2) | 0, (cy + Math.sin(a2) * d2) | 0,
-              w2 % 3 ? '*' : '+', W);
+  // 赤日：实心球体 + 日冕光线。
+  // 走过两条弯路：①盘内按轮辐分档填 ▒ ⇒ 砖墙马赛克；②只画放射线 ⇒ 空心的烟花。
+  // 120×40 的格子铺不出柔和渐变，只能"认怂"画实心球：径向分色块（白核→金→橙→红），
+  // 边缘用 ▓ 收口，外面再放一圈方向正确的光线当日冕。字形对比靠分色，不靠网点。
+  function luLinkSun(c, cx, cy, rad, spin, sweep, heat) {
+    if (rad < 1) return;
+    var i, a, r0, u, len, st, ch;
+    var rays = 52;
+    // 球体
+    for (var y = Math.floor(cy - rad / 2); y <= Math.ceil(cy + rad / 2); y++)
+      for (var x = Math.floor(cx - rad); x <= Math.ceil(cx + rad); x++) {
+        if (rad < 2) break;
+        var dx = x - cx, dy = (y - cy) * 2, rr = Math.sqrt(dx * dx + dy * dy), u = rr / rad;
+        if (u > 1) continue;
+        // 球体也按角度点亮，与日冕同一条 sweep（从正上方顺时针）
+        if (mod(Math.atan2(dy, dx) - spin, TAU) / TAU > sweep) continue;
+        var ch2 = '█', st2 = R;
+        if (u < 0.10) { ch2 = '█'; st2 = heat > 0.4 ? W : B; }
+        else if (u < 0.30) { ch2 = '█'; st2 = B; }
+        else if (u < 0.62) { ch2 = '█'; st2 = N; }
+        else if (u < 0.88) { ch2 = '█'; st2 = R; }
+        // 球缘不做 ▒ 环（那圈网点会连成一环马赛克），改成按 hash 掉格 + 少量 ▓
+        else if (hash16(y * 313 + x * 127) % 100 >= 22) {
+          ch2 = hash16(y * 7 + x * 3) % 3 ? '█' : '▓';
+        } else continue;
+        c.put(x, y, ch2, st2);
       }
-      for (var rg = 0; rg < 3; rg++)
-        luRing(c, cx, cy, (2 + burst * (16 + rg * 7)) | 0,
-               burst > 0.6 ? '*' : '+', burst > 0.5 ? W : R, 2);
-    } else {
-      c.big(cy - 4, 'LINK', mod(t * 3, 1) < 0.7 ? W : R);
-      luRing(c, cx, cy, 22, '.', R, 2);
-      luRing(c, cx, cy, 26, '.', D, 3);
+    // 日冕：从球缘射出的光线，长短按 hash 各自不同；方向字符不能省，
+    // 全用 '-' 会把整颗太阳画成一张编织席。
+    for (i = 0; i < rays; i++) {
+      if (i / rays > sweep) continue;
+      a = i / rays * TAU + spin;
+      var ca = Math.cos(a), sa = Math.sin(a);
+      ch = luDirChar(ca, sa * 0.5);
+      var hs = hash16(i * 233 + 17);
+      len = rad * (1.04 + 0.30 * (hs % 100) / 100);
+      for (r0 = rad * 0.97; r0 <= len; r0 += 0.8) {
+        u = (r0 - rad * 0.97) / Math.max(1, len - rad * 0.97);
+        st = u < 0.28 ? R : u < 0.62 ? N : u < 0.85 ? R : G;
+        c.put(cx + ca * r0, cy + sa * r0 / 2, ch, st);
+      }
+      if (len > rad * 1.3) c.put(cx + ca * len, cy + sa * len / 2, '+', R);
     }
-    luParticles(c, t, top, bt, 16, 83, true, true);
-    luLog(c, top + 1, e, [
-      ['tunnel ....... COLLAPSE', 0.2, R],
-      ['LINK ......... UP', 1.4, W]
-    ]);
+    // 四束超长光芒：日轮边界的"毛感"全靠这几根漏出来的光
+    for (i = 0; i < 4; i++) {
+      a = i / 4 * TAU + spin * 0.4 + 0.6;
+      if (i / 4 > sweep) continue;
+      var ca2 = Math.cos(a), sa2 = Math.sin(a);
+      ch = luDirChar(ca2, sa2 * 0.5);
+      for (r0 = rad; r0 < rad * 1.55; r0 += 1.2)
+        c.put(cx + ca2 * r0, cy + sa2 * r0 / 2, ch, r0 > rad * 1.3 ? G : R);
+    }
+    // 两道虚线光环：球缘之外再圈一层，日轮才不是一颗"实心球"而已
+    if (sweep > 0.55) {
+      var r1 = rad * 1.14, r2 = rad * 1.34;
+      for (i = 0; i < 140; i++) {
+        a = i / 140 * TAU + spin * 0.25;
+        if (!(i % 2)) c.put(cx + Math.cos(a) * r1, cy + Math.sin(a) * r1 / 2, '·', i % 6 ? G : N);
+        if (!(i % 3)) c.put(cx + Math.cos(a) * r2, cy + Math.sin(a) * r2 / 2, '.', G);
+      }
+    }
   }
+
+  // 赤日前的人形：试过三版（实心 K 色 / 挖空 + 描边 / 收窄下摆），
+  // 12 行高的黑衣剪影在 1:2 字符格上只剩"一根带边的柱子"，读成墓碑或钥匙孔——
+  // 这个尺寸下画不出可辨认的头肩比，索性不画：这一镜的主角是光本身。
+  // 人物留给前后两段（殿堂立绘、切镜后的全景）。
+
+
+  // 白爆：首版按 hash 铺满整屏再蒸发，24fps 下是一张"坐标纸"（字符格之间本来就有
+  // 缝，整屏铺满时那些缝连成网格）。改成虹膜：从核心向外涨满，再从中心退开、
+  // 白环往外跑——中心最先露出标题，边缘最后消失。
+  function luLinkBlast(c, top, bt, cx, cy, rIn, rOut) {
+    var full = rOut > 0.001;
+    for (var y = top; y < bt; y++) for (var x = 0; x < c.w; x++) {
+      var d = Math.sqrt((x - cx) * (x - cx) + ((y - cy) * 2) * ((y - cy) * 2)) / 70;
+      // 边界按 hash 抖一点，虹膜边才不是一条几何圆弧
+      var j = (hash16(y * 197 + x * 61) / 65535 - 0.5) * 0.035;
+      // 涨满段 rIn:0→1；退散段 rOut:0→1 = 白环外沿，白先从中心让开、标题先露出来
+      var on = full ? (d + j >= rOut) : (d + j <= rIn);
+      if (!on) continue;
+      var edge = full ? (d - rOut) : (rIn - d);
+      if (edge < 0.05) c.put(x, y, '░', N);
+      else if (edge < 0.12) c.put(x, y, '▓', B);
+      else c.put(x, y, '█', W);
+    }
+  }
+
+  function luLinkSequence(c, t, top, bt, age) {
+    function ease(v) { v = clamp01(v); return v * v * (3 - 2 * v); }
+    var cx = LU_LINK_CX, cy = LU_LINK_CY;
+    if (age < 3.90) {
+      // 余烬先画：luParticles 里最暗的一档是 D（#afaf5f），落在实心日面上
+      // 就是一颗颗黑斑，像球体被打穿。日轮后画把它盖住，只见外围的火星。
+      luParticles(c, t, top, bt, 30, 97, true, true);
+      // sweep 从 0.22 起：从 0 开始的话开头 3 帧几乎是全黑，切进来的第一眼是空屏
+      var ign = clamp01(0.22 + age / 1.15);            // 球体与光线按角度依次点亮
+      var iris = ease((age - 2.55) / 1.05);           // 2.55s 起虹膜收束
+      var rad = mix(mix(11, 27, ease(clamp01((age - 0.05) / 1.9))), 4, iris);
+      luLinkSun(c, cx, cy, rad, t * (0.3 + iris * 6.5) + age * 0.35, clamp01(ign * 1.15), 1 - iris * 0.35);
+      // 地平线：一条极暗的红线压在 31 行，画面才有底，不然日轮是浮在黑水里的
+      for (var gx = 0; gx < c.w; gx++)
+        if (hash16(gx * 97 + 13) % 100 < 62) c.put(gx, 31, '─', gx % 9 ? G : R);
+      // 收束时的离心速度线：给"虹膜在闭合"一个方向感
+      if (iris > 0.12) for (var s = 0; s < 42; s++) {
+        var hs = hash16(s * 89 + 7), a2 = hs / 65535 * TAU;
+        var d0 = rad + 2 + iris * 13, d1 = d0 + 3 + iris * 11;
+        for (var dd = d0; dd < d1; dd += 1.1)
+          c.put(cx + Math.cos(a2) * dd, cy + Math.sin(a2) * dd / 2,
+                dd - d0 < 1.6 ? '·' : '.', dd - d0 < 1.6 ? W : N);
+      }
+    }
+    // 标题：4.3s 起就位，靠白环往画外退的那一下"浮"出来
+    if (age > 4.30) {
+      var pulse = 0.5 + 0.5 * Math.sin(age * 3.1), flash = mod(age * 0.7, 1) < 0.06;
+      // 双环：内环缓慢张开（4.3–7.48s 从 24 撑到 40），外环只在最后 1s 出现，
+      // 撑开的过程给"定格"一个时间感——否则三秒半的标题就是一张静止的图。
+      var grow = ease((age - 4.3) / 3.1), ring = 24 + grow * 16;
+      luRing(c, cx, cy - 1, ring, '·', pulse > 0.5 ? R : G, 3, t * 0.2);
+      if (grow > 0.55) luRing(c, cx, cy - 1, ring + 6, '.', G, 4, -t * 0.15);
+      // 交叉双刃：两道贯穿画面的血色斜线，交点落在标题后面
+      var sp = ease((age - 4.9) / 1.2);
+      if (sp > 0) {
+        c.line(cx - 46 * sp, cy + 12, cx + 46 * sp, cy - 12, '╱', mod(age, 1.4) < 0.18 ? R : G);
+        c.line(cx - 46 * sp, cy - 12, cx + 46 * sp, cy + 12, '╲', mod(age + 0.7, 1.4) < 0.18 ? R : G);
+      }
+      c.big(Math.round(cy) - 4, 'LINK UP', flash ? R : pulse > 0.5 ? W : B, '█');
+      // 副标按字符打出，与逐字歌词同步推进，别让下半屏是一行静止小字
+      var sub = 'B L O O D   &   F L A M E';
+      var nc = Math.min(sub.length, Math.floor(clamp01((age - 4.75) / 1.1) * sub.length));
+      if (nc > 0) c.center(Math.round(cy) + 4, sub.slice(0, nc), pulse > 0.5 ? N : G);
+      luParticles(c, t, top, bt, 14, 41, false, true);
+    }
+    // 3.62s 起从核心涨满（0.24s 推到顶，只留 ~5 帧纯白）；4.02s 起白环往外退
+    if (age > 3.62 && age < 4.02) luLinkBlast(c, top, bt, cx, cy, ease((age - 3.62) / 0.24), 0);
+    else if (age >= 4.02) luLinkBlast(c, top, bt, cx, cy, 0, ease((age - 4.02) / 0.60));
+    clearRect(c, 0, top, c.w, 1); clearRect(c, 0, bt, c.w, 1);
+    c.put(3, top, age < 3.60 ? '41 / LIGHT THE SIGNAL' : '42 / LINK UP', N);
+    c.put(c.w - 19, top, age < 3.60 ? 'HALO / IGNITION' : 'LINK / LOCKED', R);
+    c.center(bt, age < 3.60 ? 'ONE FLAME / ONE SIGNAL' : 'BLOOD & FLAME / BOUND', B);
+  }
+  function lu_s7_tunnel(c, t, top, bt, elapsed) { luLinkSequence(c, t, top, bt, elapsed); }
+  function lu_s7_link(c, t, top, bt, elapsed) { luLinkSequence(c, t, top, bt, 3.97 + elapsed); }
 
   // ===== 主歌二 step in 103.51–124.00 粒度细分：5 子场景 =====
 
-  // 103.51–106.15 "It's time to step in they try but they can't win"：楔形方阵压近+脚步震波
-  function lu_s8_step(c, t, top, bt, elapsed) {
-    var l = 2, r = c.w - 3, cx = (l + r) / 2, cy = (top + bt) / 2;
-    var e = elapsed;
-    var prog = clamp01(e / 2.6);
-    var vsM = luBox(0.5, 1.7, 0.5, 0, 0.3, 0)          // 3D 目标堡垒（远）
-      .concat(luBox(2.0, 0.5, 0.4, 0, -1.1, 0))
-      .concat(luBox(0.4, 1.0, 0.4, -1.5, -0.6, 0));
-    projected(c, vsM, luEdges(0).concat(luEdges(8), luEdges(16)),
-              cx - 8, top + 1, cx + 8, top + 8, 0.35, D, 1);
-    var rows = [[-1, 10], [0, 16], [1, 10]];
-    for (var ri = 0; ri < 3; ri++)                    // 楔形三排推进
-      for (var k = 0; k < rows[ri][1]; k++) {
-        var x = (r - 4 - k * 2.2 - prog * 10) | 0;
-        if (x < 3) break;
-        c.put(x, (cy + rows[ri][0]) | 0, '>',
-              k === 0 ? W : k < 4 ? B : k < 8 ? R : N);
+  // 一点透视的赤色大殿：两列巨柱向灭点收拢，地面与天花各有一条收敛线和分节缝，
+  // 尽头一道门缝透出红光。透视是 ASCII 里最稳的"大场面"画法——
+  // 直线收敛天然读作纵深，而斜插的装饰线只会糊成一片纹理。
+  // push 0→1 是镜头前推：所有横向尺寸同比放大，柱子从画面边缘挤出去。
+  function luCrimsonHall(c, t, top, bt, push) {
+    var vx = 60, vy = 15.5, k, f, xo, y0, y1, w, x, y, side, i;
+    // 四角收敛线：天花与地面各两条，是纵深的第一层暗示
+    for (side = -1; side <= 1; side += 2) {
+      c.line(vx + side * 62, bt + 2, vx, vy, '·', G);
+      c.line(vx + side * 62, top - 3, vx, vy, '·', G);
+    }
+    // 7 对柱子，由远及近（近的画在最后，压住远的）
+    for (k = 6; k >= 1; k--) {
+      f = (1 / (1 + k * 0.42)) * (1.28 + push * 0.55);
+      xo = 5 + 55 * f;
+      y0 = vy - 16 * f - 1;
+      y1 = vy + 13 * f + 1.4;
+      if (xo > 62) continue;                           // 已经挤出画面
+      w = Math.max(1, Math.round(1 + 4.2 * f));
+      for (side = -1; side <= 1; side += 2) {
+        var px = Math.round(vx + side * xo);
+        // 柱身：暗金实心（G）+ 亮边（N）。纯黑柱在纯黑背景上等于没画
+        for (y = Math.round(y0); y <= Math.round(y1); y++)
+          for (x = px; x < px + w * side; x += side)
+            c.put(x, y, f > 0.55 ? '▓' : '░', f > 0.72 ? N : G);
+        c.line(px, y0, px, y1, '│', N);
+        c.line(px + w * side, y0, px + w * side, y1, '│', G);
+        // 柱头与柱础：一层压扁的横块，柱子才有"站在地上"的重量
+        // ⚠️ 字符必须取自 EXTRA，'▀' 不在图集里会整排渲染成 '?'
+        c.line(px - side, Math.round(y0), px + w * side + side, Math.round(y0), '▄', N);
+        c.line(px - side, Math.round(y1), px + w * side + side, Math.round(y1), '▄', N);
+        // 拱廊横梁：左右柱头之间的横线，是"这是建筑"最省的一笔。
+        // 每一层都画等宽的亮梁会变成百叶窗/梯子，所以只给最近的三层亮色，其余压暗。
+        if (side < 0 && f > 0.34) {
+          var lx = px, rx = Math.round(vx + xo) + w;
+          for (var bx = lx; bx <= rx; bx++)
+            c.put(bx, Math.round(y0), f > 0.62 ? '═' : '─', f > 0.62 ? N : G);
+        }
+        // 地面分节缝：每个深度一条，越近越亮
+        for (x = Math.round(vx - xo); x <= Math.round(vx + xo); x++)
+          if (x < px - side || x > px + w * side + side)
+            c.put(x, Math.round(y1), '─', f > 0.6 ? G : D);
+        // 柱间的挂链：从柱头往灭点方向垂一段，越远越短
+        if (f < 0.8) for (var ch = 0; ch < 6; ch++) {
+          var cu = ch / 6;
+          c.put(px + side * (2 + cu * 8), y0 + 2 + Math.sin(cu * Math.PI) * 3.4 * f,
+                ch % 2 ? 'o' : '·', ch % 2 ? G : N);
+        }
       }
-    var step = mod(t * 2.4, 1);                       // 脚步震波环
-    luRing(c, cx, bt - 2, (2 + step * 18) | 0, '.', step < 0.3 ? B : D, 2);
-    for (var x2 = 4; x2 < c.w - 4; x2 += 6)           // 军旗竖纹
-      for (var y2 = top + 1; y2 < bt; y2++)
-        if (hash16(x2 * 7 + y2 * 13) % 100 < 30)
-          c.put(x2, y2, '|', (x2 / 6 | 0) % 5 === 0 ? G : D);
-    luLog(c, top + 1, e, [
-      ['MARCH.SYS  v2.2', 0.3, W],
-      ['step in ...... NOW', 1.0, B],
-      ['cant win ..... AGREED', 2.0, N]
-    ]);
+    }
+    // 尽头的门缝：整幅画面唯一的高光，观众的视线落点
+    var doorH = 7 + push * 2;
+    for (y = Math.round(vy - doorH); y <= Math.round(vy + doorH); y++)
+      for (x = -2; x <= 2; x++)
+        c.put(vx + x, y, Math.abs(x) < 1 ? '█' : '▓', Math.abs(x) < 1 ? W : B);
+    // 地面：近处大片暗场，靠稀疏磨石反光撑住，否则画面下半是一块纯黑
+    for (y = 24; y < bt; y++)
+      for (x = 0; x < c.w; x++) {
+        var du = (y - 24) / Math.max(1, bt - 24);
+        if (hash16(y * 733 + x * 197) % 100 < 12 + du * 16)
+          c.put(x, y, du > 0.6 ? '.' : '·', Math.abs(x - 60) < 26 + du * 20 ? G : D);
+      }
+    // 门缝在磨石地面上的反光：一条竖直的碎光带，画面下半才不空
+    for (y = Math.round(vy) + 2; y < bt; y++) {
+      var fl = clamp01(1 - (y - vy) / (bt - vy));
+      for (x = -3; x <= 3; x++)
+        if (hash16(y * 401 + x * 89) % 100 < 26 + fl * 30)
+          c.put(vx + x, y, fl > 0.55 ? '·' : '.', fl > 0.7 ? B : fl > 0.35 ? N : G);
+    }
+    for (i = 0; i < 26; i++) {                          // 门缝外溢的光
+      var hs = hash16(i * 311 + 7), a = hs / 65535 * TAU;
+      var d0 = 3 + (hs % 40) / 10, d1 = d0 + 5 + (hs % 30) / 6;
+      for (var dd = d0; dd < d1; dd += 1.1)
+        c.put(vx + Math.cos(a) * dd, vy + Math.sin(a) * dd / 2, '·', dd < d1 - 2 ? N : G);
+    }
+  }
+
+  // 103.51–106.15 "It's time to step in they try but they can't win"：
+  // 大殿纵深 + 缓慢前推 + 地面余烬。旧版是楔形箭头方阵，缩略图里读成"一堆尖括号"。
+  function lu_s8_step(c, t, top, bt, elapsed) {
+    var e = elapsed;
+    function ease(v) { v = clamp01(v); return v * v * (3 - 2 * v); }
+    var push = ease(e / 2.7);
+    luParticles(c, t, top, bt, 26, 53, true, true);
+    luCrimsonHall(c, t, top, bt, push);
+    // 脚下震波：每 0.44s 一拍，贴着地面往外扩，跟"step in"的节拍同步
+    var beat = mod(e / 0.44, 1);
+    luRing(c, 60, bt - 1, 4 + beat * 26, beat < 0.35 ? '·' : '.', beat < 0.25 ? B : G, 2);
+    clearRect(c, 0, top, c.w, 1); clearRect(c, 0, bt, c.w, 1);
+    c.put(3, top, '43 / STEP IN', N);
+    c.put(c.w - 22, top, 'HALL / ONE WAY THROUGH', R);
+    c.center(bt, e < 1.3 ? 'THEY TRY / THEY CANNOT WIN' : 'ONE WAY IN / NO WAY BACK', B);
   }
 
   // 106.15–110.21 "stay sharp like a weapon / they're not gonna stop us"：刃墙推进+出鞘曳光
