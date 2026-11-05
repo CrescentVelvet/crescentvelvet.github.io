@@ -5458,49 +5458,70 @@ title: 字符演歌
     g.restore();
   }
 
-  // 用户提供的第二张 ANSI 角色（洛克茜·女仆装，84×70 半块 = 84×140 像素）。
-  // 与女王不同，这张是单人无长柄的对称站姿，拆发束/披风的收益很低：
-  // 层一拆，边缘就会出现\"头发与披风错位\"的缝。整身单层 + 1% 呼吸 + 脚底锚点足够。
-  // 缓存按 vis 分档：全身入画时 vis=1（脚要留住）；裁腿时 vis<1，裙摆从
-  // (vis-0.22) 处开始化开、到 vis 正好归零——裁断线落在完全透明的位置才看不出来。
+  // 用户提供的第三版 ANSI 角色（洛克茜·女仆装 + 大锤，110×110）。
+  // 两张立绘现在都是 110×110（女王早期是 84×140，已替换），所以显示高度都 = 宽/2，
+  // 高宽比这件事不再有区别；剩下的差异只有内容占比（女王 94.5% / 洛克茜 85.5%），
+  // 并排时按 1.105 倍宽配平即可。
+  // 分三层：0 body / 1 hair（头顶飘起的那束）/ 2 weapon（右手大锤）。
+  // parts 由 tools/ascii_mv/build_roxy_actor.py 按像素算出，**互斥**：
+  // 入场时 reveal<1，两层同时 claim 同一格会显成双影。
   var LU_ROXY_CACHE = {};
+  var LU_ROXY_HAIR_ANCHOR = [0.565, 0.245];    // 发束根部：头顶偏右（x62 / y27）
+  var LU_ROXY_WEAPON_ANCHOR = [0.700, 0.565];  // 右手握把（锤子从手往右下挂）
   function luRoxyLayers(vis) {
     var data = window.__LU_ROXY_ANSI;
     if (!data) return null;
     var key = vis ? vis.toFixed(3) : '1';
     if (LU_ROXY_CACHE[key] && LU_ROXY_CACHE[key].data === data) return LU_ROXY_CACHE[key].layers;
-    var unit = 8, cv = document.createElement('canvas');
-    cv.width = data.width * unit; cv.height = data.height * unit;
-    var ctx = cv.getContext('2d');
-    for (var y = 0; y < data.height; y++) for (var x = 0; x < data.width; x++) {
-      var index = data.alphabet.indexOf(data.rows[y].charAt(x));
-      if (index <= 0) continue;
-      ctx.fillStyle = data.palette[index];
-      ctx.fillRect(x * unit, y * unit, unit, unit);
-    }
-    // 下缘渐隐：27 行的窗口装不下 140 像素全身像，稍大就必须裁脚，硬切的下摆
-    // 会读成"被剪刀剪掉"。vis = 实际可见到的贴图比例（0..1）：
-    // 从 vis-0.22 开始化开、到 vis 处正好归零，裁断线落在全透明处就看不出来。
-    if (vis && vis < 1) {
-      var img = ctx.getImageData(0, 0, cv.width, cv.height);
-      var fadeFrom = Math.max(0, vis - 0.13);
-      for (var yy = 0; yy < cv.height; yy++) {
-        var u2 = (yy / cv.height - fadeFrom) / (vis - fadeFrom);
-        var k = u2 <= 0 ? 1 : (u2 >= 1 ? 0 : Math.pow(1 - u2, 2.2));   // 上缓下急，像雾
-        if (k >= 1) continue;
-        for (var xx = 0; xx < cv.width; xx++) {
-          var o = (yy * cv.width + xx) * 4;
-          img.data[o + 3] = Math.round(img.data[o + 3] * k);
+    var unit = 8, layers = [], L, x, y;
+    var parts = data.parts || null;
+    for (L = 0; L < 3; L++) {
+      var cv = document.createElement('canvas');
+      cv.width = data.width * unit; cv.height = data.height * unit;
+      var ctx = cv.getContext('2d');
+      for (y = 0; y < data.height; y++) for (x = 0; x < data.width; x++) {
+        var index = data.alphabet.indexOf(data.rows[y].charAt(x));
+        if (index <= 0) continue;
+        var mine = !parts || parts[y].charAt(x) === String(L);
+        // ⚠️ 发束/锤子各向外多吃 1 格（8 邻域）。旋转 4° 后，层与主体之间会张开
+        // 1~2 源像素的缝，透出背景色，读成"头发被撕开"。膨胀 1 格正好盖住这条缝，
+        // 而静止时吃的像素还是它自己的颜色，与主体完全重合，看不出来。
+        if (!mine && L > 0) {
+          for (var oy = -1; oy <= 1 && !mine; oy++)
+            for (var ox = -1; ox <= 1 && !mine; ox++) {
+              var qy = y + oy, qx = x + ox;
+              if (qy >= 0 && qy < data.height && qx >= 0 && qx < data.width &&
+                  parts[qy].charAt(qx) === String(L)) mine = true;
+            }
         }
+        if (!mine) continue;
+        ctx.fillStyle = data.palette[index];
+        ctx.fillRect(x * unit, y * unit, unit, unit);
       }
-      ctx.putImageData(img, 0, 0);
+      // 下缘渐隐：只有"装不下"才用（新图 1:1，一般 vis=1 走不到这里）。
+      // vis = 实际可见到的贴图比例；从 vis-0.13 开始化开、到 vis 处归零，
+      // 裁断线落在全透明处就看不出来。
+      if (vis && vis < 1) {
+        var img = ctx.getImageData(0, 0, cv.width, cv.height);
+        var fadeFrom = Math.max(0, vis - 0.13);
+        for (var yy = 0; yy < cv.height; yy++) {
+          var u2 = (yy / cv.height - fadeFrom) / (vis - fadeFrom);
+          var k = u2 <= 0 ? 1 : (u2 >= 1 ? 0 : Math.pow(1 - u2, 2.2));   // 上缓下急，像雾
+          if (k >= 1) continue;
+          for (var xx = 0; xx < cv.width; xx++) {
+            var o = (yy * cv.width + xx) * 4;
+            img.data[o + 3] = Math.round(img.data[o + 3] * k);
+          }
+        }
+        ctx.putImageData(img, 0, 0);
+      }
+      layers.push(cv);
     }
-    LU_ROXY_CACHE[key] = { data: data, layers: [cv] };
-    return LU_ROXY_CACHE[key].layers;
+    LU_ROXY_CACHE[key] = { data: data, layers: layers };
+    return layers;
   }
-  // ⚠️ 两张立绘的 ANSI 数据上下都带透明边：女王 110 行里底边空 4 行、最高从第 2 行起，
-  // 洛克茜 140 行里底边空 14 行、从第 14 行起。按 data.height 推算"脚踩 baseY"会悬空
-  // （女王悬 4 行、洛克茜悬 1.4 行，两人并排时高矮关系直接是错的）。
+  // ⚠️ 立绘 ANSI 数据上下都带透明边：女王 110 行里底边空 4 行、最高从第 2 行起；
+  // 洛克茜 110 行里底边空 7 行。按 data.height 推算"脚踩 baseY"会悬空。
   // 这里按**最后一个不透明行**反推左上角 y，返回的 y 让内容底边正好落在 baseY。
   function luActorY(width, baseY, data) {
     if (!data) return baseY - 8;
@@ -5519,15 +5540,36 @@ title: 字符演歌
     g.save();
     g.beginPath(); g.rect(2 * cell, 2 * CH * SC, (GW - 4) * cell, 31 * CH * SC); g.clip();
     g.globalAlpha = actor.reveal;
-    g.imageSmoothingEnabled = true;          // ⚠️ 这张是**缩小**贴图（84→约 50 格），
-    g.imageSmoothingQuality = 'high';        // nearest 会丢行，脸和围裙边缘断成虚线
+    g.imageSmoothingEnabled = true;          // ⚠️ 这张是**缩小**贴图，nearest 会丢行，
+    g.imageSmoothingQuality = 'high';        // 脸和围裙边缘断成虚线
     var br = 1 + Math.sin(t * 1.6) * 0.006 + Math.sin(t * 3.7 + 1.2) * 0.003;
     var ax = actor.x * cell + width / 2;
     var ay = actor.anchor === 'head' ? y : y + height;
     g.translate(ax, ay);
     g.scale(br, br);
     g.translate(-ax, -ay);
-    g.drawImage(layers[0], x, y, width, height);
+    function part(layer, fx, fy, angle, dx, dy) {
+      var px = fx * data.width, py = fy * data.height;
+      if (!angle && !dx && !dy) { g.drawImage(layers[layer], x, y, width, height); return; }
+      g.save();
+      g.translate(x + px * unit + dx, y + py * unit + dy);
+      g.rotate(angle);
+      g.drawImage(layers[layer], -px * unit, -py * unit, width, height);
+      g.restore();
+    }
+    // 先铺主体，再叠发束与武器：三层像素互斥，透明区不会盖住下层。
+    part(0, 0, 0, 0, 0, 0);
+    // 发丝：绕根部摆。两组不同频率叠加，免得变成等周期的机械晃动。
+    // ⚠️ 幅度按**屏幕上看得见**定，不是按物理合理：s13 里她 26 格宽，
+    // 一源像素 ≈ 1.7 屏幕 px，2° 在发尖只有 1.2px —— 截图逐帧对比都看不出在动。
+    // 现在 4.4°（2.5° + 1.9°）+ 横向 3 源像素，发尖位移约 4px，24fps 下是"飘"而不是"抖"。
+    part(1, LU_ROXY_HAIR_ANCHOR[0], LU_ROXY_HAIR_ANCHOR[1],
+         Math.sin(t * 1.85) * 0.044 + Math.sin(t * 4.1 + 0.9) * 0.033,
+         Math.sin(t * 1.55 + 0.5) * unit * 3.0, 0);
+    // 大锤：频率比发丝低一档（重物惯性），角度 2.3°、竖向 2 源像素。
+    part(2, LU_ROXY_WEAPON_ANCHOR[0], LU_ROXY_WEAPON_ANCHOR[1],
+         Math.sin(t * 1.25 + 0.8) * 0.028 + Math.sin(t * 2.9 + 2.1) * 0.012,
+         0, Math.sin(t * 1.4) * unit * 2.0);
     g.restore();
   }
 
@@ -6533,12 +6575,13 @@ title: 字符演歌
     }
     // 不给"地面反光"：立绘裁到膝盖以下，脚下没有实体，一片散点只会读成噪点。
     // 地面感交给脚下那圈光圈和渐隐本身。
-    // 人物：宽到一定程度就必须裁腿，否则头会顶出画面 —— 那时把头顶钉在 top 上
-    var RW = window.__ROXY_W || 36;
-    var rh = 140 * (RW * 18 / 84) / 36;               // 换算成字符行数
+    // 人物：贴图 110×110（1:1），显示行数 = 宽/2。可用 27 行 ⇒ 最大 54 格宽，
+    // 全身给满即可，不需要裁腿（旧版 84×140 的贴图在同一位置要裁到膝盖）。
+    var RW = window.__ROXY_W || 50;
+    var rh = RW / 2;                                  // 换算成字符行数
     var avail = gy - top - 0.8;
     var vis = Math.min(1, avail / rh);                // 贴图能看到多少
-    var yHead = vis < 0.999 ? top + 1.3 : gy - rh + 0.5;
+    var yHead = vis < 0.999 ? top + 1.3 : gy - rh + 0.4;
     c.roxy = { x: cx - RW / 2, y: yHead, width: RW, t: t, anchor: 'foot',
                vis: vis, reveal: clamp01(e / 1.3) };
     clearRect(c, 0, top, c.w, 1);
@@ -6842,9 +6885,15 @@ title: 字符演歌
     for (x = 6; x < c.w - 6; x++)
       if (hash16(x * 29 + (e * 4 | 0)) % 100 < 64) c.put(x, bt - 1, '─', x % 3 ? R : N);
     var push = 1 + luEase(clamp01(e / 4.1)) * 0.12;
-    var w = 32 * push;
-    c.queen = { x: 38 - w / 2, y: 5.0, width: w, t: t, reveal: clamp01(e / 0.7) };
-    c.roxy = { x: 82 - w / 2, y: 5.0, width: w, t: t, vis: 1, reveal: clamp01(e / 0.7) };
+    // ⚠️ 两张立绘都是 110×110（不是早期那版的 84×140），显示高度都 = 宽/2，
+    // 差别只在**内容占比**：女王 y2–105（94.5%）、洛克茜 y9–102（85.5%）。
+    // 所以配平系数 = 0.945/0.855 ≈ 1.105，不是拍脑袋的 1.45。
+    var wQ = 32 * push, wR = 36 * push;
+    var baseY = bt - 1.3;
+    c.queen = { x: 38 - wQ / 2, y: luActorY(wQ, baseY, window.__LU_QUEEN_ANSI),
+                width: wQ, t: t, reveal: clamp01(e / 0.7) };
+    c.roxy = { x: 84 - wR / 2, y: luActorY(wR, baseY, window.__LU_ROXY_ANSI),
+               width: wR, t: t, vis: 1, reveal: clamp01(e / 0.7) };
     clearRect(c, 0, top, c.w, 1);
   }
 
@@ -6872,14 +6921,17 @@ title: 字符演歌
         else if (I > 0.06) c.put(x, y, '░', R);
       }
     }
-    // 特写：70 格宽，按镜头左右错开，脸落在画面上三分之一
+    // 特写：按**脸的占比**给宽，不是按身高给宽。
+    // 女王脸占图高 21%（84×140 里 y15–45），70 格宽 ⇒ 58 行 ⇒ 脸 12 行；
+    // 洛克茜脸只占 16%（110 里 y27–45），同样 70 格宽只有 5.7 行，特写里是一张小脸。
+    // 所以她用 100 格宽（50 行）换回 8 行的脸，代价是头顶贴边、下半身出画——特写本来如此。
     var w = 70 * (1 + se * 0.10);
-    // 机位只小幅偏移（52 / 68）：偏到 74 时人物会被推到右边缘、左边空一大块
     var ax = shot % 2 ? 68 : 52;
     if (who === 0) {
       c.queen = { x: ax - w / 2, y: 3.6, width: w, t: t, reveal: 1 };
     } else {
-      c.roxy = { x: ax - w / 2, y: 3.6, width: w, t: t, vis: 1, reveal: 1 };
+      var w2 = 100 * (1 + se * 0.06);
+      c.roxy = { x: ax - w2 / 2, y: 0.6, width: w2, t: t, vis: 1, reveal: 1 };
     }
     // 切点白闪：三帧，只铺上半屏，别把人糊没
     if (se < 0.075) {
@@ -7116,11 +7168,12 @@ title: 字符演歌
             i % 6 === 0 ? B : N);
     }
 
-    // 7) 两个人：真立绘（宽 19 / 16 格 → 高约 16 / 13 行），脚踩地平面
-    var wQ = 19, wR = 16;
-    c.queen = { x: cx - 6 - wQ / 2, y: luActorY(wQ, baseY, window.__LU_QUEEN_ANSI),
+    // 7) 两个人：真立绘，脚踩地平面。
+    // 按内容占比配平：洛克茜 = 女王 × 0.945/0.855 ≈ 1.105
+    var wQ = 19, wR = 21;
+    c.queen = { x: cx - 22, y: luActorY(wQ, baseY, window.__LU_QUEEN_ANSI),
                 width: wQ, t: t, reveal: clamp01((e - 0.25) / 1.1) };
-    c.roxy = { x: cx + 11 - wR / 2, y: luActorY(wR, baseY, window.__LU_ROXY_ANSI),
+    c.roxy = { x: cx + 2, y: luActorY(wR, baseY, window.__LU_ROXY_ANSI),
                width: wR, t: t, anchor: 'foot', vis: 1,
                reveal: clamp01((e - 0.55) / 1.1) };
   }
@@ -7254,11 +7307,11 @@ title: 字符演歌
         if (hg < 46 * pl) c.put(x, y, hg < 12 * pl ? '▒' : '░', R);
       }
     }
-    // 3) 两个人：比 s13 略大一点（镜头更近），脚踩地平线
-    var wQ = 20, wR = 17;
-    c.queen = { x: cx - 5 - wQ / 2, y: luActorY(wQ, baseY, window.__LU_QUEEN_ANSI),
+    // 3) 两个人：比 s13 略大一点（镜头更近），脚踩地平线。同样按 1.105× 配平。
+    var wQ = 20, wR = 22;
+    c.queen = { x: cx - 26, y: luActorY(wQ, baseY, window.__LU_QUEEN_ANSI),
                 width: wQ, t: t, reveal: 1 };
-    c.roxy = { x: cx + 8 - wR / 2, y: luActorY(wR, baseY, window.__LU_ROXY_ANSI),
+    c.roxy = { x: cx + 2, y: luActorY(wR, baseY, window.__LU_ROXY_ANSI),
                width: wR, t: t, anchor: 'foot', vis: 1, reveal: 1 };
     // 4) 稀疏火星：只留十几颗，慢慢往上飘（背景已经没有别的东西，多了会吵）
     for (i = 0; i < 16; i++) {

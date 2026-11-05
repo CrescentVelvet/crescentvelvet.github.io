@@ -101,7 +101,10 @@ def main():
     quant = strip.quantize(colors=22, method=Image.Quantize.MEDIANCUT)
     palette = [(0, 0, 0), (9, 9, 11)]
     rawpal = quant.getpalette()
-    palette += [tuple(rawpal[i:i + 3]) for i in range(0, 66, 3)]
+    # ⚠️ 不能硬写 range(0, 66, 3)：MEDIANCUT 在低色数图上只返回实际用到的颜色
+    # （本图只有 7 色），超出的切片是空 tuple，后面取分量直接 IndexError。
+    ncol = len(rawpal) // 3
+    palette += [tuple(rawpal[i:i + 3]) for i in range(0, ncol * 3, 3)]
     alphabet = '.0123456789ABCDEFGHIJKLMN'
     rows = []
     preview = Image.new('RGBA', im.size)
