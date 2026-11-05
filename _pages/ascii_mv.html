@@ -5529,6 +5529,27 @@ title: 字符演歌
     while (last > 0 && !/[^.\s]/.test(data.rows[last])) last--;
     return baseY - (last + 1) * (width * (CW * SC) / data.width) / (CH * SC);
   }
+  // ── 两人并排时按**脸**配平，不按身高配平 ────────────────────────────────
+  // 量法：源像素里两只眼睛红块的中心距（两张图都是 110×110，可直接比）。
+  //   女王   左 (56, 38)   右 (64.5, 40.5)  → 8.86 px
+  //   洛克茜 左 (48.5, 38) 右 (57, 36.5)    → 8.63 px
+  // 差了 2.6%，也就是**同宽时两张脸几乎一样大**。旧版按"内容高占比"配平
+  // （0.945/0.855≈1.105）把她放大了 10.5%，脸也跟着大 10%——并排一眼就看出
+  // 她的头比女王大一圈，这才是"高度不一致"的真实观感来源。
+  // 同宽后她自然矮约 9%（内容高 104px vs 94px），再叠加女王的大镰刀高出头顶一截，
+  // 正是"女王压场、女仆略矮"的关系，不需要再人为拉高。
+  var LU_EYE_GAP = { queen: 8.86, roxy: 8.63 };
+  // 但"脸等大"≠"人等高"：她的发量比女王蓬得多，头顶在源图 y≈9，女王在 y≈20（还戴着皇冠）。
+  // 按脸配平后实测，她的头顶反而比女王高 6px（141px vs 135px 的头顶→脚底），
+  // 并排看是"女仆更高"，与"女王手持大镰刀更压场"的构图相反。
+  // 所以在脸等大的基础上再收回 8%：脸小 8%（30px 的脸差 2px，是看不出量的），
+  // 头顶却低下来 6px，才回到"女王略高、女仆略矮"的关系。
+  // ⚠️ 别为了"明显矮一截"把系数压到 0.85 以下——那时脸会比女王小一圈，
+  // 并排会读成"姐姐带妹妹"，和这一段"并立的双人"不是一回事。
+  var LU_ROXY_SHRINK = 0.92;
+  function luRoxyW(wQueen) {
+    return wQueen * LU_EYE_GAP.queen / LU_EYE_GAP.roxy * LU_ROXY_SHRINK;
+  }
   // actor = {x(格), y(格), width(格), t, reveal, anchor('head'|'foot')}
   // anchor 决定缩放锚点：呼吸时头不动、脚微起伏，还是反过来。
   function luRenderRoxy(g, actor) {
@@ -6885,10 +6906,9 @@ title: 字符演歌
     for (x = 6; x < c.w - 6; x++)
       if (hash16(x * 29 + (e * 4 | 0)) % 100 < 64) c.put(x, bt - 1, '─', x % 3 ? R : N);
     var push = 1 + luEase(clamp01(e / 4.1)) * 0.12;
-    // ⚠️ 两张立绘都是 110×110（不是早期那版的 84×140），显示高度都 = 宽/2，
-    // 差别只在**内容占比**：女王 y2–105（94.5%）、洛克茜 y9–102（85.5%）。
-    // 所以配平系数 = 0.945/0.855 ≈ 1.105，不是拍脑袋的 1.45。
-    var wQ = 32 * push, wR = 36 * push;
+    // 按**脸**配平（瞳距 8.86 / 8.63 ≈ ×1.027），所以她与女王同宽略宽一点点；
+    // 身高差由她的内容高度（94px vs 104px）自然给出，不再人为放大。
+    var wQ = 32 * push, wR = luRoxyW(32) * push;
     var baseY = bt - 1.3;
     c.queen = { x: 38 - wQ / 2, y: luActorY(wQ, baseY, window.__LU_QUEEN_ANSI),
                 width: wQ, t: t, reveal: clamp01(e / 0.7) };
@@ -6921,17 +6941,16 @@ title: 字符演歌
         else if (I > 0.06) c.put(x, y, '░', R);
       }
     }
-    // 特写：按**脸的占比**给宽，不是按身高给宽。
-    // 女王脸占图高 21%（84×140 里 y15–45），70 格宽 ⇒ 58 行 ⇒ 脸 12 行；
-    // 洛克茜脸只占 16%（110 里 y27–45），同样 70 格宽只有 5.7 行，特写里是一张小脸。
-    // 所以她用 100 格宽（50 行）换回 8 行的脸，代价是头顶贴边、下半身出画——特写本来如此。
+    // 特写：两人用**同一个推镜倍率**，靠 luRoxyW 把脸对齐（旧版给她 100 格宽，
+    // 脸比女王大 47%，快切来回就成了"忽大忽小"）。她的头身比更大，同宽下脸就是一样
+    // 大而身体更满，特写里反而更有压迫感。
     var w = 70 * (1 + se * 0.10);
     var ax = shot % 2 ? 68 : 52;
     if (who === 0) {
       c.queen = { x: ax - w / 2, y: 3.6, width: w, t: t, reveal: 1 };
     } else {
-      var w2 = 100 * (1 + se * 0.06);
-      c.roxy = { x: ax - w2 / 2, y: 0.6, width: w2, t: t, vis: 1, reveal: 1 };
+      var w2 = luRoxyW(70) * (1 + se * 0.10);
+      c.roxy = { x: ax - w2 / 2, y: 3.6, width: w2, t: t, vis: 1, reveal: 1 };
     }
     // 切点白闪：三帧，只铺上半屏，别把人糊没
     if (se < 0.075) {
@@ -7169,8 +7188,8 @@ title: 字符演歌
     }
 
     // 7) 两个人：真立绘，脚踩地平面。
-    // 按内容占比配平：洛克茜 = 女王 × 0.945/0.855 ≈ 1.105
-    var wQ = 19, wR = 21;
+    // 按脸配平（×1.027）：同宽下她的脸与女王等大，身高自然矮 9%
+    var wQ = 19, wR = luRoxyW(19);
     c.queen = { x: cx - 22, y: luActorY(wQ, baseY, window.__LU_QUEEN_ANSI),
                 width: wQ, t: t, reveal: clamp01((e - 0.25) / 1.1) };
     c.roxy = { x: cx + 2, y: luActorY(wR, baseY, window.__LU_ROXY_ANSI),
@@ -7307,8 +7326,8 @@ title: 字符演歌
         if (hg < 46 * pl) c.put(x, y, hg < 12 * pl ? '▒' : '░', R);
       }
     }
-    // 3) 两个人：比 s13 略大一点（镜头更近），脚踩地平线。同样按 1.105× 配平。
-    var wQ = 20, wR = 22;
+    // 3) 两个人：比 s13 略大一点（镜头更近），脚踩地平线。同样按脸配平。
+    var wQ = 20, wR = luRoxyW(20);
     c.queen = { x: cx - 26, y: luActorY(wQ, baseY, window.__LU_QUEEN_ANSI),
                 width: wQ, t: t, reveal: 1 };
     c.roxy = { x: cx + 2, y: luActorY(wR, baseY, window.__LU_ROXY_ANSI),
