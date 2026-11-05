@@ -7799,8 +7799,10 @@ title: 字符演歌
         var dx = (x - 60) / 2.2, dy = y - (top + bt) / 2;
         var rr = Math.sqrt(dx * dx + dy * dy);
         var th = Math.atan2(dy, dx * dirS);
-        var wedge = mod(Math.floor(((th + Math.PI) / TAU) * 24 + shot * 3), 2);
-        var I = (wedge ? 0.22 : 0.72) * Math.exp(-rr / 24) * (1 + env * 0.3);
+        // ⚠️ 24 道楔形在"全亮/全灭"之间交替 ⇒ 高频黑白条纹，缩略图里就是电视雪花。
+        // 降到 10 道，且交替只做**两档亮度**（0.72 / 0.40），才是"放射光"不是噪点。
+        var wedge = mod(Math.floor(((th + Math.PI) / TAU) * 10 + shot * 3), 2);
+        var I = (wedge ? 0.40 : 0.72) * Math.exp(-rr / 24) * (1 + env * 0.3);
         if (I > 0.42) c.put(x, y, '▓', R);
         else if (I > 0.18) c.put(x, y, '▒', R);
         else if (I > 0.06) c.put(x, y, '░', R);
@@ -7817,13 +7819,16 @@ title: 字符演歌
       var w2 = luRoxyW(70) * (1 + se * 0.10);
       c.roxy = { x: ax - w2 / 2, y: 3.6, width: w2, t: t, vis: 1, reveal: 1 };
     }
-    // 切点白闪：三帧，只铺上半屏，别把人糊没
+    // 切点白闪（约 3 帧）。
+    // ⚠️ 旧版是 `hash16(...) < 70*k` 的**随机**铺白：70% 概率画 █ W、30% 不画，
+    // 结果满屏是"白方块 + 黑缝"，缩略图里就是电视雪花马赛克。
+    // 白闪必须是**整片**过曝，退场靠"从边缘往内缩"（半径随 k 收），不是靠概率。
     if (se < 0.075) {
       var k = 1 - se / 0.075;
-      for (y = top + 1; y < bt; y++)
-        for (x = 2; x < c.w - 2; x++)
-          if (hash16(x * 7 + y * 13 + (e * 30 | 0)) % 100 < 70 * k)
-            c.put(x, y, '█', k > 0.55 ? W : B);
+      for (y = top + 1; y < bt; y++) for (x = 2; x < c.w - 2; x++) {
+        var dd2 = Math.sqrt((x - 60) * (x - 60) + ((y - 19) * 2) * ((y - 19) * 2)) / 74;
+        if (dd2 < k * 1.15) c.put(x, y, '█', dd2 < k * 0.55 ? W : B);
+      }
     }
     clearRect(c, 0, top, c.w, 1);
   }
@@ -8210,7 +8215,9 @@ title: 字符演歌
       for (y = top; y < bt; y++)
         for (x = 1; x < c.w - 1; x++) {
           if (hash16(Math.floor(x / 4) * 97 + Math.floor(y / 4) * 131) % 100 < fade * 108)
-            c.put(x, y, ' ');
+            // ⚠️ 这里原来漏了颜色参数（`c.put(x, y, ' ')`）：整格颜色变成 undefined，
+            // 183–184 秒每帧近 2000 格非法。补 R（压暗成暗红），别补 K（红底上会发绿）。
+            c.put(x, y, ' ', R);
         }
     }
   }
@@ -8237,6 +8244,27 @@ title: 字符演歌
         var hg = hash16(x * 137 + y * 71) % 100;
         if (hg < 34 * fade * (1 - Math.abs(x - cx) / 70)) c.put(x, y, '░', R);
       }
+    // 2.5) 远景剪影群（MV 183–186）：一排站在地平线上的小黑影。
+    // ⚠️ 第一版按"每行一个宽度"画，结果是**上宽下窄**（头 3 格、脚 1 格）的柱子，
+    // 缩略图里读成"一排黄色方块"。人形必须逐部位写：头 1 格 → 肩 3 格 → 身 2 格 → 腿 2 格。
+    for (i = 0; i < 7; i++) {
+      var sx = 22 + i * 13 + Math.round(Math.sin(i * 2.3) * 3);
+      var sh2 = hash16(i * 97 + 13);
+      var hgt = 5 + (sh2 % 2);                       // 5–6 行高
+      var ink = fade > 0.35 ? G : R;
+      c.put(sx, baseY - hgt, '█', ink);                                  // 头
+      c.put(sx - 1, baseY - hgt + 1, '█', ink); c.put(sx + 1, baseY - hgt + 1, '█', ink);
+      c.put(sx, baseY - hgt + 1, '█', ink);                              // 肩
+      for (y = 2; y < hgt - 1; y++) c.put(sx, baseY - hgt + y, '█', ink); // 身
+      c.put(sx - 0.8, baseY - 1, '█', ink); c.put(sx + 0.8, baseY - 1, '█', ink);  // 腿
+      if (fade > 0.45) c.put(sx, baseY - hgt - 1, '▒', N);               // 头顶一点余晖
+    }
+    // 地平线附近的红雾：没有它，剪影是"黑底上的一排黄花"，读不出"远处的红天"
+    for (y = baseY - 7; y <= baseY; y++) for (x = 2; x < c.w - 2; x++) {
+      var hv = (1 - (baseY - y) / 8) * fade * 0.86;
+      if (hash16(x * 11 + y * 7) % 100 < hv * 46) c.put(x, y, '▒', R);
+      else if (hash16(x * 13 + y * 3) % 100 < hv * 30) c.put(x, y, '░', R);
+    }
     // 3) 余烬：从地面往上飘，飘到一半就灭；颗数随 fade 递减
     var cnt = Math.round(38 * fade);
     for (i = 0; i < cnt; i++) {
