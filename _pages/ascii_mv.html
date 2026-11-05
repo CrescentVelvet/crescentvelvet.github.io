@@ -5460,13 +5460,24 @@ title: 字符演歌
 
   // 用户提供的第三版 ANSI 角色（洛克茜·女仆装 + 大锤，110×110）。
   // 两张立绘现在都是 110×110（女王早期是 84×140，已替换），所以显示高度都 = 宽/2，
-  // 高宽比这件事不再有区别；剩下的差异只有内容占比（女王 94.5% / 洛克茜 85.5%），
-  // 并排时按 1.105 倍宽配平即可。
-  // 分三层：0 body / 1 hair（头顶飘起的那束）/ 2 weapon（右手大锤）。
-  // parts 由 tools/ascii_mv/build_roxy_actor.py 按像素算出，**互斥**：
-  // 入场时 reveal<1，两层同时 claim 同一格会显成双影。
+  // 高宽比这件事不再有区别；尺寸配平见下面的 luRoxyW()（按脸，不按身高）。
+  // 分五层：0 body / 1 左发束 / 2 顶发束 / 3 右飘发 / 4 weapon（右手大锤）。
+  // parts 由 tools/ascii_mv/build_roxy_actor.py 按像素算出，**互斥**；
+  // 渲染时每层再向 body 多吃 1 格，接缝就落在这一圈上。
   var LU_ROXY_CACHE = {};
-  var LU_ROXY_HAIR_ANCHOR = [0.565, 0.245];    // 发束根部：头顶偏右（x62 / y27）
+  var LU_ROXY_LAYERS = 5;
+  // 发束根部，源图像素坐标（110×110）。三束各自绕自己的根摆，头顶的大块头发
+  // 和头骨一起留在 body 层不动——上一版把 y<27 的整个头顶当一束（18×27 实心块）
+  // 绕同一点旋转，读起来是"后脑勺在晃"，不是"几根头发在飘"。
+  // ang = 绕根旋转（弧度），shear = 每源像素高度的横向剪切（鞭状弯曲）。
+  var LU_ROXY_HAIR = [
+    // 左鬓那束（尖端 46,15，根压在侧发上；根→尖 3.5px）
+    { part: 1, px: 46.5, py: 18.5, ang: 0.140, shear: 0.34, f1: 1.85, f2: 4.10, ph: 0.9 },
+    // 头顶那根（尖端 60,9，根在发旋；根→尖 3.5px）
+    { part: 2, px: 60.0, py: 12.5, ang: 0.160, shear: 0.40, f1: 2.10, f2: 4.60, ph: 2.0 },
+    // 甩向右边那缕（尖端 70,17，根在离开发团处；根→尖 6.5px）
+    { part: 3, px: 64.5, py: 13.5, ang: 0.100, shear: 0.20, f1: 1.55, f2: 3.30, ph: 3.1 }
+  ];
   var LU_ROXY_WEAPON_ANCHOR = [0.700, 0.565];  // 右手握把（锤子从手往右下挂）
   function luRoxyLayers(vis) {
     var data = window.__LU_ROXY_ANSI;
@@ -5475,7 +5486,7 @@ title: 字符演歌
     if (LU_ROXY_CACHE[key] && LU_ROXY_CACHE[key].data === data) return LU_ROXY_CACHE[key].layers;
     var unit = 8, layers = [], L, x, y;
     var parts = data.parts || null;
-    for (L = 0; L < 3; L++) {
+    for (L = 0; L < LU_ROXY_LAYERS; L++) {
       var cv = document.createElement('canvas');
       cv.width = data.width * unit; cv.height = data.height * unit;
       var ctx = cv.getContext('2d');
@@ -5483,9 +5494,9 @@ title: 字符演歌
         var index = data.alphabet.indexOf(data.rows[y].charAt(x));
         if (index <= 0) continue;
         var mine = !parts || parts[y].charAt(x) === String(L);
-        // ⚠️ 发束/锤子各向外多吃 1 格（8 邻域）。旋转 4° 后，层与主体之间会张开
-        // 1~2 源像素的缝，透出背景色，读成"头发被撕开"。膨胀 1 格正好盖住这条缝，
-        // 而静止时吃的像素还是它自己的颜色，与主体完全重合，看不出来。
+        // ⚠️ 动层各向外多吃 1 格（8 邻域）。旋转后层与 body 之间会张开 1 源像素的
+        // 缝，透出背景色，读成"头发被撕开"。膨胀 1 格正好盖住这条缝，而静止时吃
+        // 的像素还是它自己的颜色，与 body 完全重合，看不出来。
         if (!mine && L > 0) {
           for (var oy = -1; oy <= 1 && !mine; oy++)
             for (var ox = -1; ox <= 1 && !mine; ox++) {
@@ -5542,11 +5553,12 @@ title: 字符演歌
   // 但"脸等大"≠"人等高"：她的发量比女王蓬得多，头顶在源图 y≈9，女王在 y≈20（还戴着皇冠）。
   // 按脸配平后实测，她的头顶反而比女王高 6px（141px vs 135px 的头顶→脚底），
   // 并排看是"女仆更高"，与"女王手持大镰刀更压场"的构图相反。
-  // 所以在脸等大的基础上再收回 8%：脸小 8%（30px 的脸差 2px，是看不出量的），
-  // 头顶却低下来 6px，才回到"女王略高、女仆略矮"的关系。
+  // 所以在脸等大的基础上再收回 12.6%：0.92（第一版）→ 0.874（用户再看一轮后要求
+  // 再小 5%）。脸小 12.6% 是 4px，仍看不出来；头顶却低了 6px，才回到"女王略高、
+  // 女仆略矮"的关系。
   // ⚠️ 别为了"明显矮一截"把系数压到 0.85 以下——那时脸会比女王小一圈，
   // 并排会读成"姐姐带妹妹"，和这一段"并立的双人"不是一回事。
-  var LU_ROXY_SHRINK = 0.92;
+  var LU_ROXY_SHRINK = 0.874;
   function luRoxyW(wQueen) {
     return wQueen * LU_EYE_GAP.queen / LU_EYE_GAP.roxy * LU_ROXY_SHRINK;
   }
@@ -5569,26 +5581,33 @@ title: 字符演歌
     g.translate(ax, ay);
     g.scale(br, br);
     g.translate(-ax, -ay);
-    function part(layer, fx, fy, angle, dx, dy) {
-      var px = fx * data.width, py = fy * data.height;
-      if (!angle && !dx && !dy) { g.drawImage(layers[layer], x, y, width, height); return; }
+    // 位移双通道：angle 绕根部整体转（根不动），shear 让离根越远弯得越多
+    // （像鞭子）。只用 angle 时 4px 长的发尖几乎不动；只用平移时根会拔起来，
+    // 与发团之间张缝。两者都锚在根部，接缝恒为零。
+    function part(layer, sx, sy, angle, dx, dy, shear) {
+      if (!angle && !dx && !dy && !shear) { g.drawImage(layers[layer], x, y, width, height); return; }
+      var ax2 = x + sx * unit + (dx || 0), ay2 = y + sy * unit + (dy || 0);
       g.save();
-      g.translate(x + px * unit + dx, y + py * unit + dy);
-      g.rotate(angle);
-      g.drawImage(layers[layer], -px * unit, -py * unit, width, height);
+      g.translate(ax2, ay2);
+      if (angle) g.rotate(angle);
+      // shear 正值 = 发尖向右（与正角度同向）；canvas 的 y 向下，上方的发尖
+      // 在 y<0 一侧，所以矩阵里取负号。
+      if (shear) g.transform(1, 0, -shear, 1, 0, 0);
+      g.drawImage(layers[layer], x - ax2, y - ay2, width, height);
       g.restore();
     }
-    // 先铺主体，再叠发束与武器：三层像素互斥，透明区不会盖住下层。
-    part(0, 0, 0, 0, 0, 0);
-    // 发丝：绕根部摆。两组不同频率叠加，免得变成等周期的机械晃动。
-    // ⚠️ 幅度按**屏幕上看得见**定，不是按物理合理：s13 里她 26 格宽，
-    // 一源像素 ≈ 1.7 屏幕 px，2° 在发尖只有 1.2px —— 截图逐帧对比都看不出在动。
-    // 现在 4.4°（2.5° + 1.9°）+ 横向 3 源像素，发尖位移约 4px，24fps 下是"飘"而不是"抖"。
-    part(1, LU_ROXY_HAIR_ANCHOR[0], LU_ROXY_HAIR_ANCHOR[1],
-         Math.sin(t * 1.85) * 0.044 + Math.sin(t * 4.1 + 0.9) * 0.033,
-         Math.sin(t * 1.55 + 0.5) * unit * 3.0, 0);
+    // 先铺主体，再叠三束发丝与武器：各层像素互斥，透明区不会盖住下层。
+    part(0);
+    // ⚠️ 幅度按**屏幕上看得见**定，不是按物理合理。s13_throne 里她只有 17 格宽，
+    // 864px 画布下一源像素 ≈ 1.1 屏幕 px，发尖要动 2px 才看得出来。三束的根部到
+    // 发尖各 3.5 / 3.5 / 6.5 源像素，合起来约 11° 转 + 0.4 剪切 ≈ 2 源像素。
+    for (var si = 0; si < LU_ROXY_HAIR.length; si++) {
+      var st = LU_ROXY_HAIR[si];
+      var bend = Math.sin(t * st.f1 + st.ph) + Math.sin(t * st.f2 + st.ph * 1.7) * 0.42;
+      part(st.part, st.px, st.py, bend * st.ang, 0, 0, bend * st.shear);
+    }
     // 大锤：频率比发丝低一档（重物惯性），角度 2.3°、竖向 2 源像素。
-    part(2, LU_ROXY_WEAPON_ANCHOR[0], LU_ROXY_WEAPON_ANCHOR[1],
+    part(4, LU_ROXY_WEAPON_ANCHOR[0] * data.width, LU_ROXY_WEAPON_ANCHOR[1] * data.height,
          Math.sin(t * 1.25 + 0.8) * 0.028 + Math.sin(t * 2.9 + 2.1) * 0.012,
          0, Math.sin(t * 1.4) * unit * 2.0);
     g.restore();
