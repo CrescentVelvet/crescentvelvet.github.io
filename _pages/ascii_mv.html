@@ -5571,7 +5571,8 @@ title: 字符演歌
   // ① 红瞳。立绘放不到这么大（源图一只眼才 4×4 像素，放大三十倍就是马赛克），只能画。
   // 关键不是"红"，是**眼白要比虹膜淡**：上一版虹膜和眼白都填 █ R，整只眼是一团平红，
   // 只看得见两个红斑。眼白用 ░ W（点状奶油 → 浅灰），红瞳才跳得出来。
-  function luEye(c, ex, ey, w, h) {
+  function luEye(c, ex, ey, w, h, k) {
+    var EK = k || 1;
     var x, y, u, s, ch, col;
     for (x = -w; x <= w; x++) {
       u = x / w;
@@ -5582,14 +5583,14 @@ title: 字符演歌
         var dy = (y - ey) * 2, d = Math.sqrt(x * x + dy * dy);
         // 上睑：**挖黑**而不是画亮线。睫毛和虹膜同色的话，眼睛就是一团红。
         if (y - yTop < 1.0) { c.put(ex + x, y, ' ', R); continue; }
-        if (d < 7.2) { ch = '█'; col = R; }                    // 虹膜
-        else if (d < 8.8) { ch = '▓'; col = R; }               // 角膜缘
+        if (d < 7.2 * EK) { ch = '█'; col = R; }              // 虹膜
+        else if (d < 8.8 * EK) { ch = '▓'; col = R; }         // 角膜缘
         // ⚠️ 眼白必须用 █（满格）而不是 ▒：▒ 是 50% 网点，W 的黑底混色后
         // 是 #7f7f6b —— 一整个"橄榄灰"，正是全片最脏的那个调子。
         else { ch = '█'; col = W; }
         c.put(ex + x, y, ch, col);
-        if (d < 2.9) c.put(ex + x, y, ' ', R);                 // 瞳孔
-        if ((Math.abs(dy) < 1 && x > -5 && x < 5) || (Math.abs(x) < 1 && Math.abs(dy) < 3.4))
+        if (d < 2.9 * EK) c.put(ex + x, y, ' ', R);           // 瞳孔
+        if ((Math.abs(dy) < 1 && x > -5 * EK && x < 5 * EK) || (Math.abs(x) < 1 && Math.abs(dy) < 3.4 * EK))
           c.put(ex + x, y, '█', W);                            // 十字高光
       }
     }
@@ -5622,53 +5623,12 @@ title: 字符演歌
     }
   }
 
-  function lu_s6_eye(c, t, top, bt, e) {
-    // 0–1.90 眼睛亮起来；1.90–2.40 甩镜；2.40 起交给玫瑰。
-    if (e < 1.90) {
-      var hush = clamp01(e / 0.4), cy = 17.6, gap = 26, w = 19, h = 5.6;
-      luEye(c, 60 - gap, cy, w, h);
-      luEye(c, 60 + gap, cy, w, h);
-      // 脸：只在眼睑上下留一点极淡的肤色，散到画面边缘就没有了。
-      // 不铺一层的话两颗红珠子浮在黑里，读成两枚徽章而不是一张脸。
-      var x, y, fade = hush * (0.72 + 0.28 * Math.sin(t * 6.2));
-      for (y = Math.round(cy - 12); y <= Math.round(cy + 13); y++)
-        for (x = 8; x <= 111; x++) {
-          var dx = (x - 60) / 52, dy = (y - cy) / 13.5, dd = dx * dx + dy * dy;
-          if (dd > 1 || dd < 0.18) continue;
-          if (hash16(x * 71 + y * 37) % 100 < (1 - dd) * 15 * fade) c.put(x, y, '·', W);
-        }
-      // 一条横贯画面的红光（MV 里那道扫描线），给极特写一个纵深参照。
-      if (e > 0.6) for (x = 2; x < c.w - 2; x++)
-        if (hash16(x * 17 + 5) % 100 < 72) c.put(x, 27, '·', R);
-    } else {
-      luSmear(c, top, bt, clamp01((e - 1.90) / 0.50));
-    }
-    clearRect(c, 0, top, c.w, 1);
-    c.put(3, top, '37 / OPEN YOUR EYES', N);
-    c.put(c.w - 22, top, 'EYES / BURNING', R);
-    clearRect(c, 0, bt, c.w, 1);
-    c.center(bt, e < 1.90 ? 'I OPEN MY EYES / AND THE WORLD IS RED'
-                          : 'AND EVERYTHING / LOOKS BACK AT ME', B);
-  }
+
 
   // ② 血玫瑰。花瓣是一片片**椭圆实体**由外向内叠上去的，每片落笔前先擦一圈投影，
   // 层与层之间才有暗缝。上一版按"极角相位"切层，长出来的是一台风车/烟花——
   // 玫瑰之所以是玫瑰，靠的是花瓣互相包住的弧，不是放射状的对称。
-  function luBlob(c, px, py, rx, ry, rot, mode) {
-    var x, y, ca = Math.cos(rot), sa = Math.sin(rot);
-    for (y = Math.round(py - ry - 1); y <= Math.round(py + ry + 1); y++)
-      for (x = Math.round(px - rx - 2); x <= Math.round(px + rx + 2); x++) {
-        var dx = x - px, dy = y - py;
-        var u = (dx * ca + dy * sa) / rx, v = (-dx * sa + dy * ca) / ry;
-        var q = u * u + v * v;
-        if (q > 1) continue;
-        if (mode) { if (q > 0.55) c.put(x, y, ' '); continue; }     // 投影：擦黑
-        var lit = (dx * 0.85 + dy * 1.5) < -rx * 0.22;              // 光从左上来
-        if (q > 0.86) c.put(x, y, '░', R);
-        else if (q > 0.5) c.put(x, y, lit ? '▒' : '▓', lit ? N : R);
-        else c.put(x, y, lit ? '█' : '▓', lit ? R : R);
-      }
-  }
+
   // 玫瑰：六片**带尖的瓣**从花心放射，瓣尖一定突出轮廓线。
   // 前面几版（同心圆弧 / 偏心弧 / 叠椭圆 / 侧视花苞）都失败在同一件事上：
   // 外轮廓要么是圆、要么是蛋，而"花"这个字在低分辨率下只由**尖**认出来。
@@ -5731,23 +5691,7 @@ title: 字符演歌
     }
   }
 
-  function lu_s6_rose(c, t, top, bt, e) {
-    // 0–3.25 玫瑰点亮推近；3.25–3.95 黑场落瓣。
-    if (e < 3.25) {
-      var u = clamp01(e / 3.25);
-      // 花心从画面右上起，随镜头推进移到正中：MV 就是先给一角、再怼满屏。
-      var cx = 74 - u * 14, cy = 14.5 + u * 2.0;
-      var sc = 0.42 + 1.95 * Math.pow(u, 1.25);
-      luRose(c, t, cx, cy, sc, 0.34 + 0.66 * clamp01(e / 1.4), top, bt);
-    } else {
-      luPetal(c, top, bt, clamp01((e - 3.25) / 0.70));
-    }
-    clearRect(c, 0, top, c.w, 1);
-    c.put(3, top, '38 / A ROSE IN THE DARK', N);
-    c.put(c.w - 22, top, 'BLOOM / SLOW', R);
-    clearRect(c, 0, bt, c.w, 1);
-    c.center(bt, e < 3.25 ? 'ONE PETAL / ONE MEMORY' : 'AND THEN / IT LETS GO', B);
-  }
+
 
   // ③ 红教堂。相机在殿内：近处的柱子出画外，远处的柱列收敛到灭点 (60,17)。
   // 旧稿的柱廊是等距平移的（越远两根柱子离得越开），所以读成一排贴纸；
@@ -5847,186 +5791,602 @@ title: 字符演歌
     }
   }
 
-  function lu_s6_nave(c, t, top, bt, e) {
-    // 0–4.05 教堂缓推；4.05–6.00 桌面虚焦（硬切，不留过渡帧）。
-    if (e < 4.05) {
-      var push = clamp01(e / 4.05);
-      luNave(c, t, top, bt, push);
-      // 人物站在远墙前的台阶上，随镜头一起变大（推镜不是重新摆位置）。
-      var k = LU_NAVE.k * (1 + 0.16 * push);
-      var feet = LU_NAVE.cy + LU_NAVE.eye * k / 3.19;
-      var w = 22 * k / LU_NAVE.k;
-      c.queen = {x: 60 - w / 2, y: luActorY(w, feet, window.__LU_QUEEN_ANSI), width: w, t: t, reveal: 1};
-    } else {
-      luAltar(c, t, top, bt, clamp01((e - 4.05) / 1.95));
-    }
-    clearRect(c, 0, top, c.w, 1);
-    c.put(3, top, e < 4.05 ? '39 / THE THRONE IS A CATHEDRAL' : '39 / THE TABLE IS SET', N);
-    c.put(c.w - 22, top, e < 4.05 ? 'HALL / ALL HERS' : 'WAIT / FOR ME', R);
-    clearRect(c, 0, bt, c.w, 1);
-    c.center(bt, e < 4.05 ? 'SHE WALKS THE AISLE / OF HER OWN CATHEDRAL'
-                          : 'TWO CANDLES / ONE SEAT EMPTY', B);
-  }
+
 
   // ④ 桌面特写（虚焦）。MV 102.6 是一团红里晃过桌角，本来就该读不清：
   // 全场唯一一次"看不清"是转场，不是失误，所以只留轮廓和烛火。
   // ⚠️ 旧版用「径向衰减」当背景，等值线把画面切成一个巨大的粉色三角（V 形），
   // 读成"发光的金字塔"而不是"一团红的桌面"。改成：上半=压暗的红噪点（失焦），
   // 中间=一条桌沿，下半=纯黑，两支烛立在桌沿上。这样"桌"和"烛"两样都立得住。
-  function luAltar(c, t, top, bt, u) {
-    var x, y, i;
-    var ty = function (x) { return 24 + (x - 60) * 0.035 + Math.sin(t * 0.9) * 0.4; };  // 桌沿：微微倾斜 + 呼吸
-    // 桌面上方的失焦背景：密度随高度衰减的暗红网点，越靠上越稀。
-    for (y = top; y < bt - 1; y++) for (x = 2; x < c.w - 2; x++) {
-      if (y >= ty(x)) continue;
-      var d = 40 - (ty(x) - y) * 2.4 + 10 * Math.sin(x * 0.05 + t * 0.6);
-      var sd = Math.round(t * 14);   // 失焦的颗粒要随帧抖，不然连拍两帧几乎一模一样
-      if (hash16(x * 7 + y * 13 + sd) % 100 < d) c.put(x, y, hash16(x + y * 31 + sd) % 3 ? '▒' : '▓', R);
-      else if (hash16(x * 17 + y + sd) % 100 < 12) c.put(x, y, '·', R);
-    }
-    // 桌沿：一条亮线。桌面本身用更稀更暗的点铺一层——不铺的话这条线会浮在空里，
-    // 读成"一条虚线"而不是"桌子的边"。
-    for (x = 2; x < c.w - 2; x++) {
-      var ey2 = Math.round(ty(x));
-      for (y = ey2 + 1; y < bt; y++) {
-        if (hash16(x * 5 + y * 23) % 100 < 30 - (y - ey2) * 5) c.put(x, y, '·', R);
-      }
-      c.put(x, ey2, '▄', R);
-    }
-    // 两支烛：烛身奶油、焰心奶油、外焰橙、光晕近黑（不打 ░，否则一周脏灰）。
-    for (i = 0; i < 2; i++) {
-      var cx2 = 38 + i * 46, base = Math.round(ty(cx2)) - 1;
-      var top2 = base - 11 + Math.round(Math.sin(t * 5.1 + i * 2) * 0.4);
-      for (y = top2; y <= base; y++) c.put(cx2, y, '█', W);
-      // 焰：一个小菱形（心 W、外焰 N），3 格高才看得见
-      var fy = top2 - 2;
-      c.put(cx2, fy, '█', W);
-      c.put(cx2, fy - 1, '▓', N); c.put(cx2 - 1, fy, '▓', N); c.put(cx2 + 1, fy, '▓', N);
-      c.put(cx2, fy + 1, '▒', N);
-      for (var r = 4; r >= 1; r--) {
-        for (x = cx2 - r; x <= cx2 + r; x++)
-          for (y = fy - r; y <= fy + r; y++) {
-            var ddx = (x - cx2) / (r + 0.4), ddy = (y - fy) / (r * 0.9 + 0.4);
-            if (ddx * ddx + ddy * ddy > 1) continue;
-            if (c.cells[y] && c.cells[y][x] && c.cells[y][x][0] !== ' ') continue;
-            c.put(x, y, r >= 4 ? '·' : r >= 2 ? '▒' : '▓', r >= 2 ? R : N);
-          }
-      }
-    }
-  }
+
 
   // ⑤ 字卡。5×7 点阵，TIME 用 3×2 的大刻度、STEP IN 用 2×1，
   // 顶面一行换 N 当受光面——一整块同色的字读成色块，压不出金属感。
-  var LU_FONT = {
-    T: ['#####', '..#..', '..#..', '..#..', '..#..', '..#..', '..#..'],
-    I: ['#####', '..#..', '..#..', '..#..', '..#..', '..#..', '#####'],
-    M: ['#...#', '##.##', '#.#.#', '#...#', '#...#', '#...#', '#...#'],
-    E: ['#####', '#....', '#....', '####.', '#....', '#....', '#####'],
-    S: ['.####', '#....', '#....', '.###.', '....#', '....#', '####.'],
-    P: ['####.', '#...#', '#...#', '####.', '#....', '#....', '#....'],
-    N: ['#...#', '##..#', '#.#.#', '#..##', '#...#', '#...#', '#...#'],
-    ' ': ['.....', '.....', '.....', '.....', '.....', '.....', '.....']
-  };
+
   // 点阵方块必须是**正方**的：一格 18×36px，所以横向 4 格才等于纵向 2 格。
   // 上一版用 3×2，方块是 54×72 的竖条，字读出来又高又瘦像霓虹灯管。
-  function luWord(c, text, cx, cy, dx, dy, mistPhase) {
-    var i, j, k2, total = text.length * 6 - 1;
-    var x0 = cx - total * dx / 2, y0 = cy - 7 * dy / 2;
-    for (i = 0; i < text.length; i++) {
-      var g = LU_FONT[text.charAt(i)];
-      if (!g) continue;
-      for (j = 0; j < 7; j++) for (k2 = 0; k2 < 5; k2++) {
-        if (g[j].charAt(k2) !== '#') continue;
-        for (var yy = 0; yy < dy; yy++) for (var xx = 0; xx < dx; xx++) {
-          var X = Math.round(x0 + (i * 6 + k2) * dx + xx), Y = Math.round(y0 + j * dy + yy);
-          // 每笔的顶面受光：整块同色的字读成色块，压不出金属感。
-          c.put(X, Y, yy === 0 ? '█' : '█', yy === 0 ? W : R);
-        }
-      }
-    }
-    // 字后的红雾：只在这块区域里撒，别扫到字上
-    for (j = -2; j < 7 * dy + 2; j++) for (i = -4; i < total * dx + 4; i++) {
-      var gx2 = Math.round(x0 + i), gy2 = Math.round(y0 + j);
-      if (gx2 < 2 || gx2 > c.w - 3) continue;
-      // 雾要随帧变：纯静态字卡会连续 18 帧一模一样，观感像渲染卡死。
-      var mth = 16 + 7 * Math.sin((mistPhase || 0) * 7.3 + gx2 * 0.21);
-      if (hash16(gx2 * 37 + gy2 * 11) % 100 < mth) c.put(gx2, gy2, '·', R);
-    }
-  }
 
-  function lu_s6_card(c, t, top, bt, e) {
-    // 0–1.20 TIME；1.20–1.95 STEP IN；1.95–3.68 镰刃。
-    if (e < 1.20) {
-      var a = clamp01(e / 0.26), sc = 1 + (1 - a) * 0.30;
-      luWord(c, 'TIME', 60, 18, Math.round(4 * sc), Math.round(2 * sc), t);
-    } else if (e < 1.95) {
-      var b = clamp01((e - 1.20) / 0.20);
-      luWord(c, 'STEP IN', 60, 19, b > 0 ? 2 : 0, b > 0 ? 1 : 0, t);
-    } else {
-      luBlade(c, t, top, bt, clamp01((e - 1.95) / 1.73));
-    }
-    clearRect(c, 0, top, c.w, 1);
-    c.put(3, top, e < 1.95 ? '40 / TIME TO STEP IN' : '40 / EDGE FIRST', N);
-    c.put(c.w - 22, top, e < 1.95 ? 'WORDS / CARVED' : 'EDGE / UNFORGIVING', R);
-    clearRect(c, 0, bt, c.w, 1);
-    c.center(bt, e < 1.20 ? 'IT\'S TIME TO STEP IN' : e < 1.95 ? 'SO STEP IN' : 'AND STAY SHARP', B);
-  }
+
+
 
   // ⑥ 镰刃特写。离脸最近的一刀：整片烧红的背景 + 一把横过画面的刀刃。
   // 黑画不出来（调色板里没有近黑色），只能把已经画上的红擦成空格——这正是逆光。
   // ⚠️ 上一版是三条"机械爪"，半径按行算没按屏幕算，落下来是三片撑满画面的黑楔子。
-  function luBlade(c, t, top, bt, u) {
-    var x, y, i, s;
-    // 背景：烧红的光场。⚠️ 不能用「圆形衰减」—— 闭合的等值线会读成一个悬着的红球。
-    // 改成一横向热带：上下模糊收边、左右一直溢出画外，再叠低频抖动打碎边界。
-    for (y = top; y < bt; y++) for (x = 2; x < c.w - 2; x++) {
-      var dx = Math.abs(x - 58) / 90, dy = Math.abs(y - 17) / 18;
-      var I = 1.16 - dy * 0.55 - dx * dx * 0.25
-            + 0.11 * Math.sin(x * 0.21 + t * 1.3) * Math.sin(y * 0.37 - t * 0.9)
-            + 0.05 * Math.sin(x * 0.07 - y * 0.29 + t * 0.6);
-      if (I > 0.86) c.put(x, y, '█', R);
-      else if (I > 0.52) c.put(x, y, '▓', R);
-      else if (I > 0.20 && hash16(x * 13 + y * 19) % 100 < 22) c.put(x, y, '·', R);
+
+
+  // ===== 80.00–96.03（MV 80.0–96.0）：红门框 / 金穹 / 冷阶 / 脸 / 玫瑰 =====
+  // ⚠️ 时间轴勘误（2026-11-05）：MV 烧录字幕三处对照（88.4 "Link link…"、96.4 "Link"、
+  // 103.4 "It's time to step in"）＋ 188s 处是绝区零 logo，都指向 **MV t = 歌曲 t**。
+  // 此前按「MV t = 歌曲 t + 10.6」排的 s6/s7 整体提前了 10.6 秒，这一段据此重排。
+
+  // ① 红门框（MV 80.0–83.8）：黑场里一扇发光的红框，缓慢横移并侧倾，框内一道竖梯。
+  // ⚠️ 逐行填"上下边 + 左右条"会在四角留缺口（框读成四根断开的棍）；
+  // 改用**旋转矩形环**的局部坐标判定：开口条件 q>0、外缘 ax≤hw+TH，四角天然闭合。
+  function lu_s6_door(c, t, top, bt, e) {
+    var u = clamp01(e / 3.8), x, y, i;
+    // ⚠️ hw/hh 单位不同：hw 是"格"，hh 是**视觉单位**（= 2 格）。第一版 hw=15/hh=8.4
+    // 让框宽 30 格、高 8.4 行 ⇒ 一个横躺的扁框，读成"招牌/砖块"。MV 的门是竖的。
+    var cx = 50 + u * 13, cy = 17.4, hw = 9 + u * 2.5, hh = 13 + u * 3;
+    var ang = 0.06 + u * 0.15;                       // 侧倾（弧度）
+    var ca = Math.cos(ang), sa = Math.sin(ang);
+    var THX = 1.8, THY = 3.6;                        // 框厚：横向格 / 纵向视觉单位
+    var ox = hw + THX, oy = hh + THY, ix = hw - THX, iy = hh - THY;
+    for (y = top; y < bt; y++) for (x = 1; x < c.w - 1; x++) {
+      var px = x - cx, py = (y - cy) * 2;             // ⚠️ 字符 1:2
+      var lx = px * ca + py * sa, ly = -px * sa + py * ca;
+      var ax = Math.abs(lx), ay = Math.abs(ly);
+      if (ax <= ox && ay <= oy) {
+        var q = Math.max(ax - ix, ay - iy);
+        if (q <= 0) { c.put(x, y, ' ', D); continue; }            // 门洞：黑
+        // 四档：内缘白热 → 黄 → 橙身 → 外缘散成红。⚠️ 白只留最里一线，
+        // 之前 hot 一刀切 0.95 ⇒ 内外缘都白，整框读成"白色霓虹灯"，MV 里是红框。
+        var din = q, dout = Math.min(ox - ax, oy - ay);
+        if (din < 0.62) c.put(x, y, '█', W);
+        else if (din < 1.70) c.put(x, y, '▓', B);
+        else if (dout < 0.85) c.put(x, y, '▒', R);
+        else c.put(x, y, '▓', N);
+        continue;
+      }
+      // 外溢红光：离框越远越稀（纯黑背景里，这圈红雾是"发光"的全部依据）
+      var gap = Math.max(ax - ox, ay - oy);
+      if (gap < 9 && hash16(x * 17 + y * 29 + Math.round(t * 6)) % 100 < (9 - gap) * 10)
+        c.put(x, y, gap < 2.2 ? '▓' : gap < 4.5 ? '▒' : '·', R);
     }
-    // 刀身：一条从画面左下扫到右上的弯刃，右端收成刀尖。
-    // 逐列算，不按采样点铺 —— 采样点会在一列里叠好几次，刃口糊成一条白绳子。
-    function edgeY(x) {
-      s = (x - 1) / 118;
-      return 28.2 - 22.0 * Math.pow(s, 0.60) + 3.0 * Math.sin(Math.PI * s) + u * 1.5;
+    // 门洞内：MV 里是一口暗红的竖井，井壁上一道道横档。
+    // ⚠️ 别画"一架细梯子"：5 格宽的梯子在 120 格画面上就是一根粗条，
+    // 会把门洞从中间劈开、读成"两扇并排的窗"。也別用 ▒ 填满（整洞变红砖）。
+    var lyA = Math.round(cy - hh / 2 + 1.2), lyB = Math.round(cy + hh / 2 - 1.2);
+    for (y = lyA; y <= lyB; y++) {
+      if (y < top + 1 || y > bt - 1) continue;
+      if (mod(y, 2)) continue;
+      for (x = Math.round(cx - hw * 0.78); x <= Math.round(cx + hw * 0.78); x++)
+        if (c.cells[y] && c.cells[y][x] && c.cells[y][x][0] === ' ') c.put(x, y, '░', R);
     }
-    for (x = 1; x < 119; x++) {
-      s = (x - 1) / 118;
-      var pe = Math.round(edgeY(x)), thick = 4.2 - 3.4 * s;
-      for (y = Math.round(pe - thick); y <= pe; y++) c.put(x, y, ' ', D);   // 刀体擦黑
-      c.put(x, pe, '█', W);                                              // 刃口
-      if (x % 2 === 0) c.put(x, pe - 1, '▓', R);                          // 刃口的热
-      c.put(x, Math.round(pe - thick), '▒', R);                           // 刀背
+    for (i = 0; i < 18; i++) {                       // 火星
+      var hs = hash16(i * 173 + 11);
+      c.put(6 + hs % 108, top + 2 + mod((hs >> 4) * 0.01 + e * 0.4, bt - top - 4), hs % 3 ? '.' : '+', hs % 3 ? R : N);
     }
-    // 刀背铆钉
-    for (i = 0; i < 9; i++) {
-      x = 8 + i * 13;
-      s = (x - 1) / 118;
-      c.put(x, Math.round(edgeY(x) - (4.2 - 3.4 * s) - 1), '●', R);
-    }
-    // 刀柄：左端向上出画的圆柱，把刀"接"到人身上
-    for (y = top; y < Math.round(edgeY(2)); y++) {
-      c.put(2, y, '▓', R); c.put(3, y, ' ', D); c.put(4, y, ' ', D); c.put(5, y, '▒', R);
-    }
-    // 刀尖滴下的血
-    for (i = 0; i < 3; i++) {
-      var dy2 = mod(u * 30 + i * 6, 15);
-      c.put(114 - i * 3, Math.round(edgeY(114 - i * 3)) + 2 + dy2 * 0.9, i ? '·' : '▓', i ? R : N);
-    }
+    clearRect(c, 0, top, c.w, 1); clearRect(c, 0, bt, c.w, 1);
+    c.put(3, top, '37 / THE DOOR', N);
+    c.put(c.w - 21, top, 'LIGHT / IN A WALL', R);
+    c.center(bt, e < 1.9 ? 'A DOOR THAT WAS NOT THERE' : 'AND A LADDER BEHIND IT', B);
   }
 
-  // ===== 长音 Link 96.03–103.51：机械爪 / 甩镜 / 红厅 / 白闪 / 字卡 / 铁栅 / 齿轮 =====
-  // 对应 MV 106.6–114.1（MV t ≈ 歌曲 t + 10.6）。逐帧核对过 MV 5fps 帧：
-  //   106.4 机械爪+红齿轮环特写 → 107.6–109.2 全是剧烈甩镜模糊 → 109.6 红厅全景小剪影
+  // ② 黄铜机械（MV 83.8–87.6）：一台钟形/圆柱状机械斜置在暖色虚化里，端面有同心
+  // 雕花环与中心孔，外缘挂一圈齿，2.6s 后中心孔张开、露出里面烧红的东西。
+  // ⚠️ 我前两版都按"教堂金穹顶"画（同心环 / 经纬网格）—— 回看 MV 实拍帧才知道
+  // **它根本不是建筑，是一台黄铜机械**：环状→靶盘、网格→蜘蛛网，两次都读不出来。
+  // 现在按实拍重画：圆柱身（沿轴凸环 + 圆柱明暗）+ 椭圆端面（三道同心雕花）+ 中心孔 + 齿轮。
+  function lu_s6_dome(c, t, top, bt, e) {
+    var u = clamp01(e / 3.8), x, y, i, k;
+    var cx = 80 - u * 5, cy = 17.2 + Math.cos(u * 2.0) * 0.9;
+    var rx = 15 + u * 8, ry = 6.6 + u * 3.6;
+    var xL = 2, tiltY = 2.4;
+    var sd = Math.round(t * 9);
+    for (y = top; y < bt; y++) for (x = 1; x < c.w - 1; x++)          // 暖色虚化的底
+      if (hash16(x * 11 + y * 7 + sd) % 100 < 5) c.put(x, y, '·', N);
+    for (i = 0; i < 24; i++) {                                       // 背景 bokeh
+      var hs = hash16(i * 197 + 23);
+      var bxp = 5 + hs % 110, byp = top + 2 + ((hs >> 5) % (bt - top - 5)), br = 1 + (hs >> 9) % 3;
+      for (x = bxp - br; x <= bxp + br; x++) for (y = byp - br; y <= byp + br; y++) {
+        if (x < 1 || x > c.w - 2 || y < top + 1 || y > bt - 1) continue;
+        var q2 = ((x - bxp) * (x - bxp) + (y - byp) * (y - byp) * 3) / (br * br + 0.5);
+        if (q2 <= 1) c.put(x, y, q2 < 0.4 ? '▒' : '░', N);
+      }
+    }
+    // 柱身：越靠端面越粗（近大远小），沿轴一串凸环，圆柱面靠 cos 明暗立起来
+    for (x = xL; x <= cx; x++) {
+      var f = (x - xL) / (cx - xL);
+      var hw = ry * (0.60 + 0.40 * f), mid = cy + tiltY * (1 - f);
+      for (y = Math.round(mid - hw); y <= Math.round(mid + hw); y++) {
+        if (y < top + 1 || y > bt - 1) continue;
+        var ny = (y - mid) / hw;
+        // ⚠️ 突环周期不能太短：0.92 弧度 ⇒ 每 6.8 格一道，整根柱读成"斑马/百叶窗"。
+        // 拉长到 0.40（约 15 格一道）。高光不能靠抬基线（0.80 就整根柱过曝成白板），
+        // 改成**轴线上一道窄高光**：core 只在 |ny|<0.24 时有值。
+        var core = Math.max(0, 1 - Math.abs(ny) * 7.0);
+        var rng = 0.5 + 0.5 * Math.cos((x - xL) * 0.40);
+        var I = Math.cos(ny * 1.42) * (0.60 + 0.20 * rng) + core * 0.20 * (0.72 + 0.28 * rng);
+        if (I > 0.80) c.put(x, y, '█', W);
+        else if (I > 0.56) c.put(x, y, '▓', B);
+        else if (I > 0.34) c.put(x, y, '▒', N);
+        else if (I > 0.16) c.put(x, y, '▓', G);
+        else c.put(x, y, ' ', D);
+      }
+    }
+    // 端面：椭圆 + 三道同心雕花 + 中心孔（孔随 u 张开，里面透出红色）
+    var hole = 0.12 + clamp01((e - 2.4) / 1.4) * 0.46;
+    for (y = Math.round(cy - ry); y <= Math.round(cy + ry); y++)
+      for (x = Math.round(cx - rx); x <= Math.round(cx + rx); x++) {
+        var dx = (x - cx) / rx, dy = (y - cy) / ry, d2 = dx * dx + dy * dy;
+        if (d2 > 1) continue;
+        var dd = Math.sqrt(d2);
+        if (dd < hole) {
+          c.put(x, y, ' ', D);
+          if (hash16(x * 29 + y * 41 + sd) % 100 < 26) c.put(x, y, '·', R);
+          continue;
+        }
+        var I2 = 0.94 - dd * 0.26;
+        // 雕花环要细：0.055 的宽度在 rx≈17 上折算成近 2 格，三道环会连成一片白板
+        if (Math.abs(dd - 0.88) < 0.030 || Math.abs(dd - 0.62) < 0.028 || Math.abs(dd - 0.36) < 0.032)
+          I2 += 0.20;
+        if (dd < hole + 0.055) { c.put(x, y, '▓', N); continue; }    // 孔口金属反光
+        if (dd > 0.93) { c.put(x, y, '█', B); continue; }            // 圆盘外缘亮边（否则端面与柱身糊成一片）
+        if (I2 > 1.04) c.put(x, y, '█', W);
+        else if (I2 > 0.82) c.put(x, y, '▓', B);
+        else if (I2 > 0.62) c.put(x, y, '▒', N);
+        else if (I2 > 0.44) c.put(x, y, '▓', G);
+        else c.put(x, y, '▒', G);
+      }
+    for (i = 0; i < 26; i++) {                                       // 端面外缘一圈齿
+      var aa = i / 26 * TAU + t * 0.16;
+      c.put(Math.round(cx + Math.cos(aa) * (rx + 1.5)), Math.round(cy + Math.sin(aa) * (ry + 1.0)),
+            '●', i % 2 ? N : B);
+    }
+    for (k = 0; k < 2; k++) {                                        // 右下两只副齿轮
+      var gx3 = 100 + k * 11 + u * 3, gy3 = 26 - k * 7, gr = 5.0 - k * 1.1;
+      for (i = 0; i < 16; i++) {
+        var a3 = i / 16 * TAU + t * (k ? -0.45 : 0.35);
+        c.put(Math.round(gx3 + Math.cos(a3) * gr), Math.round(gy3 + Math.sin(a3) * gr * 0.55), '●', N);
+      }
+      for (i = 0; i < 5; i++) {
+        var a4 = i / 5 * TAU - t * 0.3;
+        c.put(Math.round(gx3 + Math.cos(a4) * gr * 0.5), Math.round(gy3 + Math.sin(a4) * gr * 0.3), '·', B);
+      }
+    }
+    for (i = 0; i < 40; i++) {                                       // 金尘
+      var hs2 = hash16(i * 131 + 17);
+      c.put(4 + hs2 % 112, top + 2 + ((hs2 >> 5) % (bt - top - 4)),
+            hs2 % 5 ? '.' : '+', hs2 % 3 ? B : W);
+    }
+    clearRect(c, 0, top, c.w, 1); clearRect(c, 0, bt, c.w, 1);
+    c.put(3, top, '38 / THE BRASS ENGINE', N);
+    c.put(c.w - 22, top, 'GEARS / STILL WARM', B);
+    c.center(bt, e < 2.6 ? 'NOT A CHURCH / A MACHINE' : 'AND IT IS STILL / TURNING', B);
+  }
+
+  // ③ 冷阶（MV 87.6–89.9）：冷调石阶，人影沿阶而下。
+  // 全片唯一一段"不红"的镜头，靠它给后面的红做反差（调色板没有蓝，只能靠"低饱和的暗 + 一道奶油冷光"）。
+  // ⚠️ 两版都是**侧视剖面**：踏面 17 格宽、竖板 2 行高，比例 17:4 —— 太扁，
+  // 整段读成"一条上升的折线 / 心电图"，怎么加竖板都不像楼梯。
+  // 定案：改**正面透视**。一串横带（近宽远窄、近疏远密）+ 两条向灭点收拢的栏杆，
+  // 这是"站在楼梯口往下看"的唯一稳的读法。
+  function lu_s6_stair(c, t, top, bt, e) {
+    var u = clamp01(e / 2.3), x, y, i;
+    // ⚠️ 关键数字：踏板宽 : 竖板高 = 8.4 格 : 2.6 行（视觉 8.4:5.2 ≈ 1.6:1）。
+    // 前两版是 17 格 : 2.35 行 ≈ 3.6:1 —— 锯齿几乎看不出，整段读成"一条上升的斜线/心电图"。
+    // 也试过"正面透视"：台阶对称收窄 + 居中 ⇒ 读成**阶梯金字塔**。侧视才是对的。
+    var SX = 6, SY = bt - 4, DX = 8.4, DY = -2.6, NS = 9;
+    for (y = top + 1; y < bt; y++) for (x = 1; x < c.w - 1; x++) {     // 背景冷雾
+      var m = 1 - Math.abs(x - 62) / 50;
+      if (m > 0 && hash16(x * 13 + y * 7) % 100 < m * 14) c.put(x, y, '·', K);
+    }
+    for (i = 0; i < NS; i++) {
+      var x0 = Math.round(SX + i * DX - u * 4), y0 = Math.round(SY + i * DY + u * 6);
+      var x1 = x0 + Math.round(DX);
+      if (y0 < top + 2 || y0 > bt - 1) continue;
+      // ⚠️ 每级必须是**一个有厚度的实心块**（顶面亮边 + 4 行厚的踏身）。
+      // 之前只画"一行白横条 + 右端一列红竖条"，两者不连，整幅读成一排悬空的红白方块。
+      for (x = x0; x < x1; x++) {
+        if (x < 2 || x > c.w - 3) continue;
+        c.put(x, y0, '▓', W);
+        // ⚠️ 踏身必须用半实心 ▒：用 ░（点阵）在暗场里几乎看不见，
+        // 每级就只剩顶面那条白线 ⇒ 又变回"一排悬空的白条"。
+        for (y = y0 + 1; y <= y0 + 4; y++) {
+          if (y >= bt) break;
+          c.put(x, y, '▒', N);
+        }
+      }
+      for (y = y0; y <= y0 + 4; y++) {                                // 竖板：本级左端那块立面
+        if (y >= bt || y < top || x0 < 2 || x0 > c.w - 3) continue;
+        c.put(x0, y, '▓', N);
+      }
+    }
+    // 扶手：一条从台阶端点上方向右上升的斜线（跟台阶平行，只高 5 行）
+    for (i = 0; i < 110; i++) {
+      var hx = 4 + i, hy = Math.round(SY - 5 - (hx - SX) * (-DY) / DX + u * 6);
+      if (hx > c.w - 3 || hy < top + 1 || hy > bt - 2) continue;
+      c.put(hx, hy, '─', B);
+    }
+    for (i = 0; i < NS; i += 2) {                                     // 扶手立柱
+      var px = Math.round(SX + i * DX + DX * 0.5 - u * 4);
+      var py = Math.round(SY - 5 + i * DY + u * 6);
+      for (y = py + 1; y <= py + 5; y++)
+        if (y > top && y < bt - 1 && px > 1 && px < c.w - 2) c.put(px, y, '│', G);
+    }
+    // 人：站在第 3 级踏面上（暗红实心 + 头顶一点亮）
+    // ⚠️ 之前是 10 行高 × 4 格宽（视觉 1:5）⇒ 读成"一根红柱子/一束花"。
+    // 7 行高 × 8 格宽（视觉 1:2.3）才是人的比例。
+    var fx = Math.round(SX + 2 * DX + DX * 0.5 - u * 4), fy = Math.round(SY + 2 * DY + u * 6);
+    for (i = 0; i <= 6; i++) {
+      var ry = fy - 6 + i, hw3;
+      if (ry < top + 1 || ry >= bt) continue;
+      if (i < 2) hw3 = 1.4;                                           // 头
+      else if (i === 2) hw3 = 0.7;                                    // 颈
+      else hw3 = 1.9 + (i - 3) * 0.78;                                // 裙摆往外张
+      for (x = Math.round(fx - hw3); x <= Math.round(fx + hw3); x++)
+        c.put(x, ry, Math.abs(x - fx) > hw3 - 0.9 ? '▓' : '▒',
+              Math.abs(x - fx) > hw3 - 0.9 ? R : N);
+    }
+    c.put(fx, fy - 6, '▓', W);                                        // 头顶高光
+    clearRect(c, 0, top, c.w, 1); clearRect(c, 0, bt, c.w, 1);
+    c.put(3, top, '39 / DOWN THE STEPS', B);
+    c.put(c.w - 22, top, 'COLD / NO FIRE HERE', K);
+    c.center(bt, 'SHE COMES DOWN / ALONE', K);
+  }
+
+  // ④ 脸（MV 89.9–92.3）：正面极特写，逆光——脸只在边缘亮，五官全靠两只眼。
+  // ⚠️ 上一版三个毛病（看图才发现）：
+  //   ① 正圆椭圆的下半部收成一个尖 ⇒ 整张脸读成"倒桃心"；下巴必须是**方的**（超椭圆）。
+  //   ② 眼珠大到各占脸宽 1/3，两眼挤在一起 ⇒ 读完是"护目镜"；且眼距要略大于一只眼。
+  //   ③ 头发内部随机撒暗红发丝时没排除脸面，脸两颊上落了一条条竖纹。
+  function lu_s6_face(c, t, top, bt, e) {
+    var u = clamp01(e / 2.4), x, y, i;
+    var cx = 60, cy = 18.0 + u * 0.7, pw = 1 + u * 0.06;
+    var FW = 17 * pw, FH = 12 * pw;
+    var sd = Math.round(t * 10);
+    for (y = top; y < bt; y++) for (x = 1; x < c.w - 1; x++) {          // 背景红雾
+      var bgd = 16 - Math.abs(y - 20) * 0.6;
+      if (hash16(x * 7 + y * 13 + sd) % 100 < bgd) c.put(x, y, '·', R);
+    }
+    for (y = top; y < bt; y++) for (x = 1; x < c.w - 1; x++) {          // 头发：整团压黑
+      var hx2 = (x - cx) / (FW * 1.55), hy2 = (y - cy + 2) / (FH * 1.60);
+      if (hx2 * hx2 + hy2 * hy2 <= 1) c.put(x, y, ' ', D);
+    }
+    // 发缘的红光：只在外缘一圈，且要连成一条边（散开的红点会读成"红头巾"）
+    for (y = top; y < bt; y++) for (x = 1; x < c.w - 1; x++) {
+      var ex2 = (x - cx) / (FW * 1.55), ey2 = (y - cy + 2) / (FH * 1.60);
+      var ed = Math.sqrt(ex2 * ex2 + ey2 * ey2);
+      if (ed < 0.975 || ed > 1.055) continue;
+      if (hash16(x * 31 + y * 17) % 100 < 74) c.put(x, y, ed > 1.02 ? '·' : '▓', R);
+    }
+    // 脸面：超椭圆（|dx|^2.4 + |dy|^2.4 ≤ 1）—— 指数 2 的正圆椭圆会把下半部收成尖下巴。
+    // 明度分五档全用实心/半实心（█ ▓ ▒），不用 ░：大面积点阵在金底上读成"脏"。
+    for (y = Math.round(cy - FH); y <= Math.round(cy + FH); y++)
+      for (x = Math.round(cx - FW); x <= Math.round(cx + FW); x++) {
+        var dx = (x - cx) / FW, dy = (y - cy) / FH;
+        var dd = Math.pow(Math.abs(dx), 2.4) + Math.pow(Math.abs(dy), 2.4);
+        if (dd > 1) continue;
+        var lit = clamp01(0.94 - (dx * 0.44 + dy * 0.28) - dd * 0.30);   // 光从左上
+        if (lit > 0.62) c.put(x, y, '█', B);
+        else if (lit > 0.45) c.put(x, y, '▓', B);
+        else if (lit > 0.30) c.put(x, y, '▒', B);
+        else if (lit > 0.15) c.put(x, y, '▓', N);
+        else c.put(x, y, '▒', G);
+      }
+    // 发丝只撒在"头发里且在脸外"（否则脸颊上会出现一道道竖纹）
+    for (y = top; y < bt; y++) for (x = 1; x < c.w - 1; x++) {
+      var gx2 = (x - cx) / (FW * 1.55), gy2 = (y - cy + 2) / (FH * 1.60);
+      if (gx2 * gx2 + gy2 * gy2 > 1) continue;
+      var fx2 = (x - cx) / FW, fy2 = (y - cy) / FH;
+      if (Math.pow(Math.abs(fx2), 2.4) + Math.pow(Math.abs(fy2), 2.4) <= 1) continue;
+      if (hash16(x * 13 + y * 29 + sd) % 100 < 9) c.put(x, y, '▓', G);
+    }
+    // 中分刘海：中间露出最多额头（hem 最高），两侧落下来
+    for (x = Math.round(cx - FW); x <= Math.round(cx + FW); x++) {
+      var ux = Math.abs(x - cx) / FW;
+      var hem = cy - FH * 0.56 - (1 - ux) * FH * 0.20 + Math.sin(x * 0.7) * 0.55;
+      for (y = Math.round(cy - FH) - 3; y < hem; y++) { if (y >= top) c.put(x, y, ' ', D); }
+    }
+    for (i = -1; i <= 1; i += 2) {                                      // 两侧垂下的一缕
+      // ⚠️ 必须落在**脸外**（≥1.02·FW）：贴在 0.94 就压进脸颊，读成一道道竖条纹
+      for (y = Math.round(cy - FH * 0.80); y < Math.round(cy + FH * 0.92); y++) {
+        var lx2 = cx + i * FW * (1.04 + Math.sin(y * 0.42) * 0.05);
+        c.put(Math.round(lx2), y, '▓', G);
+      }
+    }
+    function almond(ex, ey, hw, hh) {
+      var xx, yy, s2;
+      for (xx = -hw; xx <= hw; xx++) {
+        s2 = Math.sqrt(Math.max(0, 1 - (xx / (hw + 0.55)) * (xx / (hw + 0.55))));
+        for (yy = Math.round(ey - hh * 0.90 * s2); yy <= Math.round(ey + hh * s2); yy++)
+          c.put(ex + xx, yy, '█', W);
+      }
+      for (xx = -1; xx <= 1; xx++) for (yy = -1; yy <= 1; yy++) {        // 红虹膜（3×3）
+        c.put(ex + xx, ey + yy, '█', R);
+      }
+      c.put(ex, ey, ' ', D);                                            // 瞳孔
+      c.put(ex - 1, ey - 1, '█', W);                                    // 高光
+      for (xx = -hw - 1; xx <= hw + 1; xx++)                            // 上睑：挖黑一道
+        c.put(ex + xx, Math.round(ey - hh * 0.92 - 0.4), ' ', D);
+    }
+    var ey2 = Math.round(cy - 1.6), gap = 7;
+    // 眼窝：眼睛周围把肤色压暗一档。⚠️ 不给眼窝，两只白眼睛就是贴在一个平面上的
+    // 贴纸（"护目镜/卡通娃娃"），有眼窝眼睛才陷进脸里。
+    for (i = -1; i <= 1; i += 2) {
+      var ex0 = cx + i * gap;
+      for (y = ey2 - 5; y <= ey2 + 5; y++) for (x = ex0 - 7; x <= ex0 + 7; x++) {
+        if (y < top || y >= bt) continue;
+        var vv = c.cells[y] && c.cells[y][x];
+        if (!vv || vv[1] !== B) continue;                 // 只压肤色，不动背景和头发
+        if (((x - ex0) / 7.5) * ((x - ex0) / 7.5) + ((y - ey2) / 5.5) * ((y - ey2) / 5.5) > 1) continue;
+        c.put(x, y, vv[0] === '█' ? '▓' : vv[0] === '▓' ? '▒' : vv[0], N);
+      }
+    }
+    almond(cx - gap, ey2, 3, 1.9);
+    almond(cx + gap, ey2, 3, 1.9);
+    for (i = -1; i <= 1; i += 2) {                                      // 眉：短、略斜
+      for (x = 0; x < 9; x++) {
+        var bx = Math.round(cx + i * (gap - 4 + x));
+        c.put(bx, ey2 - 3 - Math.round(x * 0.16), '▓', R);
+      }
+    }
+    // 鼻：梁的右侧一条浅影 + 鼻头高光 + 底下两格鼻翼 ⇒ 读成"鼻"而不是一根黑棍
+    var ny = Math.round(cy + 2.2);
+    for (y = ny; y <= ny + 3; y++) c.put(cx + 1, y, '▒', N);
+    c.put(cx, ny + 3, '█', B);
+    c.put(cx - 1, ny + 4, '▓', G); c.put(cx + 1, ny + 4, '▓', G); c.put(cx + 2, ny + 4, '▓', G);
+    // 嘴：一条暗红唇线 + 一道受光的下唇（纯黑一条读成"缝"，纯黑一道还会被当成胡须）
+    var my = Math.round(cy + 7.2);
+    for (x = cx - 4; x <= cx + 4; x++) c.put(x, my, '▓', R);
+    for (x = cx - 3; x <= cx + 3; x++) c.put(x, my + 1, '▒', N);
+    c.put(cx - 5, my, ' ', D); c.put(cx + 5, my, ' ', D);
+    for (x = cx - 3; x <= cx + 3; x++) c.put(x, my + 3, '▒', N);        // 下颌阴影
+    clearRect(c, 0, top, c.w, 1); clearRect(c, 0, bt, c.w, 1);
+    c.put(3, top, '40 / HER EYES', N);
+    c.put(c.w - 20, top, 'RED / NOT ANGRY', R);
+    c.center(bt, e < 1.4 ? 'SHE LOOKS AT YOU' : 'AND DOES NOT BLINK', B);
+  }
+
+  // ⑤ 玫瑰（MV 92.3–96.0）：暗红一朵 → 打亮 → 怼满屏 → 最后 0.4s 甩成横条。
+  function lu_s6_rose(c, t, top, bt, e) {
+    var SPAN = 3.73, y0 = top;
+    if (e < 2.55) {
+      var u = clamp01(e / 2.55);
+      luRose(c, t, 74 - u * 13, 15.5 + u * 1.6, 0.50 + 1.30 * Math.pow(u, 1.2),
+             0.25 + 0.75 * clamp01(e / 1.5), y0, bt);
+    } else if (e < 3.33) {
+      luRose(c, t, 60, 17, 1.80 + 0.75 * clamp01((e - 2.55) / 0.78), 1, y0, bt);
+    } else {
+      luRose(c, t, 60, 17, 2.55, 1, y0, bt);
+      luSmear(c, y0, bt, clamp01((e - 3.33) / 0.40));            // MV 95.6 那道红色甩镜
+    }
+    clearRect(c, 0, top, c.w, 1); clearRect(c, 0, bt, c.w, 1);
+    c.put(3, top, '41 / A ROSE IN THE DARK', N);
+    c.put(c.w - 20, top, 'BLOOM / SLOW', R);
+    c.center(bt, e < 3.33 ? 'ONE PETAL / ONE MEMORY' : 'AND THEN / IT LETS GO', B);
+  }
+
+  // ===== 96.03–106.40（MV 96.0–106.4）：镰刃 / 红厅 / 石台 / TIME / STEP IN / 剪影 / 爪 =====
+
+  // ⑥ 镰刃（MV 96.0）：一枚红弧挂在纯黑里，只有刃口是白的。
+  // ⑥ 镰刃（MV 96.0）：一枚红弧挂在纯黑里，刃口是白的。
+  // ⚠️ 对称的弧会读成彩虹/桥：一端收成刀尖、另一端接一根短柄，它才是"镰"。
+  function lu_s7_crescent(c, t, top, bt, e) {
+    var u = clamp01(e / 0.82), x, y, i, h2, s2;
+    for (i = 0; i < 26; i++) {
+      var hs = hash16(i * 97 + 5);
+      c.put(6 + hs % 108, top + 2 + (hs >> 4) % (bt - top - 4), '.', hs % 4 ? R : N);
+    }
+    // 弧心放到画面左外：只有中段与刀尖留在框里，"横过画面的刀刃"才不是"彩虹"
+    var acx = 24 + u * 2, acy = 34;
+    for (i = 0; i <= 300; i++) {
+      s2 = i / 300;
+      var a = Math.PI * 1.62 + s2 * Math.PI * 0.44;
+      var rr = 52 - u * 2;
+      var px = acx + Math.cos(a) * rr * 1.30, py = acy + Math.sin(a) * rr * 0.62 - s2 * s2 * 3.0;
+      if (px < 2 || px > c.w - 3) continue;
+      var th = Math.round(5.0 - 4.2 * s2);
+      for (h2 = 0; h2 < Math.max(1, th); h2++) {
+        var yy2 = Math.round(py + h2);
+        if (yy2 < top + 1 || yy2 >= bt) continue;
+        c.put(px, yy2, h2 === Math.max(1, th) - 1 ? '█' : '▓', h2 === Math.max(1, th) - 1 ? W : R);
+      }
+      if (i % 45 === 0) c.put(px, Math.round(py) - 1, '.', N);
+    }
+    for (y = top + 2; y < Math.min(bt, top + 14); y++) {             // 柄：从左下伸进画面
+      c.put(3, y, '▓', R); c.put(4, y, ' ', D); c.put(5, y, ' ', D); c.put(6, y, '▒', R);
+    }
+    for (i = 0; i < 5; i++) c.put(2, top + 3 + i * 2, '●', N);
+    clearRect(c, 0, top, c.w, 1); clearRect(c, 0, bt, c.w, 1);
+    c.put(3, top, '42 / THE EDGE', N);
+    c.put(c.w - 18, top, 'RED / CURVE', R);
+    c.center(bt, 'SHARP / AND WAITING', B);
+  }
+
+  // ⑦ 红厅（MV 96.8–101.2）：她把巨刃拄在地上，镜头一路推近。
+  function lu_s7_hall(c, t, top, bt, e) {
+    var push = clamp01(e / 4.35);
+    luNave(c, t, top, bt, push);
+    var k = LU_NAVE.k * (1 + 0.16 * push);
+    var feet = LU_NAVE.cy + LU_NAVE.eye * k / 3.19;
+    var w = 18 + push * 8;
+    c.queen = {x: 60 - w / 2, y: luActorY(w, feet, window.__LU_QUEEN_ANSI), width: w, t: t, reveal: 1};
+    clearRect(c, 0, top, c.w, 1); clearRect(c, 0, bt, c.w, 1);
+    c.put(3, top, '43 / HER OWN CATHEDRAL', N);
+    c.put(c.w - 22, top, 'HALL / ALL HERS', R);
+    c.center(bt, e < 2.2 ? 'SHE DOES NOT KNEEL / IN HER OWN HALL'
+                         : 'THE BLADE STAYS / WHERE SHE LEFT IT', B);
+  }
+
+  // ⑧ 石台（MV 101.6–102.8）：一块空石台横在画面里，红雾从上面淌下来。
+  // ⚠️ 三版都栽在"随机铺满"上：台面/台身拿 ▓▒░ 按百分比乱填 ⇒ 整幅是粉色雪花屏/红砖墙。
+  // 定案：石台是**三块有边界的面**——顶面（受光，横向渐变）、前沿（一条白线）、
+  // 正面（压暗 + 竖直石缝）。宁可平坦也不能噪；雾只在台面上方，用 '·'。
+  function lu_s7_slab(c, t, top, bt, e) {
+    var u = clamp01(e / 1.9), x, y, i;
+    var ty = 20.5 + u * 1.1 + Math.sin(t * 0.8) * 0.25;     // 台面前沿（最下那条亮线）
+    var ty0 = ty - 4.2;                                     // 台面后沿
+    var sd = Math.round(t * 14);
+    var fw = 34 + u * 3, bw = 28 + u * 2;                   // 前沿/后沿半宽（近大远小）
+    // 雾：只在台面上方，密度随离台面的距离衰减
+    for (y = top; y < Math.round(ty0); y++) for (x = 1; x < c.w - 1; x++) {
+      var d = 26 - (ty0 - y) * 2.6;
+      if (d > 0 && hash16(x * 7 + y * 13 + sd) % 100 < d) c.put(x, y, '·', R);
+    }
+    // 顶面：横向渐变（左亮右暗）+ 一条后沿亮边。**不随机**。
+    for (y = Math.round(ty0); y < Math.round(ty); y++) {
+      var f = (y - ty0) / Math.max(0.01, ty - ty0);
+      var hw = bw + (fw - bw) * f;
+      for (x = Math.round(60 - hw); x <= Math.round(60 + hw); x++) {
+        if (x < 2 || x > c.w - 3) continue;
+        var lx2 = (x - 60) / Math.max(1, hw);
+        var lit = 0.86 - lx2 * 0.26 - f * 0.16;
+        if (lit > 0.72) c.put(x, y, '▓', B);
+        else if (lit > 0.56) c.put(x, y, '▒', N);
+        else c.put(x, y, '▒', R);
+      }
+      c.put(Math.round(60 - hw), y, '│', N);                // 两端受光竖边
+      c.put(Math.round(60 + hw), y, '│', N);
+    }
+    for (x = Math.round(60 - fw); x <= Math.round(60 + fw); x++)   // 前沿：最亮的一条
+      if (x > 1 && x < c.w - 2) c.put(x, Math.round(ty), '█', W);
+    // 正面：压暗 + 每 9 格一道竖直石缝（有缝才是石头，没缝就是一块纯色板）
+    for (y = Math.round(ty) + 1; y < bt - 1; y++) {
+      var f2 = (y - ty) / Math.max(1, bt - 1 - ty);
+      for (x = Math.round(60 - fw); x <= Math.round(60 + fw); x++) {
+        if (x < 2 || x > c.w - 3) continue;
+        var lx3 = (x - 60) / Math.max(1, fw);
+        var I3 = 0.70 - f2 * 0.34 - Math.abs(lx3) * 0.16;
+        if (mod(x - Math.round(60 - fw), 9) === 0) I3 -= 0.30;          // 石缝
+        if (I3 > 0.50) c.put(x, y, '▒', N);
+        else if (I3 > 0.34) c.put(x, y, '▓', R);
+        else if (I3 > 0.18) c.put(x, y, '░', G);
+        else c.put(x, y, ' ', D);
+      }
+    }
+    for (i = 0; i < 16; i++) {
+      var hs = hash16(i * 211 + 3);
+      c.put(8 + hs % 104, top + 3 + mod((hs >> 5) * 0.02 + e * 0.5, Math.max(1, ty0 - top - 4)),
+            hs % 4 ? '.' : '+', hs % 3 ? N : B);
+    }
+    clearRect(c, 0, top, c.w, 1); clearRect(c, 0, bt, c.w, 1);
+    c.put(3, top, '44 / THE STONE TABLE', N);
+    c.put(c.w - 20, top, 'EMPTY / STILL WARM', R);
+    c.center(bt, 'NOTHING ON IT / NOT YET', B);
+  }
+
+  // ⑨ TIME 字卡（MV 103.2）：金属大字，顶面受光。只占 0.45s。
+  function lu_s7_time(c, t, top, bt, e) {
+    var a = clamp01(e / 0.16), k = 1 + 0.14 * (1 - a), x, y;
+    for (y = top; y < bt; y++) for (x = 1; x < c.w - 1; x++)
+      if (hash16(x * 11 + y * 7 + Math.round(t * 18)) % 100 < 12) c.put(x, y, '·', R);
+    luBigWord(c, 'TIME', 12, Math.round(3 * k), Math.round(3 * k), R, W);
+    clearRect(c, 0, top, c.w, 1); clearRect(c, 0, bt, c.w, 1);
+    c.put(3, top, '45 / TIME', N);
+    c.put(c.w - 18, top, 'CARVED / IN RED', R);
+  }
+
+  // ⑩ STEP IN（MV 104.0）：字下面是那块黑白棋盘地面。
+  // ⚠️ 棋盘必须压暗（K/G），一亮起来就和红字抢，整张卡读成"花纹纸"。
+  function lu_s7_stepin(c, t, top, bt, e) {
+    var x, y;
+    var y0 = Math.round(bt * 0.60), depth = Math.max(1, bt - y0);
+    // 棋盘：远格小、近格大，亮格用实心奶油（棋盘靠"格"认，靠网点认不出来）
+    for (y = y0; y < bt; y++) {
+      var dep = (y - y0) / depth;
+      var tile = 9 + dep * 15, off = (y - y0) * 1.1;
+      for (x = 1; x < c.w - 1; x++) {
+        var ix = Math.floor((x + off) / tile), iy = Math.floor(dep * 4);
+        if ((ix + iy) % 2) {
+          // 亮格不能给实心 W：一整片白会把红字埋掉，也读成"金沙"
+          c.put(x, y, dep > 0.7 ? '▒' : '░', dep > 0.7 ? W : B);
+        } else c.put(x, y, ' ', D);                           // 暗格：留黑
+      }
+    }
+    luBigWord(c, 'STEP IN', 10, 2, 2, R, W);
+    clearRect(c, 0, top, c.w, 1); clearRect(c, 0, bt, c.w, 1);
+    c.put(3, top, '46 / STEP IN', N);
+    c.put(c.w - 18, top, 'NO WAY BACK', R);
+  }
+
+  // ⑪ THEY TRY（MV 104.4）：整幅压成暗红，字比 TIME 小一号、没有金属高光。
+  function lu_s7_theytry(c, t, top, bt, e) {
+    var x, y;
+    for (y = top; y < bt; y++) for (x = 1; x < c.w - 1; x++) {
+      var I = 0.62 - Math.abs(y - 18) / 34 + 0.08 * Math.sin(x * 0.08 + t * 1.2);
+      if (I > 0.50) c.put(x, y, '▒', R);
+      else if (I > 0.34 && hash16(x * 13 + y * 5) % 100 < 44) c.put(x, y, '·', R);
+    }
+    luBigWord(c, 'THEY TRY', 14, 2, 2, R, N);
+    clearRect(c, 0, top, c.w, 1); clearRect(c, 0, bt, c.w, 1);
+    c.put(3, top, '47 / THEY TRY', N);
+    c.put(c.w - 18, top, 'AND THEY LOSE', R);
+  }
+
+  // ⑫ 白光 + 剪影（MV 105.2）：一道斜插画面的白光，她整个人被压成一块黑。
+  // ⑫ 白光 + 剪影（MV 105.2）：一道竖白光从左缝里挤进来，她整个人被压成一块黑。
+  // ⚠️ 剪影只有在「填满雾/光」的画面里才成立：上一版背景全黑，只看得见一圈红描边，
+  // 读成"线框人"。这一版先铺满暗红雾，再把剪影挖成洞。
+  function lu_s7_white(c, t, top, bt, e) {
+    var u = clamp01(e / 0.9), x, y, i;
+    var sd = Math.round(t * 12);
+    // 光缝要足够宽、剪影要完全压在里面，否则只看得见"描边"（上一版就此翻车）
+    for (y = top; y < bt; y++) for (x = 0; x < c.w; x++) {
+      var dd = Math.abs(x - (52 + u * 4) + (y - top) * 0.16) / 30;
+      if (dd < 0.62) c.put(x, y, '█', W);
+      else if (dd < 1.02) c.put(x, y, '▓', dd < 0.82 ? W : N);
+      else if (hash16(x * 7 + y * 11 + sd) % 100 < 14) c.put(x, y, '·', R);
+    }
+    // ⚠️ 上一版 hr=7.2（头直径 14 格）+ 耳侧两道"长发" + 肩宽每行 +2.6 ⇒
+    // 头两个角 + 大三角 = 一棵塔形的树。人形的关键是"头要小、肩要窄、身要直"。
+    var hx3 = 50, hy3 = 12.6, hw4 = 4.6, hh4 = 3.5;
+    function sil(x2, y2) {
+      var ax = Math.abs(x2 - hx3), ry2 = y2 - hy3;
+      if ((ax / hw4) * (ax / hw4) + (ry2 / hh4) * (ry2 / hh4) <= 1) return true;          // 头
+      if (ax < 1.7 && ry2 > hh4 * 0.6 && ry2 < hh4 + 1.6) return true;                    // 颈
+      if (ry2 > 0 && ry2 < hh4 + 8 && Math.abs(ax - (hw4 * 0.90 + ry2 * 0.05)) < 1.4) return true;  // 长发
+      if (ry2 >= hh4 + 1.2 && ry2 < hh4 + 15) {                                          // 肩→腰→裙
+        var t2 = (ry2 - hh4 - 1.2) / 14;
+        var hwS = 4.2 * (1 - t2 * 0.20) + (t2 > 0.60 ? (t2 - 0.60) * 11 : 0);
+        return ax <= hwS;
+      }
+      return false;
+    }
+    for (y = top; y < bt; y++) for (x = 24; x < 96; x++) if (sil(x, y)) c.put(x, y, ' ', D);
+    for (y = top; y < bt; y++) for (x = 24; x < 96; x++) {          // 逆光边缘
+      if (sil(x, y)) continue;
+      if (!(sil(x - 1, y) || sil(x + 1, y) || sil(x, y - 1) || sil(x, y + 1))) continue;
+      c.put(x, y, x < hx3 ? '█' : '▒', x < hx3 ? W : R);
+    }
+    for (i = 0; i < 14; i++) {
+      var hs = hash16(i * 97 + 5);
+      c.put(2 + hs % 40, top + 2 + mod((hs >> 4) * 0.02 + e * 0.8, bt - top - 5), '.', hs % 3 ? W : N);
+    }
+    clearRect(c, 0, top, c.w, 1); clearRect(c, 0, bt, c.w, 1);
+    c.put(3, top, '48 / WHITE OUT', W);
+    c.put(c.w - 18, top, 'SHE / STILL THERE', R);
+    c.center(bt, 'THE LIGHT DOES NOT / MOVE HER', B);
+  }
+
+  // ⑬ 机械爪（MV 105.6–106.4）：黑色爪压在发光的红色齿轮环前面。
+  function lu_s7_claw(c, t, top, bt, e) {
+    var u = clamp01(e / 0.80);
+    luHeat(c, t, top, bt, 1.02);
+    luGearRing(c, 66 + u * 5, 17, 22 + u * 3, t * 0.5, N, B);
+    luClaw(c, 44 - u * 4, 15 + u * 1.0, 1.05 + u * 0.20, 0.10, 0.46, 1);
+    clearRect(c, 0, top, c.w, 1); clearRect(c, 0, bt, c.w, 1);
+    c.put(3, top, '49 / MACHINE HEART', N);
+    c.put(c.w - 20, top, 'CLAW / CLOSED', R);
+    c.center(bt, 'THE MACHINE / HAS A HEART', B);
+  }
+
+  // ===== 106.40–114.00 十一镜蒙太奇（MV 106.4–114.0 逐帧核对）=====
+  //   106.4 机械爪+红齿轮环特写 → 107.6–109.2 剧烈甩镜模糊 → 109.6 红厅全景小剪影
   //   → 110.0 白闪+正面轮盘 → 110.4 "ONE MIND" 字卡 → 110.8 角色站姿 → 111.2 爪特写
   //   → 112.4 竖铁栅 → 113.2 红走廊 → 113.6 齿轮环特写 → 114.0 纯红闪
-  // ⚠️ 旧稿是"赤日点亮 4s + 虹膜白爆 + LINK UP 定格 3.5s"：结构、节奏、字卡内容全不对
-  // （MV 的白闪只占 0.4s、字卡只占 0.4s，全程没有任何定格），整段推倒重做。
-  // 11 个硬切共用一条 7.48s 时间轴，跨 100.00 不重置，所以合并成一个场景。
+  // ⚠️ 这段原挂在 96.03–103.51，是「MV t = 歌曲 t + 10.6」的误算，2026-11-05 整体后移 10.6s。
+  // 11 个硬切共用一条 7.52s 时间轴，跨 110.00/112.00 都不重置，所以合并成一个场景。
 
   // 方向字形：给一条斜线挑字符，横段用 '-'、竖段用 '│'、斜段用 '╱╲'。
   // （后面 124s 之后的日轮/星芒还在用，别跟着旧 s7 一起删。）
@@ -6037,22 +6397,25 @@ title: 字符演歌
     return (dx * dy > 0) ? '╲' : '╱';
   }
 
-  // 通用底：横向烧红热带（上下收边、左右溢出、低频抖动打碎轮廓）。
-  // ⚠️ 不能用径向衰减：闭合等值线会读成一个悬着的红球。
-  // ⚠️ 低频正弦叠出来的"红云"会读成山/火焰的等值线，整幅画面看着像红布。
-  // 改成纵向平滑渐变（中间亮、上下压暗）+ ±0.07 的粒度抖动打碎边界：
-  // MV 的红底本来就是一整片失焦的红光，越平越好。
   function luHeat(c, t, top, bt, gain) {
     var x, y, dx, dy, I;
     for (y = top; y < bt; y++) for (x = 1; x < c.w - 1; x++) {
-      dx = (x - 60) / 78; dy = (y - 17.5) / 13.5;
-      I = (gain || 1) * (1.02 - 0.52 * dy * dy - 0.12 * dx * dx)
-        + ((hash16(x * 13 + y * 19) % 100) / 100 - 0.5) * 0.07
-        + 0.05 * Math.sin(t * 1.3 + x * 0.05);
-      if (I > 0.74) c.put(x, y, '█', R);
-      else if (I > 0.46) c.put(x, y, '▓', R);
-      else if (I > 0.24) c.put(x, y, '▒', R);
-      else if (hash16(x * 7 + y * 31) % 100 < 40) c.put(x, y, '·', R);
+      // ⚠️ 这里改过三版，教训是同一件事：**红色的面积就是画面的"亮部面积"**。
+      //   ① 原式 1.02-0.52dy²-0.12dx² ⇒ 全幅 '▓'，读成"一块红幕布"，黑爪成了贴上去的黑贴纸；
+      //   ② 加 ░ 档 + 气流条 ⇒ 变成"粉色云斑"（░ 在 2 倍缩放下就是云）。
+      // 定案：热源是**点光**，用 exp 径向衰减——中心一小片亮，其余迅速落到黑，
+      // 背景大部分是黑的，黑爪才有"从暗里伸出来"的感觉，也才像 MV 的暗场。
+      dx = (x - 60) / 60; dy = (y - 17.5) / 13.5;
+      var rr = Math.sqrt(dx * dx + dy * dy);
+      var cur = 0.10 * Math.sin(x * 0.19 + t * 1.7) + 0.07 * Math.sin(x * 0.07 - t * 0.9);
+      I = (gain || 1) * (0.94 * Math.exp(-rr * rr * 3.2) + 0.10)
+        + cur * Math.max(0, 1 - rr * 0.6)
+        + ((hash16(x * 13 + y * 19) % 100) / 100 - 0.5) * 0.05;
+      if (I > 0.80) c.put(x, y, '█', R);
+      else if (I > 0.52) c.put(x, y, '▓', R);
+      else if (I > 0.28) c.put(x, y, '▒', R);
+      else if (I > 0.13 && hash16(x * 7 + y * 31) % 100 < 58) c.put(x, y, '░', R);
+      else if (hash16(x * 7 + y * 31) % 100 < 20) c.put(x, y, '·', R);
     }
   }
 
@@ -6279,17 +6642,17 @@ title: 字符演歌
 
   // 11 个硬切：起止都相对 96.03，跨 100.00 不重置
   var LU_L7 = [
-    [0.00, 0.97, 'claw', '41 / MACHINE HEART', 'CLAW / CLOSED', 'THE MACHINE / HAS A HEART'],
-    [0.97, 2.87, 'whip', '41 / MACHINE HEART', 'WHIP / PAN', 'THE ROOM / SPINS PAST'],
-    [2.87, 3.37, 'hall', '41 / MACHINE HEART', 'HALL / VAST', 'ONE HALL / ONE THRONE'],
-    [3.37, 3.77, 'flash', '42 / ONE MIND', 'FLASH / WHITE', 'WHITE / THEN NOTHING'],
-    [3.77, 4.22, 'word', '42 / ONE MIND', 'WORD / CARVED', 'ONE MIND / ONE HEART'],
-    [4.22, 5.07, 'pose', '42 / ONE MIND', 'HER / STAND', 'SHE DOES NOT / KNEEL'],
-    [5.07, 5.77, 'claw2', '42 / ONE MIND', 'TEETH / AGAIN', 'THE MACHINE / HAS A HEART'],
-    [5.77, 6.57, 'bars', '42 / ONE MIND', 'BARS / BEHIND', 'BARS DO NOT / HOLD HER'],
-    [6.57, 6.92, 'aisle', '42 / ONE MIND', 'AISLE / RED', 'THE AISLE / IS RED'],
-    [6.92, 7.27, 'gear', '42 / ONE MIND', 'WHEEL / TURNING', 'THE WHEEL / KEEPS TURNING'],
-    [7.27, 7.52, 'red', '42 / ONE MIND', 'BLOOD / FLASH', 'RED / AND NOTHING ELSE']
+    [0.00, 0.97, 'claw', '50 / MACHINE HEART', 'CLAW / CLOSED', 'THE MACHINE / HAS A HEART'],
+    [0.97, 2.87, 'whip', '50 / MACHINE HEART', 'WHIP / PAN', 'THE ROOM / SPINS PAST'],
+    [2.87, 3.37, 'hall', '50 / MACHINE HEART', 'HALL / VAST', 'ONE HALL / ONE THRONE'],
+    [3.37, 3.77, 'flash', '51 / ONE MIND', 'FLASH / WHITE', 'WHITE / THEN NOTHING'],
+    [3.77, 4.22, 'word', '51 / ONE MIND', 'WORD / CARVED', 'ONE MIND / ONE HEART'],
+    [4.22, 5.07, 'pose', '51 / ONE MIND', 'HER / STAND', 'SHE DOES NOT / KNEEL'],
+    [5.07, 5.77, 'claw2', '51 / ONE MIND', 'TEETH / AGAIN', 'THE MACHINE / HAS A HEART'],
+    [5.77, 6.57, 'bars', '51 / ONE MIND', 'BARS / BEHIND', 'BARS DO NOT / HOLD HER'],
+    [6.57, 6.92, 'aisle', '51 / ONE MIND', 'AISLE / RED', 'THE AISLE / IS RED'],
+    [6.92, 7.27, 'gear', '51 / ONE MIND', 'WHEEL / TURNING', 'THE WHEEL / KEEPS TURNING'],
+    [7.27, 7.52, 'red', '51 / ONE MIND', 'BLOOD / FLASH', 'RED / AND NOTHING ELSE']
   ];
 
   function lu_s7_montage(c, t, top, bt, e) {
@@ -6328,436 +6691,237 @@ title: 字符演歌
     c.center(bt, s[5], B);
   }
 
-  // ===== 主歌二 step in 103.51–124.00 粒度细分：5 子场景 =====
+  // ===== 114.00–124.00（MV 114.0–124.0）：红旋涡 / 黑场 / 锁链 / 吊环 / 塔 / 红路 / 山巅 =====
+  // ⚠️ 时间轴勘误（2026-11-05）：MV 烧录字幕三处对照（88.4 "Link link…"、96.4 "Link"、
+  // 103.4 "It's time to step in"）＋ 188s 处是绝区零 logo，都指向 **MV t ＝ 歌曲 t**，偏移 0。
+  // 之前这两段按「MV t ≈ 歌曲 t + 11s」写，内容全错（写成了岩块碑体与人物推近），据此重做。
+  // ⚠️ 这一段整体亮度极低：MV 在这里故意把画面压到"看不清"，靠黑与雾制造压迫感。
+  // 所以宁可画得空，也不要往里面堆细节。
 
-  // 一点透视的赤色大殿：两列巨柱向灭点收拢，地面与天花各有一条收敛线和分节缝，
-  // 尽头一道门缝透出红光。透视是 ASCII 里最稳的"大场面"画法——
-  // 直线收敛天然读作纵深，而斜插的装饰线只会糊成一片纹理。
-  // push 0→1 是镜头前推：所有横向尺寸同比放大，柱子从画面边缘挤出去。
-  function luCrimsonHall(c, t, top, bt, push) {
-    var vx = 60, vy = 15.5, k, f, xo, y0, y1, w, x, y, side, i;
-    // 四角收敛线：天花与地面各两条，是纵深的第一层暗示
-    for (side = -1; side <= 1; side += 2) {
-      c.line(vx + side * 62, bt + 2, vx, vy, '·', G);
-      c.line(vx + side * 62, top - 3, vx, vy, '·', G);
-    }
-    // 7 对柱子，由远及近（近的画在最后，压住远的）
-    for (k = 6; k >= 1; k--) {
-      f = (1 / (1 + k * 0.42)) * (1.28 + push * 0.55);
-      xo = 5 + 55 * f;
-      y0 = vy - 16 * f - 1;
-      y1 = vy + 13 * f + 1.4;
-      if (xo > 62) continue;                           // 已经挤出画面
-      w = Math.max(1, Math.round(1 + 4.2 * f));
-      for (side = -1; side <= 1; side += 2) {
-        var px = Math.round(vx + side * xo);
-        // 柱身：暗金实心（G）+ 亮边（N）。纯黑柱在纯黑背景上等于没画
-        for (y = Math.round(y0); y <= Math.round(y1); y++)
-          for (x = px; x < px + w * side; x += side)
-            c.put(x, y, f > 0.55 ? '▓' : '░', f > 0.72 ? N : G);
-        c.line(px, y0, px, y1, '│', N);
-        c.line(px + w * side, y0, px + w * side, y1, '│', G);
-        // 柱头与柱础：一层压扁的横块，柱子才有"站在地上"的重量
-        // ⚠️ 字符必须取自 EXTRA，'▀' 不在图集里会整排渲染成 '?'
-        c.line(px - side, Math.round(y0), px + w * side + side, Math.round(y0), '▄', N);
-        c.line(px - side, Math.round(y1), px + w * side + side, Math.round(y1), '▄', N);
-        // 拱廊横梁：左右柱头之间的横线，是"这是建筑"最省的一笔。
-        // 每一层都画等宽的亮梁会变成百叶窗/梯子，所以只给最近的三层亮色，其余压暗。
-        if (side < 0 && f > 0.34) {
-          var lx = px, rx = Math.round(vx + xo) + w;
-          for (var bx = lx; bx <= rx; bx++)
-            c.put(bx, Math.round(y0), f > 0.62 ? '═' : '─', f > 0.62 ? N : G);
-        }
-        // 地面分节缝：每个深度一条，越近越亮
-        for (x = Math.round(vx - xo); x <= Math.round(vx + xo); x++)
-          if (x < px - side || x > px + w * side + side)
-            c.put(x, Math.round(y1), '─', f > 0.6 ? G : D);
-        // 柱间的挂链：从柱头往灭点方向垂一段，越远越短
-        if (f < 0.8) for (var ch = 0; ch < 6; ch++) {
-          var cu = ch / 6;
-          c.put(px + side * (2 + cu * 8), y0 + 2 + Math.sin(cu * Math.PI) * 3.4 * f,
-                ch % 2 ? 'o' : '·', ch % 2 ? G : N);
-        }
-      }
-    }
-    // 尽头的门缝：整幅画面唯一的高光，观众的视线落点
-    var doorH = 7 + push * 2;
-    for (y = Math.round(vy - doorH); y <= Math.round(vy + doorH); y++)
-      for (x = -2; x <= 2; x++)
-        c.put(vx + x, y, Math.abs(x) < 1 ? '█' : '▓', Math.abs(x) < 1 ? W : B);
-    // 地面：近处大片暗场，靠稀疏磨石反光撑住，否则画面下半是一块纯黑
-    for (y = 24; y < bt; y++)
-      for (x = 0; x < c.w; x++) {
-        var du = (y - 24) / Math.max(1, bt - 24);
-        if (hash16(y * 733 + x * 197) % 100 < 12 + du * 16)
-          c.put(x, y, du > 0.6 ? '.' : '·', Math.abs(x - 60) < 26 + du * 20 ? G : D);
-      }
-    // 门缝在磨石地面上的反光：一条竖直的碎光带，画面下半才不空
-    for (y = Math.round(vy) + 2; y < bt; y++) {
-      var fl = clamp01(1 - (y - vy) / (bt - vy));
-      for (x = -3; x <= 3; x++)
-        if (hash16(y * 401 + x * 89) % 100 < 26 + fl * 30)
-          c.put(vx + x, y, fl > 0.55 ? '·' : '.', fl > 0.7 ? B : fl > 0.35 ? N : G);
-    }
-    for (i = 0; i < 26; i++) {                          // 门缝外溢的光
-      var hs = hash16(i * 311 + 7), a = hs / 65535 * TAU;
-      var d0 = 3 + (hs % 40) / 10, d1 = d0 + 5 + (hs % 30) / 6;
-      for (var dd = d0; dd < d1; dd += 1.1)
-        c.put(vx + Math.cos(a) * dd, vy + Math.sin(a) * dd / 2, '·', dd < d1 - 2 ? N : G);
-    }
-  }
-
-  // 103.51–106.15 "It's time to step in they try but they can't win"：
-  // 大殿纵深 + 缓慢前推 + 地面余烬。旧版是楔形箭头方阵，缩略图里读成"一堆尖括号"。
-  function lu_s8_step(c, t, top, bt, elapsed) {
-    var e = elapsed;
-    function ease(v) { v = clamp01(v); return v * v * (3 - 2 * v); }
-    var push = ease(e / 2.7);
-    luParticles(c, t, top, bt, 26, 53, true, true);
-    luCrimsonHall(c, t, top, bt, push);
-    // 脚下震波：每 0.44s 一拍，贴着地面往外扩，跟"step in"的节拍同步
-    var beat = mod(e / 0.44, 1);
-    luRing(c, 60, bt - 1, 4 + beat * 26, beat < 0.35 ? '·' : '.', beat < 0.25 ? B : G, 2);
-    clearRect(c, 0, top, c.w, 1); clearRect(c, 0, bt, c.w, 1);
-    c.put(3, top, '43 / STEP IN', N);
-    c.put(c.w - 22, top, 'HALL / ONE WAY THROUGH', R);
-    c.center(bt, e < 1.3 ? 'THEY TRY / THEY CANNOT WIN' : 'ONE WAY IN / NO WAY BACK', B);
-  }
-
-  // 106.15–110.21 "stay sharp like a weapon / they're not gonna stop us"：
-  // 大殿被一记光刃横着切开。
-  // 这一镜在"怎么画出刀刃"上耗了七版，结论是**方向字符画不出刀**：
-  //   '╱' 一格只有一根细线，垂直平移一格只多一根平行细线 ⇒ 想加厚变排线（草/梳子），
-  //   不加厚就断续（'—' 在 15° 斜线上会跳行成虚线）；挖空成黑刀是黑压黑看不见；
-  //   六层等长残影在缩略图里是一排斜杠；扇形填点密度一到 78% 就成噪点。
-  // 于是放弃"斜向的刀"，改画**横贯全屏的实心光带**：实心块没有字形问题，
-  // 靠两端收尖 + 轻微倾斜 + 拍点上下扫，读成"一道斩击掠过画面"。
-  function lu_s8_weapon(c, t, top, bt, elapsed) {
-    var e = elapsed, x, dy;
-    luParticles(c, t, top, bt, 20, 71, true, true);
-    luCrimsonHall(c, t, top, bt, 1 + e * 0.09);
-    var l = 3, r = c.w - 4;
-    var u = mod(e / 0.95, 1);                         // 0.95s 从上压到底
-    var g;
-    for (g = 3; g >= 0; g--) {
-      var ug = u - g * 0.030;                         // 三条极薄的回声跟着扫，才有"动"
-      if (ug < 0) continue;
-      var yc0 = top + 2 + (bt - top - 4) * ug;
-      // 每次掠过的倾斜方向交替：一直同向的等速平移会被读成扫描线/进度条
-      var tilt = (Math.floor(e / 0.95) % 2 ? -1 : 1) * 0.085;
-      var lead = g === 0;
-      for (x = l; x <= r; x++) {
-        var tt = (x - l) / (r - l);
-        var env = clamp01(Math.min(tt, 1 - tt) / 0.07);   // 只在最末 7% 收尖，中段等厚
-        var yc = yc0 + (x - 60) * tilt;
-        var hh = (lead ? 0.55 : 0.2) * env;
-        for (dy = -3; dy <= 3; dy++) {
-          var yy2 = yc + dy;
-          if (yy2 < top + 1 || yy2 > bt - 1) continue;
-          if (Math.abs(dy) <= hh) {
-            if (lead) c.put(x, yy2, '█', env > 0.62 ? W : B);
-            else if (hash16(x * 53 + g * 31) % 100 < 62) c.put(x, yy2, '▓', g === 1 ? N : G);
-          } else if (lead && Math.abs(dy) <= hh + 1.05) {
-            c.put(x, yy2, '▓', env > 0.5 ? B : N);    // 一格辉光，给白块收边
-          }
-        }
-      }
-      if (lead) {                                     // 两个刀尖各甩一簇火星
-        var tipY = yc0 + ((x > 60 ? r : l) - 60) * tilt;
-        for (var sp = 0; sp < 9; sp++) {
-          var hs3 = hash16(sp * 313 + (e * 6 | 0) * 5);
-          c.put(l + (hs3 % 6) - 2, tipY + (hs3 >> 4) % 5 - 2, sp % 3 ? '.' : '+', sp % 3 ? N : W);
-          c.put(r - (hs3 % 6) + 2, tipY + (hs3 >> 7) % 5 - 2, sp % 3 ? '.' : '+', sp % 3 ? N : W);
-        }
-      }
-    }
-    // 每次拍点：地面震起一圈火星，斩击才有重音
-    var beat = mod(e / 0.55, 1);
-    if (beat < 0.5) luRing(c, 60, bt - 1, 6 + beat * 44, '·', beat < 0.2 ? B : G, 3);
-    clearRect(c, 0, top, c.w, 1); clearRect(c, 0, bt, c.w, 1);
-    c.put(3, top, '44 / STAY SHARP', N);
-    c.put(c.w - 22, top, 'EDGE / NEVER DULL', R);
-    c.center(bt, e < 2 ? 'SHARP AS A WEAPON / NO ONE STOPS US' : 'NOTHING STOPS US / NOT ONE THING', B);
-  }
-
-  // 110.21–114.04 "One mind one heart we'll be fearless"：
-  // 参考 MV 121–124s ＝ 隔着雾看山巅的城堡，天光从城堡背后打过来。
-  // 调色板里没有近黑色，所以"剪影"只能靠**留黑**：先把城堡与山体 mask 掉，
-  // 再把天光（径向光芒＋贴边辉光）铺在外面，城堡自然成为一个洞。
-  // 辉光按"到剪影的距离"分档（chamfer 距离变换）：贴边最亮，往外逐档衰减。
-  // ⚠️ 不分档的话光芒会糊满整片天空、城堡浮不起来（试过，读成一团噪点云）。
-  var _luCastleMask = null, _luCastleDst = null;
-
-  // 城堡在"城堡坐标"里的形状（u 0–120 横，v 0–40 竖，v 越大越靠下）
-  // 山脊线（不含进剪影：地面只做暗纹，否则城堡和山会被同一圈亮边描成一个方盒）
-  function luHillTop(u) { return 25 - 1.2 * Math.exp(-Math.pow((u - 60) / 26, 2)); }
-
-  function luCastleShape(u, v) {
-    var hill = luHillTop(u);
-    if (v >= hill) return 0;                                   // 地面不算剪影
-    if (u >= 30 && u <= 90 && v >= 21 && v < hill) {            // 城墙：落在山脊上的横带
-      return 1;
-    }
-    if (u >= 50 && u <= 70 && v >= 14 && v < 21) {              // 中央主楼
-      if (v < 15) return ((u | 0) % 3) < 2 ? 1 : 0;             // 垛口：二实一空
-      return 1;
-    }
-    if (u >= 56 && u <= 64 && v >= 6 && v < 14) return 1;       // 主尖塔
-    if (v === 5 && u >= 57 && u <= 63) return 1;
-    if (v === 4 && u >= 58 && u <= 62) return 1;
-    if (u >= 36 && u <= 45 && v >= 17 && v < 21) return 1;       // 左塔
-    if (u >= 75 && u <= 84 && v >= 17 && v < 21) return 1;       // 右塔
-    if (v === 16 && u >= 37 && u <= 44) return 1;
-    if (v === 16 && u >= 76 && u <= 83) return 1;
-    if (v === 15 && u >= 39 && u <= 42) return 1;
-    if (v === 15 && u >= 78 && u <= 81) return 1;
-    return 0;
-  }
-
-  function lu_s8_heart(c, t, top, bt, elapsed) {
-    var e = elapsed, x, y, i, p;
-    // ⚠️ 不能叫 N：N 是调色板常量（橙），局部 var N 会遮蔽它，
-    // 于是 c.put(..., N) 传进去的是格子总数 ⇒ 取色越界直接抛异常（踩过）。
-    var W2 = c.w, H2 = bt - top + 1, nPix = W2 * H2;
-    if (!_luCastleMask || _luCastleMask.length < nPix) {
-      _luCastleMask = new Uint8Array(nPix);
-      _luCastleDst = new Uint16Array(nPix);
-    }
-    var mk = _luCastleMask, dst = _luCastleDst;
-    var s = 1 + 0.26 * luEase(clamp01(e / 3.4));               // 缓推镜头
-    var sInv = 1 / s;
-    for (y = 0; y < H2; y++) {
-      var v0 = 24 + (y + top - 24) * sInv;
-      var vi = Math.floor(v0 + 0.5);
-      for (x = 0; x < W2; x++) {
-        mk[y * W2 + x] = luCastleShape(Math.floor(60 + (x - 60) * sInv + 0.5), vi);
-      }
-    }
-    // 距离变换（两遍 chamfer，4 邻域）：dst=0 表示剪影本身
-    var INF = 9999, best;
-    for (i = 0; i < nPix; i++) dst[i] = mk[i] ? 0 : INF;
-    for (y = 0; y < H2; y++) for (x = 0; x < W2; x++) {
-      p = y * W2 + x;
-      if (!dst[p]) continue;
-      best = dst[p];
-      if (x > 0 && dst[p - 1] + 1 < best) best = dst[p - 1] + 1;
-      if (y > 0) {
-        if (dst[p - W2] + 1 < best) best = dst[p - W2] + 1;
-        if (x > 0 && dst[p - W2 - 1] + 1 < best) best = dst[p - W2 - 1] + 1;
-        if (x < W2 - 1 && dst[p - W2 + 1] + 1 < best) best = dst[p - W2 + 1] + 1;
-      }
-      dst[p] = best;
-    }
-    for (y = H2 - 1; y >= 0; y--) for (x = W2 - 1; x >= 0; x--) {
-      p = y * W2 + x;
-      if (!dst[p]) continue;
-      best = dst[p];
-      if (x < W2 - 1 && dst[p + 1] + 1 < best) best = dst[p + 1] + 1;
-      if (y < H2 - 1) {
-        if (dst[p + W2] + 1 < best) best = dst[p + W2] + 1;
-        if (x < W2 - 1 && dst[p + W2 + 1] + 1 < best) best = dst[p + W2 + 1] + 1;
-        if (x > 0 && dst[p + W2 - 1] + 1 < best) best = dst[p + W2 - 1] + 1;
-      }
-      dst[p] = best;
-    }
-    // 天光：径向光芒（细楔）× 距离衰减，分档落色
-    var spin = e * 0.10;
-    for (y = 0; y < H2; y++) {
-      var yy = y + top;
-      var vv2 = 24 + (yy - 24) * sInv;
-      for (x = 0; x < W2; x++) {
-        p = y * W2 + x;
-        var hv = luHillTop(60 + (x - 60) * sInv);
-        if (vv2 >= hv && !mk[p]) {                     // 山体：只给暗纹，不描边
-          if (vv2 - hv < 1.1) c.put(x, yy, '.', G);
-          else if (hash16(x * 23 + yy * 31) % 100 < 15) c.put(x, yy, '.', K);
-          continue;
-        }
-        if (mk[p]) {
-          // 剪影内部垫一层极暗石纹：纯黑会和夜空糊成一片，宽塔身会被读成空心玻璃管
-          // 上部楼体填得比城墙实：塔身 8 格宽、中段全黑的话会被读成两根竖天线
-          var hs2 = hash16(x * 29 + yy * 47) % 100;
-          var upper = vv2 < 16;
-          var dense = upper ? 62 : 34;
-          if (hs2 < dense) c.put(x, yy, upper ? '▒' : '░', K);
-          else if (hs2 < dense + 12) c.put(x, yy, '·', G);
-          continue;
-        }
-        var dd = dst[p];
-        // ⚠️ 光芒不能用 cos(角度)^n 连续取值：格子分辨率上它必然混叠成一排排斜向
-        // 条纹（看着像窗帘）。改成按角**分档**的实心楔形，边界虽然锯齿但就是光束。
-        var ang = Math.atan2((yy - 24) * 0.5, x - 60);
-        var wedge = Math.floor(((ang + Math.PI) / TAU) * 36 + spin * 1.6);
-        var I = (mod(wedge, 2) === 0 ? 1.0 : 0.13) * Math.exp(-dd / 22);
-        if (dd <= 1) {
-          // 贴边一格用半格字符朝向剪影，边缘才不会糊成一条粗白带
-          var mR = x < W2 - 1 && mk[p + 1], mL = x > 0 && mk[p - 1];
-          var mD = y < H2 - 1 && mk[p + W2], mU = y > 0 && mk[p - W2];
-          c.put(x, yy, mR ? '▐' : mL ? '▌' : mD ? '▄' : mU ? '▓' : '▓', B);
-        } else if (dd <= 2) c.put(x, yy, '▓', N);
-        else if (I > 0.50) c.put(x, yy, '▒', N);
-        else if (I > 0.24) c.put(x, yy, '░', R);
-        else if (I > 0.10) c.put(x, yy, '.', I > 0.16 ? N : G);
-        else if (hash16(x * 71 + yy * 13) % 100 < 9) c.put(x, yy, '·', G);
-      }
-    }
-    // 亮窗：剪影里唯一的"活气"，随机闪烁
-    var wins = [[60, 9], [58, 18], [62, 18], [54, 16], [66, 16], [40, 19], [80, 19], [52, 17], [68, 17]];
-    for (i = 0; i < wins.length; i++) {
-      var wx = Math.round(60 + (wins[i][0] - 60) * s);
-      var wy = Math.round(24 + (wins[i][1] - 24) * s);
-      var fl = hash16(i * 37 + (e * 3 | 0)) % 100;
-      if (fl < 72) c.put(wx, wy, '□', fl < 26 ? W : N);
-    }
-    // 雾带：横着缓慢漂移，压在剪影下缘
-    for (i = 0; i < 4; i++) {
-      var my = bt - 3 - i * 2;
-      var off = mod(e * (2.2 + i * 0.7), 1) * 22;
-      for (x = 2; x < c.w - 2; x++) {
-        var mm = Math.sin((x + off) * 0.09 + i * 1.7) * 0.5 + 0.5;
-        if (mm > 0.55 && hash16(x * 17 + i * 31 + (e * 2 | 0) * 7) % 100 < 58)
-          c.put(x, my, i < 2 ? '░' : '·', i < 2 ? G : D);
-      }
+  // ① 红旋涡（MV 114.2）：玫瑰/齿轮母题的螺旋特写，缓慢外扩。
+  // ⚠️ 螺旋的关键是**角度里再叠 r·k**；只做 cos(a·n) 得到的是同心环（就是靶盘/雷达）。
+  function lu_s8_spiral(c, t, top, bt, e) {
+    var u = clamp01(e / 0.95), x, y;
+    var cx = 60 + Math.sin(u * 2) * 2, cy = 17.5, spin = t * 1.5;
+    for (y = top; y < bt; y++) for (x = 1; x < c.w - 1; x++) {
+      var dx = x - cx, dy = (y - cy) * 2;
+      var r = Math.sqrt(dx * dx + dy * dy);
+      if (r > 47) { if (hash16(x * 7 + y * 13) % 100 < 7) c.put(x, y, '·', R); continue; }
+      var a = Math.atan2(dy, dx) + spin + r * 0.072;
+      var I = Math.pow(Math.abs(Math.cos(a * 2.5)), 2.4) * (1.06 - r / 50);
+      if (I > 0.70) c.put(x, y, '█', N);
+      else if (I > 0.40) c.put(x, y, '▓', R);
+      else if (I > 0.15) c.put(x, y, '▒', R);
+      else if (hash16(x * 11 + y * 17) % 100 < 11) c.put(x, y, '·', R);
     }
     clearRect(c, 0, top, c.w, 1); clearRect(c, 0, bt, c.w, 1);
-    c.put(3, top, '45 / ONE MIND', N);
-    c.put(c.w - 24, top, 'ONE HEART / NO FEAR', R);
-    c.center(bt, e < 2.1 ? 'ONE MIND ONE HEART / WE WILL BE FEARLESS'
-                         : 'THE GATE IS THERE / IT ALWAYS WAS', B);
+    c.put(3, top, '45 / THE SPIRAL', N);
+    c.put(c.w - 20, top, 'DOWN / AND IN', R);
+    c.center(bt, 'MAYBE IT IS / A BLESSING', B);
   }
 
-  // 114.04–118.12 "Maybe it's a blessing even though I been cursed"：
-  // 参考 MV 124.6–128.7s ＝ 黑场里几组被火光照亮的岩块／碑体特写，镜头之间硬切。
-  // 不做"光环 vs 锁链"那种图解——那是把歌词画成说明图，不是画面。
-  // 改成三组硬切：每 1.36s 换一次机位，岩块用多边形填充（luCoalFacet）＋三层套色
-  // （暗红▓ → 橙▒ → 亮芯█），光色在金/红之间交替，对应"blessing 与 cursed"双重说法。
-  function lu_s8_curse(c, t, top, bt, elapsed) {
-    var e = elapsed;
-    var shot = Math.floor(e / 1.36);                 // 0..2，第四节本就只剩三切
-    var se = mod(e, 1.36);
-    if (shot > 2) shot = 2;
-    var warm = shot % 2 === 0;                       // 金 ↔ 红 交替
-    var cOut = warm ? N : R, cMid = warm ? B : N, cHot = warm ? W : B;
-    var sd = shot * 977 + 31;
-    // 三层套色：外暗、内亮、芯最亮，并朝左上偏移 ⇒ 自带"从左上打光"的体积
-    // ⚠️ sc 必须真的乘进半径：三层用同一半径时，最亮那层会盖住整块石头变白板（踩过）
-    function rockPts(cx, cy, rad, sc, ay, dx, dy, seed) {
-      var pts = [], i, a, rr;
-      var n = 6;                                     // 六个顶点才有棱角，八个就圆成鹅卵石
-      for (i = 0; i < n; i++) {
-        a = i / n * TAU;
-        rr = rad * sc * (0.55 + (hash16(seed * 17 + i * 29) % 100) / 100 * 0.66);
-        pts.push([cx + Math.cos(a) * rr + dx, cy + Math.sin(a) * rr * ay / 2 + dy]);
-      }
-      return pts;
+  // ② 黑场（MV 114.8–117.2，约 2.4s）：全片唯一一次真正的黑。
+  // 它的作用是"喘气" —— MV 在这里几乎什么都不给，只留画面底部一点余烬在明灭。
+  // ⚠️ 别怕空：塞满细节反而毁掉这个停顿。字幕必须有，否则观众以为卡住了。
+  function lu_s8_blackout(c, t, top, bt, e) {
+    var x, y, i, pulse = 0.5 + 0.5 * Math.sin(e * 2.4), sd = Math.round(t * 12);
+    for (y = top; y < bt; y++) for (x = 1; x < c.w - 1; x++) {
+      if (y > bt - 8) {
+        var d = (y - (bt - 8)) / 7;
+        if (hash16(x * 13 + y * 7 + sd) % 100 < d * d * 40 * (0.45 + pulse * 0.55))
+          c.put(x, y, d > 0.62 ? '▒' : '░', R);
+      } else if (hash16(x * 5 + y * 11) % 100 < 3) c.put(x, y, '·', R);
     }
-    function inPoly(pts, x, y) {
-      var hit = false, i, j;
-      for (i = 0, j = pts.length - 1; i < pts.length; j = i++) {
-        var yi = pts[i][1], yj = pts[j][1];
-        if ((yi > y) !== (yj > y) &&
-            x < (pts[j][0] - pts[i][0]) * (y - yi) / (yj - yi) + pts[i][0]) hit = !hit;
-      }
-      return hit;
+    for (i = 0; i < 11; i++) {
+      var hs = hash16(i * 173 + 7);
+      c.put(6 + hs % 108, bt - mod((hs >> 4) * 0.03 + e * 0.55, bt - top - 3), hs % 3 ? '.' : '+', hs % 4 ? R : N);
     }
-    var LAYOUT = [
-      [[80, 23, 30, 1.7], [24, 12, 10, 1.2]],
-      [[36, 19, 18, 1.4], [88, 26, 23, 1.5]],
-      [[60, 21, 8, 3.0], [22, 14, 11, 1.1], [100, 16, 12, 1.2], [44, 29, 10, 1.0]]
-    ];
-    var lay = LAYOUT[shot], k;
-    for (k = 0; k < lay.length; k++) {
-      var cx0 = lay[k][0], cy0 = lay[k][1], rad0 = lay[k][2], ay0 = lay[k][3];
-      var outer = rockPts(cx0, cy0, rad0, 1.00, ay0, 0, 0, sd + k);
-      luCoalFacet(c, outer, cOut, '▓');
-      luCoalFacet(c, rockPts(cx0, cy0, rad0, 0.72, ay0, -1.4, -0.7, sd + k), cMid, '▒');
-      luCoalFacet(c, rockPts(cx0, cy0, rad0, 0.22, ay0, -4.0, -2.0, sd + k), cHot, '█');
-      // 受光边：黑底上不给轮廓，整块只是一个带纹理的色团，读不成"石头"
-      var y0 = Math.floor(cy0 - rad0 * ay0 * 0.75), y1 = Math.ceil(cy0 + rad0 * ay0 * 0.75);
-      var x0 = Math.floor(cx0 - rad0 * 1.3), x1 = Math.ceil(cx0 + rad0 * 1.3);
-      for (var ry = Math.max(top + 1, y0); ry <= Math.min(bt - 1, y1); ry++) {
-        for (var rx = Math.max(2, x0); rx <= Math.min(c.w - 3, x1); rx++) {
-          if (!inPoly(outer, rx, ry)) continue;
-          if (!inPoly(outer, rx, ry - 1)) c.put(rx, ry, '▄', cHot);
-          else if (!inPoly(outer, rx - 1, ry)) c.put(rx, ry, '▐', cMid);
-          else if (!inPoly(outer, rx + 1, ry)) c.put(rx, ry, '▌', cMid);
-        }
-      }
-    }
-    // 岩缝里落下的灰烬 + 升起的火星（每切一次重置，硬切感才干净）
-    for (var em = 0; em < 34; em++) {
-      var hs = hash16(em * 211 + shot * 53);
-      var ex = 4 + hs % 112;
-      var rise = mod(se * (0.5 + (hs >> 5) % 40 / 40 * 0.9) + hs / 65535, 1);
-      var ey = bt - 2 - rise * (bt - top - 4);
-      c.put(ex + Math.sin(se * 2 + hs) * 1.5, ey,
-            em % 5 === 0 ? '+' : em % 3 ? '.' : '·', em % 5 === 0 ? cHot : em % 3 ? cMid : cOut);
-    }
-    for (var du = 0; du < 40; du++) {                 // 浮尘
-      var hs2 = hash16(du * 91 + shot * 17);
-      c.put(3 + hs2 % 114, top + 2 + (hs2 >> 4) % (bt - top - 4), '·', G);
-    }
-    // 每次硬切的第一拍留一帧几乎全黑：剪辑感靠"断"而不是靠渐隐
-    if (se < 0.05) clearRect(c, 0, top + 1, c.w, bt - top - 1);
     clearRect(c, 0, top, c.w, 1); clearRect(c, 0, bt, c.w, 1);
-    c.put(3, top, '46 / BLESSING OR CURSE', N);
-    c.put(c.w - 21, top, warm ? 'LIT / GOLD' : 'LIT / RED', warm ? B : R);
-    c.center(bt, se < 0.7
-      ? (warm ? 'A BLESSING / EVEN SO' : 'A CURSE / EVEN SO')
-      : (warm ? 'WHAT BURNS ME / KEEPS ME' : 'WHAT BREAKS ME / MADE ME'), warm ? B : R);
+    c.put(3, top, '45 / NOTHING YET', K);
+    c.put(c.w - 22, top, 'STILL / BREATHING', K);
+    c.center(bt, e < 1.1 ? 'EVEN THOUGH / I BEEN CURSED' : 'THE FIRE IS / STILL IN THERE', R);
   }
 
-  // 118.12–124.00 "my life is yours / I can hear your pulse got you in my veins"：
-  // 参考 MV 128.7–134.6s ＝ 红色雾气里的身影特写，镜头缓慢推近，火星在身前飘。
-  // 这一镜交给人物本身：背景压到近黑，只留脚下余烬与上升火星，
-  // 女王立绘从 40 格推到 70 格（脚被裁掉是有意的中近景），beat 一闪即红。
-  function lu_s8_sword(c, t, top, bt, elapsed) {
-    var e = elapsed, x, y, i;
-    var push = luEase(clamp01(e / 5.2));
-    var beat = mod(t * 1.35, 1), env = Math.exp(-beat * 4.5);
-    // 脚下余烬：沿底边一条不规则火线，中间亮两侧暗
-    for (x = 2; x < c.w - 2; x++) {
-      var uu = Math.abs(x - 60) / 58;
-      var hs0 = hash16(x * 37 + (e * 3 | 0));
-      if (hs0 % 100 < 74 * (1 - uu * 0.72))
-        c.put(x, bt - 1 - (hash16(x * 11) % 2), hs0 % 3 ? '░' : '▒', hs0 % 5 ? R : N);
+  // ③ 锁链地景（MV 117.4）：低机位，暗红地面上一条锁链伸向深处，背后几根黑柱。
+  function lu_s8_chain(c, t, top, bt, e) {
+    var u = clamp01(e / 0.97), x, y, i;
+    var gy = Math.round(23 + u * 1.1), sd = Math.round(t * 10);
+    for (y = top; y < gy; y++) for (x = 1; x < c.w - 1; x++) {          // 低处更浓的红雾
+      var d = 22 - (gy - y) * 1.9;
+      if (d > 0 && hash16(x * 7 + y * 13 + sd) % 100 < d) c.put(x, y, '·', R);
     }
-    // 上升火星
-    for (i = 0; i < 52; i++) {
-      var hs = hash16(i * 173 + 9);
-      var rise = mod(e * (0.30 + (hs >> 5) % 40 / 40 * 0.75) + hs / 65535, 1);
-      var px = 5 + hs % 110 + Math.sin(e * 1.6 + hs) * 2;
-      var py = bt - 2 - rise * (bt - top - 4);
-      c.put(px, py, i % 6 === 0 ? '+' : (i % 3 ? '.' : '·'),
-            i % 6 === 0 ? B : (i % 3 ? N : R));
+    for (i = 0; i < 5; i++) {                                          // 远处几根黑柱
+      var px = 10 + i * 25;
+      for (y = top + 2; y < gy; y++) {
+        for (x = px; x < px + 3; x++) c.put(x, y, '░', K);
+        c.put(px + 3, y, '▒', R);
+      }
     }
-    // 两条横向雾带，缓慢反向漂移
+    for (x = 2; x < c.w - 2; x++) {                                    // 地面：要有厚度才托得住链
+      c.put(x, gy, '▓', N);
+      for (y = gy + 1; y <= gy + 3; y++) c.put(x, y, '▒', N);
+      if (hash16(x * 7 + 3 + sd) % 100 < 30) c.put(x, gy + 4, '░', R);
+    }
+    // 锁链：一串链节，从左下伸向右上。
+    // ⚠️ '○'/'◯' 是空心圆，在 7px 的字格里几乎看不见（上一版整条链消失了）；
+    // 必须用实心的 ●/◉，并且左右各带一段横划，才读成"链"而不是一串点。
+    // 每节 = 5 格宽 × 2 行实的链环，节间留 1 格、明暗交替 ⇒ 才读成"链"。
+    // ⚠️ 3 格宽 / 1 行高的"链节"在 864px 下只有 20×18px，缩略图里就是几个点。
+    for (i = 0; i < 12; i++) {
+      var cx2 = Math.round(6 + i * 7.4), cy2 = Math.round(bt - 4 - i * 0.70);
+      if (cy2 <= gy + 1) break;
+      var cA = i % 2 ? W : N, cB = i % 2 ? N : R;
+      for (x = cx2; x < cx2 + 5; x++) {
+        if (x < 2 || x > c.w - 3) continue;
+        c.put(x, cy2, '█', cA);
+        c.put(x, cy2 + 1, '▒', cB);
+      }
+      for (y = cy2 + 2; y <= cy2 + 2; y++) { c.put(cx2 + 5, y, '▓', cB); c.put(cx2 + 6, y, '▓', cB); }
+    }
+    clearRect(c, 0, top, c.w, 1); clearRect(c, 0, bt, c.w, 1);
+    c.put(3, top, '46 / WHAT HOLDS ME', N);
+    c.put(c.w - 21, top, 'CHAIN / ON STONE', R);
+    c.center(bt, 'IT WAS NEVER / A CROWN', B);
+  }
+
+  // ④ 红厅吊环（MV 118.2–119.4）：一个巨大的铁环吊在画面中央，她站在环下，
+  // 左侧一条巨大的黑影，环上两条吊索一直通到画外。
+  function lu_s8_ring(c, t, top, bt, e) {
+    var u = clamp01(e / 1.28), x, y, i;
+    luHeat(c, t, top, bt, 0.94);
+    var rc = 14 + u * 3, cy2 = 12.5 - u * 1.0;
+    for (y = top + 1; y < Math.round(cy2 - rc / 2); y++) {              // 吊索
+      if (y < top || y >= bt) continue;
+      c.put(56, y, '│', N); c.put(64, y, '│', N);
+    }
+    for (i = 0; i < 240; i++) {                                        // 铁环（空心）
+      var a = i / 240 * TAU;
+      for (var rr = rc - 1.0; rr <= rc + 1.0; rr += 0.55)
+        c.put(Math.round(60 + Math.cos(a) * rr), Math.round(cy2 + Math.sin(a) * rr / 2), '█', N);
+    }
+    for (y = top + 2; y < bt - 1; y++) {                               // 左侧巨大的黑影
+      var w = 15 - (y - top) * 0.22;
+      if (w < 3) break;
+      for (x = 5; x < 5 + w; x++) c.put(x, y, ' ', D);
+      c.put(Math.round(5 + w), y, '▓', R);
+    }
+    var wid = 13 + u * 3;
+    c.queen = { x: 60 - wid / 2, y: luActorY(wid, bt - 5, window.__LU_QUEEN_ANSI), width: wid, t: t, reveal: 1 };
+    clearRect(c, 0, top, c.w, 1); clearRect(c, 0, bt, c.w, 1);
+    c.put(3, top, '47 / UNDER THE RING', N);
+    c.put(c.w - 20, top, 'HANG / AND WAIT', R);
+    c.center(bt, 'ONE RING / ONE THRONE', B);
+  }
+
+  // ⑤ 雾中塔楼（MV 119.8–121.0）：一座黑塔立在红雾里，顶上有城垛，两侧各一座小塔。
+  // ⚠️ 塔是**挖黑的**（' ' D 擦掉雾），不是"画一个黑方块"——调色板里没有黑，
+  // 只能把已经画上的雾擦掉，这正好是逆光剪影的做法。
+  function lu_s8_tower(c, t, top, bt, e) {
+    var u = clamp01(e / 1.6), x, y, i;
+    var gy = 26, sd = Math.round(t * 8);
+    // ⚠️ 塔靠"把雾擦掉"做剪影，背景就必须够亮：上一版雾只用 '·' 稀点（阈值×58），
+    // 擦完塔与黑天糊成一片，只剩两条边缘的红线。
+    // ⚠️ 而且调色板里**没有真正的黑**：' ' D 落地成 #afaf5f（暗黄），擦出来是褐块不是黑块。
+    // 要最暗的剪影只能用 ' ' K（#5f5f00）。
+    for (y = top; y < bt; y++) for (x = 1; x < c.w - 1; x++) {
+      var I = 0.30 + 0.70 * Math.pow(clamp01(y / gy), 1.3) + 0.10 * Math.sin(t * 0.8 + x * 0.03);
+      if (hash16(x * 7 + y * 13 + sd) % 100 < I * 46)
+        c.put(x, y, y > gy - 6 ? '▒' : (hash16(x * 3 + y) % 3 ? '░' : '▒'), R);
+    }
+    var cw = 9 + u * 3;                                                // 主塔半宽
+    for (y = 9; y < gy; y++) {                                         // 主塔身
+      var hw = cw * (1 - (gy - y) * 0.006);
+      for (x = Math.round(60 - hw); x <= Math.round(60 + hw); x++) c.put(x, y, '░', K);
+      c.put(Math.round(60 - hw), y, '█', N); c.put(Math.round(60 + hw), y, '█', N);
+    }
+    for (i = 0; i < 5; i++) {                                          // 城垛
+      var mx = Math.round(60 - cw) + i * Math.round(cw * 2 / 4.4);
+      for (y = 7; y < 9; y++) for (x = mx; x < mx + 4; x++) c.put(x, y, '▓', K);
+    }
+    for (y = 3; y < 8; y++) {                                          // 尖顶
+      for (x = Math.round(60 - (y - 2) * 2.2); x <= Math.round(60 + (y - 2) * 2.2); x++) c.put(x, y, '▒', K);
+    }
+    for (i = -1; i <= 1; i += 2) {                                     // 两侧小塔
+      var tx = Math.round(60 + i * (cw + 7));
+      for (y = 13; y < gy; y++) for (x = tx - 3; x <= tx + 3; x++) c.put(x, y, '░', K);
+      for (y = 10; y < 13; y++) for (x = tx - 2; x <= tx + 2; x++) c.put(x, y, '▓', K);
+    }
+    for (x = 2; x < c.w - 2; x++) {                                    // 山脚一线亮
+      if (hash16(x * 11 + 5) % 100 < 60) c.put(x, gy, '▒', N);
+    }
+    clearRect(c, 0, top, c.w, 1); clearRect(c, 0, bt, c.w, 1);
+    c.put(3, top, '48 / HER CASTLE', N);
+    c.put(c.w - 20, top, 'BUILT / IN SMOKE', R);
+    c.center(bt, 'NO ONE LIVES HERE / BUT HER', B);
+  }
+
+  // ⑥ 蜿蜒红路（MV 121.4–122.6）：一条 S 形的路向远处收，两侧是黑岩。
+  function lu_s8_road(c, t, top, bt, e) {
+    var u = clamp01(e / 1.6), x, y, i;
+    for (y = top; y < bt; y++) for (x = 1; x < c.w - 1; x++) {          // 底：暗红雾
+      if (hash16(x * 7 + y * 13 + Math.round(t * 9)) % 100 < 6) c.put(x, y, '·', R);
+    }
+    for (y = top + 1; y < bt; y++) {
+      var f = (y - top) / (bt - top);                                  // 0 远 → 1 近
+      var mid = 60 + Math.sin(f * 3.1 + t * 0.25) * (8 + f * 20);      // S 形中线
+      var hw = 1.5 + f * f * 26;                                       // 近处宽、远处收成一点
+      for (x = Math.round(mid - hw); x <= Math.round(mid + hw); x++) {
+        if (x < 2 || x > c.w - 3) continue;
+        var q = Math.abs(x - mid) / Math.max(0.6, hw);
+        if (q < 0.30) c.put(x, y, '▓', N);                             // 路心（被雾光打亮）
+        else if (q < 0.72) c.put(x, y, '▒', R);
+        else c.put(x, y, ' ', D);                                      // 两侧黑岩
+      }
+      c.put(Math.round(mid - hw) - 1, y, '▓', N);                      // 路边石
+      c.put(Math.round(mid + hw) + 1, y, '▓', N);
+    }
+    clearRect(c, 0, top, c.w, 1); clearRect(c, 0, bt, c.w, 1);
+    c.put(3, top, '49 / THE ROAD UP', N);
+    c.put(c.w - 19, top, 'NO WAY / BACK', R);
+    c.center(bt, 'IT ONLY GOES / ONE WAY', B);
+  }
+
+  // ⑦ 山巅（MV 123.8–124.6）：两座黑峰夹一道竖直强光，红雾压在山脚。
+  // ⚠️ 峰线必须是**锯齿**（hash 抖动）：直线斜边读成"两个黑三角"，锯齿才读成山脊。
+  function lu_s8_summit(c, t, top, bt, e) {
+    var u = clamp01(e / 1.4), x, y, i;
+    var glowX = 60, half = 27 - u * 2;                                 // 中间光缝半宽
+    for (y = top; y < bt; y++) for (x = 1; x < c.w - 1; x++) {         // 光缝
+      var d = Math.abs(x - glowX) / half;
+      var I = Math.pow(Math.max(0, 1 - d), 1.5) * (0.55 + 0.45 * (1 - (y - top) / (bt - top)) * 0.6);
+      if (I > 0.62) c.put(x, y, '█', W);
+      else if (I > 0.40) c.put(x, y, '▓', B);
+      else if (I > 0.22) c.put(x, y, '▒', N);
+      else if (I > 0.10) c.put(x, y, '·', R);
+      else if (hash16(x * 7 + y * 13) % 100 < 7) c.put(x, y, '·', R);
+    }
+    // ⚠️ 峰是"挖黑"出来的：每行算出山脊线的 x，把那一侧整段擦成黑。
+    // 上一版的 for 起点写死成 2 / c.w-2、边界落到画外时整行不挖 ⇒ 山脚一片红，
+    // 中间的光柱读成"一座金色尖塔"。这里改成显式边界 + 夹到画面内。
     for (i = 0; i < 2; i++) {
-      var my = bt - 4 - i * 5;
-      var off = mod(e * (1.6 + i * 0.9), 1) * 26 * (i ? -1 : 1);
-      for (x = 4; x < c.w - 4; x++) {
-        var mm = Math.sin((x + off) * 0.075 + i * 2.1) * 0.5 + 0.5;
-        if (mm > 0.62 && hash16(x * 19 + i * 41 + (e * 2 | 0) * 9) % 100 < 52)
-          c.put(x, my, '░', i ? G : R);
+      var sgn = i ? 1 : -1;
+      for (y = top; y < bt; y++) {
+        var f = (y - top) / (bt - top);                                // 0 顶 → 1 底
+        // 抖动种子只能用 y（用 x 时 x 还没被 for 赋值，取到的是上一轮的残留）
+        var ex = 38 + f * 8
+          + (hash16(y * 13 + i * 57) % 100) / 100 * 3.4 + Math.sin(y * 1.15 + i * 2.1) * 1.6;
+        var xE = Math.round(glowX + sgn * ex);
+        if (sgn < 0) {
+          for (x = 1; x < xE; x++) c.put(x, y, hash16(x * 3 + y * 7) % 100 < 58 ? '░' : ' ', K);
+          if (xE >= 1 && xE <= c.w - 2) c.put(xE, y, '█', N);
+        } else {
+          for (x = xE + 1; x < c.w - 1; x++) c.put(x, y, hash16(x * 3 + y * 7) % 100 < 58 ? '░' : ' ', K);
+          if (xE >= 1 && xE <= c.w - 2) c.put(xE, y, '█', N);
+        }
       }
     }
-    // 人物：40 → 70 格缓推
-    var w = 44 + push * 26;
-    c.queen = { x: 60 - w / 2, y: 4.6, width: w, t: t, reveal: clamp01(e / 0.9) };
-    // beat 的红色呼吸打在人物之前（在字符层，所以在她身后）
-    if (env > 0.25) {
-      for (y = top + 2; y < bt - 1; y++) for (x = 2; x < c.w - 2; x++) {
-        var dx = (x - 60) * 0.5, dy = (y - 19);
-        var dd = Math.sqrt(dx * dx + dy * dy);
-        if (dd > 13 + env * 9) continue;
-        if (hash16(x * 13 + y * 7 + (e * 8 | 0)) % 100 < 26 * env)
-          c.put(x, y, '·', R);
-      }
+    for (x = 2; x < c.w - 2; x++) {                                    // 山脚红雾压边
+      if (hash16(x * 11 + Math.round(t * 6)) % 100 < 52) c.put(x, bt - 1, '░', R);
     }
     clearRect(c, 0, top, c.w, 1); clearRect(c, 0, bt, c.w, 1);
-    c.put(3, top, '47 / MY LIFE IS YOURS', N);
-    c.put(c.w - 20, top, 'PULSE / IN VEINS', R);
-    // 不画底行字幕：人物推到 70 格时裙摆正好压在 bt 行，字幕会糊在她腿上（且下面已有歌词层）
+    c.put(3, top, '49 / THE TOP', W);
+    c.put(c.w - 18, top, 'LIGHT / ABOVE', B);
+    c.center(bt, 'AND I AM STILL / STANDING', W);
   }
 
   // 124.00–135.87 这一段（MV 134.6–146.5s）在参考里是一条连续的下降镜头：
@@ -7873,7 +8037,7 @@ title: 字符演歌
       chrome: 'LINK UP / BLOOD & FLAME',
       fileHint: 'Link Up 血火相连.mp3（时长 03:08）',
       noteTail: '从官方 MV 的拱窗、红门与群鸦提取意象，以原创字符分镜、旋转回廊和粒子标题重新编排。',
-      // 场景表对照官方 MV（BV1C9b76cEks，MV 时间 ≈ 歌曲 + 11s）按歌词时间轴落位
+      // 场景表对照官方 MV（BV1C9b76cEks）：**MV 时间 ＝ 歌曲时间**（帧内烧录字幕实测，偏移 0）
       scenes: [
         { a: 0,      b: 16.42,  f: lu_credits_void },
         { a: 16.42,  b: 20.57,  f: lu_s1_forge },
@@ -7890,16 +8054,27 @@ title: 字符演歌
         { a: 68.09,  b: 72.01,  f: lu_s4_call },
         { a: 72.01,  b: 76.12,  f: lu_s5_strike },
         { a: 76.12,  b: 80.00,  f: lu_s5_ring },
-        { a: 80.00,  b: 82.40,  f: lu_s6_eye },
-        { a: 82.40,  b: 86.35,  f: lu_s6_rose },
-        { a: 86.35,  b: 92.35,  f: lu_s6_nave },
-        { a: 92.35,  b: 96.03,  f: lu_s6_card },
-        { a: 96.03,  b: 103.51, f: lu_s7_montage },
-        { a: 103.51, b: 106.15, f: lu_s8_step },
-        { a: 106.15, b: 110.21, f: lu_s8_weapon },
-        { a: 110.21, b: 114.04, f: lu_s8_heart },
-        { a: 114.04, b: 118.12, f: lu_s8_curse },
-        { a: 118.12, b: 124.00, f: lu_s8_sword },
+        { a: 80.00,  b: 83.80,  f: lu_s6_door },
+        { a: 83.80,  b: 87.60,  f: lu_s6_dome },
+        { a: 87.60,  b: 89.90,  f: lu_s6_stair },
+        { a: 89.90,  b: 92.30,  f: lu_s6_face },
+        { a: 92.30,  b: 96.03,  f: lu_s6_rose },
+        { a: 96.03,  b: 96.85,  f: lu_s7_crescent },
+        { a: 96.85,  b: 101.20, f: lu_s7_hall },
+        { a: 101.20, b: 103.10, f: lu_s7_slab },
+        { a: 103.10, b: 103.55, f: lu_s7_time },
+        { a: 103.55, b: 104.15, f: lu_s7_stepin },
+        { a: 104.15, b: 104.70, f: lu_s7_theytry },
+        { a: 104.70, b: 105.60, f: lu_s7_white },
+        { a: 105.60, b: 106.40, f: lu_s7_claw },
+        { a: 106.40, b: 114.00, f: lu_s7_montage },
+        { a: 114.00, b: 114.95, f: lu_s8_spiral },
+        { a: 114.95, b: 117.15, f: lu_s8_blackout },
+        { a: 117.15, b: 118.12, f: lu_s8_chain },
+        { a: 118.12, b: 119.40, f: lu_s8_ring },
+        { a: 119.40, b: 121.00, f: lu_s8_tower },
+        { a: 121.00, b: 122.60, f: lu_s8_road },
+        { a: 122.60, b: 124.00, f: lu_s8_summit },
         { a: 124.00, b: 126.03, f: lu_s9_inferno },
         { a: 126.03, b: 128.24, f: lu_s9_mold },
         { a: 128.24, b: 131.93, f: lu_s9_scars },
