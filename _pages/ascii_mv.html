@@ -6019,17 +6019,17 @@ title: 字符演歌
     }
   }
 
-  // ===== 长音 Link 96.03–103.51：赤日点亮 → 虹膜收束白爆 → LINK UP 定格 =====
-  // 官方 MV 106.4–114.1s 的对应段是三镜：巨大赤日光轮前的小小人形剪影、
-  // 轮辐状虹膜白闪、白字标题。旧版这里是 9 层同心矩形线框 + 3D 立方体，
-  // 缩略图里读成"扫描线测试图"，整段推倒重做。
-  // 三个子件共用一条解析时间轴，跨 100.00 的子场景边界不会重置姿态。
-
-  var LU_LINK_CX = 60, LU_LINK_CY = 17.5;
+  // ===== 长音 Link 96.03–103.51：机械爪 / 甩镜 / 红厅 / 白闪 / 字卡 / 铁栅 / 齿轮 =====
+  // 对应 MV 106.6–114.1（MV t ≈ 歌曲 t + 10.6）。逐帧核对过 MV 5fps 帧：
+  //   106.4 机械爪+红齿轮环特写 → 107.6–109.2 全是剧烈甩镜模糊 → 109.6 红厅全景小剪影
+  //   → 110.0 白闪+正面轮盘 → 110.4 "ONE MIND" 字卡 → 110.8 角色站姿 → 111.2 爪特写
+  //   → 112.4 竖铁栅 → 113.2 红走廊 → 113.6 齿轮环特写 → 114.0 纯红闪
+  // ⚠️ 旧稿是"赤日点亮 4s + 虹膜白爆 + LINK UP 定格 3.5s"：结构、节奏、字卡内容全不对
+  // （MV 的白闪只占 0.4s、字卡只占 0.4s，全程没有任何定格），整段推倒重做。
+  // 11 个硬切共用一条 7.48s 时间轴，跨 100.00 不重置，所以合并成一个场景。
 
   // 方向字形：给一条斜线挑字符，横段用 '-'、竖段用 '│'、斜段用 '╱╲'。
-  // 赤日的光线全部用 '-' 画过，结果整颗太阳变成一张编织席——方向错了，
-  // 线条就只剩纹理，读不出"射出去"的意思。
+  // （后面 124s 之后的日轮/星芒还在用，别跟着旧 s7 一起删。）
   function luDirChar(dx, dy) {
     var ax = Math.abs(dx), ay = Math.abs(dy);
     if (ay < ax * 0.42) return '-';
@@ -6037,149 +6037,296 @@ title: 字符演歌
     return (dx * dy > 0) ? '╲' : '╱';
   }
 
-  // 赤日：实心球体 + 日冕光线。
-  // 走过两条弯路：①盘内按轮辐分档填 ▒ ⇒ 砖墙马赛克；②只画放射线 ⇒ 空心的烟花。
-  // 120×40 的格子铺不出柔和渐变，只能"认怂"画实心球：径向分色块（白核→金→橙→红），
-  // 边缘用 ▓ 收口，外面再放一圈方向正确的光线当日冕。字形对比靠分色，不靠网点。
-  function luLinkSun(c, cx, cy, rad, spin, sweep, heat) {
-    if (rad < 1) return;
-    var i, a, r0, u, len, st, ch;
-    var rays = 52;
-    // 球体
-    for (var y = Math.floor(cy - rad / 2); y <= Math.ceil(cy + rad / 2); y++)
-      for (var x = Math.floor(cx - rad); x <= Math.ceil(cx + rad); x++) {
-        if (rad < 2) break;
-        var dx = x - cx, dy = (y - cy) * 2, rr = Math.sqrt(dx * dx + dy * dy), u = rr / rad;
-        if (u > 1) continue;
-        // 球体也按角度点亮，与日冕同一条 sweep（从正上方顺时针）
-        if (mod(Math.atan2(dy, dx) - spin, TAU) / TAU > sweep) continue;
-        var ch2 = '█', st2 = R;
-        if (u < 0.10) { ch2 = '█'; st2 = heat > 0.4 ? W : B; }
-        else if (u < 0.30) { ch2 = '█'; st2 = B; }
-        else if (u < 0.62) { ch2 = '█'; st2 = N; }
-        else if (u < 0.88) { ch2 = '█'; st2 = R; }
-        // 球缘不做 ▒ 环（那圈网点会连成一环马赛克），改成按 hash 掉格 + 少量 ▓
-        else if (hash16(y * 313 + x * 127) % 100 >= 22) {
-          ch2 = hash16(y * 7 + x * 3) % 3 ? '█' : '▓';
-        } else continue;
-        c.put(x, y, ch2, st2);
-      }
-    // 日冕：从球缘射出的光线，长短按 hash 各自不同；方向字符不能省，
-    // 全用 '-' 会把整颗太阳画成一张编织席。
-    for (i = 0; i < rays; i++) {
-      if (i / rays > sweep) continue;
-      a = i / rays * TAU + spin;
-      var ca = Math.cos(a), sa = Math.sin(a);
-      ch = luDirChar(ca, sa * 0.5);
-      var hs = hash16(i * 233 + 17);
-      len = rad * (1.04 + 0.30 * (hs % 100) / 100);
-      for (r0 = rad * 0.97; r0 <= len; r0 += 0.8) {
-        u = (r0 - rad * 0.97) / Math.max(1, len - rad * 0.97);
-        st = u < 0.28 ? R : u < 0.62 ? N : u < 0.85 ? R : G;
-        c.put(cx + ca * r0, cy + sa * r0 / 2, ch, st);
-      }
-      if (len > rad * 1.3) c.put(cx + ca * len, cy + sa * len / 2, '+', R);
+  // 通用底：横向烧红热带（上下收边、左右溢出、低频抖动打碎轮廓）。
+  // ⚠️ 不能用径向衰减：闭合等值线会读成一个悬着的红球。
+  // ⚠️ 低频正弦叠出来的"红云"会读成山/火焰的等值线，整幅画面看着像红布。
+  // 改成纵向平滑渐变（中间亮、上下压暗）+ ±0.07 的粒度抖动打碎边界：
+  // MV 的红底本来就是一整片失焦的红光，越平越好。
+  function luHeat(c, t, top, bt, gain) {
+    var x, y, dx, dy, I;
+    for (y = top; y < bt; y++) for (x = 1; x < c.w - 1; x++) {
+      dx = (x - 60) / 78; dy = (y - 17.5) / 13.5;
+      I = (gain || 1) * (1.02 - 0.52 * dy * dy - 0.12 * dx * dx)
+        + ((hash16(x * 13 + y * 19) % 100) / 100 - 0.5) * 0.07
+        + 0.05 * Math.sin(t * 1.3 + x * 0.05);
+      if (I > 0.74) c.put(x, y, '█', R);
+      else if (I > 0.46) c.put(x, y, '▓', R);
+      else if (I > 0.24) c.put(x, y, '▒', R);
+      else if (hash16(x * 7 + y * 31) % 100 < 40) c.put(x, y, '·', R);
     }
-    // 四束超长光芒：日轮边界的"毛感"全靠这几根漏出来的光
-    for (i = 0; i < 4; i++) {
-      a = i / 4 * TAU + spin * 0.4 + 0.6;
-      if (i / 4 > sweep) continue;
-      var ca2 = Math.cos(a), sa2 = Math.sin(a);
-      ch = luDirChar(ca2, sa2 * 0.5);
-      for (r0 = rad; r0 < rad * 1.55; r0 += 1.2)
-        c.put(cx + ca2 * r0, cy + sa2 * r0 / 2, ch, r0 > rad * 1.3 ? G : R);
+  }
+
+  // 红色齿轮环：环体 + 内辐条 + 外圈齿。本段贯穿的视觉母题。
+  function luGearRing(c, cx, cy, rad, spin, body, tooth) {
+    var i, a, rr;
+    for (i = 0; i < 200; i++) {
+      a = i / 200 * TAU;
+      for (rr = rad * 0.80; rr <= rad; rr += 0.45)
+        c.put(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr / 2, rr > rad * 0.92 ? '█' : '▓', body || N);
     }
-    // 两道虚线光环：球缘之外再圈一层，日轮才不是一颗"实心球"而已
-    if (sweep > 0.55) {
-      var r1 = rad * 1.14, r2 = rad * 1.34;
-      for (i = 0; i < 140; i++) {
-        a = i / 140 * TAU + spin * 0.25;
-        if (!(i % 2)) c.put(cx + Math.cos(a) * r1, cy + Math.sin(a) * r1 / 2, '·', i % 6 ? G : N);
-        if (!(i % 3)) c.put(cx + Math.cos(a) * r2, cy + Math.sin(a) * r2 / 2, '.', G);
+    for (i = 0; i < 28; i++) {
+      a = i / 28 * TAU + spin;
+      for (rr = rad; rr < rad * 1.11; rr += 0.6)
+        c.put(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr / 2, '█', tooth || B);
+    }
+    if (rad > 6) for (i = 0; i < 8; i++) {
+      a = i / 8 * TAU + spin;
+      c.line(cx, cy, cx + Math.cos(a) * rad * 0.80, cy + Math.sin(a) * rad * 0.80 / 2, '▒', body || N);
+    }
+  }
+
+  // 一条锥形刀身：整条擦黑（调色板没有近黑色，黑只能从烧红的底上擦出来），
+  // 上缘补一道奶油反光当刃口。
+  function luClawBlade(c, x0, y0, x1, y1, w0, w1, rim) {
+    var n = Math.max(2, Math.round(Math.sqrt((x1 - x0) * (x1 - x0) + (y1 - y0) * (y1 - y0) * 4) * 1.5));
+    var i, u, px, py, w, h;
+    for (i = 0; i <= n; i++) {
+      u = i / n; px = x0 + (x1 - x0) * u; py = y0 + (y1 - y0) * u;
+      w = w0 + (w1 - w0) * u;
+      for (h = -w; h <= w; h += 0.5) c.put(px, py + h, ' ', D);
+      // 刃口反光用橙不用奶白：1 格就是 9px，奶白会把刃口糊成一根霓虹灯管。
+      if (rim) {
+        c.put(px, py - w, '█', N);
+        if (u > 0.5) c.put(px, py + w, '▒', R);
+      } else c.put(px, py + w, '▒', R);
+    }
+  }
+
+  // 机械爪：两片锥形刀身成对张开 + 铰接圆盘 + 铆钉。MV 106.4/106.8/111.2 的主体。
+  function luClaw(c, cx, cy, sc, ang, spread, rim) {
+    var len = 34 * sc, a2, i, rr, a;
+    luClawBlade(c, cx, cy,
+      cx + Math.cos(ang - spread) * len, cy + Math.sin(ang - spread) * len * 0.36,
+      4.6 * sc, 0.9 * sc, rim);
+    luClawBlade(c, cx, cy,
+      cx + Math.cos(ang + spread) * len * 0.86, cy + Math.sin(ang + spread) * len * 0.46,
+      3.8 * sc, 0.9 * sc, rim);
+    rr = 5.2 * sc;
+    for (a = 0; a < TAU; a += 0.05) {
+      c.put(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr / 2, ' ', D);
+      c.put(cx + Math.cos(a) * rr * 0.62, cy + Math.sin(a) * rr * 0.62 / 2, ' ', D);
+      c.put(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr / 2 + 0.55, '▓', R);
+    }
+    for (i = 0; i < 5; i++) {
+      a2 = i / 5 * TAU + ang;
+      c.put(cx + Math.cos(a2) * rr * 0.8, cy + Math.sin(a2) * rr * 0.8 / 2, '●', R);
+    }
+  }
+
+  // 正面轮盘（白闪里那个辐条轮）
+  function luWheel(c, cx, cy, rad, spin, st) {
+    var i, a;
+    for (i = 0; i < 190; i++) {
+      a = i / 190 * TAU;
+      c.put(cx + Math.cos(a) * rad, cy + Math.sin(a) * rad / 2, '█', st);
+      c.put(cx + Math.cos(a) * rad * 0.70, cy + Math.sin(a) * rad * 0.70 / 2, '▓', st);
+    }
+    for (i = 0; i < 12; i++) {
+      a = i / 12 * TAU + spin;
+      c.line(cx, cy, cx + Math.cos(a) * rad * 0.70, cy + Math.sin(a) * rad * 0.70 / 2, '▓', st);
+    }
+    c.put(cx, cy, '●', st);
+  }
+
+  // 字卡：TITLE_FONT 放大画（c.big 只有 1 倍，5 行高的字压不住满屏）
+  function luBigWord(c, text, y0, sx, sy, st, topSt) {
+    var total = text.length * 6 * sx - sx, left = Math.round((c.w - total) / 2);
+    for (var i = 0; i < text.length; i++) {
+      var g = TITLE_FONT[text.charAt(i)] || TITLE_FONT[' '];
+      for (var gy = 0; gy < g.length; gy++) for (var gx = 0; gx < g[gy].length; gx++) {
+        if (g[gy].charAt(gx) !== '1') continue;
+        for (var yy = 0; yy < sy; yy++) for (var xx = 0; xx < sx; xx++)
+          c.put(left + (i * 6 + gx) * sx + xx, y0 + gy * sy + yy, '█',
+                gy === 0 && topSt ? topSt : st);
       }
     }
   }
 
-  // 赤日前的人形：试过三版（实心 K 色 / 挖空 + 描边 / 收窄下摆），
-  // 12 行高的黑衣剪影在 1:2 字符格上只剩"一根带边的柱子"，读成墓碑或钥匙孔——
-  // 这个尺寸下画不出可辨认的头肩比，索性不画：这一镜的主角是光本身。
-  // 人物留给前后两段（殿堂立绘、切镜后的全景）。
-
-
-  // 白爆：首版按 hash 铺满整屏再蒸发，24fps 下是一张"坐标纸"（字符格之间本来就有
-  // 缝，整屏铺满时那些缝连成网格）。改成虹膜：从核心向外涨满，再从中心退开、
-  // 白环往外跑——中心最先露出标题，边缘最后消失。
-  function luLinkBlast(c, top, bt, cx, cy, rIn, rOut) {
-    var full = rOut > 0.001;
-    for (var y = top; y < bt; y++) for (var x = 0; x < c.w; x++) {
-      var d = Math.sqrt((x - cx) * (x - cx) + ((y - cy) * 2) * ((y - cy) * 2)) / 70;
-      // 边界按 hash 抖一点，虹膜边才不是一条几何圆弧
-      var j = (hash16(y * 197 + x * 61) / 65535 - 0.5) * 0.035;
-      // 涨满段 rIn:0→1；退散段 rOut:0→1 = 白环外沿，白先从中心让开、标题先露出来
-      var on = full ? (d + j >= rOut) : (d + j <= rIn);
-      if (!on) continue;
-      var edge = full ? (d - rOut) : (rIn - d);
-      if (edge < 0.05) c.put(x, y, '░', N);
-      else if (edge < 0.12) c.put(x, y, '▓', B);
-      else c.put(x, y, '█', W);
+  // 甩镜：一团暗影横扫过画面，拖影用横向断线。MV 107.6–109.2 全是这种帧。
+  function luWhip(c, t, top, bt, u) {
+    luHeat(c, t, top, bt, 1.02);
+    // 1.9s 只扫一遍太拖：按 2.4 个来回切，速度才像甩镜（MV 这条有 4 个不同机位的模糊帧）
+    var ph = (u * 2.4) % 1;
+    var mx = (Math.floor(u * 2.4) % 2 ? 190 - ph * 224 : -34 + ph * 190),
+        my = 15 + Math.sin(u * 6.2) * 5.5, x, y, d, i, x0;
+    for (y = top; y < bt; y++) for (x = 1; x < c.w - 1; x++) {
+      d = Math.abs(x - mx) / (30 + 8 * Math.sin(u * 9)) + Math.abs(y - my) / 8.5;
+      if (d < 0.86) c.put(x, y, ' ', D);
+      else if (d < 1.25 && hash16(x * 17 + y * 7) % 100 < 40) c.put(x, y, '·', R);
+    }
+    for (i = 0; i < 22; i++) {
+      var yy = my + (hash16(i * 71 + 3) / 65535 - 0.5) * 16;
+      x0 = mx - 8 - (hash16(i * 13 + 91) / 65535) * 26;
+      for (x = x0; x < x0 + 10; x++)
+        if (hash16(i * 31 + Math.round(x)) % 100 < 55) c.put(x, yy, '─', R);
     }
   }
 
-  function luLinkSequence(c, t, top, bt, age) {
-    function ease(v) { v = clamp01(v); return v * v * (3 - 2 * v); }
-    var cx = LU_LINK_CX, cy = LU_LINK_CY;
-    if (age < 3.90) {
-      // 余烬先画：luParticles 里最暗的一档是 D（#afaf5f），落在实心日面上
-      // 就是一颗颗黑斑，像球体被打穿。日轮后画把它盖住，只见外围的火星。
-      luParticles(c, t, top, bt, 30, 97, true, true);
-      // sweep 从 0.22 起：从 0 开始的话开头 3 帧几乎是全黑，切进来的第一眼是空屏
-      var ign = clamp01(0.22 + age / 1.15);            // 球体与光线按角度依次点亮
-      var iris = ease((age - 2.55) / 1.05);           // 2.55s 起虹膜收束
-      var rad = mix(mix(11, 27, ease(clamp01((age - 0.05) / 1.9))), 4, iris);
-      luLinkSun(c, cx, cy, rad, t * (0.3 + iris * 6.5) + age * 0.35, clamp01(ign * 1.15), 1 - iris * 0.35);
-      // 地平线：一条极暗的红线压在 31 行，画面才有底，不然日轮是浮在黑水里的
-      for (var gx = 0; gx < c.w; gx++)
-        if (hash16(gx * 97 + 13) % 100 < 62) c.put(gx, 31, '─', gx % 9 ? G : R);
-      // 收束时的离心速度线：给"虹膜在闭合"一个方向感
-      if (iris > 0.12) for (var s = 0; s < 42; s++) {
-        var hs = hash16(s * 89 + 7), a2 = hs / 65535 * TAU;
-        var d0 = rad + 2 + iris * 13, d1 = d0 + 3 + iris * 11;
-        for (var dd = d0; dd < d1; dd += 1.1)
-          c.put(cx + Math.cos(a2) * dd, cy + Math.sin(a2) * dd / 2,
-                dd - d0 < 1.6 ? '·' : '.', dd - d0 < 1.6 ? W : N);
-      }
+  // 红厅全景：左侧大齿轮 / 右侧立柱横梁 / 中间一个持镰的小小身影（MV 109.6）。
+  function luLinkHall(c, t, top, bt, k) {
+    luHeat(c, t, top, bt, 0.84);
+    var y, x, gy = 25, w;
+    for (x = 1; x < c.w - 1; x++) {
+      c.put(x, gy, '─', hash16(x * 91 + 5) % 100 < 70 ? R : N);
+      for (y = gy + 1; y < bt; y++)
+        if (hash16(x * 7 + y * 23) % 100 < 26 - (y - gy) * 3) c.put(x, y, '·', R);
     }
-    // 标题：4.3s 起就位，靠白环往画外退的那一下"浮"出来
-    if (age > 4.30) {
-      var pulse = 0.5 + 0.5 * Math.sin(age * 3.1), flash = mod(age * 0.7, 1) < 0.06;
-      // 双环：内环缓慢张开（4.3–7.48s 从 24 撑到 40），外环只在最后 1s 出现，
-      // 撑开的过程给"定格"一个时间感——否则三秒半的标题就是一张静止的图。
-      var grow = ease((age - 4.3) / 3.1), ring = 24 + grow * 16;
-      luRing(c, cx, cy - 1, ring, '·', pulse > 0.5 ? R : G, 3, t * 0.2);
-      if (grow > 0.55) luRing(c, cx, cy - 1, ring + 6, '.', G, 4, -t * 0.15);
-      // 交叉双刃：两道贯穿画面的血色斜线，交点落在标题后面
-      var sp = ease((age - 4.9) / 1.2);
-      if (sp > 0) {
-        c.line(cx - 46 * sp, cy + 12, cx + 46 * sp, cy - 12, '╱', mod(age, 1.4) < 0.18 ? R : G);
-        c.line(cx - 46 * sp, cy - 12, cx + 46 * sp, cy + 12, '╲', mod(age + 0.7, 1.4) < 0.18 ? R : G);
-      }
-      c.big(Math.round(cy) - 4, 'LINK UP', flash ? R : pulse > 0.5 ? W : B, '█');
-      // 副标按字符打出，与逐字歌词同步推进，别让下半屏是一行静止小字
-      var sub = 'B L O O D   &   F L A M E';
-      var nc = Math.min(sub.length, Math.floor(clamp01((age - 4.75) / 1.1) * sub.length));
-      if (nc > 0) c.center(Math.round(cy) + 4, sub.slice(0, nc), pulse > 0.5 ? N : G);
-      luParticles(c, t, top, bt, 14, 41, false, true);
+    luGearRing(c, 21, 14, 12.5, t * 0.22, N, B);
+    for (y = top; y < gy; y++) {
+      for (x = 97; x < 107; x++) c.put(x, y, ' ', D);
+      c.put(96, y, '▓', R);
     }
-    // 3.62s 起从核心涨满（0.24s 推到顶，只留 ~5 帧纯白）；4.02s 起白环往外退
-    if (age > 3.62 && age < 4.02) luLinkBlast(c, top, bt, cx, cy, ease((age - 3.62) / 0.24), 0);
-    else if (age >= 4.02) luLinkBlast(c, top, bt, cx, cy, 0, ease((age - 4.02) / 0.60));
-    clearRect(c, 0, top, c.w, 1); clearRect(c, 0, bt, c.w, 1);
-    c.put(3, top, age < 3.60 ? '41 / LIGHT THE SIGNAL' : '42 / LINK UP', N);
-    c.put(c.w - 19, top, age < 3.60 ? 'HALO / IGNITION' : 'LINK / LOCKED', R);
-    c.center(bt, age < 3.60 ? 'ONE FLAME / ONE SIGNAL' : 'BLOOD & FLAME / BOUND', B);
+    for (y = top; y < 11; y++) for (x = 52; x < 112; x++)
+      if (hash16(x * 3 + y * 11) % 100 < 52) c.put(x, y, '═', R);
+    w = 15 * (k || 1);
+    c.queen = { x: 60 - w / 2, y: luActorY(w, gy - 0.6, window.__LU_QUEEN_ANSI), width: w, t: t, reveal: 1 };
   }
-  function lu_s7_tunnel(c, t, top, bt, elapsed) { luLinkSequence(c, t, top, bt, elapsed); }
-  function lu_s7_link(c, t, top, bt, elapsed) { luLinkSequence(c, t, top, bt, 3.97 + elapsed); }
+
+  // 白闪 + 正面轮盘（MV 110.0）。整屏白只许 0.4s，久一点就是过曝。
+  function luLinkFlash(c, t, top, bt, u) {
+    var x, y, d;
+    for (y = top; y < bt; y++) for (x = 0; x < c.w; x++) c.put(x, y, '█', W);
+    luWheel(c, 66, 16, 7.5 + u * 3, t * 1.4, R);
+    for (y = top; y < bt; y++) for (x = 0; x < c.w; x++) {
+      d = Math.sqrt((x - 66) * (x - 66) + ((y - 16) * 2) * ((y - 16) * 2));
+      if (d > 52 && hash16(x * 5 + y * 3) % 100 < 34) c.put(x, y, '▒', N);
+    }
+  }
+
+  // "ONE MIND" 字卡（MV 110.4）：黑底、红字、左右被画框裁掉。
+  function luOneMind(c, t, top, bt) {
+    var x, y, flick = mod(t * 2.7, 1) < 0.09;
+    for (y = top; y < bt; y++) for (x = 0; x < c.w; x++) c.put(x, y, ' ', D);
+    // 顶面受光用橙不用 G：G 是暗芥末，在黑卡上读成"字顶沾了一圈泥"。
+    luBigWord(c, 'ONE MIND', 13, 2, 2, flick ? W : R, flick ? W : N);
+    luBigWord(c, 'AND ONE FORGOTTEN', 25, 1, 1, B);
+    // 一条自上而下的扫掠高光：字卡本来要"定住"，但整 10 帧一模一样会被当成渲染卡死
+    var sy2 = top + mod(t * 2.6, 1) * (bt - top), sx2;
+    for (sy2 = Math.max(top, Math.floor(sy2) - 1); sy2 < Math.min(bt, Math.floor(top + mod(t * 2.6, 1) * (bt - top)) + 2); sy2++)
+      for (sx2 = 1; sx2 < c.w - 1; sx2++)
+        if (c.cells[sy2] && c.cells[sy2][sx2][1] === R && c.cells[sy2][sx2][0] === '█')
+          c.put(sx2, sy2, '█', W);
+    var sd2 = Math.round(t * 20);      // 金星要逐帧换位，扫掠高光走过空档时画面才不会连拍重复
+    for (y = top; y < bt; y++) for (x = 0; x < c.w; x++)
+      if (hash16(x * 9 + y * 5 + sd2) % 100 < 9) c.put(x, y, '·', R);
+  }
+
+  // 角色站姿（MV 110.8）：她站在烧红的机械结构前，两只爪在身侧张开。
+  function luLinkPose(c, t, top, bt, k) {
+    luHeat(c, t, top, bt, 1.0);
+    luClaw(c, 122, 24, 1.05, Math.PI + 0.30, 0.42, 0);
+    luClaw(c, -4, 6, 1.0, -0.34, 0.42, 1);
+    var w = 25 * (k || 1);
+    c.queen = { x: 61 - w / 2, y: luActorY(w, 27, window.__LU_QUEEN_ANSI), width: w, t: t, reveal: 1 };
+  }
+
+  // 竖铁栅（MV 112.4）：几根粗黑柱 + 两道横梁，红光从缝里透出来。
+  function luBars(c, t, top, bt) {
+    luHeat(c, t, top, bt, 0.78);
+    var xs = [8, 32, 56, 80, 104], i, y, x, beam;
+    for (i = 0; i < xs.length; i++) {
+      for (y = top; y < bt; y++) {
+        for (x = xs[i]; x < xs[i] + 4; x++) c.put(x, y, ' ', D);
+        c.put(xs[i] + 4, y, '▒', R);
+        c.put(xs[i] - 1, y, '▓', R);
+      }
+      for (y = top + 3; y < bt; y += 5) c.put(xs[i] + 1, y, '●', R);
+    }
+    for (beam = 0; beam < 2; beam++) {
+      var by = 9 + beam * 15;
+      for (y = by; y < by + 2; y++) for (x = 4; x < c.w - 4; x++)
+        if (hash16(x * 7 + y * 5) % 100 < 74) c.put(x, y, ' ', D);
+      for (x = 4; x < c.w - 4; x++) { c.put(x, by + 2, '▒', R); c.put(x, by - 1, '▓', R); }
+    }
+  }
+
+  // 红走廊（MV 113.2–113.4）：两列竖柱向灭点收拢，尽头一团亮光。
+  function luAisle(c, t, top, bt, push) {
+    var k = 1 + push * 0.30, ZS = [3.6, 2.4, 1.55, 1.0, 0.62], b, side, y, x, zz, off, wc, ty2, by2;
+    luHeat(c, t, top, bt, 0.7);
+    for (b = 0; b < ZS.length; b++) {
+      zz = ZS[b]; off = 52 * k / zz; wc = Math.max(1.2, 5 / zz);
+      ty2 = top + 2 + 14 / zz; by2 = 28 - 3 + 6 / zz;
+      for (side = -1; side <= 1; side += 2) {
+        var px = 60 + side * off;
+        if (px < -6 || px > c.w + 6) continue;
+        for (y = Math.max(top, ty2); y <= Math.min(bt - 1, by2); y++) {
+          for (x = px - wc; x <= px + wc; x++) c.put(x, y, ' ', D);
+          c.put(px + side * wc, y, '▓', R);
+        }
+      }
+    }
+    // 尽头的光
+    for (y = top; y < bt; y++) for (x = 48; x < 72; x++) {
+      var dd = Math.sqrt((x - 60) * (x - 60) + ((y - 20) * 2) * ((y - 20) * 2));
+      if (dd < 5) c.put(x, y, '█', W);
+      else if (dd < 9) { if (hash16(x * 3 + y * 7) % 100 < 62) c.put(x, y, '▓', N); }
+      else if (dd < 15 && hash16(x * 5 + y * 11) % 100 < 34) c.put(x, y, '▒', N);
+    }
+  }
+
+  // 纯红闪（MV 114.0）+ 右下角白色飞溅
+  function luRedFlash(c, t, top, bt) {
+    // 飞溅要随帧往上跑，否则 4 帧一模一样（红闪本来就只剩"动"这一个信息）
+    var x, y, i, hx, hy, rise = Math.round(t * 42);
+    for (y = top; y < bt; y++) for (x = 1; x < c.w - 1; x++)
+      c.put(x, y, hash16(x * 3 + y * 9 + rise) % 100 < 22 ? '▓' : '█', R);
+    for (i = 0; i < 44; i++) {
+      hx = hash16(i * 37 + 5); hy = hash16(i * 71 + 13);
+      c.put(68 + (hx + rise) % 48, 23 + (hy + Math.round(t * 17)) % 8, i % 3 ? '·' : '█', W);
+    }
+  }
+
+  // 11 个硬切：起止都相对 96.03，跨 100.00 不重置
+  var LU_L7 = [
+    [0.00, 0.97, 'claw', '41 / MACHINE HEART', 'CLAW / CLOSED', 'THE MACHINE / HAS A HEART'],
+    [0.97, 2.87, 'whip', '41 / MACHINE HEART', 'WHIP / PAN', 'THE ROOM / SPINS PAST'],
+    [2.87, 3.37, 'hall', '41 / MACHINE HEART', 'HALL / VAST', 'ONE HALL / ONE THRONE'],
+    [3.37, 3.77, 'flash', '42 / ONE MIND', 'FLASH / WHITE', 'WHITE / THEN NOTHING'],
+    [3.77, 4.22, 'word', '42 / ONE MIND', 'WORD / CARVED', 'ONE MIND / ONE HEART'],
+    [4.22, 5.07, 'pose', '42 / ONE MIND', 'HER / STAND', 'SHE DOES NOT / KNEEL'],
+    [5.07, 5.77, 'claw2', '42 / ONE MIND', 'TEETH / AGAIN', 'THE MACHINE / HAS A HEART'],
+    [5.77, 6.57, 'bars', '42 / ONE MIND', 'BARS / BEHIND', 'BARS DO NOT / HOLD HER'],
+    [6.57, 6.92, 'aisle', '42 / ONE MIND', 'AISLE / RED', 'THE AISLE / IS RED'],
+    [6.92, 7.27, 'gear', '42 / ONE MIND', 'WHEEL / TURNING', 'THE WHEEL / KEEPS TURNING'],
+    [7.27, 7.52, 'red', '42 / ONE MIND', 'BLOOD / FLASH', 'RED / AND NOTHING ELSE']
+  ];
+
+  function lu_s7_montage(c, t, top, bt, e) {
+    var s = LU_L7[LU_L7.length - 1], i, u, k;
+    for (i = 0; i < LU_L7.length; i++) if (e < LU_L7[i][1]) { s = LU_L7[i]; break; }
+    u = clamp01((e - s[0]) / (s[1] - s[0]));
+    k = 1 + 0.12 * u;
+    switch (s[2]) {
+      case 'claw':
+        luHeat(c, t, top, bt, 1.0);
+        luGearRing(c, 74, 17, 20 + u * 3, t * 0.5, N, B);
+        luClaw(c, 44 - u * 5, 15 + u * 1.2, 1.0 + u * 0.28, 0.10, 0.46, 1);
+        break;
+      case 'whip': luWhip(c, t, top, bt, u); break;
+      case 'hall': luLinkHall(c, t, top, bt, 1); break;
+      case 'flash': luLinkFlash(c, t, top, bt, u); break;
+      case 'word': luOneMind(c, t, top, bt); break;
+      case 'pose': luLinkPose(c, t, top, bt, k); break;
+      case 'claw2':
+        luHeat(c, t, top, bt, 1.05);
+        luClaw(c, 62, 20, 1.5, Math.PI * 0.86, 0.34, 1);
+        luClaw(c, 30, 10, 0.9, 0.30, 0.40, 0);
+        break;
+      case 'bars': luBars(c, t, top, bt); break;
+      case 'aisle': luAisle(c, t, top, bt, u); break;
+      case 'gear':
+        luHeat(c, t, top, bt, 0.9);
+        luGearRing(c, 60, 17, 19 + u * 4, t * 2.2, N, B);
+        break;
+      case 'red': luRedFlash(c, t, top, bt); break;
+    }
+    clearRect(c, 0, top, c.w, 1);
+    c.put(3, top, s[3], N);
+    c.put(c.w - 19, top, s[4], R);
+    clearRect(c, 0, bt, c.w, 1);
+    c.center(bt, s[5], B);
+  }
 
   // ===== 主歌二 step in 103.51–124.00 粒度细分：5 子场景 =====
 
@@ -7747,8 +7894,7 @@ title: 字符演歌
         { a: 82.40,  b: 86.35,  f: lu_s6_rose },
         { a: 86.35,  b: 92.35,  f: lu_s6_nave },
         { a: 92.35,  b: 96.03,  f: lu_s6_card },
-        { a: 96.03,  b: 100.00, f: lu_s7_tunnel },
-        { a: 100.00, b: 103.51, f: lu_s7_link },
+        { a: 96.03,  b: 103.51, f: lu_s7_montage },
         { a: 103.51, b: 106.15, f: lu_s8_step },
         { a: 106.15, b: 110.21, f: lu_s8_weapon },
         { a: 110.21, b: 114.04, f: lu_s8_heart },
