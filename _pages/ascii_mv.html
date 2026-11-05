@@ -5396,12 +5396,263 @@ title: 字符演歌
     c.put(c.w-24,top,age<4.10?('FORGE / '+Math.min(3,p.hit+2)+' OF 3'):'LINK / UNBREAKABLE',R);
     c.center(bt,age<4.10?'BLOOD + FIRE   /   FORGED TOGETHER':'WHAT ONCE BOUND US / NOW BINDS US TOGETHER',B);
   }
-  function lu_s5_strike(c,t,top,bt,elapsed) {
-    luForgeSequence(c,t,top,bt,elapsed);luForgeCaption(c,top,bt,elapsed);
+  // ===== 副歌二 72.01–80.00「LINK UP」：按 MV 82.6–90.6 改成硬切快剪 =====
+  // 旧稿自创了"三击把熔金锻成双环"，MV 里根本没有这件事；副歌的力量来自剪辑节奏，
+  // 不是叠更多特效。参考帧顺序（MV t ≈ 歌曲 t + 10.6）：
+  //   82.6 红霓虹腔里悬着一枚竖长符文框 → 83.8 白闪过曝 → 84.6 俯视的巨型圆鼓
+  //   86.2 黄铜圆舱，舱内一个逆光剪影 → 87.4 紫雾漩涡 → 88.2 暗室
+  //   89.2 走廊行走（竖向光带）→ 90.4 面部特写
+  // 本页调色板没有蓝紫，走廊/暗室的冷色一律翻译成暗红，保持全片一个色系。
+
+  // 逆光人形剪影的掩膜：不拿立绘降采样——立绘连大镰刀和披发一起算进去，缩到 22 列
+  // 只剩一团毛边（实测 22×11 的掩膜读不出人形）。这里按人体比例生成一个干净的
+  // 站立轮廓：头 + 肩 + 下摆微张的大衣，宽度占舱口的 1/3 左右。
+  function luFigureSil(cols) {
+    var rows = Math.max(6, Math.round(cols * 1.55)), g = [], gy, gx, s;
+    for (gy = 0; gy < rows; gy++) {
+      var u = gy / (rows - 1), hw;
+      if (u < 0.15) {                                  // 头：圆
+        var t = (u - 0.075) / 0.08;
+        hw = t * t < 1 ? 0.135 * Math.sqrt(1 - t * t) : 0;
+      } else if (u < 0.21) hw = 0.085;                 // 脖子
+      else if (u < 0.30) hw = 0.085 + (u - 0.21) / 0.09 * 0.185;   // 肩
+      else hw = 0.27 + (u - 0.30) / 0.70 * 0.21;       // 大衣下摆往外张
+      s = '';
+      for (gx = 0; gx < cols; gx++) {
+        var d = Math.abs(gx - (cols - 1) / 2) / (cols - 1);
+        // 下摆最后两行开个缝，两条腿才分得出来
+        if (u > 0.90 && d < 0.055) { s += '.'; continue; }
+        s += d <= hw ? '#' : '.';
+      }
+      g.push(s);
+    }
+    return { w: cols, h: rows, g: g };
   }
-  function lu_s5_ring(c,t,top,bt,elapsed) {
-    luForgeSequence(c,t,top,bt,4.11+elapsed);luForgeCaption(c,top,bt,4.11+elapsed);
+  // 把剪影挖成洞（逆光 = 舱内亮、人全黑），再沿外缘点一圈红光当轮廓光。
+  function luDrawSil(c, sil, cx, baseY, edge) {
+    if (!sil) return;
+    var x0 = Math.round(cx - sil.w / 2), y0 = baseY - sil.h + 1, gx, gy, n;
+    for (gy = 0; gy < sil.h; gy++) for (gx = 0; gx < sil.w; gx++)
+      if (sil.g[gy].charAt(gx) === '#') c.put(x0 + gx, y0 + gy, ' ');
+    for (gy = 0; gy < sil.h; gy++) for (gx = 0; gx < sil.w; gx++) {
+      if (sil.g[gy].charAt(gx) === '#') continue;
+      n = 0;
+      if (gy > 0 && sil.g[gy - 1].charAt(gx) === '#') n++;
+      if (gy < sil.h - 1 && sil.g[gy + 1].charAt(gx) === '#') n++;
+      if (gx > 0 && sil.g[gy].charAt(gx - 1) === '#') n++;
+      if (gx < sil.w - 1 && sil.g[gy].charAt(gx + 1) === '#') n++;
+      if (n) c.put(x0 + gx, y0 + gy, n > 1 ? '▓' : '░', edge || R);
+    }
   }
+
+  // ① 红霓虹腔：左侧发光柱 + 中央悬浮的竖长符文框，缓慢推近。
+  function luShot_neon(c, t, top, bt, u) {
+    var x, y, i, j;
+    var cx = 63, cy = 18;
+    var push = 0.94 + luEase(u) * 0.18;
+    var beat = mod(t * 1.85, 1), env = Math.exp(-beat * 5);
+    for (y = top; y <= bt; y++) for (x = 2; x < c.w - 2; x++) {
+      var dx = (x - cx) / 2.6, dy = y - cy, rr = Math.sqrt(dx * dx + dy * dy);
+      var I = Math.exp(-rr / 18) * (0.80 + env * 0.30);
+      if (I > 0.52) c.put(x, y, '░', R);
+      else if (I > 0.22 && hash16(x * 11 + y * 7) % 100 < 58) c.put(x, y, '·', R);
+    }
+    // 左侧结构柱（MV 里画面左边那根烧红的立柱）：外框肋骨 + 内缝白热
+    for (y = top; y <= bt; y++) {
+      c.put(12, y, '│', R); c.put(13, y, '▓', R);
+      c.put(14, y, '█', hash16(y * 37) % 100 < 12 ? W : R);
+      c.put(15, y, '█', R); c.put(16, y, '▓', R); c.put(17, y, '│', R);
+      if (y % 7 === 0) for (i = 11; i <= 18; i++) c.put(i, y, '─', R);
+    }
+    for (y = top; y <= bt; y += 3) c.put(104, y, '▓', R);
+    // 符文框：竖长矩形，双层描边 + 外晕；框内挖空才读得出"悬着一块屏"
+    var fx = Math.round(cx + Math.sin(t * 0.9) * 0.8);
+    var fy = Math.round(cy + Math.sin(t * 1.1 + 0.6) * 0.7);
+    var hw = Math.round(7 * push), hh = Math.round(hw * 0.72);
+    for (j = -hh - 3; j <= hh + 3; j++) for (i = -hw - 3; i <= hw + 3; i++) {
+      var ex = hw - Math.abs(i), ey = (hh - Math.abs(j)) * 2;
+      var e2 = Math.min(ex, ey);
+      if (e2 < 0) continue;
+      if (e2 < 1.0) c.put(fx + i, fy + j, '█', R);
+      else if (e2 < 2.0) c.put(fx + i, fy + j, '▒', R);
+      else if (e2 < 3.0 && hash16((i + 9) * 31 + (j + 9) * 17) % 100 < 52) c.put(fx + i, fy + j, '░', R);
+      else if (e2 < 4.2) c.put(fx + i, fy + j, ' ');
+    }
+  }
+
+  // ② 白闪过曝（MV 83.8 的转场）：0.28 秒，把前后两镜连起来。
+  function luShot_flash(c, top, bt, u) {
+    var k = Math.sin(clamp01(u) * Math.PI), x, y, n;
+    for (y = top; y <= bt; y++) for (x = 2; x < c.w - 2; x++) {
+      n = hash16(x * 7 + y * 13 + 911) % 100;
+      if (n < 18 + k * 82) c.put(x, y, n < 6 + k * 62 ? '█' : '▓', k > 0.72 ? W : (k > 0.40 ? B : N));
+    }
+  }
+
+  // ③ 巨型圆鼓：铁壳 + 环带 + 圆形徽记，低机位仰视，暖光从左上来。
+  function luShot_drum(c, t, top, bt, u) {
+    var x, y, i;
+    var cx = 58 - 3 * u, cy = 15.5 + u * 1.2, RAD = 40 + 5 * u;
+    var spin = t * 0.06;
+    for (y = top; y <= bt; y++) for (x = 2; x < c.w - 2; x++) {
+      var dx = (x - cx) / 2.2, dy = y - cy, rr = Math.sqrt(dx * dx + dy * dy);
+      var I = Math.exp(-rr / 30) * 0.62;
+      if (I > 0.34) c.put(x, y, '░', N);
+      else if (I > 0.17 && hash16(x * 17 + y * 23) % 100 < 42) c.put(x, y, '·', N);
+    }
+    // 支架：鼓下面是立柱，越往下越暗，出画即可
+    for (y = cy + 9; y <= bt; y++) {
+      var half = 4 + (y - cy - 9) * 0.35;
+      for (i = 0; i < half; i++) {
+        c.put(cx - half + i, y, i % 2 ? '▒' : '▓', R);
+        c.put(cx + half - i, y, i % 2 ? '▒' : '▓', R);
+      }
+    }
+    for (y = top; y <= bt; y++) for (x = 2; x < c.w - 2; x++) {
+      var dx2 = x - cx, dy2 = (y - cy) * 2 / 0.62;      // 0.62 = 垂直压缩，做出俯角
+      var r = Math.sqrt(dx2 * dx2 + dy2 * dy2);
+      if (r > RAD) continue;
+      var a = Math.atan2(dy2, dx2) + spin;
+      var lit = 0.62 + 0.38 * Math.cos(a - 3.6);        // 左上来光
+      // 环带：赤道一圈厚箍，箍上打铆钉
+      var band = Math.abs(r - RAD * 0.80) < RAD * 0.055;
+      var rim = r > RAD * 0.955 || (r > RAD * 0.90 && Math.cos(a * 26) > 0.35);
+      if (rim) c.put(x, y, '▓', lit > 0.75 ? B : N);
+      else if (band) {
+        var rivet = Math.abs(mod(a * 9.5, 1) - 0.5) < 0.16;
+        c.put(x, y, rivet ? '█' : '▒', rivet ? (lit > 0.7 ? W : B) : N);
+      } else if (Math.abs(r - RAD * 0.46) < RAD * 0.075) c.put(x, y, '▒', lit > 0.8 ? W : B);
+      else if (Math.abs(r - RAD * 0.30) < 1.2 && Math.abs(Math.sin(a * 4)) > 0.55) c.put(x, y, '░', N);
+      else if (r < RAD * 0.30) c.put(x, y, hash16(x * 13 + y * 29) % 100 < 40 ? '▒' : '░', B);
+      else if (hash16(x * 31 + y * 17) % 100 < 46) c.put(x, y, '░', lit > 0.8 ? N : R);
+      else if (hash16(x * 7 + y * 41) % 100 < 22) c.put(x, y, '·', R);
+    }
+    // 徽记：鼓心一个圆环 + 十字刻线
+    for (i = 0; i < 40; i++) {
+      var ta = i / 40 * TAU;
+      c.put(Math.round(cx + Math.cos(ta) * RAD * 0.17), Math.round(cy + Math.sin(ta) * RAD * 0.17 / 2),
+            '·', B);
+    }
+  }
+
+  // ④ 黄铜圆舱：齿轮外环 + 同心环箍 + 琥珀内壁，中央一个逆光的人。
+  // 舱内要"亮而不糊"：只靠低密度 ░ 铺满会整屏读成噪点墙，所以内壁先按半径分三层环箍，
+  // 再叠稀疏填充，最后沿舱口打一圈高光——口沿才是"这是个洞"的关键。
+  function luShot_chamber(c, t, top, bt, u) {
+    var x, y, i;
+    var cx = 60, cy = 18, RAD = 37 + u * 4;
+    for (y = top; y <= bt; y++) for (x = 2; x < c.w - 2; x++) {
+      var dx = x - cx, dy = (y - cy) * 2;
+      var r = Math.sqrt(dx * dx + dy * dy);
+      if (r > RAD * 1.22) continue;
+      var a = Math.atan2(dy, dx);
+      if (r > RAD) {                                       // 外圈齿轮
+        var tooth = Math.cos(a * 22) > 0.35;
+        if (r > RAD + 4.0 && !tooth) continue;
+        c.put(x, y, tooth && r > RAD + 1.8 ? '▓' : '▒', r > RAD + 1.8 ? B : N);
+        continue;
+      }
+      if (r > RAD - 1.6) { c.put(x, y, '▓', B); continue; }          // 口沿高光
+      if (r > RAD - 3.4) { c.put(x, y, '▒', N); continue; }          // 口沿内侧
+      // 同心环箍：三条，越靠内越亮
+      var ring = Math.abs(r - RAD * 0.80) < 1.3 || Math.abs(r - RAD * 0.55) < 1.1 ||
+                 Math.abs(r - RAD * 0.30) < 0.9;
+      // 辐条：每 22.5° 一根，只在外半区
+      var spoke = r > RAD * 0.34 && Math.abs(Math.sin(a * 4)) < 0.06;
+      if (ring) { c.put(x, y, '▒', r < RAD * 0.4 ? B : N); continue; }
+      if (spoke) { c.put(x, y, '│', R); continue; }
+      // 内壁：必须**填满**（用 ░ 的自身覆盖率做调子），留洞只会让整舱读成黑的；
+      // 逆光剪影正是靠这层亮底才立得住。
+      var I = 1.05 - r / (RAD * 1.15);
+      if (I > 0.60) c.put(x, y, '░', B);
+      else if (I > 0.26) c.put(x, y, '░', N);
+      else c.put(x, y, '·', R);
+    }
+    luDrawSil(c, luFigureSil(10), cx, 31, R);
+    // 舱内浮尘：缓缓下沉，别太密
+    for (i = 0; i < 20; i++) {
+      var hx = hash16(i * 71 + 13) % 100, hy = hash16(i * 37 + 91) % 100;
+      c.put(cx - 24 + hx * 0.48, top + 2 + mod(hy * 0.24 + t * 0.55, 24), '·', B);
+    }
+  }
+
+  // ⑤ 紫雾漩涡（冷色翻译成暗红）：旋臂向中心收，中心留黑眼。
+  function luShot_vortex(c, t, top, bt, u) {
+    var x, y;
+    var cx = 60, cy = 18, RAD = 46;
+    for (y = top; y <= bt; y++) for (x = 2; x < c.w - 2; x++) {
+      var dx = x - cx, dy = (y - cy) * 2;
+      var r = Math.sqrt(dx * dx + dy * dy);
+      if (r > RAD) continue;
+      var a = Math.atan2(dy, dx);
+      var sw = Math.sin(a * 3 + r * 0.22 - t * 2.6);
+      var I = (0.5 + 0.5 * sw) * Math.min(1, r / 10) * (1 - r / (RAD * 1.05));
+      if (r < 7) continue;                               // 中心黑洞
+      if (I > 0.58) c.put(x, y, '▓', R);
+      else if (I > 0.30) c.put(x, y, '▒', R);
+      else if (I > 0.12) c.put(x, y, '░', R);
+      else if (hash16(x * 19 + y * 31) % 100 < 24) c.put(x, y, '·', R);
+    }
+    // 中心往外甩的一圈火星
+    for (var i = 0; i < 30; i++) {
+      var ha = hash16(i * 13) % 628 / 100, hr = 8 + mod(hash16(i * 57) % 100 * 0.35 + t * 6, 26);
+      c.put(cx + Math.cos(ha) * hr, cy + Math.sin(ha) * hr / 2, '·', i % 3 ? R : B);
+    }
+  }
+
+  // ⑥ 暗室 → 走廊：竖向光带做等距节奏，女王贴着地线走，末端切脸部特写。
+  function luShot_corridor(c, t, top, bt, u) {
+    var x, y, i;
+    var floor = bt - 3;
+    for (y = top; y <= bt; y++) for (x = 2; x < c.w - 2; x++)
+      if (hash16(x * 13 + y * 41) % 100 < 12) c.put(x, y, '·', R);
+    // 五根竖光带：越靠近画面右边越亮（光从走廊深处来）
+    for (i = 0; i < 6; i++) {
+      var bx = 10 + i * 20 + Math.sin(t * 0.5 + i) * 0.6;
+      var h = 20 + i % 2 * 3, k = 0.30 + i * 0.10;
+      for (y = floor - h; y <= floor; y++) {
+        if (y < top) continue;
+        c.put(bx, y, k > 0.7 ? '▓' : (k > 0.5 ? '▒' : '░'), R);
+        if (k > 0.55) c.put(bx + 1, y, '░', R);
+      }
+    }
+    for (x = 4; x < c.w - 4; x++) c.put(x, floor, '─', hash16(x * 23) % 100 < 60 ? R : N);
+    for (x = 4; x < c.w - 4; x += 3) c.put(x, floor + 1, '╱', R);
+    var wQ = 22, push = 0.94 + luEase(clamp01(u / 0.9)) * 0.16;
+    wQ *= push;
+    c.queen = { x: 58 - wQ / 2, y: luActorY(wQ, floor - 0.6, window.__LU_QUEEN_ANSI),
+                width: wQ, t: t, reveal: 1 };
+  }
+
+  function lu_s5_strike(c, t, top, bt, elapsed) {
+    var e = elapsed;
+    if (e < 1.34) luShot_neon(c, t, top, bt, e / 1.34);
+    else if (e < 1.62) luShot_flash(c, top, bt, (e - 1.34) / 0.28);
+    else if (e < 2.92) luShot_drum(c, t, top, bt, (e - 1.62) / 1.30);
+    else luShot_chamber(c, t, top, bt, (e - 2.92) / 1.19);
+    clearRect(c, 0, top, c.w, 1);
+  }
+  function lu_s5_ring(c, t, top, bt, elapsed) {
+    var e = elapsed;
+    if (e < 1.05) luShot_vortex(c, t, top, bt, e / 1.05);
+    else if (e < 1.62) {
+      var x, y;                                          // 暗室：几乎全黑，只有墙缝与浮尘
+      for (y = top; y <= bt; y++) for (x = 2; x < c.w - 2; x++)
+        if (hash16(x * 31 + y * 17) % 100 < 10) c.put(x, y, '·', R);
+      for (y = top + 2; y <= bt - 2; y++) c.put(30, y, '░', R);
+      for (y = top + 4; y <= bt - 6; y++) c.put(96, y, '░', R);
+    } else if (e < 2.75) luShot_corridor(c, t, top, bt, (e - 1.62) / 1.13);
+    else {
+      // 真特写：宽度给到 120 才只看得见头和肩——76 宽时全身都在画里，读成中景。
+      var w = 116 + luEase(clamp01((e - 2.75) / 1.1)) * 10;
+      c.queen = { x: 60 - w / 2, y: 5.2, width: w, t: t, reveal: 1 };
+      var i2, y2, x2;
+      for (y2 = top; y2 <= bt; y2++) for (x2 = 2; x2 < c.w - 2; x2++)
+        if (hash16(x2 * 7 + y2 * 13) % 100 < 14) c.put(x2, y2, '·', R);
+    }
+    clearRect(c, 0, top, c.w, 1);
+  }
+
 
   // ===== 殿堂段 80.00–96.03：红门 / 淬火轮盘 / 持镰近景 / 血蔷薇 =====
   // 用户提供的 110×55 ANSI 半块角色：保留原始上下半格，不压成 120×40 场景格。
