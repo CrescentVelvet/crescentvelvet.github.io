@@ -5078,324 +5078,6 @@ title: 字符演歌
     clearRect(c,0,bt,c.w,1);
     c.center(bt,['YOUR NAME / THROUGH THE FLAMES','EVERY FLAME / REMEMBERS YOU','ALL FIRE / ONE HEART'][seg],B);
   }
-
-  // ===== 副歌一锻造 72.01–80.00：柱锤三击，把熔金锻成相扣双环 =====
-
-  // 三击落在 1.40 / 2.85 / 4.10：第三击正好压住第二句副歌的换句点（76.12s），
-  // 之后柱锤整根收回画外，把画面中央让给双环。
-  // FORGE_HIGH=1 时锤头整个躲到画面上方，两次落锤之间半秒画面中央空无一物；
-  // 停在 14：锤头占 8–14，锤颈还留 3 行在画内。停在 11 时锤颈整根在画外，
-  // 锤头就变成一个凭空悬着的盒子。
-  var FORGE_HITS=[1.40,2.85,4.10],FORGE_HIGH=14,FORGE_LOW=21;
-  // 锤底高度的关键帧。分段线性 + 段内缓动，相邻段严格首尾相接。
-  // ⚠️ 不能按 hits 反推每段的起止：抬起还没走完下一记下落就开始，一帧要跳十来格。
-  // 首记从画外砸进来（-18），之后都在 10 与 21 之间往复，第三记后整根收回画外。
-  // 首记从 -6 起（锤头顶在 -12，刚好在画外）：从 -18 起的话，线性下落到看得见要 0.35s，
-  // 那段正好是上一镜白热柱塌完、锤子还没进来的空档。
-  var FORGE_KEY=[[0,-6],[0.55,-6],[1.40,FORGE_LOW],[1.54,FORGE_LOW],[2.16,FORGE_HIGH],
-                 [2.30,FORGE_HIGH],[2.85,FORGE_LOW],[2.99,FORGE_LOW],[3.52,FORGE_HIGH],
-                 [3.62,FORGE_HIGH],[4.10,FORGE_LOW],[4.28,FORGE_LOW],[5.20,-18]];
-
-  function luForgePose(age) {
-    var bottom=-18;
-    for(var i=0;i+1<FORGE_KEY.length;i++) {
-      if(age<=FORGE_KEY[i+1][0]) {
-        var a=FORGE_KEY[i][1],b=FORGE_KEY[i+1][1];
-        var u=clamp01((age-FORGE_KEY[i][0])/Math.max(1e-4,FORGE_KEY[i+1][0]-FORGE_KEY[i][0]));
-        // 大落差（首记从画外进来）用线性：三次方缓动会让锤子在前 0.6s 一直停在画外，
-        // 等到看得见时只剩两帧就砸到砧面，读成"凭空出现"。
-        var big=(b-a)>24;
-        bottom=mix(a,b,b>a?(big?u:u*u*u):1-Math.pow(1-u,2.2));   // 落：加速；抬：减速
-        break;
-      }
-    }
-    var last=-1,dt=99;
-    for(var k2=0;k2<FORGE_HITS.length;k2++)if(age>=FORGE_HITS[k2]){last=k2;dt=age-FORGE_HITS[k2];}
-    return {bottom:bottom,hit:last,dt:dt};
-  }
-
-  // 岸边：一整片厚石壁 + 壁柱上两盆火。
-  // 旧版是六根各自独立的柱子（柱身上还竖着一列 ◆），缩略图里读成"带按钮的货架"。
-  function luForgeBrazier(c,x,y,t,seed) {
-    c.line(x-4,y,x+4,y,'▄',N);                     // 盆口
-    c.line(x-3,y-1,x+3,y-1,'█',G);
-    var h=4.2+1.0*Math.sin(t*3.1+seed);
-    for(var i=0;i<h;i++) {
-      var u=i/h,w=Math.max(0,2.2-u*2.0)*(0.86+0.14*Math.sin(t*9+i*1.7+seed));
-      var xx=x+Math.round(Math.sin(t*2.2+i*0.7+seed)*0.9);
-      // 每一行逐格掷骰：整行实心会在盆上堆成一摞"奶油块"，火没有齐边
-      for(var d=-Math.ceil(w);d<=Math.ceil(w);d++) {
-        if(Math.abs(d)>w)continue;
-        if(Math.abs(d)>w-1&&hash16(((i+1)*73+(d+9)*29+Math.floor(t*11))&65535)%100<42)continue;
-        // 白热只留焰尖一点点：整朵给白色会读成一撮灰烟
-        c.put(xx+d,y-2-i,u<0.55?'█':(u<0.85?'▓':'·'),u<0.16?W:(u<0.70?B:N));
-      }
-    }
-  }
-
-  function luForgeWall(c,cx,t) {
-    for(var side=-1;side<=1;side+=2) {
-      var xi=cx+side*33,xo=side>0?c.w-2:1;
-      for(var y=13;y<=30;y++) {
-        for(var x=xi;side>0?x<=xo:x>=xo;x+=side) {
-          var nd=Math.abs(x-xi)/Math.max(1,Math.abs(xo-xi)),ch,st;
-          if(y===13){ch='▄';st=G;}                 // 压顶石：用暗棕，亮一带会变成隔板
-          else if(nd<0.03){ch='│';st=N;}           // 朝内的受光亮棱
-          else if(nd<0.14){ch='█';st=G;}
-          else if(nd>0.72){ch='▒';st=K;}           // 靠画框一侧沉下去
-          else {ch='▓';st=G;}
-          c.put(x,y,ch,st);
-        }
-        // 断砖缝：整条横贯会把石壁读成货架隔板
-        if(y>14&&(y-13)%5===0)for(var bx=xi+side*4;side>0?bx<xo-3:bx>xo+3;bx+=side*9)
-          c.line(bx,y,bx+side*5,y,'─',K);
-      }
-      // 壁柱：两道竖棱压出进深，柱头一盆火
-      for(var col=0;col<2;col++) {
-        var px=cx+side*(39+col*13);
-        for(var y2=12;y2<=30;y2++)for(var d=-2;d<=2;d++)
-          c.put(px+d,y2,d===-2?'│':(d===2?'▒':'▓'),d===-2?N:(d===2?K:G));
-        c.line(px-4,11,px+4,11,'▄',N);
-        luForgeBrazier(c,px,12,t,col*2.1+side);
-      }
-      c.line(cx+side*20,31,cx+side*56,31,'·',N);
-    }
-  }
-
-  // 砧座：上砧面宽、腰部收窄、底座外张。铁砧的剪影就是这三段，
-  // 旧版做成三根等宽的彩条，缩略图里读成"地上叠着几块板"。
-  function luForgeAnvil(c,cx,hot) {
-    var rows=[[24,26,'▄',B],[25,26,'█',N],[26,22,'▓',G],[27,14,'█',G],
-              [28,20,'▓',G],[29,31,'█',G],[30,31,'▄',K]];
-    for(var i=0;i<rows.length;i++)c.line(cx-rows[i][1],rows[i][0],cx+rows[i][1],rows[i][0],rows[i][2],rows[i][3]);
-    // 砧面上的热斑：每落一锤亮一度，锤头抬起后慢慢暗回去
-    var w=Math.round(9+hot*15);
-    for(var x=-w;x<=w;x++) {
-      var nd=Math.abs(x)/w;
-      c.put(cx+x,24,nd>0.80?'▄':'█',hot>0.42?W:(nd>0.62?N:B));
-    }
-  }
-
-  // 柱锤：宽厚的锤头 + 一路伸出画外的锤颈。
-  // 旧版是一根等宽通高、内部塞满 ◆ 铭纹的方柱，外面还套着两道细竖线，
-  // 缩略图里读成"悬着的电梯 / 发光的牌子"，完全没有重量感。
-  function luForgeRam(c,cx,bottom,t,faster) {
-    if(bottom<-5)return;
-    var b=Math.round(bottom);
-    // 锤颈：从锤头顶面一路伸到画面上缘之外，读作"从天花板压下来的锻机"
-    for(var y=Math.min(b-6,5);y<=b-6;y++) {
-      c.put(cx-3,y,'│',N);c.put(cx-2,y,'▓',G);
-      c.put(cx-1,y,'█',B);c.put(cx,y,'█',B);c.put(cx+1,y,'▓',G);
-      c.put(cx+2,y,'▒',K);c.put(cx+3,y,'│',N);
-      if(mod(y-b,8)===0){c.put(cx-2,y,'◆',B);c.put(cx+2,y,'◆',B);}
-    }
-    // 锤头：7 行高、24 格宽。旧版 6 行 × 28 宽（1:4.7）太扁，再从中间横一道暗箍，
-    // 缩略图里就是"悬空的长条板凳"。竖的两条铸件分缝把正面分成三块，才像一块铸钢。
-    var hw=[9,12,12,12,12,12,12];
-    for(var k=0;k<7;k++) {
-      var yy=b-6+k,w=hw[k];
-      for(var x2=-w;x2<=w;x2++) {
-        var nd2=Math.abs(x2)/w,ch2,st2;
-        if(k===6){ch2='█';st2=nd2<0.36?W:(nd2<0.80?N:B);}      // 打击面：中心白热
-        else if(k===0){ch2='▄';st2=x2<0?W:(x2<w*0.5?B:N);}     // 顶面：窄一档，受天光
-        else if(k===5){ch2='▓';st2=nd2>0.70?G:N;}              // 底面阴影带，压出厚度
-        else {
-          ch2=nd2>0.90?'▒':'█';
-          st2=nd2>0.90?G:B;
-          // 高光只给左上角两三行：整条通高白带会让锤头读成"一本书的书脊"
-          if(k<=3&&x2>=-w*0.92&&x2<=-w*0.70)st2=W;
-          else if(x2>w*0.34)st2=N;                             // 右侧压暗
-          if(Math.abs(x2+7.5)<0.6||Math.abs(x2-7.5)<0.6){ch2='│';st2=G;}
-        }
-        c.put(cx+x2,yy,ch2,st2);
-      }
-    }
-    // 高速下坠时的速度线：只在锤头两侧、锤颈之外，不遮主体
-    if(faster>0.55)for(var i2=0;i2<8;i2++) {
-      var sd2=hash16(i2*271+b)&65535,ox=(sd2%19)-9;
-      if(Math.abs(ox)<6)continue;
-      c.put(cx+ox,b-8-((sd2>>6)%5),'│',i2%2?G:N);
-    }
-  }
-
-  // 相扣双环：两个椭圆环带，**上交叉点让右环连续、下交叉点让左环连续**，
-  // 交替断开才读得出穿扣。旧版把四段弧按上/下半圈排序重绘，
-  // 结果中间糊成一坨，缩略图读成一副眼镜。
-  function luForgeLinks(c,cx,cy,rx,ry,sep,t) {
-    // 两个环不等高：右环高、左环低。等高并排时两个环的上下弧会在同一行对齐，
-    // 缩略图里挤成一只"蝴蝶酥"；错开两行立刻有了"一环穿过另一环"的纵深。
-    function ring(ccx,ccy,skipZone) {
-      var steps=132;
-      for(var i=0;i<steps;i++) {
-        var a=i/steps*TAU,ca=Math.cos(a),sa=Math.sin(a);
-        var ox=ccx+ca*rx,oy=ccy+sa*ry;
-        if(Math.abs(ox-cx)<3.4) {
-          if(skipZone==='top'&&oy<ccy)continue;             // 上交叉：右环压过左环
-          if(skipZone==='bottom'&&oy>ccy)continue;          // 下交叉：左环压过右环
-        }
-        var ix=ccx+ca*(rx-1.8),iy=ccy+sa*(ry-0.9);
-        // 光来自左上：受光面白热、正面金、背光面橙。整环只用金白两色，
-        // 掺暗棕会读成"生锈的铁圈"，不是新锻出来的。
-        // 这是整段的落点，要比前后都亮：受光面白、正面实金、背光面也用金（只是网点稀），
-        // 背光一档给橙会整块发暗，缩略图里读成"锈了的铁圈"。
-        var lit=-ca*0.60-sa*0.80;
-        var ch,st;
-        if(lit>0.56){ch='█';st=W;}
-        else if(lit>0.02){ch='█';st=B;}
-        else if(lit>-0.60){ch='▓';st=B;}
-        else {ch='▓';st=N;}
-        // 最暗一档不能掉到 ▒：25% 网点在缩略图里几乎看不见，右半个环像断了
-        c.line(ix,iy,ox,oy,ch,st);
-      }
-    }
-    var yl=cy+1.0,yr=cy-1.0;
-    ring(cx-sep,yl,'top');
-    ring(cx+sep,yr,'bottom');
-    // 两段流光沿环滑走：静帧之间不完全一样，也让"金属"有反光在动
-    var sh=mod(t*0.42,1)*TAU;
-    for(var q=0;q<3;q++) {
-      var aq=sh+q*0.16;
-      c.put(cx-sep+Math.cos(aq)*rx,yl+Math.sin(aq)*ry,'◆',q?B:W);
-      c.put(cx+sep+Math.cos(aq+2.3)*(rx-1),yr+Math.sin(aq+2.3)*(ry-0.9),'◆',q?B:W);
-    }
-  }
-
-  function luForgeSequence(c,t,top,bt,age) {
-    var cx=(c.w-1)/2,p=luForgePose(age);
-    // 12fps 下 dt≈0.08 时 exp(-0.8)=0.45，抖幅只剩不到 1 格，读者根本看不到"震"。
-    // 衰减放到 7，落锤那一帧能到 2 格。
-    var shake=p.dt<0.34?Math.exp(-p.dt*7)*(2.6+p.hit*0.7):0;
-    c.sx=Math.round(Math.sin(p.dt*77)*shake*1.5);
-    c.sy=Math.round(Math.cos(p.dt*53)*shake);
-
-    luForgeWall(c,cx,t);
-
-    // 每次落锤把砧面烤亮一度
-    var hot=p.dt<0.34?Math.exp(-p.dt*7):0;
-    luForgeAnvil(c,cx,hot);
-
-    // 入场：上一镜的白热柱在上方塌缩、凝成砧面上的这块料。
-    // 旧版是复制上一镜的盾（还带一条横贯画心的亮条），和这里的砧座对不上。
-    if(age<0.80) {
-      var k=clamp01(age/0.80),yb=21,yt=yb-(19-2*k);
-      for(var y=Math.ceil(yt);y<=yb;y++) {
-        var u=clamp01((yb-y)/Math.max(1,yb-yt));
-        var w=Math.max(0.8,9.5*(1-k*0.60)*(1-u*0.30));
-        c.line(cx-w,y,cx+w,y,u<0.34?'█':u<0.72?'▓':'▒',u<0.34?W:u<0.72?B:N);
-      }
-    }
-
-    // 双环几何提到这里：锻件要靠同一个 ge 决定"被抽走多少"。
-    // 第三击（4.10）就起手，pow(gr,0.62) 让前段长得快，砧面上不会出现"料没了、环还没长"的空档。
-    var gr=clamp01((age-4.12)/2.00),ge=Math.pow(gr,0.62);
-    // 两环重叠别超过 30%：sep 8 / rx 11 只重叠 6 格，两条底弧才分得开。
-    var rx=mix(3.0,11.0,ge)*(1+0.016*Math.sin(t*1.9)),ry=Math.max(0.9,rx*0.50),sep=mix(0.4,8.0,ge);
-    // 底边钉在砧面上方：环是往上长出来的。原来 cy 从 22.5 走到 19.6，
-    // 两个环的下弧一直压在砧面那条亮带上，糊成一条厚底，缩略图读成"托盘里放着两个圈"。
-    var cy=22.6-ry-clamp01((age-5.90)/2.10)*4.2;
-
-    // 锻件：三次落锤把厚料砸成一条宽而薄的金带；第三击后这条带子被"抽"上去长成双环。
-    // ⚠️ 不能用 hash 逐格溶解：散成一片碎点，看着像砧面上撒了一把沙子。
-    var hitN=p.hit+1;
-    var iw=(12+hitN*4.4)*(1-clamp01((age-4.12)/1.15)),ih=hitN===0?3:(hitN<=2?2:1);
-    if(iw>1.6) {
-      for(var yy=24-ih;yy<=23;yy++) {
-        for(var xx=-Math.round(iw);xx<=Math.round(iw);xx++) {
-          // 整块纯白的矩形会读成一根灯管：按 nd 分三档颜色，再用 hash 打散成颗粒，
-          // 才像"被烧到发白的金属"而不是发光条。
-          var nd3=Math.abs(xx)/iw,g3=hash16((xx*131+yy*71+13)&65535)%100;
-          var ch3=nd3>0.86?'▒':(nd3>0.52?'▓':'█');
-          var st3=nd3>0.86?N:(nd3>0.52?B:(g3<26?B:W));
-          if(yy===24-ih)st3=nd3<0.6?W:B;
-          c.put(cx+xx,yy,ch3,st3);
-        }
-      }
-    }
-
-    luForgeRam(c,cx,p.bottom,t,clamp01((p.bottom-FORGE_HIGH)/(FORGE_LOW-FORGE_HIGH)));
-
-    // 每击的冲量：白热横闪 + 低扁冲击环 + 带重力的灼热碎屑 + 砧座两端的火舌
-    for(var h4=0;h4<3;h4++) {
-      var d4=age-FORGE_HITS[h4];
-      // 碎屑 0.95s 就清干净：拖到 1.3s 会在两次落锤之间积成一片"沙尘"，读成噪点
-      if(d4<0||d4>0.95)continue;
-      var power=1+h4*0.20;
-      // 接触瞬间：砧面横贯一道白热，再从触点炸开一圈星芒。
-      // 原来只有 0.07s 的一行细线，12fps 下连一帧都抓不到，落锤读不出"砸到了"。
-      if(d4<0.14) {
-        c.line(cx-32,22,cx+32,22,'█',W);
-        c.line(cx-26,21,cx+26,21,'▓',d4<0.07?W:B);
-        for(var sw=0;sw<26;sw++) {
-          var aw=sw/26*TAU,rw2=3+d4*240;
-          c.put(cx+Math.cos(aw)*rw2,22+Math.sin(aw)*rw2*0.34,'*',d4<0.07?W:B);
-        }
-      }
-      // 沿砧面向外推的冲击波：两道对称的横线边跑边抬。
-      // 原来画的是完整椭圆，r 到 44 时上下两个极点变成两条横贯全屏的点线，像扫描线。
-      if(d4<0.48) {
-        var r4=6+d4*150*power;
-        for(var i4=1;i4<=22;i4++) {
-          var u4=i4/22,px4=cx+(i4%2?1:-1)*u4*r4;
-          if(px4<2||px4>c.w-3)continue;
-          var py4=24-Math.pow(u4,2)*5.0;
-          c.put(px4,py4,d4<0.20?'─':'.',d4<0.10?W:(d4<0.26?B:N));
-          if(d4<0.16)c.put(px4,py4-1,'·',B);
-        }
-      }
-      // 第三击的碎屑减半：它和正在成型的两只环抢同一块画面，太多白点会把环读散
-      var nSpark=h4<2?54:30;
-      for(var i5=0;i5<nSpark;i5++) {
-        var sd4=hash16(i5*197+h4*941+7),side4=i5%2?1:-1;
-        var vx4=side4*(10+(sd4%31))*power,vy4=-(6+((sd4>>5)%20))*power;
-        var px5=cx+side4*6+vx4*d4,py5=22+vy4*d4+13*d4*d4;
-        if(py5>30||px5<3||px5>c.w-4)continue;
-        var tl4=d4<0.5?0.07:0.04;
-        c.line(px5-vx4*tl4,py5-(vy4+26*d4)*tl4,px5,py5,d4<0.40?'─':'.',d4<0.16?W:d4<0.60?B:N);
-        c.put(px5,py5,i5%7===0?'◆':'+',d4<0.34?W:B);
-      }
-      if(d4<0.60)for(var s5=-1;s5<=1;s5+=2) {
-        var x5=cx+s5*(26+d4*32),hb5=(1-d4/0.60)*(2.6+h4*0.8);
-        c.line(x5,30,x5,30-hb5,'▒',d4<0.20?N:R);
-        c.put(x5,30-hb5,'*',d4<0.20?B:N);
-      }
-    }
-
-    // 双环：从那根金带里立起来，先长成小环、再抬头、最后扣合
-    if(age>4.12) {
-      // 环后的暖光晕。不放红框：矩形边框在缩略图里读成"给画面贴了张红标签"。
-      var halo=clamp01((age-5.50)/1.50);
-      if(halo>0)for(var i6=0;i6<64;i6++) {
-        var sd6=hash16(i6*317+5),ang6=sd6/65535*TAU,rad6=0.85+((sd6>>7)%100)/100*0.7;
-        var hx6=cx+Math.cos(ang6)*rx*1.85*rad6,hy6=cy+Math.sin(ang6)*ry*3.2*rad6;
-        if(hy6<5||hy6>31)continue;
-        c.put(hx6,hy6,i6%2?'·':'.',i6%3?N:G);
-      }
-      // 环区持续有火星上飘。双环基本静止 2.5 秒，没有这一层整段读起来像卡住了。
-      for(var e9=0;e9<16;e9++) {
-        var sd9=hash16(e9*457+29),uu9=mod(t*0.30+sd9/65535,1);
-        var ex9=cx+((sd9%41)-20)*1.5,ey9=27-uu9*23;
-        c.put(ex9,ey9,uu9<0.25?'+':'·',uu9<0.20?W:(uu9<0.60?B:N));
-      }
-      luForgeLinks(c,cx,cy,rx,ry,sep,t);
-      var clk=age-6.55;
-      if(clk>0&&clk<0.55) {
-        var q5=clk/0.55;
-        for(var i7=0;i7<80;i7++) {
-          var aa5=i7/80*TAU;
-          c.put(cx+Math.cos(aa5)*rx*(1+q5*1.5),cy+Math.sin(aa5)*ry*(1+q5*1.5),'·',clk<0.18?W:B);
-        }
-      }
-    }
-    c.sx=0;c.sy=0;
-  }
-
-  function luForgeCaption(c,top,bt,age) {
-    var p=luForgePose(age);
-    clearRect(c,0,top,c.w,1);clearRect(c,0,bt,c.w,1);
-    c.put(3,top,age<4.10?'35 / STRIKE THE SAME HEART':'36 / TWO SOULS, ONE LINK',N);
-    c.put(c.w-24,top,age<4.10?('FORGE / '+Math.min(3,p.hit+2)+' OF 3'):'LINK / UNBREAKABLE',R);
-    c.center(bt,age<4.10?'BLOOD + FIRE   /   FORGED TOGETHER':'WHAT ONCE BOUND US / NOW BINDS US TOGETHER',B);
-  }
   // ===== 副歌二 72.01–80.00「LINK UP」：按 MV 82.6–90.6 改成硬切快剪 =====
   // 旧稿自创了"三击把熔金锻成双环"，MV 里根本没有这件事；副歌的力量来自剪辑节奏，
   // 不是叠更多特效。参考帧顺序（MV t ≈ 歌曲 t + 10.6）：
@@ -5864,152 +5546,478 @@ title: 字符演歌
     g.restore();
   }
 
-  function luRoyalHall(c,t,depth,moon) {
-    var cx=60;
-    // 月/玫瑰窗只有外缘，中央保留暗场，红镰与金发无需同背景争抢。
-    if(moon>0)for(var i=0;i<160;i++) {
-      var a=i/160*TAU,r=24+moon*5;
-      c.put(72+Math.cos(a)*r,17+Math.sin(a)*r/2,'·',G);
+  // ===== 80.00–96.03：红瞳 → 血玫瑰 → 红教堂 → 字卡 → 镰刃 =====
+  // 对应 MV 90.6–106.6（MV t ≈ 歌曲 t + 10.6，与 96.03→106.4 同源）。
+  // 旧稿是本段最早的自创戏：一个 16 秒不动的人物站在土黄柱廊里，左侧一轮"淬火轮盘"
+  // 读成一块金色门框，末段"血蔷薇"是十几条红线交叉成的格子。MV 里没有殿堂加轮盘，
+  // 实际是五段硬切：红瞳极特写 → 黑暗里一朵玫瑰被点亮、推近到铺满 → 一片花瓣落下 →
+  // 红教堂里长桌后的身影 → 巨型字卡 → 红色机械特写。
+  // ⚠️ 暗部一律"什么都不画"（空格），不用深色字符：G/K/D 在黑底上会泛土黄绿，
+  // 那正是 64–103 看起来脏的唯一原因。
+
+  var LU_NAVE = {cx: 60, cy: 17, k: 5.9, eye: 3.8, wall: 13};
+
+  // 一点透视：世界 Y 从地面起算，EYE 是视高 ⇒ 地面永远在灭点下方、拱顶在上方。
+  // ⚠️ 字符是 1:2，纵向再折半就会得到一座压扁的教堂。
+  function luProj(u, Y, Z, k) {
+    return [LU_NAVE.cx + u * k / Z, LU_NAVE.cy + (LU_NAVE.eye - Y) * k / Z];
+  }
+  // 等边尖拱：两段圆弧交于顶点。正弦拱读成罗马圆拱，哥特味全在"尖"上。
+  function luArchRise(s, rise) {
+    var d = 0.5 - s, q = 0.25 - d * d;
+    return (q > 0 ? Math.sqrt(q) : 0) * 2 * rise;
+  }
+
+  // ① 红瞳。立绘放不到这么大（源图一只眼才 4×4 像素，放大三十倍就是马赛克），只能画。
+  // 关键不是"红"，是**眼白要比虹膜淡**：上一版虹膜和眼白都填 █ R，整只眼是一团平红，
+  // 只看得见两个红斑。眼白用 ░ W（点状奶油 → 浅灰），红瞳才跳得出来。
+  function luEye(c, ex, ey, w, h) {
+    var x, y, u, s, ch, col;
+    for (x = -w; x <= w; x++) {
+      u = x / w;
+      s = Math.sqrt(Math.max(0, 1 - u * u));
+      if (s <= 0) continue;
+      var yTop = ey - h * s, yBot = ey + h * 0.62 * s;
+      for (y = Math.round(yTop); y <= Math.round(yBot); y++) {
+        var dy = (y - ey) * 2, d = Math.sqrt(x * x + dy * dy);
+        // 上睑：**挖黑**而不是画亮线。睫毛和虹膜同色的话，眼睛就是一团红。
+        if (y - yTop < 1.0) { c.put(ex + x, y, ' ', R); continue; }
+        if (d < 7.2) { ch = '█'; col = R; }                    // 虹膜
+        else if (d < 8.8) { ch = '▓'; col = R; }               // 角膜缘
+        // ⚠️ 眼白必须用 █（满格）而不是 ▒：▒ 是 50% 网点，W 的黑底混色后
+        // 是 #7f7f6b —— 一整个"橄榄灰"，正是全片最脏的那个调子。
+        else { ch = '█'; col = W; }
+        c.put(ex + x, y, ch, col);
+        if (d < 2.9) c.put(ex + x, y, ' ', R);                 // 瞳孔
+        if ((Math.abs(dy) < 1 && x > -5 && x < 5) || (Math.abs(x) < 1 && Math.abs(dy) < 3.4))
+          c.put(ex + x, y, '█', W);                            // 十字高光
+      }
     }
-    for(var side=-1;side<=1;side+=2)for(var bay=0;bay<3;bay++) {
-      var off=27+bay*14+depth*bay*3,x=cx+side*off,roof=7+bay*1.1;
-      luCoalFacet(c,[[x-2,roof+4],[x+2,roof+4],[x+3,30],[x-3,30]],K,'░');
-      c.line(x-side,roof+4,x-side,29,'│',G);
-      c.line(x-4,30,x+4,30,'▄',G);
-      c.line(x-7,roof+4,x,roof,'╱',bay===2?N:G);
-      c.line(x,roof,x+7,roof+4,'╲',G);
-      // 侧窗窄红玻璃只留在画面外缘。
-      if(bay>0)for(var y=roof+5;y<24;y++)c.put(x+side*4,y,'▒',R);
-    }
-    for(var rail=-3;rail<=3;rail++)c.line(60+rail*5,27,60+rail*20,31,'·',G);
-    c.line(3,31,116,31,'─',G);
-    // 侧向栏杆借自参考帧 88s，斜线把视线送入人物，不穿过人物面部。
-    for(var side=-1;side<=1;side+=2) {
-      c.line(cx+side*30,25,cx+side*57,29,'─',N);
-      for(var n=0;n<5;n++)c.line(cx+side*(31+n*6),25+n*0.8,cx+side*(31+n*6),30,'│',G);
+    // 眼周红光
+    for (y = Math.round(ey - h * 1.6); y <= Math.round(ey + h * 1.6); y++)
+      for (x = Math.round(ex - w * 1.2); x <= Math.round(ex + w * 1.2); x++) {
+        var gx = x - ex, gy = (y - ey) * 2;
+        var gr = Math.sqrt(gx * gx + gy * gy) / (w * 1.02);
+        if (gr < 1.0 || gr > 1.42) continue;
+        if (hash16(x * 53 + y * 29) % 100 < (1.42 - gr) * 62) c.put(x, y, '·', R);
+      }
+  }
+
+  // 血色横扫：一次对不上焦的甩镜。中间一条白热核，两侧拉成横条，
+  // 靠"越靠边越稀"收口，不用画框也不会显得像一整块红砖。
+  function luSmear(c, top, bt, u) {
+    var x, y, core = 4 + u * 112;
+    for (y = top; y < bt; y++) {
+      var v = 1 - Math.abs(y - 19) / 19;
+      if (v <= 0) continue;
+      var skew = (y - 19) * 1.1;
+      for (x = 2; x < c.w - 2; x++) {
+        var I = v * v * (1 - Math.abs(x - core + skew) / (24 + 34 * v));
+        if (I <= 0) continue;
+        if (I > 0.62) c.put(x, y, '█', W);
+        else if (I > 0.34) c.put(x, y, '█', R);
+        else if (I > 0.14) c.put(x, y, '▓', R);
+        else if (hash16(x * 13 + y * 7) % 100 < 58 * v) c.put(x, y, '░', R);
+      }
     }
   }
 
-  // 源视频 84–87s 的旋转纹章轮盘，轮辐、齿圈与三重环均有实体厚度。
-  function luRoyalWheel(c,t,cx,cy,r,heat) {
-    for(var y=Math.max(5,Math.floor(cy-r/2));y<Math.min(32,cy+r/2+1);y++)for(var x=Math.floor(cx-r);x<=cx+r;x++) {
-      var dx=x-cx,dy=(y-cy)*2,rad=Math.hypot(dx,dy),a=Math.atan2(dy,dx)+t*0.65;
-      var tooth=Math.cos(a*14)>0.1;
-      if(rad>r||(rad>r-2&&!tooth))continue;
-      if(rad>r-4)c.put(x,y,'▓',N);
-      else if(rad>r-6)c.put(x,y,'█',heat>0.5?B:N);
-      else if(rad<4)c.put(x,y,'█',B);
-      else if(Math.abs(Math.sin(a*3))<0.14)c.put(x,y,'▓',N);
-      else if(Math.abs(rad-r*0.53)<1)c.put(x,y,'·',G);
-      else if(rad<r-7)c.put(x,y,' ',K);
+  function lu_s6_eye(c, t, top, bt, e) {
+    // 0–1.90 眼睛亮起来；1.90–2.40 甩镜；2.40 起交给玫瑰。
+    if (e < 1.90) {
+      var hush = clamp01(e / 0.4), cy = 17.6, gap = 26, w = 19, h = 5.6;
+      luEye(c, 60 - gap, cy, w, h);
+      luEye(c, 60 + gap, cy, w, h);
+      // 脸：只在眼睑上下留一点极淡的肤色，散到画面边缘就没有了。
+      // 不铺一层的话两颗红珠子浮在黑里，读成两枚徽章而不是一张脸。
+      var x, y, fade = hush * (0.72 + 0.28 * Math.sin(t * 6.2));
+      for (y = Math.round(cy - 12); y <= Math.round(cy + 13); y++)
+        for (x = 8; x <= 111; x++) {
+          var dx = (x - 60) / 52, dy = (y - cy) / 13.5, dd = dx * dx + dy * dy;
+          if (dd > 1 || dd < 0.18) continue;
+          if (hash16(x * 71 + y * 37) % 100 < (1 - dd) * 15 * fade) c.put(x, y, '·', W);
+        }
+      // 一条横贯画面的红光（MV 里那道扫描线），给极特写一个纵深参照。
+      if (e > 0.6) for (x = 2; x < c.w - 2; x++)
+        if (hash16(x * 17 + 5) % 100 < 72) c.put(x, 27, '·', R);
+    } else {
+      luSmear(c, top, bt, clamp01((e - 1.90) / 0.50));
     }
-    for(var j=0;j<6;j++) {
-      var a=j/6*TAU-t*0.65;
-      c.put(cx+Math.cos(a)*r*0.72,cy+Math.sin(a)*r*0.36,'◆',B);
+    clearRect(c, 0, top, c.w, 1);
+    c.put(3, top, '37 / OPEN YOUR EYES', N);
+    c.put(c.w - 22, top, 'EYES / BURNING', R);
+    clearRect(c, 0, bt, c.w, 1);
+    c.center(bt, e < 1.90 ? 'I OPEN MY EYES / AND THE WORLD IS RED'
+                          : 'AND EVERYTHING / LOOKS BACK AT ME', B);
+  }
+
+  // ② 血玫瑰。花瓣是一片片**椭圆实体**由外向内叠上去的，每片落笔前先擦一圈投影，
+  // 层与层之间才有暗缝。上一版按"极角相位"切层，长出来的是一台风车/烟花——
+  // 玫瑰之所以是玫瑰，靠的是花瓣互相包住的弧，不是放射状的对称。
+  function luBlob(c, px, py, rx, ry, rot, mode) {
+    var x, y, ca = Math.cos(rot), sa = Math.sin(rot);
+    for (y = Math.round(py - ry - 1); y <= Math.round(py + ry + 1); y++)
+      for (x = Math.round(px - rx - 2); x <= Math.round(px + rx + 2); x++) {
+        var dx = x - px, dy = y - py;
+        var u = (dx * ca + dy * sa) / rx, v = (-dx * sa + dy * ca) / ry;
+        var q = u * u + v * v;
+        if (q > 1) continue;
+        if (mode) { if (q > 0.55) c.put(x, y, ' '); continue; }     // 投影：擦黑
+        var lit = (dx * 0.85 + dy * 1.5) < -rx * 0.22;              // 光从左上来
+        if (q > 0.86) c.put(x, y, '░', R);
+        else if (q > 0.5) c.put(x, y, lit ? '▒' : '▓', lit ? N : R);
+        else c.put(x, y, lit ? '█' : '▓', lit ? R : R);
+      }
+  }
+  // 玫瑰：六片**带尖的瓣**从花心放射，瓣尖一定突出轮廓线。
+  // 前面几版（同心圆弧 / 偏心弧 / 叠椭圆 / 侧视花苞）都失败在同一件事上：
+  // 外轮廓要么是圆、要么是蛋，而"花"这个字在低分辨率下只由**尖**认出来。
+  function luRose(c, t, cx, cy, sc, light, top, bt) {
+    var x, y, k, a, dx, dy, ca, sa, uu, vv, wmax, PL, HB, ang;
+    for (k = 0; k < 6; k++) {
+      ang = k * TAU / 6 + 0.35 + t * 0.03;
+      PL = (10.5 + (k % 2) * 1.8) * sc;
+      HB = PL * 0.40;
+      ca = Math.cos(ang); sa = Math.sin(ang);
+      for (y = Math.round(cy - PL * 0.9); y <= Math.round(cy + PL * 0.9); y++)
+        for (x = Math.round(cx - PL); x <= Math.round(cx + PL); x++) {
+          dx = x - cx; dy = (y - cy) * 2;
+          uu = (dx * ca + dy * sa) / PL;
+          vv = (-dx * sa + dy * ca) / HB;
+          if (uu < -0.05 || uu > 1) continue;
+          wmax = Math.sqrt(Math.max(0, 1 - Math.pow(Math.max(0, uu), 2.3)));
+          if (Math.abs(vv) > wmax) continue;
+          // 瓣缘亮、瓣肉暗：暗底才看得出瓣与瓣的界线
+          if (Math.abs(vv) > wmax * 0.70) c.put(x, y, uu > 0.35 ? '█' : '▓', R);
+          else if (uu < 0.12) c.put(x, y, '▒', R);
+          else c.put(x, y, Math.abs(vv) > wmax * 0.44 ? '▓' : '▒', R);
+        }
+    }
+    // 花心：收紧的螺旋压在瓣根上，这是"玫瑰"区别于"雏菊"的唯一记号
+    for (a = 0; a < 5.0; a += 0.05) {
+      var r3 = (0.6 + a * 0.62) * sc;
+      c.put(cx + Math.cos(a + t * 0.18) * r3, cy + Math.sin(a + t * 0.18) * r3 * 0.5,
+            a < 1.6 ? '█' : '▓', a < 1.6 ? W : B);
+    }
+    // 外圈红光
+    for (y = top; y < bt; y++) for (x = 2; x < c.w - 2; x++) {
+      var gd = Math.sqrt((x - cx) * (x - cx) + ((y - cy) * 2) * ((y - cy) * 2)) / (PL * 1.1);
+      if (gd < 1 || gd > 1.6) continue;
+      if (hash16(x * 19 + y * 41) % 100 < (1.6 - gd) * 30 * light) c.put(x, y, '·', R);
     }
   }
 
-  // 血蔷薇采用层叠折面花瓣；末段花瓣沿弧线离开，不用随机雪花替代轮廓。
-  function luRoyalRose(c,t,cx,cy,open,scatter) {
-    for(var petal=8;petal>=0;petal--) {
-      var a=petal*2.4+t*0.04,r=(4+petal*0.9)*open+scatter*petal*2;
-      var x=cx+Math.cos(a)*r,y=cy+Math.sin(a)*r/2-scatter*petal*0.35;
-      var w=(5+petal*0.35)*open;
-      luCoalFacet(c,[[x-w,y],[x-w*0.3,y-2.2*open],[x+w,y-0.6*open],[x+w*0.5,y+2*open],[x-w*0.4,y+1.5*open]],R,'▓');
-      c.line(x-w,y,x-w*0.3,y-2.2*open,'╱',N);
-      c.line(x-w*0.3,y-2.2*open,x+w,y-0.6*open,'▄',R);
-    }
-    if(scatter<0.5) {
-      c.line(cx,cy+3,cx-2,30,'│',G);
-      luCoalFacet(c,[[cx-1,cy+8],[cx-10,cy+5],[cx-7,cy+9],[cx-2,cy+10]],G,'▓');
-      luCoalFacet(c,[[cx-2,cy+12],[cx+7,cy+8],[cx+5,cy+12]],N,'░');
+  // 一片花瓣落下。暗场里只有这一片是亮的，靠它把"花"和"特写"连起来。
+  function luPetal(c, top, bt, u) {
+    // ⚠️ 瓣缘不能用 '░' + W：点阵奶油色在黑底上混成橄榄灰，整片瓣会脏一圈。
+    // 边用实心 █ 才读得出「一片瓣」，中间再压一条叶脉。
+    var cx = 62 + Math.sin(u * 3.1) * 20, cy = 7 + u * 18, rot = u * 2.2, x, y;
+    for (y = Math.round(cy - 9); y <= Math.round(cy + 9); y++)
+      for (x = Math.round(cx - 17); x <= Math.round(cx + 17); x++) {
+        var dx = x - cx, dy = (y - cy) * 2;
+        var px = dx * Math.cos(rot) + dy * Math.sin(rot);
+        var py = -dx * Math.sin(rot) + dy * Math.cos(rot);
+        var q = (px / 17) * (px / 17) + (py / 6.6) * (py / 6.6);
+        if (q > 1) continue;
+        // 浅色只出现在「上缘 + 中段脉」两处，否则整片瓣会读成奶油条纹的虾。
+        if (q > 0.80 && py < 0) c.put(x, y, '█', W);                    // 迎光的瓣缘
+        else if (Math.abs(px) > 9 && q > 0.55) c.put(x, y, '▓', R);     // 瓣尖与瓣根压暗
+        else if (Math.abs(py) < 1.1 && Math.abs(px) < 8) c.put(x, y, '█', W); // 叶脉
+        else c.put(x, y, '█', R);
+      }
+    for (var i = 0; i < 10; i++) {                       // 几粒灰
+      var hx = hash16(i * 97 + 7), hy = hash16(i * 31 + 53);
+      c.put(4 + hx % 112, top + 2 + mod(hy * 0.02 + u * 14, 24), '·', R);
     }
   }
 
-  // 同一解析时间轴保证 84.09 / 88.26 / 92.04s 不会重置人物姿态。
-  function luRoyalSequence(c,t,top,bt,age) {
-    function ease(v){v=clamp01(v);return v*v*(3-2*v);}
-    var wheelIn=ease((age-4.09)/0.65),wheelOut=ease((age-7.5)/0.76);
-    // 88.26s 起 0.5s 推入近景（≈12 帧），随后保持到本章结束；92.04s 血蔷薇换镜头
-    // 时直接切回全景。早期版本是 1.45s 推近 + 1.3s 缩回，近景停 2s 又被拉回去，
-    // 24fps 下像"变焦呼吸"；实拍/MV 里景别变化是切镜，不是来回拉。
-    var close=age>=12.04?0:ease((age-8.26)/0.5);
-    luRoyalHall(c,t,close,clamp01((age-12.04)/2));
-    // 80–82.4s：红门向两侧滑开 —— 只留两道光墙（门缝透出的血色光），不画横梁。
-    // 早期版本用 █ 实心柱 + ▄ 横梁拼成一个闭合矩形，人物显影前那半秒画面里
-    // 就是一个静止的空心方框，24fps 下会被直接读成 UI 选择框。
-    // 门中心对齐人物中线 65（actor.x=38 是左边缘，宽 53），两侧留 6 格余量。
-    if(age<2.45) {
-      var open=ease(clamp01(age/1.15)),rush=Math.max(0,age-1.15);
-      var zoom=open*4+rush*rush*40;
-      // 光墙随 80.65s 的双环淡入一起"点亮"：░→▒→▓，避免整条光带突然拍在画面边缘。
-      var appear=clamp01((age-0.35)/0.5),lit=appear<0.34?'░':appear<0.7?'▒':'▓';
-      for(var gate=2;gate>=0;gate--) {
-        var gw=31+zoom+gate*4,gl=Math.round(65-gw),gr=Math.round(65+gw),gy;
-        if(gate!==0) {   // 更远的门缝只留一条暗金细线，交代替深
-          for(gy=3;gy<34;gy++){c.put(gl,gy,'│',G);c.put(gr,gy,'│',G);}
+  function lu_s6_rose(c, t, top, bt, e) {
+    // 0–3.25 玫瑰点亮推近；3.25–3.95 黑场落瓣。
+    if (e < 3.25) {
+      var u = clamp01(e / 3.25);
+      // 花心从画面右上起，随镜头推进移到正中：MV 就是先给一角、再怼满屏。
+      var cx = 74 - u * 14, cy = 14.5 + u * 2.0;
+      var sc = 0.42 + 1.95 * Math.pow(u, 1.25);
+      luRose(c, t, cx, cy, sc, 0.34 + 0.66 * clamp01(e / 1.4), top, bt);
+    } else {
+      luPetal(c, top, bt, clamp01((e - 3.25) / 0.70));
+    }
+    clearRect(c, 0, top, c.w, 1);
+    c.put(3, top, '38 / A ROSE IN THE DARK', N);
+    c.put(c.w - 22, top, 'BLOOM / SLOW', R);
+    clearRect(c, 0, bt, c.w, 1);
+    c.center(bt, e < 3.25 ? 'ONE PETAL / ONE MEMORY' : 'AND THEN / IT LETS GO', B);
+  }
+
+  // ③ 红教堂。相机在殿内：近处的柱子出画外，远处的柱列收敛到灭点 (60,17)。
+  // 旧稿的柱廊是等距平移的（越远两根柱子离得越开），所以读成一排贴纸；
+  // 这一版的每一根柱子都由 Z 除出来，透视是算出来的。
+  // ⚠️ 上一版把每一列墙都填满 ▒，结果整面墙是一片砖纹红块，把窗和柱全糊掉了。
+  // 墙必须留黑：只画"柱"和"窗"两样东西，中间的空隙就是暗部。
+  function luNave(c, t, top, bt, push) {
+    var k = LU_NAVE.k * (1 + 0.16 * push), far = 3.25, i, s, x, y, z, side;
+    var fw = LU_NAVE.wall * k / far;
+    var yBot = LU_NAVE.cy + LU_NAVE.eye * k / far;
+
+    // ① 地面：逐行反算景深，红毯的左右边界自然收进灭点。
+    //    ⚠️ 别用两条虚线当边线（会读成斑马线），毯子要整片填淡红。
+    for (y = Math.max(top, Math.ceil(LU_NAVE.cy + 0.6)); y < bt; y++) {
+      var zg = LU_NAVE.eye * k / (y - LU_NAVE.cy);
+      var half = 3.1 * k / zg, xr = LU_NAVE.wall * k / zg;
+      if (xr < 0.5) continue;
+      var dens = 34 - Math.min(22, (y - LU_NAVE.cy) * 0.7);      // 越近越稀：远处才密
+      for (x = Math.round(60 - half); x <= Math.round(60 + half); x++)
+        if (hash16(x * 7 + y * 3) % 100 < dens) c.put(x, y, '·', R);
+      c.put(Math.round(60 - half), y, '│', R);
+      c.put(Math.round(60 + half), y, '│', R);
+      // 地面两侧的暗区：只有极稀的反射，让毯子浮出来
+      for (side = -1; side <= 1; side += 2)
+        for (x = Math.round(60 + side * (half + 2)); Math.abs(x - 60) < xr; x += side * 2)
+          if (hash16(x * 23 + y * 5) % 100 < 9) c.put(x, y, '·', R);
+    }
+
+    // ② 远墙：只画那扇巨窗，墙留黑。窗是整段的视觉中心，人物站在它前面。
+    //    ⚠️ 大面积不用 B/N（金、橙）——它们和黑底混出来是土黄绿，全片最脏的一笔。
+    for (y = Math.round(LU_NAVE.cy + (LU_NAVE.eye - 7.6) * k / far); y <= Math.round(yBot); y++)
+      for (x = Math.round(60 - fw); x <= Math.round(60 + fw); x++) {
+        var uu = (x - 60) / fw;
+        var Y = LU_NAVE.eye - (y - LU_NAVE.cy) * far / k;
+        if (Y < -0.3) continue;
+        var halfW = 0.56;
+        var inWin = Math.abs(uu) < halfW && Y < 4.1 + luArchRise(0.5 + uu / (2 * halfW), 2.7);
+        if (!inWin) {
+          if (hash16(x * 41 + y * 7) % 100 < 11) c.put(x, y, '·', R);
           continue;
         }
-        // 擦过镜头时 红→橙→暗金 递减，代替整道光墙突然消失。
-        var fade=clamp01((zoom-16)/18),core=fade>0.75?G:fade>0.4?N:R,mid=fade>0.4?G:N;
-        for(gy=3;gy<34;gy++) {
-          c.put(gl,gy,lit,core);c.put(gr,gy,lit,core);      // 光核
-          c.put(gl-1,gy,'▒',mid);c.put(gr+1,gy,'▒',mid);    // 内晕
-          c.put(gl-2,gy,'░',G);c.put(gr+2,gy,'░',G);        // 外晕
+        var mull = mod(Math.abs(uu) / 0.14, 1) < 0.15;           // 竖窗棂
+        if (Y > 3.7 && !mull) c.put(x, y, '█', R);                // 拱顶那片最亮
+        else if (mull) c.put(x, y, '▓', R);
+        else if (Math.abs(uu) < 0.12) c.put(x, y, '▒', R);
+        else c.put(x, y, '▒', R);
+      }
+
+    // ③ 两侧柱列：由远及近一层层叠。每跨 = 两根柱 + 一道尖拱 + 一扇红玻璃。
+    var ZS = [0.98, 1.32, 1.76, 2.36, 3.25];
+    for (var b = ZS.length - 2; b >= 0; b--) {
+      var z0 = ZS[b], z1 = ZS[b + 1];
+      // 拱：连续折线，采样密一点再用 line 连，否则 1:2 字符下会断成虚线
+      for (side = -1; side <= 1; side += 2) {
+        var pPrev = null;
+        for (i = 0; i <= 48; i++) {
+          s = i / 48;
+          var zz = z0 + (z1 - z0) * s;
+          var rise = luArchRise(s, 2.55);
+          var ax = 60 + side * LU_NAVE.wall * k / zz;
+          var ay = LU_NAVE.cy + (LU_NAVE.eye - 4.25 - rise) * k / zz;
+          if (ax < 1 || ax > c.w - 2 || ay < top || ay > bt) { pPrev = null; continue; }
+          if (pPrev) c.line(pPrev[0], pPrev[1], ax, ay, '▓', R);
+          else c.put(ax, ay, '▓', R);
+          pPrev = [ax, ay];
         }
-        // 门钉：沿光墙每 6 行一枚，只在光还亮时出现
-        if(fade<0.45)for(var ky=10;ky<32;ky+=6){c.put(gl,ky,'◆',N);c.put(gr,ky,'◆',N);}
+      }
+      // 柱：y 从地面到拱脚，两格宽（靠外那格淡一点当圆柱的高光）
+      for (side = -1; side <= 1; side += 2) {
+        var px = 60 + side * LU_NAVE.wall * k / z0;
+        if (px < 1 || px > c.w - 2) continue;
+        var yb = LU_NAVE.cy + LU_NAVE.eye * k / z0;
+        var yt = LU_NAVE.cy + (LU_NAVE.eye - 4.25) * k / z0;
+        for (y = Math.max(top, Math.round(yt)); y <= Math.min(bt - 1, Math.round(yb)); y++) {
+          c.put(px, y, '▓', R);
+          if (px + side > 0 && px + side < c.w) c.put(px + side, y, '░', R);
+        }
+      }
+      // 窗：柱与柱之间的红玻璃，只占中段高度，上下留黑
+      for (z = z0 + (z1 - z0) * 0.42; z < z1 - (z1 - z0) * 0.10;
+           z += Math.max(0.006, 0.5 * z * z / (LU_NAVE.wall * k))) {
+        for (side = -1; side <= 1; side += 2) {
+          var wx = 60 + side * LU_NAVE.wall * k / z;
+          if (wx < 1 || wx > c.w - 2) continue;
+          for (y = Math.max(top, Math.round(LU_NAVE.cy + (LU_NAVE.eye - 3.7) * k / z));
+               y <= Math.min(bt - 1, Math.round(LU_NAVE.cy + (LU_NAVE.eye - 1.6) * k / z)); y++) {
+            if (hash16(Math.round(wx) * 31 + y * 17) % 100 < 78) c.put(wx, y, '▒', R);
+          }
+        }
       }
     }
-    // 台阶和瘦长王座外缘，不在人物背后铺纹理。
-    for(var tier=0;tier<3;tier++)c.line(72-16-tier*6,29+tier,72+16+tier*6,29+tier,tier===0?'▄':'─',G);
-    c.line(51,27,51,10,'│',G);c.line(94,27,94,10,'│',G);
-    c.line(51,10,72,5,'╱',G);c.line(72,5,94,10,'╲',G);
-    if(wheelIn>0&&wheelOut<1) {
-      luRoyalWheel(c,t,27,17,22*wheelIn,1-wheelOut);
-      // 轮盘下沿的淬池，蒸汽只在左侧，保留脸、金发和握镰手。
-      c.line(7,29,47,29,'▄',N);
-      var cool=ease((age-6.25)/1.9);
-      for(var i=0;i<28;i++) {
-        var seed=hash16(i*317+5),u=mod(t*0.7+seed/65535,1);
-        var x=27+(seed%29-14)*(0.4+u*0.6),y=28-u*9*(1-cool*0.75);
-        if(u>0.15)c.put(x,y,u<0.45?'░':'·',u<0.25?W:G);
-      }
+
+    // ④ 台阶：人物脚下那一级，压住窗的下缘，人才不会浮在光里
+    for (i = 0; i < 3; i++) {
+      var sw = fw * (0.58 + i * 0.16);
+      c.line(60 - sw, yBot - i * 1.0, 60 + sw, yBot - i * 1.0, i === 0 ? '▄' : '─', i === 0 ? N : R);
     }
-    // 人物显影紧跟光墙出现（0.55s 起，0.95s 完成）——晚于门缝就会出现"空框等人"。
-    if(age>0.55) {
-      var reveal=ease((age-0.55)/0.95);
-      // 全景保留刀尖到双靴；近景放大脸与双马尾，脚离开构图是有意的推镜。
-      // 峰值 68 格：再大就会把冠冕和靴子同时切掉。纵向补偿只抬 0.5 行 ——
-      // 抬多了先切头冠（身份特征），宁可让裙摆下缘被近景裁掉。
-      var width=53+close*15;
-      c.queen={x:38-close*17,y:5-close*0.5,width:width,t:t,reveal:reveal};
-    }
-    if(age>12.04) {
-      var bloom=ease((age-12.04)/0.9),scatter=ease((age-14.7)/1.33);
-      luRoyalRose(c,t,25,17,bloom,scatter);
-    }
-    // 近景左侧的几条红色斜切光带呼应 MV 红眼特写；头部周围保持空。
-    if(close>0.1)for(var n=0;n<3;n++) {
-      var x=9+n*9+Math.sin(t*0.5+n)*2;
-      c.line(x,6,x-5,27,'╲',n===1?R:G);
-    }
-    // 80s 接受上镜完整双环，从外向内揭出殿堂，不闪空屏。
-    if(age<0.65) {
-      var old=new CCanvas(c.w,c.h);old.clip=[top+1,bt-1];lu_s5_ring(old,t,top,bt,3.88);
-      for(var y=top+1;y<bt;y++)for(var x=0;x<c.w;x++) {
-        if(age>0&&Math.abs(x-60)>58*(1-age/0.65))continue;
-        var cell=old.cells[y][x];c.put(x,y,cell[0],cell[1]);
-      }
-    }
-    clearRect(c,0,top,c.w,1);clearRect(c,0,bt,c.w,1);
-    c.put(3,top,age<4.09?'37 / A THRONE RECLAIMED':age<8.26?'38 / TEMPERED BY FIRE':age<12.04?'39 / THE CRIMSON REAPER':'40 / A ROSE THAT WILL NOT WITHER',N);
-    c.center(bt,age<4.09?'FROM THE DARK / SHE RETURNS':age<8.26?'COOL THE STEEL / KEEP THE FLAME':age<12.04?'ONE HEART / AN UNBROKEN VOW':'BLOOD IN BLOOM / THE THRONE IS HERS',B);
   }
-  function lu_s6_rise(c,t,top,bt,elapsed){luRoyalSequence(c,t,top,bt,elapsed);}
-  function lu_s6_quench(c,t,top,bt,elapsed){luRoyalSequence(c,t,top,bt,4.09+elapsed);}
-  function lu_s6_hammer(c,t,top,bt,elapsed){luRoyalSequence(c,t,top,bt,8.26+elapsed);}
-  function lu_s6_pull(c,t,top,bt,elapsed){luRoyalSequence(c,t,top,bt,12.04+elapsed);}
+
+  function lu_s6_nave(c, t, top, bt, e) {
+    // 0–4.05 教堂缓推；4.05–6.00 桌面虚焦（硬切，不留过渡帧）。
+    if (e < 4.05) {
+      var push = clamp01(e / 4.05);
+      luNave(c, t, top, bt, push);
+      // 人物站在远墙前的台阶上，随镜头一起变大（推镜不是重新摆位置）。
+      var k = LU_NAVE.k * (1 + 0.16 * push);
+      var feet = LU_NAVE.cy + LU_NAVE.eye * k / 3.19;
+      var w = 22 * k / LU_NAVE.k;
+      c.queen = {x: 60 - w / 2, y: luActorY(w, feet, window.__LU_QUEEN_ANSI), width: w, t: t, reveal: 1};
+    } else {
+      luAltar(c, t, top, bt, clamp01((e - 4.05) / 1.95));
+    }
+    clearRect(c, 0, top, c.w, 1);
+    c.put(3, top, e < 4.05 ? '39 / THE THRONE IS A CATHEDRAL' : '39 / THE TABLE IS SET', N);
+    c.put(c.w - 22, top, e < 4.05 ? 'HALL / ALL HERS' : 'WAIT / FOR ME', R);
+    clearRect(c, 0, bt, c.w, 1);
+    c.center(bt, e < 4.05 ? 'SHE WALKS THE AISLE / OF HER OWN CATHEDRAL'
+                          : 'TWO CANDLES / ONE SEAT EMPTY', B);
+  }
+
+  // ④ 桌面特写（虚焦）。MV 102.6 是一团红里晃过桌角，本来就该读不清：
+  // 全场唯一一次"看不清"是转场，不是失误，所以只留轮廓和烛火。
+  // ⚠️ 旧版用「径向衰减」当背景，等值线把画面切成一个巨大的粉色三角（V 形），
+  // 读成"发光的金字塔"而不是"一团红的桌面"。改成：上半=压暗的红噪点（失焦），
+  // 中间=一条桌沿，下半=纯黑，两支烛立在桌沿上。这样"桌"和"烛"两样都立得住。
+  function luAltar(c, t, top, bt, u) {
+    var x, y, i;
+    var ty = function (x) { return 24 + (x - 60) * 0.035 + Math.sin(t * 0.9) * 0.4; };  // 桌沿：微微倾斜 + 呼吸
+    // 桌面上方的失焦背景：密度随高度衰减的暗红网点，越靠上越稀。
+    for (y = top; y < bt - 1; y++) for (x = 2; x < c.w - 2; x++) {
+      if (y >= ty(x)) continue;
+      var d = 40 - (ty(x) - y) * 2.4 + 10 * Math.sin(x * 0.05 + t * 0.6);
+      var sd = Math.round(t * 14);   // 失焦的颗粒要随帧抖，不然连拍两帧几乎一模一样
+      if (hash16(x * 7 + y * 13 + sd) % 100 < d) c.put(x, y, hash16(x + y * 31 + sd) % 3 ? '▒' : '▓', R);
+      else if (hash16(x * 17 + y + sd) % 100 < 12) c.put(x, y, '·', R);
+    }
+    // 桌沿：一条亮线。桌面本身用更稀更暗的点铺一层——不铺的话这条线会浮在空里，
+    // 读成"一条虚线"而不是"桌子的边"。
+    for (x = 2; x < c.w - 2; x++) {
+      var ey2 = Math.round(ty(x));
+      for (y = ey2 + 1; y < bt; y++) {
+        if (hash16(x * 5 + y * 23) % 100 < 30 - (y - ey2) * 5) c.put(x, y, '·', R);
+      }
+      c.put(x, ey2, '▄', R);
+    }
+    // 两支烛：烛身奶油、焰心奶油、外焰橙、光晕近黑（不打 ░，否则一周脏灰）。
+    for (i = 0; i < 2; i++) {
+      var cx2 = 38 + i * 46, base = Math.round(ty(cx2)) - 1;
+      var top2 = base - 11 + Math.round(Math.sin(t * 5.1 + i * 2) * 0.4);
+      for (y = top2; y <= base; y++) c.put(cx2, y, '█', W);
+      // 焰：一个小菱形（心 W、外焰 N），3 格高才看得见
+      var fy = top2 - 2;
+      c.put(cx2, fy, '█', W);
+      c.put(cx2, fy - 1, '▓', N); c.put(cx2 - 1, fy, '▓', N); c.put(cx2 + 1, fy, '▓', N);
+      c.put(cx2, fy + 1, '▒', N);
+      for (var r = 4; r >= 1; r--) {
+        for (x = cx2 - r; x <= cx2 + r; x++)
+          for (y = fy - r; y <= fy + r; y++) {
+            var ddx = (x - cx2) / (r + 0.4), ddy = (y - fy) / (r * 0.9 + 0.4);
+            if (ddx * ddx + ddy * ddy > 1) continue;
+            if (c.cells[y] && c.cells[y][x] && c.cells[y][x][0] !== ' ') continue;
+            c.put(x, y, r >= 4 ? '·' : r >= 2 ? '▒' : '▓', r >= 2 ? R : N);
+          }
+      }
+    }
+  }
+
+  // ⑤ 字卡。5×7 点阵，TIME 用 3×2 的大刻度、STEP IN 用 2×1，
+  // 顶面一行换 N 当受光面——一整块同色的字读成色块，压不出金属感。
+  var LU_FONT = {
+    T: ['#####', '..#..', '..#..', '..#..', '..#..', '..#..', '..#..'],
+    I: ['#####', '..#..', '..#..', '..#..', '..#..', '..#..', '#####'],
+    M: ['#...#', '##.##', '#.#.#', '#...#', '#...#', '#...#', '#...#'],
+    E: ['#####', '#....', '#....', '####.', '#....', '#....', '#####'],
+    S: ['.####', '#....', '#....', '.###.', '....#', '....#', '####.'],
+    P: ['####.', '#...#', '#...#', '####.', '#....', '#....', '#....'],
+    N: ['#...#', '##..#', '#.#.#', '#..##', '#...#', '#...#', '#...#'],
+    ' ': ['.....', '.....', '.....', '.....', '.....', '.....', '.....']
+  };
+  // 点阵方块必须是**正方**的：一格 18×36px，所以横向 4 格才等于纵向 2 格。
+  // 上一版用 3×2，方块是 54×72 的竖条，字读出来又高又瘦像霓虹灯管。
+  function luWord(c, text, cx, cy, dx, dy, mistPhase) {
+    var i, j, k2, total = text.length * 6 - 1;
+    var x0 = cx - total * dx / 2, y0 = cy - 7 * dy / 2;
+    for (i = 0; i < text.length; i++) {
+      var g = LU_FONT[text.charAt(i)];
+      if (!g) continue;
+      for (j = 0; j < 7; j++) for (k2 = 0; k2 < 5; k2++) {
+        if (g[j].charAt(k2) !== '#') continue;
+        for (var yy = 0; yy < dy; yy++) for (var xx = 0; xx < dx; xx++) {
+          var X = Math.round(x0 + (i * 6 + k2) * dx + xx), Y = Math.round(y0 + j * dy + yy);
+          // 每笔的顶面受光：整块同色的字读成色块，压不出金属感。
+          c.put(X, Y, yy === 0 ? '█' : '█', yy === 0 ? W : R);
+        }
+      }
+    }
+    // 字后的红雾：只在这块区域里撒，别扫到字上
+    for (j = -2; j < 7 * dy + 2; j++) for (i = -4; i < total * dx + 4; i++) {
+      var gx2 = Math.round(x0 + i), gy2 = Math.round(y0 + j);
+      if (gx2 < 2 || gx2 > c.w - 3) continue;
+      // 雾要随帧变：纯静态字卡会连续 18 帧一模一样，观感像渲染卡死。
+      var mth = 16 + 7 * Math.sin((mistPhase || 0) * 7.3 + gx2 * 0.21);
+      if (hash16(gx2 * 37 + gy2 * 11) % 100 < mth) c.put(gx2, gy2, '·', R);
+    }
+  }
+
+  function lu_s6_card(c, t, top, bt, e) {
+    // 0–1.20 TIME；1.20–1.95 STEP IN；1.95–3.68 镰刃。
+    if (e < 1.20) {
+      var a = clamp01(e / 0.26), sc = 1 + (1 - a) * 0.30;
+      luWord(c, 'TIME', 60, 18, Math.round(4 * sc), Math.round(2 * sc), t);
+    } else if (e < 1.95) {
+      var b = clamp01((e - 1.20) / 0.20);
+      luWord(c, 'STEP IN', 60, 19, b > 0 ? 2 : 0, b > 0 ? 1 : 0, t);
+    } else {
+      luBlade(c, t, top, bt, clamp01((e - 1.95) / 1.73));
+    }
+    clearRect(c, 0, top, c.w, 1);
+    c.put(3, top, e < 1.95 ? '40 / TIME TO STEP IN' : '40 / EDGE FIRST', N);
+    c.put(c.w - 22, top, e < 1.95 ? 'WORDS / CARVED' : 'EDGE / UNFORGIVING', R);
+    clearRect(c, 0, bt, c.w, 1);
+    c.center(bt, e < 1.20 ? 'IT\'S TIME TO STEP IN' : e < 1.95 ? 'SO STEP IN' : 'AND STAY SHARP', B);
+  }
+
+  // ⑥ 镰刃特写。离脸最近的一刀：整片烧红的背景 + 一把横过画面的刀刃。
+  // 黑画不出来（调色板里没有近黑色），只能把已经画上的红擦成空格——这正是逆光。
+  // ⚠️ 上一版是三条"机械爪"，半径按行算没按屏幕算，落下来是三片撑满画面的黑楔子。
+  function luBlade(c, t, top, bt, u) {
+    var x, y, i, s;
+    // 背景：烧红的光场。⚠️ 不能用「圆形衰减」—— 闭合的等值线会读成一个悬着的红球。
+    // 改成一横向热带：上下模糊收边、左右一直溢出画外，再叠低频抖动打碎边界。
+    for (y = top; y < bt; y++) for (x = 2; x < c.w - 2; x++) {
+      var dx = Math.abs(x - 58) / 90, dy = Math.abs(y - 17) / 18;
+      var I = 1.16 - dy * 0.55 - dx * dx * 0.25
+            + 0.11 * Math.sin(x * 0.21 + t * 1.3) * Math.sin(y * 0.37 - t * 0.9)
+            + 0.05 * Math.sin(x * 0.07 - y * 0.29 + t * 0.6);
+      if (I > 0.86) c.put(x, y, '█', R);
+      else if (I > 0.52) c.put(x, y, '▓', R);
+      else if (I > 0.20 && hash16(x * 13 + y * 19) % 100 < 22) c.put(x, y, '·', R);
+    }
+    // 刀身：一条从画面左下扫到右上的弯刃，右端收成刀尖。
+    // 逐列算，不按采样点铺 —— 采样点会在一列里叠好几次，刃口糊成一条白绳子。
+    function edgeY(x) {
+      s = (x - 1) / 118;
+      return 28.2 - 22.0 * Math.pow(s, 0.60) + 3.0 * Math.sin(Math.PI * s) + u * 1.5;
+    }
+    for (x = 1; x < 119; x++) {
+      s = (x - 1) / 118;
+      var pe = Math.round(edgeY(x)), thick = 4.2 - 3.4 * s;
+      for (y = Math.round(pe - thick); y <= pe; y++) c.put(x, y, ' ', D);   // 刀体擦黑
+      c.put(x, pe, '█', W);                                              // 刃口
+      if (x % 2 === 0) c.put(x, pe - 1, '▓', R);                          // 刃口的热
+      c.put(x, Math.round(pe - thick), '▒', R);                           // 刀背
+    }
+    // 刀背铆钉
+    for (i = 0; i < 9; i++) {
+      x = 8 + i * 13;
+      s = (x - 1) / 118;
+      c.put(x, Math.round(edgeY(x) - (4.2 - 3.4 * s) - 1), '●', R);
+    }
+    // 刀柄：左端向上出画的圆柱，把刀"接"到人身上
+    for (y = top; y < Math.round(edgeY(2)); y++) {
+      c.put(2, y, '▓', R); c.put(3, y, ' ', D); c.put(4, y, ' ', D); c.put(5, y, '▒', R);
+    }
+    // 刀尖滴下的血
+    for (i = 0; i < 3; i++) {
+      var dy2 = mod(u * 30 + i * 6, 15);
+      c.put(114 - i * 3, Math.round(edgeY(114 - i * 3)) + 2 + dy2 * 0.9, i ? '·' : '▓', i ? R : N);
+    }
+  }
 
   // ===== 长音 Link 96.03–103.51：赤日点亮 → 虹膜收束白爆 → LINK UP 定格 =====
   // 官方 MV 106.4–114.1s 的对应段是三镜：巨大赤日光轮前的小小人形剪影、
@@ -7735,10 +7743,10 @@ title: 字符演歌
         { a: 68.09,  b: 72.01,  f: lu_s4_call },
         { a: 72.01,  b: 76.12,  f: lu_s5_strike },
         { a: 76.12,  b: 80.00,  f: lu_s5_ring },
-        { a: 80.00,  b: 84.09,  f: lu_s6_rise },
-        { a: 84.09,  b: 88.26,  f: lu_s6_quench },
-        { a: 88.26,  b: 92.04,  f: lu_s6_hammer },
-        { a: 92.04,  b: 96.03,  f: lu_s6_pull },
+        { a: 80.00,  b: 82.40,  f: lu_s6_eye },
+        { a: 82.40,  b: 86.35,  f: lu_s6_rose },
+        { a: 86.35,  b: 92.35,  f: lu_s6_nave },
+        { a: 92.35,  b: 96.03,  f: lu_s6_card },
         { a: 96.03,  b: 100.00, f: lu_s7_tunnel },
         { a: 100.00, b: 103.51, f: lu_s7_link },
         { a: 103.51, b: 106.15, f: lu_s8_step },
