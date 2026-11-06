@@ -167,6 +167,7 @@ title: 字符演歌
     this.clip = null;   // 原作 c.clip=(top,bt)：场景段行裁剪
     this.queen = null;
     this.roxy = null;   // 洛克茜·女仆装（第二张 ANSI 角色）
+    this.redeye = null; // 红瞳角色整幅肖像板（120×68，含自身背景，不抠图）
     this.sx = 0; this.sy = 0; // 临时整屏位移（开幕柱锤冲击）
     this.cells = [];
     for (var y = 0; y < h; y++) {
@@ -178,6 +179,7 @@ title: 字符演歌
   CCanvas.prototype.clear = function () {
     this.queen = null;
     this.roxy = null;
+    this.redeye = null;
     for (var y = 0; y < this.h; y++)
       for (var x = 0; x < this.w; x++) { this.cells[y][x][0] = ' '; this.cells[y][x][1] = D; }
   };
@@ -5393,6 +5395,110 @@ title: 字符演歌
     g.restore();
   }
 
+  // ===== 红瞳角色整幅肖像板（89.9–92.3）=================================
+  // 用户提供的 120×68 真彩 ANSI 图**不是抠好的立绘**，而是一整幅红黑场景肖像板：
+  //   46% 的格子是透明（图外），不透明部分铺满 120×68，中央 x50–78 / y24–50 一亮团，
+  //   四周是斜向暗红纹理底，红瞳在 x43–50 与 x60–75 一带，红点缀还散在 x0–25 与 x85–105。
+  // 据此**不做抠图**（形态学抠出来边缘一定难看），改为整幅贴入 + 边缘羽化：
+  //   ① 四边用 alpha 梯度化开，裁切线落在全透明处，看不出画框；
+  //   ② 亮度不足的区域整体再压暗（×0.55），让它沉进场景的红雾里读成"背景"；
+  //   ③ 只有中央亮团保持原亮度，视觉上等于自然的暗角/聚光。
+  // 数据只有 120×68，逐帧重绘成本可忽略，但仍缓存成位图（跳播/录制一致性靠纯姿态描述）。
+  var LU_REDEYE_CACHE = null;
+  var LU_REDEYE_UNIT = 8;      // 源像素 → 离屏画布的内部倍率（只为抗锯齿留余量，非显示尺寸）
+  function luRedEyeBoard() {
+    var data = window.__LU_REDEYE_ANSI;
+    if (!data) return null;
+    if (LU_REDEYE_CACHE && LU_REDEYE_CACHE.data === data) return LU_REDEYE_CACHE.canvas;
+    var unit = LU_REDEYE_UNIT, W = data.width, H = data.height;
+    var cv = document.createElement('canvas');
+    cv.width = W * unit; cv.height = H * unit;
+    var ctx = cv.getContext('2d');
+    for (var y = 0; y < H; y++) for (var x = 0; x < W; x++) {
+      var index = data.alphabet.indexOf(data.rows[y].charAt(x));
+      if (index <= 0) continue;                    // 0 = 透明
+      ctx.fillStyle = data.palette[index];
+      ctx.fillRect(x * unit, y * unit, unit, unit);
+    }
+    // 边缘羽化 + 暗部压沉：一次 getImageData 搞定，避免逐帧计算。
+    // ⚠️ 羽化必须在**不透明像素**上做（透明像素 alpha 已是 0，压暗无意义）。
+    var img = ctx.getImageData(0, 0, cv.width, cv.height), d = img.data;
+    // 实测内容带：x 满幅 0–119，y 6–62（相对高 0.088–0.91）。
+    // 所以纵向羽化带必须 ≤0.10，否则头顶（y6）会被削掉三分之一 alpha。
+    var fx = 0.13, fy = 0.10;
+    // ⚠️ 实测这张图的直方图：整幅 p50=0.22、p95=0.90，而中央亮区 47% 的像素 >0.80、
+    //    峰值就是 #e9e4dc（0.92）。原样贴进暗红雾里，中央会读成"一块白布"。
+    //    ⇒ 一条反向 S 曲线：抬暗部（让斜纹底可见）+ 压高光（白色退成灰白），
+    //      峰值 0.92 → 0.72，正好比场景里的 `W` 白字（1.0）低一档，不再抢视觉。
+    var LUT = new Uint8ClampedArray(256);
+    for (var i2 = 0; i2 < 256; i2++) {
+      var v0 = Math.pow(i2 / 255, 0.88);
+      LUT[i2] = Math.round(255 * v0 * (1 - 0.24 * v0));
+    }
+    for (var yy = 0; yy < cv.height; yy++) {
+      var vy = yy / cv.height;
+      var ky = vy < fy ? vy / fy : (vy > 1 - fy ? (1 - vy) / fy : 1);
+      for (var xx = 0; xx < cv.width; xx++) {
+        var o = (yy * cv.width + xx) * 4;
+        if (!d[o + 3]) continue;
+        var vx = xx / cv.width;
+        var kx = vx < fx ? vx / fx : (vx > 1 - fx ? (1 - vx) / fx : 1);
+        var k = Math.min(kx, ky);
+        // 平滑（smoothstep）：线性渐变会在四边留下一道可见的"方框"。
+        k = k * k * (3 - 2 * k);
+        d[o + 3] = Math.round(d[o + 3] * k * 0.94);   // 整幅再让 6% 给前景红雾
+        d[o] = LUT[d[o]]; d[o + 1] = LUT[d[o + 1]]; d[o + 2] = LUT[d[o + 2]];
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+    LU_REDEYE_CACHE = { data: data, canvas: cv };
+    return cv;
+  }
+  // actor: {cx, y, t, reveal, src}  —— cx 是中心格坐标，src 是源图取景窗（0–1）
+  function luRenderRedEye(g, actor) {
+    var cv = luRedEyeBoard(); if (!cv) return;
+    var cell = CW * SC;
+    // actor.src = 源图裁切窗口（0–1 归一化），用于"推近取景"。
+    // ⚠️ 这不是抠图：窗口内的背景（红黑斜纹底）原样保留，只是把镜头推近。
+    var src = actor.src;
+    var sx = 0, sy = 0, sw = cv.width, sh = cv.height;
+    if (src) {
+      sx = src.x * cv.width; sy = src.y * cv.height;
+      sw = src.w * cv.width; sh = src.h * cv.height;
+    }
+    // ⚠️ 画法：**满幅 cover**，左右永远溢出画布。
+    //    早前是"按 28 行铺满 → 板宽 99.5 格 < 画布 120 格"，
+    //    结果左右各露 10 格，而 luRedEyeBoard 的羽化烘在**整幅图**的外框上，
+    //    取景窗只取中间，边缘自然被硬切 ⇒ 画面里出现两条竖直黑缝（截图坐实）。
+    //    ⇒ 让宽度固定 = 整幅画布宽（2160px），高的部分由舞台 clip 裁，
+    //      左右边界跑到画布外，竖直缝从物理上消失。
+    var w = (actor.wCells || GW) * cell;
+    var h = w * sh / sw;
+    var t = actor.t || 0;
+    var dx = Math.sin(t * 0.55) * cell * 0.45 + Math.sin(t * 7.3) * cell * 0.10;
+    var dy = Math.sin(t * 0.62 + 1.1) * cell * 0.30;
+    var x = (actor.cx === undefined ? GW / 2 : actor.cx) * cell - w / 2 + dx;
+    var y = actor.y * CH * SC + dy;
+    g.save();
+    // ⚠️ 上界必须从 row 5 起：row 4 是"40 / HER EYES"那一行字幕，
+    //    fine 层是在字符层之后画的，盖住就把字压没了（踩过）。
+    g.beginPath(); g.rect(0, 5 * CH * SC, GW * cell, 27 * CH * SC); g.clip();
+    g.globalAlpha = actor.reveal === undefined ? 1 : actor.reveal;
+    // ⚠️ 这张图本身就是"终端字符画"，放大时**必须**开平滑：
+    //    关掉后每个源像素变成 8×8 硬方块，在 120 宽的画布上会读成马赛克方块墙。
+    g.imageSmoothingEnabled = true;
+    g.drawImage(cv, sx, sy, sw, sh, x, y, w, h);
+    // 上下裁剪线落在舞台边界上，用一条同色渐变压掉硬切线（左右已无边界）。
+    var gt = g.createLinearGradient(0, 5 * CH * SC, 0, 5 * CH * SC + 46);
+    gt.addColorStop(0, 'rgba(0,0,0,0.92)'); gt.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = gt; g.fillRect(0, 5 * CH * SC, GW * cell, 46);
+    var gb = g.createLinearGradient(0, 32 * CH * SC, 0, 32 * CH * SC - 46);
+    gb.addColorStop(0, 'rgba(0,0,0,0.92)'); gb.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = gb; g.fillRect(0, 32 * CH * SC - 46, GW * cell, 46);
+    g.restore();
+  }
+
+
   // 用户提供的第三版 ANSI 角色（洛克茜·女仆装 + 大锤，110×110）。
   // 两张立绘现在都是 110×110（女王早期是 84×140，已替换），所以显示高度都 = 宽/2，
   // 高宽比这件事不再有区别；尺寸配平见下面的 luRoxyW()（按脸，不按身高）。
@@ -6046,130 +6152,44 @@ title: 字符演歌
     c.center(bt, 'SHE COMES DOWN / ALONE', K);
   }
 
-  // ④ 脸（MV 89.9–92.3）：正面极特写，逆光——脸只在边缘亮，五官全靠两只眼。
-  // ⚠️ 上一版三个毛病（看图才发现）：
-  //   ① 正圆椭圆的下半部收成一个尖 ⇒ 整张脸读成"倒桃心"；下巴必须是**方的**（超椭圆）。
-  //   ② 眼珠大到各占脸宽 1/3，两眼挤在一起 ⇒ 读完是"护目镜"；且眼距要略大于一只眼。
-  //   ③ 头发内部随机撒暗红发丝时没排除脸面，脸两颊上落了一条条竖纹。
+  // ④ 脸（MV 89.9–92.3）：用户提供的 120×68 真彩 ANSI 肖像板**满幅 cover 铺入**。
+  // ⚠️ 上一版这里是字符手绘的脸（超椭圆 + almond 眼 + 鼻嘴），1:2 格子里永远读成
+  //    一张"贴纸脸"，用户判定太丑，这一版不再画脸。
+  // 关于"不抠图"的决定（用户定的调子，已实证）：
+  //   · 这张图不是抠好的立绘：46% 的格子透明、不透明部分铺满 120 宽，中央 x50–78 /
+  //     y24–50 一团亮部，四周是斜向暗红纹理底，红点缀还散在 x0–25 与 x85–105。
+  //   · 形态学抠图出来边缘只会更难看；而它的背景本来就是红黑色，与本段一致。
+  //   ⇒ 不抠图，靠**满幅溢出 + 上下渐变压线**把边界推到画面外（见 luRenderRedEye）。
+  // 分工：肖像板承担画面主体；字符层只负责红雾与角落字幕，不再画人。
+  // ⚠️ 也**不能**用 luActorY 按"底部对齐"贴（那是给抠像立绘用的）。
   function lu_s6_face(c, t, top, bt, e) {
-    var u = clamp01(e / 2.4), x, y, i;
-    var cx = 60, cy = 18.0 + u * 0.7, pw = 1 + u * 0.06;
-    var FW = 17 * pw, FH = 12 * pw;
+    var u = clamp01(e / 2.4), x, y;
     var sd = Math.round(t * 10);
-    for (y = top; y < bt; y++) for (x = 1; x < c.w - 1; x++) {          // 背景红雾
-      var bgd = 16 - Math.abs(y - 20) * 0.6;
+    // 底：红雾。比肖像板的暗红纹理底再暗一档，肖像板压上去才有"从雾里浮出"的层次。
+    for (y = top; y < bt; y++) for (x = 1; x < c.w - 1; x++) {
+      var bgd = 14 - Math.abs(y - 20) * 0.5;
       if (hash16(x * 7 + y * 13 + sd) % 100 < bgd) c.put(x, y, '·', R);
     }
-    for (y = top; y < bt; y++) for (x = 1; x < c.w - 1; x++) {          // 头发：整团压黑
-      var hx2 = (x - cx) / (FW * 1.55), hy2 = (y - cy + 2) / (FH * 1.60);
-      if (hx2 * hx2 + hy2 * hy2 <= 1) c.put(x, y, ' ', D);
-    }
-    // 发缘的红光：只在外缘一圈，且要连成一条边（散开的红点会读成"红头巾"）
-    for (y = top; y < bt; y++) for (x = 1; x < c.w - 1; x++) {
-      var ex2 = (x - cx) / (FW * 1.55), ey2 = (y - cy + 2) / (FH * 1.60);
-      var ed = Math.sqrt(ex2 * ex2 + ey2 * ey2);
-      if (ed < 0.975 || ed > 1.055) continue;
-      if (hash16(x * 31 + y * 17) % 100 < 74) c.put(x, y, ed > 1.02 ? '·' : '▓', R);
-    }
-    // 脸面：超椭圆（|dx|^2.4 + |dy|^2.4 ≤ 1）—— 指数 2 的正圆椭圆会把下半部收成尖下巴。
-    // 明度分五档全用实心/半实心（█ ▓ ▒），不用 ░：大面积点阵在金底上读成"脏"。
-    for (y = Math.round(cy - FH); y <= Math.round(cy + FH); y++)
-      for (x = Math.round(cx - FW); x <= Math.round(cx + FW); x++) {
-        var dx = (x - cx) / FW, dy = (y - cy) / FH;
-        var dd = Math.pow(Math.abs(dx), 2.4) + Math.pow(Math.abs(dy), 2.4);
-        if (dd > 1) continue;
-        // ⚠️ 明暗档全用实心/半实心（█ ▓），**不能用 ▒**：▒ 是 2×2 棋盘点阵，
-        //    在 9×18 的格子里被纵向拉成 2:1 后，看上去就是一片**斜线**——
-        //    上一版右脸那道"斜线阴影"就是 ▒G 拉出来的，不是刻意画的纹理。
-        //    另加一点二维噪声抖动，否则四档色号会在脸上切出硬分界线。
-        // ⚠️ 右侧不要整片落到 G（#875f00）：那等于把右半张脸涂成深棕，边界一眼可见，
-        //    缩略图里就是"半张脸打了阴影"的拼贴感。同色系过渡（亮黄→橙→暗棕）
-        //    才读成侧光；G 只留给最靠轮廓的一圈。
-        var lit = clamp01(0.93 - (dx * 0.40 + dy * 0.15) - dd * 0.26
-                          + (luNoise2(x * 0.34, y * 0.30, 7) - 0.5) * 0.11);
-        if (lit > 0.60) c.put(x, y, '█', B);
-        else if (lit > 0.44) c.put(x, y, '▓', B);
-        else if (lit > 0.30) c.put(x, y, '█', N);
-        else if (lit > 0.17) c.put(x, y, '▓', N);
-        else c.put(x, y, '█', G);
-      }
-    // 发丝只撒在"头发里且在脸外"（否则脸颊上会出现一道道竖纹）
-    for (y = top; y < bt; y++) for (x = 1; x < c.w - 1; x++) {
-      var gx2 = (x - cx) / (FW * 1.55), gy2 = (y - cy + 2) / (FH * 1.60);
-      if (gx2 * gx2 + gy2 * gy2 > 1) continue;
-      var fx2 = (x - cx) / FW, fy2 = (y - cy) / FH;
-      if (Math.pow(Math.abs(fx2), 2.4) + Math.pow(Math.abs(fy2), 2.4) <= 1) continue;
-      if (hash16(x * 13 + y * 29 + sd) % 100 < 9) c.put(x, y, '▓', G);
-    }
-    // 中分刘海：中间露出最多额头（hem 最高），两侧落下来
-    for (x = Math.round(cx - FW); x <= Math.round(cx + FW); x++) {
-      var ux = Math.abs(x - cx) / FW;
-      var hem = cy - FH * 0.56 - (1 - ux) * FH * 0.20 + Math.sin(x * 0.7) * 0.55;
-      for (y = Math.round(cy - FH) - 3; y < hem; y++) { if (y >= top) c.put(x, y, ' ', D); }
-    }
-    for (i = -1; i <= 1; i += 2) {                                      // 两侧垂下的一缕
-      // ⚠️ 必须落在**脸外**（≥1.02·FW）：贴在 0.94 就压进脸颊，读成一道道竖条纹
-      for (y = Math.round(cy - FH * 0.80); y < Math.round(cy + FH * 0.92); y++) {
-        var lx2 = cx + i * FW * (1.04 + Math.sin(y * 0.42) * 0.05);
-        c.put(Math.round(lx2), y, '▓', G);
-      }
-    }
-    function almond(ex, ey, hw, hh) {
-      var xx, yy, s2;
-      for (xx = -hw; xx <= hw; xx++) {
-        s2 = Math.sqrt(Math.max(0, 1 - (xx / (hw + 0.55)) * (xx / (hw + 0.55))));
-        for (yy = Math.round(ey - hh * 0.90 * s2); yy <= Math.round(ey + hh * s2); yy++)
-          c.put(ex + xx, yy, '█', W);
-      }
-      for (xx = -1; xx <= 1; xx++) for (yy = -1; yy <= 1; yy++) {        // 红虹膜（3×3）
-        c.put(ex + xx, ey + yy, '█', R);
-      }
-      c.put(ex, ey, ' ', D);                                            // 瞳孔
-      c.put(ex - 1, ey - 1, '█', W);                                    // 高光
-      for (xx = -hw - 1; xx <= hw + 1; xx++)                            // 上睑：挖黑一道
-        c.put(ex + xx, Math.round(ey - hh * 0.92 - 0.4), ' ', D);
-    }
-    // 瞳距 14 格 / 脸宽 34 格 ≈ 0.41，比真人（0.45–0.50）窄，眼睛会显"挤在一起"。
-    var ey2 = Math.round(cy - 1.6), gap = 8;
-    // 眼窝：眼睛周围把肤色压暗一档。⚠️ 不给眼窝，两只白眼睛就是贴在一个平面上的
-    // 贴纸（"护目镜/卡通娃娃"），有眼窝眼睛才陷进脸里。
-    for (i = -1; i <= 1; i += 2) {
-      var ex0 = cx + i * gap;
-      for (y = ey2 - 5; y <= ey2 + 5; y++) for (x = ex0 - 7; x <= ex0 + 7; x++) {
-        if (y < top || y >= bt) continue;
-        var vv = c.cells[y] && c.cells[y][x];
-        if (!vv || vv[1] !== B) continue;                 // 只压肤色，不动背景和头发
-        if (((x - ex0) / 7.5) * ((x - ex0) / 7.5) + ((y - ey2) / 5.5) * ((y - ey2) / 5.5) > 1) continue;
-        // ⚠️ 压两档（█B→▓N）会在眼睛外圈套一道橙环 = 熊猫眼/骷髅。
-        //    只降一档、且保住实心字符，眼睛才"陷进去"而不是"被圈出来"。
-        c.put(x, y, vv[0] === '█' ? '█' : vv[0], vv[1] === B ? N : vv[1]);
-      }
-    }
-    almond(cx - gap, ey2, 3, 1.9);
-    almond(cx + gap, ey2, 3, 1.9);
-    for (i = -1; i <= 1; i += 2) {                                      // 眉：短、略斜
-      for (x = 0; x < 9; x++) {
-        var bx = Math.round(cx + i * (gap - 4 + x));
-        c.put(bx, ey2 - 3 - Math.round(x * 0.16), '█', R);
-      }
-    }
-    // 鼻：梁的右侧一条浅影 + 鼻头高光 + 底下两格鼻翼 ⇒ 读成"鼻"而不是一根黑棍
-    // ⚠️ 鼻梁影给 4 格长条 + 3 点鼻翼时，鼻子会和嘴连成一块 T 形深棕（读成胡须）。
-    //    鼻只需：两格侧影 + 一格鼻头高光 + 两个鼻翼点。
-    var ny = Math.round(cy + 2.0);
-    for (y = ny; y <= ny + 1; y++) c.put(cx + 1, y, '█', N);
-    c.put(cx, ny + 2, '█', B);
-    c.put(cx - 1, ny + 2, '█', G); c.put(cx + 1, ny + 2, '█', G);
-    // 嘴：一条暗红唇线 + 一道受光的下唇（纯黑一条读成"缝"，纯黑一道还会被当成胡须）
-    // ⚠️ 9 格宽的 `▓R` 唇条在暖黄脸上就是一道口红，整张脸立刻变"小丑/木偶"。
-    //    嘴只要"一条暗线 + 下唇一点受光"，颜色跟肤色同系，不要纯红。
-    // 嘴要离鼻子两行（人中），贴着鼻翼的嘴在缩略图里和鼻子连成"胡须"。
-    var my = Math.round(cy + 8.2);
-    for (x = cx - 2; x <= cx + 2; x++) c.put(x, my, '▓', G);
-    for (x = cx - 1; x <= cx + 1; x++) c.put(x, my + 1, '█', N);
-    c.put(cx - 5, my, ' ', D); c.put(cx + 5, my, ' ', D);
-    // ⚠️ 下巴上再横一道暗线（"下颌阴影"）在下半脸本来就被压暗时会连成一大块深棕，
-    //    读成络腮胡。这里只保留下唇的受光，不再补暗。
+    // 取景窗必须与源图**同宽高比**（fw = fh = k），否则 drawImage 会把脸横向拉伸；
+    // 且窗口要 clamp 在 [0, 1-k] 内，否则 sw/sh 会大于源图（踩过：w=1.22）。
+    // ⚠️ 推镜幅度实测：k 收到 0.64 时下巴已贴到字幕线（截图坐实），
+    //    收到 0.55 整张脸溢出画面。0.80 是"仍看得出在推近、但五官完整"的边界。
+    var k = 1.0 - 0.20 * luEase(u);               // 2.4s 从整幅轻推到 0.80 倍窗
+    var cxN = 0.471, cyN = 0.475;                 // 双眼簇中心（源图归一化）
+    var winX = Math.min(Math.max(cxN - k / 2, 0), 1 - k);
+    var winY = Math.min(Math.max(cyN - k / 2, 0), 1 - k);
+    // 满幅 cover：宽固定 120 格 ⇒ 高 = 120 格 × (CW/CH) × (68/120) = 34 行，
+    // 比舞台 28 行多 6 行，上下各溢出 3 行由 clip 裁掉。
+    // ⚠️ y 的推导：要让取景窗中心（≈眼睛）落在舞台中心 row 18 ⇒ y = 18 - h/2 = 1。
+    var hRows = 120 * (CW / CH) * (68 / 120);     // = 34
+    c.redeye = {
+      cx: 60,
+      wCells: 120,
+      y: 18 - hRows / 2,
+      src: { x: winX, y: winY, w: k, h: k },
+      t: t,
+      reveal: clamp01(e / 0.25),
+    };
     clearRect(c, 0, top, c.w, 1); clearRect(c, 0, bt, c.w, 1);
     c.put(3, top, '40 / HER EYES', N);
     c.put(c.w - 20, top, 'RED / NOT ANGRY', R);
@@ -8892,6 +8912,7 @@ title: 字符演歌
     var tasks=[one(LYRIC_URL),one(SPEC_URL)];
     if(SONG_KEY==='link_up')tasks.push(one("{{ '/assets/data/ascii_mv/link_up/queen_ansi.js' | relative_url }}"));
     if(SONG_KEY==='link_up')tasks.push(one("{{ '/assets/data/ascii_mv/link_up/roxy_ansi.js' | relative_url }}"));
+    if(SONG_KEY==='link_up')tasks.push(one("{{ '/assets/data/ascii_mv/link_up/redeye_ansi.js' | relative_url }}"));
     Promise.all(tasks).then(function (codes) {
       done = true;
       runGlobal(codes[0]);                 // window.__LYRICS
@@ -8900,6 +8921,7 @@ title: 字符演歌
       runGlobal(codes[1]);                 // window.__SPECTRUM（drawSpectrum 每帧现取）
       if(codes[2])runGlobal(codes[2]);      // Link Up 的 ANSI 角色素材（女王）
       if(codes[3])runGlobal(codes[3]);      // 洛克茜·女仆装
+      if(codes[4])runGlobal(codes[4]);      // 红瞳角色（89.9–92.3 的特写板）
       elLoad.hidden = true;
     }).catch(function (e) {
       failed = true;
@@ -8936,6 +8958,7 @@ title: 字符演歌
       }
     if(grid.queen)luRenderQueen(g2d,grid.queen);
     if(grid.roxy)luRenderRoxy(g2d,grid.roxy);
+    if(grid.redeye)luRenderRedEye(g2d,grid.redeye);
   }
 
   /* ---------------- 音频时钟 ---------------- */
