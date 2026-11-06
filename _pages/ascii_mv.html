@@ -168,6 +168,7 @@ title: 字符演歌
     this.queen = null;
     this.roxy = null;   // 洛克茜·女仆装（第二张 ANSI 角色）
     this.redeye = null; // 红瞳角色整幅肖像板（120×68，含自身背景，不抠图）
+    this.rose = null;   // 用户提供的红黑像素玫瑰（120×110，透明底抠像）
     this.sx = 0; this.sy = 0; // 临时整屏位移（开幕柱锤冲击）
     this.cells = [];
     for (var y = 0; y < h; y++) {
@@ -180,6 +181,7 @@ title: 字符演歌
     this.queen = null;
     this.roxy = null;
     this.redeye = null;
+    this.rose = null;
     for (var y = 0; y < this.h; y++)
       for (var x = 0; x < this.w; x++) { this.cells[y][x][0] = ' '; this.cells[y][x][1] = D; }
   };
@@ -5498,6 +5500,62 @@ title: 字符演歌
     g.restore();
   }
 
+  // 用户提供的红黑像素玫瑰（120×110 / ansiRows 55）。
+  // 与肖像板的关键差别：**它是抠好的立绘**（55% 的格子是透明，边界就是花瓣轮廓），
+  // 所以**不能**做四边羽化 —— 羽化会沿画布矩形均匀咬掉花瓣的边，变成"被裁掉的花"。
+  // 调色板只有红（#fd011f → #490109）与中性灰（#09090b → #2f2a2b），
+  // 正好是本段的红黑主色，不需要再压高光。
+  var LU_ROSE_BOARD = null, LU_ROSE_UNIT = 8;
+  function luRoseBoard() {
+    var data = window.__LU_ROSE_ANSI;
+    if (!data) return null;
+    if (LU_ROSE_BOARD && LU_ROSE_BOARD.data === data) return LU_ROSE_BOARD.canvas;
+    var unit = LU_ROSE_UNIT, W = data.width, H = data.height;
+    var cv = document.createElement('canvas');
+    cv.width = W * unit; cv.height = H * unit;
+    var ctx = cv.getContext('2d');
+    for (var y = 0; y < H; y++) for (var x = 0; x < W; x++) {
+      var index = data.alphabet.indexOf(data.rows[y].charAt(x));
+      if (index <= 0) continue;                    // 0 = 透明
+      ctx.fillStyle = data.palette[index];
+      ctx.fillRect(x * unit, y * unit, unit, unit);
+    }
+    LU_ROSE_BOARD = { data: data, canvas: cv };
+    return cv;
+  }
+  // actor: {cx, cy, w, rot, reveal}  —— cx/cy 是中心（格/行），w 是宽度（格）
+  function luRenderRose(g, actor) {
+    var cv = luRoseBoard(); if (!cv) return;
+    var cell = CW * SC, data = window.__LU_ROSE_ANSI;
+    var w = actor.w * cell;
+    var h = w * data.height / data.width;
+    var cx = actor.cx * cell, cy = actor.cy * CH * SC;
+    g.save();
+    // 上界 row 5：row 4 是"41 / A ROSE IN THE DARK"那行字幕，fine 层压在字符层之后。
+    g.beginPath(); g.rect(0, 5 * CH * SC, GW * cell, 27 * CH * SC); g.clip();
+    g.globalAlpha = actor.reveal === undefined ? 1 : actor.reveal;
+    // 像素画放大：**开平滑**。关掉后每个源像素变成 9×9 硬方块，120 格画布上读成马赛克墙
+    // （这张图 120 px 宽、最宽画到 ~62 格 = 1116 px，正处在"放大 1.2×"的尴尬区间）。
+    g.imageSmoothingEnabled = true;
+    g.translate(cx, cy);
+    if (actor.rot) g.rotate(actor.rot);
+    // 背后一团暖红光：这张图的花瓣本体是 #09090b（与场景黑底几乎同值），
+    // 没有背光时下半圈花瓣直接溶进黑里、轮廓读不出来。红光只从**花瓣缝隙**透出来，
+    // 正好给出"花在发暗光"的体积感，且不会糊在花瓣上。
+    var gl = actor.glow === undefined ? 1 : actor.glow;
+    if (gl > 0) {
+      var R = w * 0.62;
+      var rg = g.createRadialGradient(0, 0, R * 0.06, 0, 0, R);
+      rg.addColorStop(0, 'rgba(158,10,26,' + (0.46 * gl).toFixed(3) + ')');
+      rg.addColorStop(0.58, 'rgba(104,5,15,' + (0.22 * gl).toFixed(3) + ')');
+      rg.addColorStop(1, 'rgba(0,0,0,0)');
+      g.fillStyle = rg;
+      g.beginPath(); g.arc(0, 0, R, 0, 6.2832); g.fill();
+    }
+    g.drawImage(cv, -w / 2, -h / 2, w, h);
+    g.restore();
+  }
+
 
   // 用户提供的第三版 ANSI 角色（洛克茜·女仆装 + 大锤，110×110）。
   // 两张立绘现在都是 110×110（女王早期是 84×140，已替换），所以显示高度都 = 宽/2，
@@ -5723,88 +5781,12 @@ title: 字符演歌
       for (x = 2; x < c.w - 2; x++) {
         var I = v * v * (1 - Math.abs(x - core + skew) / (24 + 34 * v));
         if (I <= 0) continue;
-        if (I > 0.62) c.put(x, y, '█', W);
+        if (I > 0.62) c.put(x, y, '█', N);          // 核心用橙：纯白 W 在暗红场里
+                                                    // 读成"过曝的洞"，非常刺眼（截图坐实）
         else if (I > 0.34) c.put(x, y, '█', R);
         else if (I > 0.14) c.put(x, y, '▓', R);
         else if (hash16(x * 13 + y * 7) % 100 < 58 * v) c.put(x, y, '░', R);
       }
-    }
-  }
-
-
-
-  // ② 血玫瑰。花瓣是一片片**椭圆实体**由外向内叠上去的，每片落笔前先擦一圈投影，
-  // 层与层之间才有暗缝。上一版按"极角相位"切层，长出来的是一台风车/烟花——
-  // 玫瑰之所以是玫瑰，靠的是花瓣互相包住的弧，不是放射状的对称。
-
-  // 玫瑰：六片**带尖的瓣**从花心放射，瓣尖一定突出轮廓线。
-  // 前面几版（同心圆弧 / 偏心弧 / 叠椭圆 / 侧视花苞）都失败在同一件事上：
-  // 外轮廓要么是圆、要么是蛋，而"花"这个字在低分辨率下只由**尖**认出来。
-  // 玫瑰：三层同心瓣（7/5/3），层间错位 1/3 个瓣距。
-  // ⚠️ 旧版用"6 个放射椭圆"拼花冠，本质是**雏菊/六角星**——瓣从同一个圆心长出去，
-  //    不管怎么调色都读成枫叶或星芒。玫瑰的关键是"层层卷"，所以这里改成
-  //    极坐标分层：半径分三带，带内用角向余弦切出瓣缝，层与层瓣数不同自然错位。
-  // 玫瑰（俯视）：**对数螺旋臂**才是玫瑰在平面上的正字法。
-  // ⚠️ 两版都失败在同一个思路：用"放射状瓣"拼花冠。
-  //    - 6 个椭圆 → 六角星/枫叶；
-  //    - 极坐标分带 + 角向余弦 → 齿轮/靶盘/车轮辐条。
-  //    玫瑰从上看是 5 条从花心卷出的螺旋，臂的宽度随半径展开，
-  //    所以这里用 sin(θ·N + ln(r)·k)：等值线是螺旋，不是辐条。
-  function luRose(c, t, cx, cy, sc, light, top, bt) {
-    var x, y, dx, dy, r, th, u, R0 = 10.4 * sc, ARMS = 5, K = 6.4;
-    for (y = top + 1; y < bt; y++) for (x = 2; x < c.w - 2; x++) {
-      dx = x - cx; dy = (y - cy) * 2;
-      r = Math.sqrt(dx * dx + dy * dy);
-      th = Math.atan2(dy, dx);
-      // 外轮廓按角度起伏：正圆盘读成"花菜/甘蓝"，玫瑰的外瓣是不齐的。
-      var shp = 1 + 0.075 * Math.cos(th * 5 + 0.7) + 0.045 * Math.cos(th * 9 + 2.1);
-      if (r > R0 * shp) continue;
-      u = clamp01(r / (R0 * shp));
-      // 螺旋相位：θ 方向 N 个臂，径向每转 1/N 圈臂就错开 → 对数螺旋
-      var sp = th * ARMS + Math.log(Math.max(0.16, u)) * K - t * 0.35;
-      var w = Math.sin(sp);
-      // 外缘收边 + 最内圈收成花心
-      // ⚠️ 臂缝不能落 G（#875f00）：那是橄榄，红底上的"暗红"它做不到，
-      //    整朵花会变成"黄绿 + 红"的卷心菜。调色板里没有暗红，
-      //    暗只能用**同名色的低密度**表达 ⇒ ▓R（75%）就是最暗的红。
-      // 三档密度（█100 / ▓75 / ▒50）就是这套调色板能给出的"三档暗红"。
-      // ▒ 只在**窄缝**里出现（臂缝本身是曲线、宽度 2–3 格），不会连成平铺砂纸。
-      if (u > 0.955) { c.put(x, y, '▓', R); continue; }
-      if (u < 0.15) { c.put(x, y, '█', N); continue; }
-      if (w > 0.62) c.put(x, y, '█', R);          // 臂的受光面
-      else if (w > 0.16) c.put(x, y, '▓', R);     // 臂的斜面
-      else if (w > -0.16) c.put(x, y, '█', N);    // 臂缘反射：橙，给体积
-      else c.put(x, y, '▒', R);                    // 臂缝：卷的深度
-    }
-    // 外圈红光
-    for (y = top; y < bt; y++) for (x = 2; x < c.w - 2; x++) {
-      var gd = Math.sqrt((x - cx) * (x - cx) + ((y - cy) * 2) * ((y - cy) * 2)) / (R0 * 1.04);
-      if (gd < 1 || gd > 1.7) continue;
-      if (hash16(x * 19 + y * 41) % 100 < (1.7 - gd) * 34 * light) c.put(x, y, '·', R);
-    }
-  }
-
-  // 一片花瓣落下。暗场里只有这一片是亮的，靠它把"花"和"特写"连起来。
-  function luPetal(c, top, bt, u) {
-    // ⚠️ 瓣缘不能用 '░' + W：点阵奶油色在黑底上混成橄榄灰，整片瓣会脏一圈。
-    // 边用实心 █ 才读得出「一片瓣」，中间再压一条叶脉。
-    var cx = 62 + Math.sin(u * 3.1) * 20, cy = 7 + u * 18, rot = u * 2.2, x, y;
-    for (y = Math.round(cy - 9); y <= Math.round(cy + 9); y++)
-      for (x = Math.round(cx - 17); x <= Math.round(cx + 17); x++) {
-        var dx = x - cx, dy = (y - cy) * 2;
-        var px = dx * Math.cos(rot) + dy * Math.sin(rot);
-        var py = -dx * Math.sin(rot) + dy * Math.cos(rot);
-        var q = (px / 17) * (px / 17) + (py / 6.6) * (py / 6.6);
-        if (q > 1) continue;
-        // 浅色只出现在「上缘 + 中段脉」两处，否则整片瓣会读成奶油条纹的虾。
-        if (q > 0.80 && py < 0) c.put(x, y, '█', W);                    // 迎光的瓣缘
-        else if (Math.abs(px) > 9 && q > 0.55) c.put(x, y, '▓', R);     // 瓣尖与瓣根压暗
-        else if (Math.abs(py) < 1.1 && Math.abs(px) < 8) c.put(x, y, '█', W); // 叶脉
-        else c.put(x, y, '█', R);
-      }
-    for (var i = 0; i < 10; i++) {                       // 几粒灰
-      var hx = hash16(i * 97 + 7), hy = hash16(i * 31 + 53);
-      c.put(4 + hx % 112, top + 2 + mod(hy * 0.02 + u * 14, 24), '·', R);
     }
   }
 
@@ -6196,31 +6178,48 @@ title: 字符演歌
     c.center(bt, e < 1.4 ? 'SHE LOOKS AT YOU' : 'AND DOES NOT BLINK', B);
   }
 
-  // ⑤ 玫瑰（MV 92.3–96.0）：暗红一朵 → 打亮 → 怼满屏 → 最后 0.4s 甩成横条。
+  // ⑤ 玫瑰（MV 92.3–96.0）：一朵暗红玫瑰从右侧漂进来 → 长开 → 怼满屏 → 最后 0.4s 甩成横条。
+  // ⚠️ 花不再是字符手绘：前九版（放射椭圆 / 极坐标环带 / 对数螺旋 / 圆并集 / 楔形瓣…）
+  //    全部读成风车、蜗轮、卷心菜或骰子五点 —— 在 1:2 的字符格上，一百来格的宽度
+  //    根本长不出"层叠花瓣"。现在改用用户提供的 120×110 红黑像素玫瑰（透明底抠像），
+  //    走 fine 层 drawImage，见 luRenderRose。
+  //    代价：花不占字符格 ⇒ 字符墨量骤降，底雾必须补足（见下）。
   function lu_s6_rose(c, t, top, bt, e) {
     var SPAN = 3.73, y0 = top;
-    // ⚠️ 起手 sc=0.50 时整屏只有一朵 10 格宽的暗花，墨量 90/3840，
-    //    缩略图里就是"黑屏中间一个红点"（全曲体检最低帧就在这里）。
-    //    花本身不能凭空放大太多（会来不及"长大"），改为：起手给 0.85、
-    //    同时垫一层随亮度增强的暗红底雾，画面才有空气。
     var amb = clamp01(e / 2.0);
-    for (var ay = top; ay < bt; ay++) for (var ax = 2; ax < c.w - 2; ax++) {
-      var adx = (ax - 60) / 58, ady = (ay - 21) / 17;
+    // ⚠️ 玫瑰现在是**图像**（fine 层），不再占字符格 ⇒ 字符墨量骤降（79–119，门槛 220）。
+    //    底雾不能只是"点缀"，得是真正托住画面的空气：ad 用 0.65 次方而不是平方，
+    //    让红雾铺到画面四角，而不是只在中心一小团（体检查过：平方时 92.3 只有 79 格）。
+    for (var ay = top; ay < bt; ay++) for (var ax = 1; ax < c.w - 1; ax++) {
+      var adx = (ax - 60) / 62, ady = (ay - 21) / 19;
       var ad = 1 - clamp01(Math.sqrt(adx * adx + ady * ady));
       if (ad <= 0) continue;
       var nz = luNoise2(ax * 0.13, ay * 0.30, 61);
-      if (hash16(ax * 23 + ay * 47) % 100 < ad * ad * (3 + 9 * amb) * (0.5 + nz)) c.put(ax, ay, '·', R);
+      var pd = Math.pow(ad, 0.65) * (12 + 12 * amb) * (0.55 + nz);
+      if (hash16(ax * 23 + ay * 47) % 100 < pd) c.put(ax, ay, '·', R);
     }
     if (e < 2.55) {
       // ⚠️ 线性 u=e/2.55 会让前 1.2 秒的花只有 10–12 格宽，"花"和"红点"分不开。
       //    曲线改成快出慢停：0.1s 到 30%、0.5s 到 62%，再用两秒慢慢推近。
       var u = Math.pow(clamp01(e / 1.40), 0.45);
-      luRose(c, t, 74 - u * 13, 15.5 + u * 1.6, 0.85 + 0.95 * Math.pow(u, 1.2),
-             0.45 + 0.55 * clamp01(e / 1.5), y0, bt);
+      c.rose = {
+        cx: 74 - u * 13,
+        cy: 15.6 + u * 1.9,
+        w: 24 + 18 * Math.pow(u, 1.2),              // 24 → 42 格（高 11 → 19 行）
+        rot: Math.sin(t * 0.42) * 0.045,
+        reveal: clamp01(e / 0.18),
+      };
     } else if (e < 3.33) {
-      luRose(c, t, 60, 17, 1.80 + 0.75 * clamp01((e - 2.55) / 0.78), 1, y0, bt);
+      var v = clamp01((e - 2.55) / 0.78);
+      c.rose = {
+        cx: 61 - v,
+        cy: 17.5 + v * 0.8,
+        w: 42 + 14 * v,                             // 推到 56 格（高 25.7 行）
+        rot: Math.sin(t * 0.42) * 0.045,
+        reveal: 1,
+      };
     } else {
-      luRose(c, t, 60, 17, 2.55, 1, y0, bt);
+      c.rose = { cx: 60, cy: 18.3, w: 58, rot: Math.sin(t * 0.42) * 0.045, reveal: 1 };
       luSmear(c, y0, bt, clamp01((e - 3.33) / 0.40));            // MV 95.6 那道红色甩镜
     }
     clearRect(c, 0, top, c.w, 1); clearRect(c, 0, bt, c.w, 1);
@@ -8913,6 +8912,7 @@ title: 字符演歌
     if(SONG_KEY==='link_up')tasks.push(one("{{ '/assets/data/ascii_mv/link_up/queen_ansi.js' | relative_url }}"));
     if(SONG_KEY==='link_up')tasks.push(one("{{ '/assets/data/ascii_mv/link_up/roxy_ansi.js' | relative_url }}"));
     if(SONG_KEY==='link_up')tasks.push(one("{{ '/assets/data/ascii_mv/link_up/redeye_ansi.js' | relative_url }}"));
+    if(SONG_KEY==='link_up')tasks.push(one("{{ '/assets/data/ascii_mv/link_up/rose_ansi.js' | relative_url }}"));
     Promise.all(tasks).then(function (codes) {
       done = true;
       runGlobal(codes[0]);                 // window.__LYRICS
@@ -8922,6 +8922,7 @@ title: 字符演歌
       if(codes[2])runGlobal(codes[2]);      // Link Up 的 ANSI 角色素材（女王）
       if(codes[3])runGlobal(codes[3]);      // 洛克茜·女仆装
       if(codes[4])runGlobal(codes[4]);      // 红瞳角色（89.9–92.3 的特写板）
+      if(codes[5])runGlobal(codes[5]);      // 红黑像素玫瑰（92.3–96.0）
       elLoad.hidden = true;
     }).catch(function (e) {
       failed = true;
@@ -8959,6 +8960,7 @@ title: 字符演歌
     if(grid.queen)luRenderQueen(g2d,grid.queen);
     if(grid.roxy)luRenderRoxy(g2d,grid.roxy);
     if(grid.redeye)luRenderRedEye(g2d,grid.redeye);
+    if(grid.rose)luRenderRose(g2d,grid.rose);
   }
 
   /* ---------------- 音频时钟 ---------------- */
