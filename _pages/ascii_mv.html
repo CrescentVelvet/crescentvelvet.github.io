@@ -5115,7 +5115,9 @@ title: 字符演歌
     if (!sil) return;
     var x0 = Math.round(cx - sil.w / 2), y0 = baseY - sil.h + 1, gx, gy, n;
     for (gy = 0; gy < sil.h; gy++) for (gx = 0; gx < sil.w; gx++)
-      if (sil.g[gy].charAt(gx) === '#') c.put(x0 + gx, y0 + gy, ' ');
+      // ⚠️ put 的第四参（色号）没有缺省值，漏了就把 undefined 写进 cells；
+      //    编码/渲染阶段拿到 undefined 色号会整片丢墨（全曲体检在 72.2s 扫到过）。
+      if (sil.g[gy].charAt(gx) === '#') c.put(x0 + gx, y0 + gy, ' ', R);
     for (gy = 0; gy < sil.h; gy++) for (gx = 0; gx < sil.w; gx++) {
       if (sil.g[gy].charAt(gx) === '#') continue;
       n = 0;
@@ -5158,7 +5160,7 @@ title: 字符演歌
       if (e2 < 1.0) c.put(fx + i, fy + j, '█', R);
       else if (e2 < 2.0) c.put(fx + i, fy + j, '▒', R);
       else if (e2 < 3.0 && hash16((i + 9) * 31 + (j + 9) * 17) % 100 < 52) c.put(fx + i, fy + j, '░', R);
-      else if (e2 < 4.2) c.put(fx + i, fy + j, ' ');
+      else if (e2 < 4.2) c.put(fx + i, fy + j, ' ', R);
     }
   }
 
@@ -5632,38 +5634,47 @@ title: 字符演歌
   // 玫瑰：六片**带尖的瓣**从花心放射，瓣尖一定突出轮廓线。
   // 前面几版（同心圆弧 / 偏心弧 / 叠椭圆 / 侧视花苞）都失败在同一件事上：
   // 外轮廓要么是圆、要么是蛋，而"花"这个字在低分辨率下只由**尖**认出来。
+  // 玫瑰：三层同心瓣（7/5/3），层间错位 1/3 个瓣距。
+  // ⚠️ 旧版用"6 个放射椭圆"拼花冠，本质是**雏菊/六角星**——瓣从同一个圆心长出去，
+  //    不管怎么调色都读成枫叶或星芒。玫瑰的关键是"层层卷"，所以这里改成
+  //    极坐标分层：半径分三带，带内用角向余弦切出瓣缝，层与层瓣数不同自然错位。
+  // 玫瑰（俯视）：**对数螺旋臂**才是玫瑰在平面上的正字法。
+  // ⚠️ 两版都失败在同一个思路：用"放射状瓣"拼花冠。
+  //    - 6 个椭圆 → 六角星/枫叶；
+  //    - 极坐标分带 + 角向余弦 → 齿轮/靶盘/车轮辐条。
+  //    玫瑰从上看是 5 条从花心卷出的螺旋，臂的宽度随半径展开，
+  //    所以这里用 sin(θ·N + ln(r)·k)：等值线是螺旋，不是辐条。
   function luRose(c, t, cx, cy, sc, light, top, bt) {
-    var x, y, k, a, dx, dy, ca, sa, uu, vv, wmax, PL, HB, ang;
-    for (k = 0; k < 6; k++) {
-      ang = k * TAU / 6 + 0.35 + t * 0.03;
-      PL = (10.5 + (k % 2) * 1.8) * sc;
-      HB = PL * 0.40;
-      ca = Math.cos(ang); sa = Math.sin(ang);
-      for (y = Math.round(cy - PL * 0.9); y <= Math.round(cy + PL * 0.9); y++)
-        for (x = Math.round(cx - PL); x <= Math.round(cx + PL); x++) {
-          dx = x - cx; dy = (y - cy) * 2;
-          uu = (dx * ca + dy * sa) / PL;
-          vv = (-dx * sa + dy * ca) / HB;
-          if (uu < -0.05 || uu > 1) continue;
-          wmax = Math.sqrt(Math.max(0, 1 - Math.pow(Math.max(0, uu), 2.3)));
-          if (Math.abs(vv) > wmax) continue;
-          // 瓣缘亮、瓣肉暗：暗底才看得出瓣与瓣的界线
-          if (Math.abs(vv) > wmax * 0.70) c.put(x, y, uu > 0.35 ? '█' : '▓', R);
-          else if (uu < 0.12) c.put(x, y, '▒', R);
-          else c.put(x, y, Math.abs(vv) > wmax * 0.44 ? '▓' : '▒', R);
-        }
-    }
-    // 花心：收紧的螺旋压在瓣根上，这是"玫瑰"区别于"雏菊"的唯一记号
-    for (a = 0; a < 5.0; a += 0.05) {
-      var r3 = (0.6 + a * 0.62) * sc;
-      c.put(cx + Math.cos(a + t * 0.18) * r3, cy + Math.sin(a + t * 0.18) * r3 * 0.5,
-            a < 1.6 ? '█' : '▓', a < 1.6 ? W : B);
+    var x, y, dx, dy, r, th, u, R0 = 10.4 * sc, ARMS = 5, K = 6.4;
+    for (y = top + 1; y < bt; y++) for (x = 2; x < c.w - 2; x++) {
+      dx = x - cx; dy = (y - cy) * 2;
+      r = Math.sqrt(dx * dx + dy * dy);
+      th = Math.atan2(dy, dx);
+      // 外轮廓按角度起伏：正圆盘读成"花菜/甘蓝"，玫瑰的外瓣是不齐的。
+      var shp = 1 + 0.075 * Math.cos(th * 5 + 0.7) + 0.045 * Math.cos(th * 9 + 2.1);
+      if (r > R0 * shp) continue;
+      u = clamp01(r / (R0 * shp));
+      // 螺旋相位：θ 方向 N 个臂，径向每转 1/N 圈臂就错开 → 对数螺旋
+      var sp = th * ARMS + Math.log(Math.max(0.16, u)) * K - t * 0.35;
+      var w = Math.sin(sp);
+      // 外缘收边 + 最内圈收成花心
+      // ⚠️ 臂缝不能落 G（#875f00）：那是橄榄，红底上的"暗红"它做不到，
+      //    整朵花会变成"黄绿 + 红"的卷心菜。调色板里没有暗红，
+      //    暗只能用**同名色的低密度**表达 ⇒ ▓R（75%）就是最暗的红。
+      // 三档密度（█100 / ▓75 / ▒50）就是这套调色板能给出的"三档暗红"。
+      // ▒ 只在**窄缝**里出现（臂缝本身是曲线、宽度 2–3 格），不会连成平铺砂纸。
+      if (u > 0.955) { c.put(x, y, '▓', R); continue; }
+      if (u < 0.15) { c.put(x, y, '█', N); continue; }
+      if (w > 0.62) c.put(x, y, '█', R);          // 臂的受光面
+      else if (w > 0.16) c.put(x, y, '▓', R);     // 臂的斜面
+      else if (w > -0.16) c.put(x, y, '█', N);    // 臂缘反射：橙，给体积
+      else c.put(x, y, '▒', R);                    // 臂缝：卷的深度
     }
     // 外圈红光
     for (y = top; y < bt; y++) for (x = 2; x < c.w - 2; x++) {
-      var gd = Math.sqrt((x - cx) * (x - cx) + ((y - cy) * 2) * ((y - cy) * 2)) / (PL * 1.1);
-      if (gd < 1 || gd > 1.6) continue;
-      if (hash16(x * 19 + y * 41) % 100 < (1.6 - gd) * 30 * light) c.put(x, y, '·', R);
+      var gd = Math.sqrt((x - cx) * (x - cx) + ((y - cy) * 2) * ((y - cy) * 2)) / (R0 * 1.04);
+      if (gd < 1 || gd > 1.7) continue;
+      if (hash16(x * 19 + y * 41) % 100 < (1.7 - gd) * 34 * light) c.put(x, y, '·', R);
     }
   }
 
@@ -6067,12 +6078,20 @@ title: 字符演歌
         var dx = (x - cx) / FW, dy = (y - cy) / FH;
         var dd = Math.pow(Math.abs(dx), 2.4) + Math.pow(Math.abs(dy), 2.4);
         if (dd > 1) continue;
-        var lit = clamp01(0.94 - (dx * 0.44 + dy * 0.28) - dd * 0.30);   // 光从左上
-        if (lit > 0.62) c.put(x, y, '█', B);
-        else if (lit > 0.45) c.put(x, y, '▓', B);
-        else if (lit > 0.30) c.put(x, y, '▒', B);
-        else if (lit > 0.15) c.put(x, y, '▓', N);
-        else c.put(x, y, '▒', G);
+        // ⚠️ 明暗档全用实心/半实心（█ ▓），**不能用 ▒**：▒ 是 2×2 棋盘点阵，
+        //    在 9×18 的格子里被纵向拉成 2:1 后，看上去就是一片**斜线**——
+        //    上一版右脸那道"斜线阴影"就是 ▒G 拉出来的，不是刻意画的纹理。
+        //    另加一点二维噪声抖动，否则四档色号会在脸上切出硬分界线。
+        // ⚠️ 右侧不要整片落到 G（#875f00）：那等于把右半张脸涂成深棕，边界一眼可见，
+        //    缩略图里就是"半张脸打了阴影"的拼贴感。同色系过渡（亮黄→橙→暗棕）
+        //    才读成侧光；G 只留给最靠轮廓的一圈。
+        var lit = clamp01(0.93 - (dx * 0.40 + dy * 0.15) - dd * 0.26
+                          + (luNoise2(x * 0.34, y * 0.30, 7) - 0.5) * 0.11);
+        if (lit > 0.60) c.put(x, y, '█', B);
+        else if (lit > 0.44) c.put(x, y, '▓', B);
+        else if (lit > 0.30) c.put(x, y, '█', N);
+        else if (lit > 0.17) c.put(x, y, '▓', N);
+        else c.put(x, y, '█', G);
       }
     // 发丝只撒在"头发里且在脸外"（否则脸颊上会出现一道道竖纹）
     for (y = top; y < bt; y++) for (x = 1; x < c.w - 1; x++) {
@@ -6110,7 +6129,8 @@ title: 字符演歌
       for (xx = -hw - 1; xx <= hw + 1; xx++)                            // 上睑：挖黑一道
         c.put(ex + xx, Math.round(ey - hh * 0.92 - 0.4), ' ', D);
     }
-    var ey2 = Math.round(cy - 1.6), gap = 7;
+    // 瞳距 14 格 / 脸宽 34 格 ≈ 0.41，比真人（0.45–0.50）窄，眼睛会显"挤在一起"。
+    var ey2 = Math.round(cy - 1.6), gap = 8;
     // 眼窝：眼睛周围把肤色压暗一档。⚠️ 不给眼窝，两只白眼睛就是贴在一个平面上的
     // 贴纸（"护目镜/卡通娃娃"），有眼窝眼睛才陷进脸里。
     for (i = -1; i <= 1; i += 2) {
@@ -6120,7 +6140,9 @@ title: 字符演歌
         var vv = c.cells[y] && c.cells[y][x];
         if (!vv || vv[1] !== B) continue;                 // 只压肤色，不动背景和头发
         if (((x - ex0) / 7.5) * ((x - ex0) / 7.5) + ((y - ey2) / 5.5) * ((y - ey2) / 5.5) > 1) continue;
-        c.put(x, y, vv[0] === '█' ? '▓' : vv[0] === '▓' ? '▒' : vv[0], N);
+        // ⚠️ 压两档（█B→▓N）会在眼睛外圈套一道橙环 = 熊猫眼/骷髅。
+        //    只降一档、且保住实心字符，眼睛才"陷进去"而不是"被圈出来"。
+        c.put(x, y, vv[0] === '█' ? '█' : vv[0], vv[1] === B ? N : vv[1]);
       }
     }
     almond(cx - gap, ey2, 3, 1.9);
@@ -6128,20 +6150,26 @@ title: 字符演歌
     for (i = -1; i <= 1; i += 2) {                                      // 眉：短、略斜
       for (x = 0; x < 9; x++) {
         var bx = Math.round(cx + i * (gap - 4 + x));
-        c.put(bx, ey2 - 3 - Math.round(x * 0.16), '▓', R);
+        c.put(bx, ey2 - 3 - Math.round(x * 0.16), '█', R);
       }
     }
     // 鼻：梁的右侧一条浅影 + 鼻头高光 + 底下两格鼻翼 ⇒ 读成"鼻"而不是一根黑棍
-    var ny = Math.round(cy + 2.2);
-    for (y = ny; y <= ny + 3; y++) c.put(cx + 1, y, '▒', N);
-    c.put(cx, ny + 3, '█', B);
-    c.put(cx - 1, ny + 4, '▓', G); c.put(cx + 1, ny + 4, '▓', G); c.put(cx + 2, ny + 4, '▓', G);
+    // ⚠️ 鼻梁影给 4 格长条 + 3 点鼻翼时，鼻子会和嘴连成一块 T 形深棕（读成胡须）。
+    //    鼻只需：两格侧影 + 一格鼻头高光 + 两个鼻翼点。
+    var ny = Math.round(cy + 2.0);
+    for (y = ny; y <= ny + 1; y++) c.put(cx + 1, y, '█', N);
+    c.put(cx, ny + 2, '█', B);
+    c.put(cx - 1, ny + 2, '█', G); c.put(cx + 1, ny + 2, '█', G);
     // 嘴：一条暗红唇线 + 一道受光的下唇（纯黑一条读成"缝"，纯黑一道还会被当成胡须）
-    var my = Math.round(cy + 7.2);
-    for (x = cx - 4; x <= cx + 4; x++) c.put(x, my, '▓', R);
-    for (x = cx - 3; x <= cx + 3; x++) c.put(x, my + 1, '▒', N);
+    // ⚠️ 9 格宽的 `▓R` 唇条在暖黄脸上就是一道口红，整张脸立刻变"小丑/木偶"。
+    //    嘴只要"一条暗线 + 下唇一点受光"，颜色跟肤色同系，不要纯红。
+    // 嘴要离鼻子两行（人中），贴着鼻翼的嘴在缩略图里和鼻子连成"胡须"。
+    var my = Math.round(cy + 8.2);
+    for (x = cx - 2; x <= cx + 2; x++) c.put(x, my, '▓', G);
+    for (x = cx - 1; x <= cx + 1; x++) c.put(x, my + 1, '█', N);
     c.put(cx - 5, my, ' ', D); c.put(cx + 5, my, ' ', D);
-    for (x = cx - 3; x <= cx + 3; x++) c.put(x, my + 3, '▒', N);        // 下颌阴影
+    // ⚠️ 下巴上再横一道暗线（"下颌阴影"）在下半脸本来就被压暗时会连成一大块深棕，
+    //    读成络腮胡。这里只保留下唇的受光，不再补暗。
     clearRect(c, 0, top, c.w, 1); clearRect(c, 0, bt, c.w, 1);
     c.put(3, top, '40 / HER EYES', N);
     c.put(c.w - 20, top, 'RED / NOT ANGRY', R);
@@ -6151,10 +6179,24 @@ title: 字符演歌
   // ⑤ 玫瑰（MV 92.3–96.0）：暗红一朵 → 打亮 → 怼满屏 → 最后 0.4s 甩成横条。
   function lu_s6_rose(c, t, top, bt, e) {
     var SPAN = 3.73, y0 = top;
+    // ⚠️ 起手 sc=0.50 时整屏只有一朵 10 格宽的暗花，墨量 90/3840，
+    //    缩略图里就是"黑屏中间一个红点"（全曲体检最低帧就在这里）。
+    //    花本身不能凭空放大太多（会来不及"长大"），改为：起手给 0.85、
+    //    同时垫一层随亮度增强的暗红底雾，画面才有空气。
+    var amb = clamp01(e / 2.0);
+    for (var ay = top; ay < bt; ay++) for (var ax = 2; ax < c.w - 2; ax++) {
+      var adx = (ax - 60) / 58, ady = (ay - 21) / 17;
+      var ad = 1 - clamp01(Math.sqrt(adx * adx + ady * ady));
+      if (ad <= 0) continue;
+      var nz = luNoise2(ax * 0.13, ay * 0.30, 61);
+      if (hash16(ax * 23 + ay * 47) % 100 < ad * ad * (3 + 9 * amb) * (0.5 + nz)) c.put(ax, ay, '·', R);
+    }
     if (e < 2.55) {
-      var u = clamp01(e / 2.55);
-      luRose(c, t, 74 - u * 13, 15.5 + u * 1.6, 0.50 + 1.30 * Math.pow(u, 1.2),
-             0.25 + 0.75 * clamp01(e / 1.5), y0, bt);
+      // ⚠️ 线性 u=e/2.55 会让前 1.2 秒的花只有 10–12 格宽，"花"和"红点"分不开。
+      //    曲线改成快出慢停：0.1s 到 30%、0.5s 到 62%，再用两秒慢慢推近。
+      var u = Math.pow(clamp01(e / 1.40), 0.45);
+      luRose(c, t, 74 - u * 13, 15.5 + u * 1.6, 0.85 + 0.95 * Math.pow(u, 1.2),
+             0.45 + 0.55 * clamp01(e / 1.5), y0, bt);
     } else if (e < 3.33) {
       luRose(c, t, 60, 17, 1.80 + 0.75 * clamp01((e - 2.55) / 0.78), 1, y0, bt);
     } else {
